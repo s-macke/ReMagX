@@ -23,8 +23,10 @@ Read these before deciding anything non-trivial. On ambiguity, the decision jour
 - `docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md`: facts (F-n), decisions (D-n), open questions (Q-n)
 - `docs/analysis/legacy-reMagX3-analysis.md`: analysis of the legacy code
 
+AGENTS.md holds only the rules and the checklist; the reasons and details are in the journal.
 New decisions are appended to `decisions.md` (never rewrite history: mark entries `REFUTED` or
-`superseded-by D-m`).
+`superseded-by D-m`). If a new decision changes a rule or a checklist item here, update this
+file in the same commit.
 
 ## Rules
 
@@ -38,9 +40,14 @@ New decisions are appended to `decisions.md` (never rewrite history: mark entrie
 - Follow the **legacy UI concepts and terms** (window layout, tab and section names, menus) in a
   modern layout (D-16, D-18).
 - Keep the legacy **hc = 12398.326 eV·Å** for energy↔wavelength conversion (F-34).
+- Run all calculations through **`ComputeService`** and the compute worker; the UI never calls
+  physics code directly (D-12, D-33).
+- The native file format is the **versioned JSON project**; legacy `.all` files are import-only
+  and never written (D-8). Projects saved with Levenberg-Marquardt or Evolution import as Simplex
+  with a note in the import report (D-27).
 - Work **step by step**: one coherent change per commit, all checks green, push to `main`
   (which deploys the site). Update this checklist with the change.
-- Run before every commit (in `app/`): `npm test`, `npx tsc -b`, `npm run lint`, `npm run build`.
+- Run before every commit (in `app/`): `npm test`, `npm run lint`, `npm run build` (the build includes the type check).
 - When `.all` import logic changes, also run the corpus test (see Commands).
 
 ### Ask first
@@ -66,7 +73,7 @@ cd app
 npm ci                    # install
 npm run dev               # dev server
 npm test                  # unit tests (vitest)
-npx tsc -b                # type check
+npx tsc -b                # type check only (also part of the build)
 npm run lint              # oxlint
 npm run build             # static site in app/dist
 CORPUS_DIR=/path/to/corpus npx vitest run test/corpus.test.ts   # import every legacy .all file
@@ -82,40 +89,65 @@ The legacy example files in `old/reMagX3` can serve as a local corpus
 | `model/` | Project schema (`project.ts`, zod), defaults, layer/slab/dataset editing, fit targets, presets, units, script snippets |
 | `import/` | Legacy `.all` importer with report, optical-constant tables, ASCII data import/export |
 | `compute/` | `ComputeService` interface, Web Worker client and protocol, **mock** engine (TS Parratt, Nelder-Mead) |
-| `state/` | App state reducer with undo history, contexts, hooks (calculation, fit runner, autosave, edit) |
-| `ui/` | Components: menu bar, layer table, plot (uPlot), side panel with sections, dialogs, script window |
+| `state/` | App state reducer with undo history, contexts, hooks (`useCalculation`, `useFitRunner`, `usePersistence`, `useEditProject`), IndexedDB autosave |
+| `ui/` | Components: menu bar, toolbar, layer table, plot (uPlot), mode panel, side panel with sections, dialogs, script window |
 | `../test/` | Legacy fixtures (`default.all`, Tutorials) and the corpus test |
 
 ## Checklist
+
+Status of the UI-first phase as of the last audit (2026-10-15). "(partial)" means the item works
+but has known gaps, listed under "still to do".
 
 ### Done
 - [x] Analysis of the legacy code; brainstorm, spec and decision journal (`docs/`)
 - [x] git repository, GPL-3.0 licence, public GitHub repo, GitHub Pages deployment on push
 - [x] App scaffold: Vite, React, TypeScript (strict), vitest, oxlint
-- [x] Project model: versioned JSON schema covering everything in legacy `.all` files
-- [x] Compute interface and Web Worker; mock engine (Parratt σ/π, Nevot-Croce, resolution, profile, fit with stop)
+- [x] Project model: versioned JSON schema covering everything legacy `.all` files store
+- [x] Compute interface and Web Worker; mock engine: Parratt σ/π, Nevot-Croce, angular resolution, depth profile, Nelder-Mead fit with stop flag
 - [x] Legacy `.all` importer with import report; all 99 legacy example files import
-- [x] Optical-constant table readers (`.db`, `.m`, `.e`, `.ff`, `.ffm`)
-- [x] Main window like the legacy layout: layer table, log plot (Hold/Clear/Scale), tabs with collapsible sections, Mode panel, menus
-- [x] All side-panel sections (Experiment, Sample, Fit) with the legacy fields
+- [x] Optical-constant table readers (`.db`, `.m`, `.e`, `.ff`, `.ffm`), tables held in memory for the session
+- [x] Main window in the legacy layout: layer table, log plot (Hold/Clear/Scale, drag zoom), tabs with collapsible sections, Mode panel, menu bar (partial: menu structure, see below)
+- [x] Side-panel sections Experiment, Sample, Fit with the main legacy fields (partial: missing controls listed below; Map Calculations is a placeholder)
 - [x] Preferences dialog; optical and magneto-optical depth-profile views
-- [x] Fit from the UI: parameter table, Start/Stop/χ², live progress, results written back (mock)
-- [x] Script window: Lua editor (CodeMirror), Default/BeforeCalculation, code generator (execution pending)
+- [x] Fit from the UI: parameter table, Start/Stop/χ², iteration and χ² progress, results written back (partial: see fit items below)
+- [x] Script window: Lua editor (CodeMirror), Default/BeforeCalculation, code generator (execution comes with the engine)
 - [x] Autosave in IndexedDB; Open/Save/Save As with file handles; unsaved marker; Ctrl+O/S
 - [x] Undo/Redo (Edit menu, Ctrl+Z/Y) with coalesced typing
 - [x] ASCII dataset import dialog; "Save diagram data"; "Export Table as ASCII"
 - [x] Layer table: material, density, per-layer magnetization; element-mode slab table
+- [x] Toolbar: new/open/save, undo/redo, add/remove layer, element mode and navigation, script window
 - [x] Built-in examples (default project, Tutorials 1–3)
-- [x] Toolbar under the menu: new/open/save, undo/redo, add/remove layer, element mode and navigation, script window
 
 ### UI phase: still to do
+
+Fixes found in the audit:
+- [ ] **Bug:** fit write-back replaces the whole project with the copy taken at fit start, so edits made during a fit are lost (`state/useFitRunner.ts`). Write back only the fitted parameters, or lock editing while fitting.
+- [ ] Menus as in legacy 2.6 (F-29): Script as a submenu of Tools, remove the extra "Show reflectivity" item, add Help → License (GPL-3.0 notice); fix the stale comment in `MenuBar.tsx`
+- [ ] Mode panel as in legacy 2.6: Monochromatic, Dichroic, Asymmetry only ("Sensitivity" is from an older version, not 2.6)
+- [ ] Context-dependent sections (AC-11): show "Algorithm Parameters" only for Simplex with annealing; Evolution and Debug Window sections as in legacy (Evolution disabled until it exists)
+- [ ] Move remaining domain logic out of components into `model/`: "Apply to all layers" (Magneto-Optics), value transfer in the fit parameter table, measured-series selection and diagram export (`App.tsx`)
+- [ ] Stop fallback by terminating the worker; cancel running calculations, not only fits (D-12, AC-10)
+- [ ] Live curve update during a fit (use the progress values)
+
+Missing legacy controls and windows:
+- [ ] Plot (legacy `Chart1`): mouse-wheel zoom and "Zoom Out", cursor coordinate readout, Properties dialog (axis ranges, log toggles, colours, line width, font size, points), copy data/graphic to the clipboard, save picture; decide on "Select Area" and "Fit Lorentzian+Step"
+- [ ] Layer table right-click menu: Fit on/off per cell, show δ/β and δm/βm spectrum, dielectric-tensor parts, "Get optical constants from database" / "Get f1/f2 from database", Properties → Materials dialog (name, formula, density, magneto-optics, dielectric tensor, "Fill Dielectric Tensor")
+- [ ] Value slider for live tweaking of the selected layer/parameter cell (legacy ScrollBar2)
+- [ ] Adaptive Layer Segmentation: "To layer list" and "Illustrate Segmentation"
+- [ ] Element Mode: "Show Scattering Factors f1/f2", "Show Density Profiles" (also a toolbar button in legacy), "Material to Elements"
+- [ ] Magneto-Optics and magnetization profile: "Fit" checkboxes; profile spline "Build spline" and point editing
+- [ ] Debug Window section for script `print` output and fit messages
 - [ ] Summary window (legacy `guidll/SummaryForm`)
-- [ ] Electric-field view |E(z)| (D-26: later)
-- [ ] "Scratch" tools of the legacy Tools menu (decide which are worth keeping)
-- [ ] Angle (θ) x-axis option; Sensitivity mode
-- [ ] Settings/handler inventory from the legacy `.dfm` files and `Items->Add` calls; mark each ported/dropped/deferred (AC-12)
-- [ ] Playwright end-to-end tests in Chromium and Firefox (AC-10, AC-11, AC-13, AC-14, AC-15)
+- [ ] Angle (θ) x-axis option
+- [ ] Decide on the legacy layer-table "coupl." column (no `.all` key)
+
+Data:
+- [ ] Material library persisted in IndexedDB, plus a built-in periodic-table/Chantler asset (D-13); licence check of the Chantler/Henke data before shipping it (D-31)
 - [ ] Optical-constant tables used by calculations (energy scans currently keep δ/β constant)
+
+Quality gates:
+- [ ] Settings/handler inventory: `tools/inventory/` parser of the legacy `.dfm` files and `Items->Add` calls, and `tools/inventory/check`, which fails on entries not marked ported/dropped/deferred (AC-12)
+- [ ] Playwright end-to-end tests in Chromium and Firefox (AC-10, AC-11, AC-13, AC-14, AC-15)
 
 ### Engine phase: still to do
 - [ ] Docker build (optional, pinned emsdk + g++ + Node) producing the static site (D-19)
@@ -124,8 +156,26 @@ The legacy example files in `old/reMagX3` can serve as a local corpus
 - [ ] Cross-check the rebuild against the Wine 2.3.1 binary within 1e-6 (AC-6)
 - [ ] Extract and clean the numerical core: double only, descriptive names, data-driven C API (D-6, D-34)
 - [ ] Emscripten build; golden tests native and WASM within 1e-10 rel + 1e-15 abs (AC-5, D-23)
+- [ ] Golden and WASM tests in CI (today `pages.yml` runs only lint, test and build)
+- [ ] AC-3 with the real engine: a `precision = 3` project computes bit-identically to `precision = 1`
 - [ ] Clean-room Nelder-Mead and annealing in C++ (D-32); fit golden tests (AC-9)
+- [ ] Multi-dataset fits over all datasets flagged for fitting; asymmetry, dichroic and energy-scan fits; honour the additional fit parameters (F-5, D-3)
+- [ ] Element mode and element→material conversion; optical-constant interpolation with the periodic-table data (D-25, spec §2)
+- [ ] Energy resolution and dichroic/asymmetry energy scans
+- [ ] Legacy error conditions (RX_QZ, RX_DB, RX_CSCRIPT, RX_ESCRIPT, RX_ML, RX_UNKNOWN) as clear UI messages (D-14)
 - [ ] Lua scripting with wasmoon and the full legacy script API (D-2, D-22; AC-7, AC-7a, AC-8)
 - [ ] Replace the mock with the WASM engine behind `ComputeService` (D-33)
-- [ ] Native command-line tool like the legacy `ReMagX_Terminal`: `-refl`, `-dicrefl`, `-fit`, `-convert` (`.db` + `.m` → `.e`), `-v`; `-map` once maps exist; reads `.all` and JSON (D-35). The legacy webserver is dropped.
-- [ ] Later features: transmission, maps, TEY, Kramers-Kronig, evolution fit (D-25)
+- [ ] Native command-line tool like the legacy `ReMagX_Terminal`: `-refl`, `-dicrefl`, `-fit`, `-convert` (`.db` + `.m` → `.e`), `-v`; `-map` once maps exist; reads `.all` and JSON (D-35)
+
+### Later (agreed, not scheduled)
+- Transmission, 2D maps (legacy MapFrame, "Map Calculations"), TEY, "Parratt without multiple scattering" (PHASE), Kramers-Kronig fitting, evolution fit with its section (D-25, D-11)
+- Electric-field view |E(z)| (D-26)
+- "Scratch" tools of the legacy Tools menu: ask first which are worth keeping (D-25)
+- `.all` export (D-8)
+- OpenCL, desktop packaging (D-25)
+
+### Dropped (will not be rebuilt)
+- Levenberg-Marquardt fitting and parameter standard deviations (D-11, F-17)
+- Precision modes and the parallel-computing setting (F-3; the web app always uses double)
+- Webserver (D-35)
+- File → Exit, splash screen, "Window Stay on Top", the unused EnergyInput dialog and the empty ScanFrame/SettingsFrame frames; the commented-out GetFromDatabaseFrame (its function moves to the layer-table menu)
