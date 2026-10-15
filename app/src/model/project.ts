@@ -24,7 +24,8 @@ export const beamPolarizationSchema = z.object({
 export const polarizationSchema = z.object({
   beam1: beamPolarizationSchema,
   beam2: beamPolarizationSchema,
-  analyzer: z.boolean(),
+  // Polarization analyzer in front of the detector: 'none' detects pi + sigma.
+  analyzer: z.enum(['none', 'sigma', 'pi']),
 })
 
 // Direction of the magnetization: gamma is the polar angle from the surface normal,
@@ -113,8 +114,11 @@ export const experimentSchema = z.object({
   }),
   resolution: z.object({
     angularFwhm: nonNegative,
-    energyFwhm: nonNegative,
-    fastConvolution: z.boolean(),
+    angularPoints: z.number().int().min(1), // sampling points of the Gaussian convolution
+    fastConvolution: z.boolean(), // angular resolution
+    energyFwhm: nonNegative, // energy scans only
+    energyPoints: z.number().int().min(1),
+    energyFastConvolution: z.boolean(),
   }),
   polarization: polarizationSchema,
   scattering: z.enum(['reflection', 'transmission']),
@@ -131,11 +135,16 @@ export const calculationSchema = z.object({
     scope: z.enum(['local', 'global']),
   }),
   magnetization: z.object({
-    enabled: z.boolean(),
+    // 'add': magnetic optical constants of the layers; 'profile': plus the additional
+    // magnetization profile (depth-profile functions).
+    mode: z.enum(['none', 'add', 'profile']),
     direction: magnetizationDirectionSchema,
   }),
+  // How deltaMag/betaMag enter the dielectric tensor (legacy "Treat dm and bm as").
+  tensorContribution: z.enum(['magnetic', 'tetragonal']),
   asymmetryDefinition: z.enum(['normalized', 'difference']), // (R1-R2)/(R1+R2) or R1-R2
-  profileCoupling: z.boolean(), // legacy "gausscoupling": couple depth-profile functions
+  // How depth-profile functions combine (legacy "Appending Rule"): M1 + M2 + … or (1+M1)·(1+M2)·…
+  profileCombination: z.enum(['sum', 'product']),
   epsilon: finite,
   averaging: z.number().int().nonnegative(),
   postProcessing: z.object({
@@ -241,6 +250,7 @@ export const evolutionSettingsSchema = z.object({
 export const fitSchema = z.object({
   algorithm: z.enum(['simplex', 'simplex-annealing']),
   errorFunction: z.enum(['log-chi2', 'lin-chi2']),
+  occamQ: finite, // Occam's razor parameter Q (legacy, not stored in .all files)
   annealing: z.object({ temperature: finite, temperatureStep: finite }),
   window: z.object({
     qzMin: finite,

@@ -31,6 +31,20 @@ const formatDecade = (v: number) => {
   return exponent === 0 ? '1' : `1e${exponent}`
 }
 
+// Linear tick labels with enough digits for small quantities such as δ ≈ 1e-3.
+const formatLinearTicks = (_u: uPlot, splits: number[]) => {
+  const step = splits.length > 1 ? Math.abs(splits[1] - splits[0]) : 1
+  const largest = Math.max(...splits.map(Math.abs))
+  const useExponent = largest !== 0 && (largest < 1e-2 || largest >= 1e5)
+  const decimals = Math.max(0, Math.ceil(-Math.log10(step || 1)))
+  return splits.map((v) => {
+    if (Math.abs(v) < step * 1e-6) return '0'
+    if (!useExponent) return v.toFixed(Math.min(decimals, 8))
+    const digits = Math.max(0, Math.ceil(Math.log10(largest / step)) - 1)
+    return v.toExponential(Math.min(digits, 6))
+  })
+}
+
 const decadesOnly = (_u: uPlot, splits: number[]) => splits.map((v) => (v > 0 && isDecade(v) ? v : null))
 
 // Log axes cannot show values <= 0; they become gaps.
@@ -77,7 +91,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       legend: { show: false },
       cursor: { drag: { x: true, y: true, uni: 20 } },
       axes: [
-        { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'qz' ? 'qz (1/Å)' : 'energy (eV)' },
+        { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (Å), 0 = substrate surface' },
         curve.logScale
           ? {
               stroke: text,
@@ -89,7 +103,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
               filter: decadesOnly,
               values: (_u, splits) => splits.map((v) => (v > 0 && isDecade(v) ? formatDecade(v) : '')),
             }
-          : { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, size: 60, label: 'asymmetry' },
+          : { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, size: 70, label: curve.yLabel, values: formatLinearTicks },
       ],
       series: [
         {},

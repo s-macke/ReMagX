@@ -50,6 +50,8 @@ export interface ComputeService {
   calcEnergyScan(project: Project): Promise<EnergyScanCurve>
   calcAsymmetry(project: Project): Promise<AsymmetryCurve>
   depthProfile(project: Project): Promise<DepthProfile>
+  // Error between simulation and the active dataset (the value a fit minimizes).
+  calcChi2(project: Project): Promise<number>
   startFit(project: Project, onProgress: (progress: FitProgress) => void): Promise<FitResult>
   stopFit(): void
   dispose(): void

@@ -73,6 +73,9 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
         case 'depthProfile':
           result = depthProfile(project)
           break
+        case 'chi2':
+          result = fitError(project)
+          break
         case 'fit':
           result = await runFit(id, project)
           break

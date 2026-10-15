@@ -17,6 +17,7 @@ import { LayerTable } from './ui/LayerTable'
 import { MenuBar, type Menu } from './ui/MenuBar'
 import { ModePanel } from './ui/ModePanel'
 import { PlotPanel } from './ui/PlotPanel'
+import { PreferencesDialog } from './ui/PreferencesDialog'
 import { SidePanel } from './ui/SidePanel'
 
 const examples = [
@@ -29,14 +30,15 @@ const examples = [
 function Workspace() {
   const state = useAppState()
   const dispatch = useDispatch()
-  const { project, scanKind, displayMode } = state
-  const calculation = useCalculation(project, scanKind, displayMode)
+  const { project, scanKind, displayMode, plotView } = state
+  const calculation = useCalculation(project, { scanKind, displayMode, plotView })
   const [error, setError] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [preferencesOpen, setPreferencesOpen] = useState(false)
 
   const measured = useMemo(() => {
     const dataset = activeDataset(project)
-    if (!dataset) return []
+    if (!dataset || plotView !== 'scan') return []
     const axis = scanKind === 'energyScan' ? 'energy' : 'qz'
     const quantities: MeasuredQuantity[] =
       displayMode === 'asymmetry' ? ['asymmetry'] : displayMode === 'dichroic' ? ['reflectivityPlus', 'reflectivityMinus'] : ['reflectivity']
@@ -44,7 +46,7 @@ function Workspace() {
       const curve = adaptedMeasurement(dataset, quantity, axis)
       return curve ? [{ label: `measured ${quantity === 'reflectivity' ? 'R' : quantity}`, curve }] : []
     })
-  }, [project, scanKind, displayMode])
+  }, [project, scanKind, displayMode, plotView])
 
   const open = async () => {
     const file = await chooseFile('.all,.json')
@@ -93,6 +95,15 @@ function Workspace() {
         { label: 'Remove Layer', onSelect: () => dispatch({ type: 'removeLayer' }), disabled: !canRemoveLayer(project, state.selectedLayer) },
       ],
     },
+    {
+      label: 'Tools',
+      items: [
+        { label: 'Show optical profile', onSelect: () => dispatch({ type: 'setPlotView', plotView: 'opticalProfile' }) },
+        { label: 'Show magneto-optical profile', onSelect: () => dispatch({ type: 'setPlotView', plotView: 'magneticProfile' }) },
+        { label: 'Show reflectivity', onSelect: () => dispatch({ type: 'setScanKind', scanKind: 'reflectivity' }) },
+      ],
+    },
+    { label: 'Preferences', items: [{ label: 'Preferences…', onSelect: () => setPreferencesOpen(true) }] },
     { label: 'Help', items: [{ label: 'About ReMagX Web', onSelect: () => setAboutOpen(true) }] },
   ]
 
@@ -121,6 +132,7 @@ function Workspace() {
           <pre className="dialog__pre">{error}</pre>
         </Dialog>
       )}
+      {preferencesOpen && <PreferencesDialog onClose={() => setPreferencesOpen(false)} />}
       {aboutOpen && (
         <Dialog title="About ReMagX Web" onClose={() => setAboutOpen(false)}>
           <p>

@@ -10,7 +10,7 @@ const modes: { value: DisplayMode; label: string; disabled?: boolean }[] = [
 
 // Bottom-right panel of the legacy window: what to show and which scan to calculate.
 export function ModePanel() {
-  const { displayMode, scanKind } = useAppState()
+  const { displayMode, scanKind, plotView } = useAppState()
   const dispatch = useDispatch()
   return (
     <section className="mode-panel" aria-label="Mode">
@@ -35,14 +35,14 @@ export function ModePanel() {
       <div className="mode-panel__scans">
         <button
           type="button"
-          aria-pressed={scanKind === 'reflectivity'}
+          aria-pressed={plotView === 'scan' && scanKind === 'reflectivity'}
           onClick={() => dispatch({ type: 'setScanKind', scanKind: 'reflectivity' })}
         >
           Reflectivity
         </button>
         <button
           type="button"
-          aria-pressed={scanKind === 'energyScan'}
+          aria-pressed={plotView === 'scan' && scanKind === 'energyScan'}
           onClick={() => dispatch({ type: 'setScanKind', scanKind: 'energyScan' })}
         >
           Energy Scan

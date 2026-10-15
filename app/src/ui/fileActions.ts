@@ -46,3 +46,15 @@ export function chooseFile(accept: string): Promise<File | null> {
     input.click()
   })
 }
+
+export function chooseFiles(accept: string): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = accept
+    input.multiple = true
+    input.addEventListener('change', () => resolve([...(input.files ?? [])]))
+    input.addEventListener('cancel', () => resolve([]))
+    input.click()
+  })
+}

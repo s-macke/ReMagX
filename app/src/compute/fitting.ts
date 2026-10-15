@@ -2,46 +2,23 @@
 // against the active dataset and drives the Nelder-Mead optimizer.
 
 import { activeDataset, adaptedMeasurement } from '../model/datasets'
+import { writeFitTarget } from '../model/fitTargets'
 import type { FitParameter, Project } from '../model/project'
 import { ComputeError } from './ComputeService'
 import { beamWeights, convolveResolution, parratt } from './mockPhysics'
 
-const layerTargets = {
-  thickness: 'thickness',
-  roughness: 'roughness',
-  delta: 'delta',
-  beta: 'beta',
-  deltaMag: 'deltaMag',
-  betaMag: 'betaMag',
-} as const
+// Targets the mock engine can fit (its physics ignores the others).
+const MOCK_TARGETS = new Set(['thickness', 'roughness', 'delta', 'beta', 'deltaMag', 'betaMag', 'intensityScale', 'qzShift', 'angularResolution'])
 
 export function isSupportedInMock(parameter: FitParameter): boolean {
-  return (
-    parameter.target in layerTargets ||
-    parameter.target === 'intensityScale' ||
-    parameter.target === 'qzShift' ||
-    parameter.target === 'angularResolution'
-  )
+  return MOCK_TARGETS.has(parameter.target)
 }
 
 // Writes one parameter value into the project (mutates; callers pass a copy).
 export function applyFitParameter(project: Project, parameter: FitParameter, value: number): void {
-  const target = parameter.target
-  if (target in layerTargets) {
-    const layer = parameter.index === null ? undefined : project.sample.layers[parameter.index]
-    if (!layer) throw new ComputeError(`Fit parameter "${target}" refers to a missing layer ${parameter.index}.`)
-    layer[layerTargets[target as keyof typeof layerTargets]] = value
-    return
+  if (!writeFitTarget(project, parameter, value)) {
+    throw new ComputeError(`Fit parameter "${parameter.target}" refers to something that does not exist in this project.`)
   }
-  if (target === 'angularResolution') {
-    project.experiment.resolution.angularFwhm = value
-    return
-  }
-  const dataset = project.activeDatasetIndex === null ? undefined : project.datasets[project.activeDatasetIndex]
-  if (!dataset) throw new ComputeError(`Fit parameter "${target}" needs an active dataset.`)
-  if (target === 'intensityScale') dataset.intensityScale = value
-  else if (target === 'qzShift') dataset.qzShift = value
-  else throw new ComputeError(`Fitting "${target}" is not available in the mock engine yet.`)
 }
 
 export function withParameters(project: Project, values: number[]): Project {

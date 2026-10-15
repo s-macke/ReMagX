@@ -112,7 +112,7 @@ function legacyPolarization(): Polarization {
   return {
     beam1: { sigma: { re: 1, im: 0 }, pi: { re: 0, im: 0 } },
     beam2: { sigma: { re: 0, im: 0 }, pi: { re: 1, im: 0 } },
-    analyzer: false,
+    analyzer: 'none',
   }
 }
 
@@ -165,7 +165,14 @@ function legacyBaseProject(name: string): Project {
       energy: 1000,
       qzScan: { qzMin: 0, qzMax: 0.01, points: 200, useDatasetPoints: false, showAngle: false },
       energyScan: { energyMin: 0, energyMax: 0, fixed: 'qz', qz: 0, angle: 0 },
-      resolution: { angularFwhm: 0, energyFwhm: 0, fastConvolution: true },
+      resolution: {
+        angularFwhm: 0,
+        angularPoints: 9,
+        fastConvolution: true,
+        energyFwhm: 0,
+        energyPoints: 9,
+        energyFastConvolution: true,
+      },
       polarization: legacyPolarization(),
       scattering: 'reflection',
     },
@@ -173,9 +180,10 @@ function legacyBaseProject(name: string): Project {
       algorithm: 'parratt',
       roughnessModel: 'nevot-croce',
       segmentation: { minThickness: 2, maxThickness: 10, gradientScale: 1, tolerance: 1e-6, scope: 'global' },
-      magnetization: { enabled: false, direction: { gamma: 90, phi: 90 } },
+      magnetization: { mode: 'none', direction: { gamma: 90, phi: 90 } },
+      tensorContribution: 'magnetic',
       asymmetryDefinition: 'normalized',
-      profileCoupling: false,
+      profileCombination: 'sum',
       epsilon: 5e-5,
       averaging: 0,
       postProcessing: { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false },
@@ -187,6 +195,7 @@ function legacyBaseProject(name: string): Project {
     fit: {
       algorithm: 'simplex',
       errorFunction: 'log-chi2',
+      occamQ: 0,
       annealing: { temperature: 0, temperatureStep: 0 },
       window: { qzMin: 0, qzMax: 10000, energyMin: 0, energyMax: 100000 },
       fitAngularResolution: false,
@@ -760,9 +769,13 @@ export function importAllFile(input: string | ArrayBuffer | Uint8Array, fileName
         experiment.polarization.beam2 = { sigma: { re: (1 - ratio) / norm, im: 0 }, pi: { re: 0, im: -ratio / norm } }
         break
       }
-      case 'polanalyzer':
-        experiment.polarization.analyzer = flag(false)
+      case 'polanalyzer': {
+        // 0 = pi + sigma (no analyzer), 1 = sigma, 2 = pi
+        const v = integer(0)
+        if (v < 0 || v > 2) warn(`Unknown analyzer setting ${v}; using none.`, a.line)
+        experiment.polarization.analyzer = v === 1 ? 'sigma' : v === 2 ? 'pi' : 'none'
         break
+      }
 
       // --- calculation ----------------------------------------------------------------------
       case 'precision':
@@ -783,17 +796,20 @@ export function importAllFile(input: string | ArrayBuffer | Uint8Array, fileName
         // Obsolete key: 2 meant layer segmentation with magnetization profile.
         const v = integer(0)
         calculation.roughnessModel = v >= 1 ? 'segmentation' : 'nevot-croce'
-        if (v === 2) calculation.magnetization.enabled = true
+        if (v === 2) calculation.magnetization.mode = 'profile'
         info('Obsolete key "calcmode" converted.', a.line)
         break
       }
       case 'fitmz':
-        calculation.magnetization.enabled = flag(false)
+        calculation.magnetization.mode = flag(false) ? 'profile' : 'none'
         info('Obsolete key "fitmz" converted.', a.line)
         break
-      case 'magnetizationmode':
-        calculation.magnetization.enabled = flag(false)
+      case 'magnetizationmode': {
+        const v = integer(0)
+        if (v < 0 || v > 2) warn(`Unknown magnetization mode ${v}; using none.`, a.line)
+        calculation.magnetization.mode = v === 1 ? 'add' : v === 2 ? 'profile' : 'none'
         break
+      }
       case 'maggamma':
         calculation.magnetization.direction.gamma = number(calculation.magnetization.direction.gamma)
         break
@@ -816,7 +832,7 @@ export function importAllFile(input: string | ArrayBuffer | Uint8Array, fileName
         calculation.segmentation.scope = integer(2) === 1 ? 'local' : 'global'
         break
       case 'gausscoupling':
-        calculation.profileCoupling = flag(false)
+        calculation.profileCombination = flag(false) ? 'product' : 'sum'
         break
       case 'averaging':
         calculation.averaging = Math.max(0, integer(0))

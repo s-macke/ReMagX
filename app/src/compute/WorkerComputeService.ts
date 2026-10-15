@@ -53,6 +53,10 @@ export class WorkerComputeService implements ComputeService {
     return this.request('depthProfile', project)
   }
 
+  calcChi2(project: Project): Promise<number> {
+    return this.request('chi2', project)
+  }
+
   startFit(project: Project, onProgress: (progress: FitProgress) => void): Promise<FitResult> {
     return this.request('fit', project, onProgress)
   }

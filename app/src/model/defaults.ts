@@ -35,7 +35,7 @@ export function createCircularPolarization(): Polarization {
   return {
     beam1: { sigma: { re: a, im: 0 }, pi: { re: 0, im: a } },
     beam2: { sigma: { re: a, im: 0 }, pi: { re: 0, im: -a } },
-    analyzer: false,
+    analyzer: 'none',
   }
 }
 
@@ -89,7 +89,14 @@ export function createDefaultProject(): Project {
       energy: 777.198,
       qzScan: { qzMin: 0, qzMax: 0.6, points: 300, useDatasetPoints: false, showAngle: false },
       energyScan: { energyMin: 700, energyMax: 900, fixed: 'qz', qz: 0.1, angle: 10 },
-      resolution: { angularFwhm: 0, energyFwhm: 0, fastConvolution: true },
+      resolution: {
+        angularFwhm: 0,
+        angularPoints: 9,
+        fastConvolution: true,
+        energyFwhm: 0,
+        energyPoints: 9,
+        energyFastConvolution: true,
+      },
       polarization: createCircularPolarization(),
       scattering: 'reflection',
     },
@@ -103,9 +110,10 @@ export function createDefaultProject(): Project {
         tolerance: 1e-6,
         scope: 'local',
       },
-      magnetization: { enabled: false, direction: { ...IN_PLANE_Y } },
+      magnetization: { mode: 'none', direction: { ...IN_PLANE_Y } },
+      tensorContribution: 'magnetic',
       asymmetryDefinition: 'normalized',
-      profileCoupling: false,
+      profileCombination: 'sum',
       epsilon: 5e-5,
       averaging: 0,
       postProcessing: { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false },
@@ -117,6 +125,7 @@ export function createDefaultProject(): Project {
     fit: {
       algorithm: 'simplex',
       errorFunction: 'log-chi2',
+      occamQ: 0,
       annealing: { temperature: 1, temperatureStep: -0.01 },
       window: { qzMin: 0, qzMax: 9999, energyMin: 0, energyMax: 100000 },
       fitAngularResolution: false,

@@ -8,6 +8,7 @@ export interface CalculationResults {
   energyScan: EnergyScanCurve
   asymmetry: AsymmetryCurve
   depthProfile: DepthProfile
+  chi2: number
   fit: FitResult
 }
 
