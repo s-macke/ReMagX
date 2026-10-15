@@ -2,6 +2,7 @@
 // actions; project changes go through the pure helpers in model/.
 
 import { createDefaultProject } from '../model/defaults'
+import { insertSlabAbove, removeSlab } from '../model/elements'
 import { insertLayerAbove, removeLayer, updateLayer } from '../model/layers'
 import type { Layer, Project } from '../model/project'
 import type { ImportReport } from '../import/allFile'
@@ -22,7 +23,8 @@ export interface FitStatus {
 export interface AppState {
   project: Project
   fileName: string
-  selectedLayer: number
+  selectedLayer: number // row of the layer table (a slab of selectedElement in element mode)
+  selectedElement: number
   scanKind: ScanKind
   displayMode: DisplayMode
   plotView: PlotView
@@ -57,6 +59,7 @@ export type Action =
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'selectLayer'; index: number }
+  | { type: 'selectElement'; index: number }
   | { type: 'insertLayer' }
   | { type: 'removeLayer' }
   | { type: 'setScanKind'; scanKind: ScanKind }
@@ -77,6 +80,7 @@ export function initialState(): AppState {
     history: { past: [], future: [], lastKey: null, lastAt: 0 },
     fileName: 'default.json',
     selectedLayer: 1,
+    selectedElement: 0,
     scanKind: 'reflectivity',
     displayMode: 'monochromatic',
     plotView: 'scan',
@@ -125,7 +129,8 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
         // An imported legacy file or a restored autosave has not been saved as a project yet.
         savedProject: action.unsaved ? state.savedProject : action.project,
         fileName: action.fileName,
-        selectedLayer: Math.min(1, action.project.sample.layers.length - 1),
+        selectedLayer: 1,
+        selectedElement: 0,
         importReport: action.report ?? null,
         notice: action.notice ?? null,
       }
@@ -139,13 +144,23 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
       return { ...state, project: updateLayer(state.project, action.index, action.patch) }
     case 'selectLayer':
       return { ...state, selectedLayer: action.index }
+    case 'selectElement':
+      return { ...state, selectedElement: action.index, selectedLayer: 1 }
+    // In element mode, Add/Remove Layer act on the slabs of the selected element.
     case 'insertLayer': {
-      const { project, inserted } = insertLayerAbove(state.project, state.selectedLayer)
+      const { project, inserted } =
+        state.project.sample.mode === 'element'
+          ? insertSlabAbove(state.project, state.selectedElement, state.selectedLayer)
+          : insertLayerAbove(state.project, state.selectedLayer)
       return { ...state, project, selectedLayer: inserted }
     }
     case 'removeLayer': {
-      const project = removeLayer(state.project, state.selectedLayer)
-      return { ...state, project, selectedLayer: Math.min(state.selectedLayer, project.sample.layers.length - 2) }
+      const element = state.project.sample.mode === 'element'
+      const project = element
+        ? removeSlab(state.project, state.selectedElement, state.selectedLayer)
+        : removeLayer(state.project, state.selectedLayer)
+      const rows = element ? (project.sample.elementProfiles[state.selectedElement]?.slabs.length ?? 2) : project.sample.layers.length
+      return { ...state, project, selectedLayer: Math.max(1, Math.min(state.selectedLayer, rows - 2)) }
     }
     case 'setScanKind':
       return { ...state, scanKind: action.scanKind, plotView: 'scan' }

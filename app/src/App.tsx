@@ -6,6 +6,7 @@ import tutorial3 from '../test/fixtures/Tut3.all?raw'
 import { importAllFile } from './import/allFile'
 import { activeDataset, adaptedMeasurement, type MeasuredQuantity } from './model/datasets'
 import { createDefaultProject } from './model/defaults'
+import { canRemoveSlab } from './model/elements'
 import { canRemoveLayer } from './model/layers'
 import { useAppState, useDispatch } from './state/context'
 import { ProjectProvider } from './state/ProjectProvider'
@@ -176,7 +177,14 @@ function Workspace() {
       label: 'Layer',
       items: [
         { label: 'Add Layer', onSelect: () => dispatch({ type: 'insertLayer' }) },
-        { label: 'Remove Layer', onSelect: () => dispatch({ type: 'removeLayer' }), disabled: !canRemoveLayer(project, state.selectedLayer) },
+        {
+          label: 'Remove Layer',
+          onSelect: () => dispatch({ type: 'removeLayer' }),
+          disabled:
+            project.sample.mode === 'element'
+              ? !canRemoveSlab(project, state.selectedElement, state.selectedLayer)
+              : !canRemoveLayer(project, state.selectedLayer),
+        },
       ],
     },
     {

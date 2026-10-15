@@ -952,3 +952,44 @@ button.primary {
   top: 0;
   background: var(--panel-alt);
 }
+
+.element-bar {
+  position: sticky;
+  left: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 5px 8px;
+  background: var(--panel-alt);
+  border-bottom: 1px solid var(--border);
+}
+
+.element-bar__name {
+  min-width: 28px;
+  text-align: center;
+}
+
+.element-bar__count {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-right: 8px;
+}
+
+.element-bar__field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.element-bar__field .number-cell {
+  width: 90px;
+  min-width: 0;
+  border-color: var(--border);
+  background: var(--panel);
+}
+
+.layer-table--empty {
+  padding: 12px;
+}

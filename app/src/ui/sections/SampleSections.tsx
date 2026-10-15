@@ -183,9 +183,11 @@ export function OpticalConstantsSection() {
 }
 
 export function ElementModeSection() {
-  const { project } = useAppState()
+  const { project, selectedElement } = useAppState()
+  const dispatch = useDispatch()
   const edit = useEditProject()
-  const [index, setIndex] = useState(0)
+  const index = selectedElement
+  const setIndex = (i: number) => dispatch({ type: 'selectElement', index: i })
   const elements = project.sample.elementProfiles
   if (elements.length === 0) return <Note>No elements defined in this project.</Note>
   const current = Math.min(index, elements.length - 1)
