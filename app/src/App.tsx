@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import defaultExample from '../test/fixtures/default.all?raw'
 import tutorial1 from '../test/fixtures/Tut1.all?raw'
 import tutorial2 from '../test/fixtures/Tut2.all?raw'
@@ -20,6 +20,9 @@ import { PlotPanel } from './ui/PlotPanel'
 import { PreferencesDialog } from './ui/PreferencesDialog'
 import { SidePanel } from './ui/SidePanel'
 
+// The script window pulls in the code editor; load it only when opened.
+const ScriptWindow = lazy(() => import('./ui/ScriptWindow').then((m) => ({ default: m.ScriptWindow })))
+
 const examples = [
   { label: 'Example: Co/Cu multilayer (default)', file: 'default.all', content: defaultExample },
   { label: 'Example: Tutorial 1', file: 'Tut1.all', content: tutorial1 },
@@ -35,6 +38,7 @@ function Workspace() {
   const [error, setError] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
+  const [scriptOpen, setScriptOpen] = useState(false)
 
   const measured = useMemo(() => {
     const dataset = activeDataset(project)
@@ -87,7 +91,15 @@ function Workspace() {
         onSelect: () => dispatch({ type: 'updateProject', update: (p) => ({ ...p, sample: { ...p.sample, mode } }) }),
       })),
     },
-    { label: 'Script', items: [{ label: 'Open Script Window (coming soon)', disabled: true }] },
+    {
+      label: 'Script',
+      items: [
+        { label: 'Open Script Window', onSelect: () => setScriptOpen(true) },
+        'separator',
+        { label: 'Execute Script: Default (Lua engine coming)', disabled: true },
+        { label: 'Execute Script: Before Calculation (Lua engine coming)', disabled: true },
+      ],
+    },
     {
       label: 'Layer',
       items: [
@@ -133,6 +145,11 @@ function Workspace() {
         </Dialog>
       )}
       {preferencesOpen && <PreferencesDialog onClose={() => setPreferencesOpen(false)} />}
+      {scriptOpen && (
+        <Suspense fallback={null}>
+          <ScriptWindow onClose={() => setScriptOpen(false)} />
+        </Suspense>
+      )}
       {aboutOpen && (
         <Dialog title="About ReMagX Web" onClose={() => setAboutOpen(false)}>
           <p>

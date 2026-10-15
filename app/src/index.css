@@ -827,3 +827,82 @@ button.primary {
   margin-right: 6px;
   vertical-align: middle;
 }
+
+/* --- script window (floating, non-modal) ----------------------------------------------------- */
+
+.script-window {
+  position: fixed;
+  z-index: 20;
+  right: 16px;
+  bottom: 36px;
+  display: flex;
+  flex-direction: column;
+  width: min(600px, calc(100vw - 32px));
+  height: min(520px, calc(100vh - 80px));
+  min-width: 320px;
+  min-height: 280px;
+  resize: both;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 25%);
+}
+
+.script-window__title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  font-weight: 600;
+  background: var(--panel-alt);
+  border-bottom: 1px solid var(--border);
+}
+
+.script-window__editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lua-editor {
+  height: 100%;
+}
+
+.script-window__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.script-window__bar label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.script-window__line {
+  min-width: 52px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.script-window__bar .primary {
+  margin-left: auto;
+}
+
+.script-window__output {
+  height: 70px;
+  margin: 0;
+  padding: 4px 8px;
+  overflow: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+  color: var(--text-muted);
+  background: var(--panel-alt);
+  border-top: 1px solid var(--border);
+}

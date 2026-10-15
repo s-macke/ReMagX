@@ -11,6 +11,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/legacy-modes": "^6.5.5",
+    "codemirror": "^6.0.2",
+    "lucide-react": "^1.57.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "uplot": "^1.6.32",
