@@ -28,6 +28,8 @@ Every push to `main` builds `app/` and publishes it to GitHub Pages
 
 ## Documentation
 
+- `AGENTS.md`: rules for contributors and agents, and the checklist of done and open work
+
 - `docs/analysis/legacy-reMagX3-analysis.md`: analysis of the legacy ReMagX 2.6 code
 - `docs/brainstorm/2026-10-15-remagx-web-app-refactoring/spec.md`: design spec
 - `docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md`: decision journal
