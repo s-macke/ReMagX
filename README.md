@@ -4,7 +4,14 @@ Browser-local rewrite of ReMagX, a program for simulating and fitting (resonant 
 reflectivity of thin-film multilayers. The UI is React + TypeScript; numerics will run as
 WebAssembly compiled from the C++ core, in double precision.
 
-Status: early development. The UI is being built first against a mocked compute interface.
+**Try it:** https://s-macke.github.io/ReMagX/ (built automatically from `main`)
+
+> **Note:** the web version is a mock for now. The UI is being built first, and the
+> calculations behind it are a simplified stand-in (scalar Parratt in TypeScript), not the real
+> ReMagX engine. Do not use its results for analysis yet. The real engine (C++ core compiled to
+> WebAssembly) comes later.
+
+Project website of the original ReMagX: https://remagx.org/
 
 ## Development
 
