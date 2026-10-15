@@ -147,7 +147,7 @@ export function SimulationParametersSection() {
             value={sample.multilayer.pattern}
             placeholder="0, 3*(1, 2), 4"
             disabled={!sample.multilayer.enabled}
-            onChange={(e) => edit((p) => void (p.sample.multilayer.pattern = e.target.value))}
+            onChange={(e) => edit((p) => void (p.sample.multilayer.pattern = e.target.value), 'multilayer-pattern')}
           />
         </Field>
         <Note>Syntax example: 0, 3*(1, 2), 4</Note>

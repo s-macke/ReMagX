@@ -83,7 +83,13 @@ function Workspace() {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return
       const key = event.key.toLowerCase()
-      if (key === 's') {
+      // Text fields and the script editor keep their own undo.
+      const target = event.target as HTMLElement | null
+      const editingText = !!target && (target.matches('input, textarea, select') || target.isContentEditable)
+      if ((key === 'z' || key === 'y') && !editingText) {
+        event.preventDefault()
+        dispatch({ type: key === 'y' || event.shiftKey ? 'redo' : 'undo' })
+      } else if (key === 's') {
         event.preventDefault()
         void save(event.shiftKey)
       } else if (key === 'o') {
@@ -115,6 +121,13 @@ function Workspace() {
         { label: 'Save As…   Ctrl+Shift+S', onSelect: () => void save(true) },
         'separator',
         ...examples.map((example) => ({ label: example.label, onSelect: () => openExample(example) })),
+      ],
+    },
+    {
+      label: 'Edit',
+      items: [
+        { label: 'Undo   Ctrl+Z', onSelect: () => dispatch({ type: 'undo' }), disabled: state.history.past.length === 0 },
+        { label: 'Redo   Ctrl+Y', onSelect: () => dispatch({ type: 'redo' }), disabled: state.history.future.length === 0 },
       ],
     },
     {

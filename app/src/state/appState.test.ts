@@ -28,3 +28,40 @@ describe('app state reducer', () => {
     expect(state.project).toBe(before.project)
   })
 })
+
+describe('undo and redo', () => {
+  it('undoes and redoes project changes', () => {
+    let state = reducer(initialState(), { type: 'updateLayer', index: 2, patch: { thickness: 55 } })
+    state = reducer(state, { type: 'updateLayer', index: 2, patch: { thickness: 50 } })
+    state = reducer(state, { type: 'undo' })
+    expect(state.project.sample.layers[2].thickness).toBe(55)
+    state = reducer(state, { type: 'undo' })
+    expect(state.project.sample.layers[2].thickness).toBe(60)
+    state = reducer(state, { type: 'redo' })
+    expect(state.project.sample.layers[2].thickness).toBe(55)
+  })
+
+  it('merges quick edits with the same coalesce key into one step', () => {
+    let state = initialState()
+    for (const name of ['C', 'Cu', 'CuO']) {
+      state = reducer(state, { type: 'updateLayer', index: 2, patch: { opticalTable: name }, coalesce: 'table:2' })
+    }
+    expect(state.history.past).toHaveLength(1)
+    state = reducer(state, { type: 'undo' })
+    expect(state.project.sample.layers[2].opticalTable).toBe('Cu')
+  })
+
+  it('clears the redo stack on a new edit and the history on load', () => {
+    let state = reducer(initialState(), { type: 'updateLayer', index: 2, patch: { thickness: 55 } })
+    state = reducer(state, { type: 'undo' })
+    state = reducer(state, { type: 'updateLayer', index: 3, patch: { thickness: 11 } })
+    expect(state.history.future).toHaveLength(0)
+    state = reducer(state, { type: 'loadProject', project: state.project, fileName: 'x.json' })
+    expect(state.history.past).toHaveLength(0)
+  })
+
+  it('does not record view changes', () => {
+    const state = reducer(initialState(), { type: 'setDisplayMode', displayMode: 'asymmetry' })
+    expect(state.history.past).toHaveLength(0)
+  })
+})

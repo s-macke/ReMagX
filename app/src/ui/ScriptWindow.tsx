@@ -20,7 +20,7 @@ export function ScriptWindow({ onClose }: { onClose: () => void }) {
     edit((p) => {
       if (tab === 'default') p.scripts.default = text
       else p.scripts.beforeCalculation = text
-    })
+    }, `script:${tab}`)
 
   const insertSnippet = (kind: SnippetKind) => {
     const lines = generateSnippet(kind, project)

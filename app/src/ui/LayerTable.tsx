@@ -74,7 +74,7 @@ export function LayerTable() {
                     className="text-cell"
                     aria-label={`optical table of layer ${rowLabel(index)}`}
                     value={layer.opticalTable}
-                    onChange={(event) => update(index, { opticalTable: event.target.value })}
+                    onChange={(event) => dispatch({ type: 'updateLayer', index, patch: { opticalTable: event.target.value }, coalesce: `table:${index}` })}
                   />
                 </td>
                 {columns.slice(1).map((c) => (
