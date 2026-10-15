@@ -1,0 +1,20 @@
+# Legacy ReMagX sources, binaries and release zips (kept out of history)
+/old/
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+*.wasm
+*.o
+*.obj
+*.exe
+*.dll
+
+# Tooling / OS
+.DS_Store
+*.log
+.env
+.env.*
+.vscode/
+.idea/
