@@ -105,6 +105,7 @@ export function createDefaultProject(): Project {
       },
       magnetization: { enabled: false, direction: { ...IN_PLANE_Y } },
       asymmetryDefinition: 'normalized',
+      profileCoupling: false,
       epsilon: 5e-5,
       averaging: 0,
       postProcessing: { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false },

@@ -1,0 +1,2 @@
+# Legacy fixtures keep their original CRLF line endings
+app/test/fixtures/** -text

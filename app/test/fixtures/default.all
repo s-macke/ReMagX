@@ -1,0 +1,420 @@
+# Complete Status of ReMagX
+# File Version
+fileversion = 1
+
+# layer configuration
+layerversion = 3
+# layer 0
+ layer = 0
+  layer_d = 0
+  layer_db = Cu
+  layer_material = Cu
+  layer_density = 8.96
+  layer_delta = 0.00165
+  layer_beta = 0.00029911
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 0
+
+# layer 1
+ layer = 1
+  layer_d = 10
+  layer_db = Co
+  layer_material = Co
+  layer_density = 8.9
+  layer_delta = -0.003486
+  layer_beta = 0.0056168
+  layer_ddelta = 5.31087e-05
+  layer_dbeta = -0.000132985
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 5.31087e-05
+
+# layer 2
+ layer = 2
+  layer_d = 60
+  layer_db = Cu
+  layer_material = Cu
+  layer_density = 8.96
+  layer_delta = 0.00165
+  layer_beta = 0.00029911
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 0
+
+# layer 3
+ layer = 3
+  layer_d = 10
+  layer_db = Co
+  layer_material = Co
+  layer_density = 8.9
+  layer_delta = -0.003486
+  layer_beta = 0.0056168
+  layer_ddelta = 5.31087e-05
+  layer_dbeta = -0.000132985
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 5.31087e-05
+
+# layer 4
+ layer = 4
+  layer_d = 60
+  layer_db = Cu
+  layer_material = Cu
+  layer_density = 8.96
+  layer_delta = 0.00165
+  layer_beta = 0.00029911
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 0
+
+# layer 5
+ layer = 5
+  layer_d = 10
+  layer_db = Co
+  layer_material = Co
+  layer_density = 8.9
+  layer_delta = -0.003486
+  layer_beta = 0.0056168
+  layer_ddelta = 5.31087e-05
+  layer_dbeta = -0.000132985
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 5.31087e-05
+
+# layer 6
+ layer = 6
+  layer_d = 60
+  layer_db = Cu
+  layer_material = Cu
+  layer_density = 8.96
+  layer_delta = 0.00165
+  layer_beta = 0.00029911
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 0
+
+# layer 7
+ layer = 7
+  layer_d = 10
+  layer_db = Co
+  layer_material = Co
+  layer_density = 8.9
+  layer_delta = -0.003486
+  layer_beta = 0.0056168
+  layer_ddelta = 5.31087e-05
+  layer_dbeta = -0.000132985
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 5.31087e-05
+
+# layer 8
+ layer = 8
+  layer_d = 60
+  layer_db = Cu
+  layer_material = Cu
+  layer_density = 8.96
+  layer_delta = 0.00165
+  layer_beta = 0.00029911
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 0
+
+# layer 9
+ layer = 9
+  layer_d = 10
+  layer_db = Co
+  layer_material = Co
+  layer_density = 8.9
+  layer_delta = -0.003486
+  layer_beta = 0.0056168
+  layer_ddelta = 5.31087e-05
+  layer_dbeta = -0.000132985
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 5.31087e-05
+
+# layer 10
+ layer = 10
+  layer_d = 60
+  layer_db = Cu
+  layer_material = Cu
+  layer_density = 8.96
+  layer_delta = 0.00165
+  layer_beta = 0.00029911
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 0
+
+# layer 11
+ layer = 11
+  layer_d = 10
+  layer_db = Co
+  layer_material = Co
+  layer_density = 8.9
+  layer_delta = -0.003486
+  layer_beta = 0.0056168
+  layer_ddelta = 5.31087e-05
+  layer_dbeta = -0.000132985
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 5.31087e-05
+
+# layer 12
+ layer = 12
+  layer_d = 60
+  layer_db = Cu
+  layer_material = Cu
+  layer_density = 8.96
+  layer_delta = 0.00165
+  layer_beta = 0.00029911
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 5
+  layer_electron_escape_depth = 0
+
+# layer 13
+ layer = 13
+  layer_d = 0
+  layer_db = vacuum
+  layer_material = 
+  layer_density = 0
+  layer_delta = 0
+  layer_beta = 0
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_maggamma = 90
+  layer_magphi = 90
+  layer_sigma = 0
+  layer_electron_escape_depth = 0
+
+
+# element configuration
+elementlayerversion = 1
+
+# magnetic configuration with gauss
+magneticversion = 4
+# gauss function 1
+ gauss_function = 1
+ gauss_delta = 0
+ gauss_beta = 0
+ gauss_variance= 1
+ gauss_z = 0
+ gauss_usespline = 0
+ gauss_acoupling = -1
+ gauss_varcoupling = -1
+ gauss_bindtolayer = -1
+ gauss_splinepoints= 0
+
+
+# fit variables
+fitvariableversion = 1
+
+
+# mode (material or element)
+mode = 0
+
+# numerical precision
+precision = 1
+
+# disable script
+disablescript = 0
+
+# activate parallelization
+parallelization = 0
+
+# energy (saved for compatibility)
+energy = 777.198
+
+
+# angular resolution
+resolution = 0
+
+# energy resolution
+energyresolution = 0
+
+# min qz to calculate
+qzmin = 0
+
+# max qz to calculate
+qzmax = 0.6
+
+# number of points to show
+numberofpoints = 300
+
+# averaging value
+averaging = 0
+
+# temperature for fitting
+fittemp = 1
+
+# delta temperature for fitting
+fitdtemp = -0.01
+
+# minimum qz for fitting
+fitqzmin = 0
+
+# maximum qz for fitting
+fitqzmax = 9999
+
+# fast calculation of resolution
+fastresolution = 1
+
+# use measurement data for determine qz
+usemeasurementqz = 0
+
+# show qz(false) or angle (true)
+showangle = 0
+
+# fit algorithm
+fitalgorithm = 0
+
+# fit error function
+fiterrorfunction = 0
+
+# fit resolution
+fitresolution = 0
+
+# gausscoupling algorithm
+gausscoupling = 0
+
+# multi slicing mode (0=roughness approx. ...)
+layersegmentationmode = 0
+
+# algorithm (0=Parratt. ...)
+algorithm = 0
+
+# scattering type (0=reflection, 1=transmission)
+scattering = 0
+
+# fit measurement multiplicator
+fitmeasmult = 0
+
+# fit qz shift
+fitdeltaqz = 0
+
+# fit energy shift
+fitenergyshift = 0
+
+# energy scan qz
+engscanqz = 0.1
+
+# energy scan angle
+engscanangle = 10
+
+# energy scan min
+engscanmin = 700
+
+# energy scan max
+engscanmax = 900
+
+# polarization of sigma part and pi part in complex numbers
+ ray1sigmare = 0.707107
+ ray1sigmaim = 0
+ ray1pire = 0
+ ray1piim = 0.707107
+ ray2sigmare = 0.707107
+ ray2sigmaim = 0
+ ray2pire = 0
+ ray2piim = -0.707107
+
+# polarization analyzer
+ polanalyzer = 0
+# minimal layer thickness
+minlayerthickness = 2
+
+# maximal layer thickness
+maxlayerthickness = 3
+
+# gradient scale
+gradientscale = 1
+
+# segmentation error
+segmentationerror = 1e-06
+
+# segmentation model
+segmentationmodel = 1
+
+# use magnetization
+magnetizationmode = 0
+
+# magnetization direction
+maggamma = 90
+
+magphi = 90
+
+# random number seed
+evo_random = 100
+
+# population
+evo_population = 5000
+
+# percent elite of population
+evo_elite = 1
+
+# percent of parents
+evo_parents = 40
+
+# mutation range in real numbers in percent
+evo_range = 10
+
+# probability of mixing
+evo_mixing = 33
+
+# probability of mutation
+evo_probability = 25
+
+# take elite as parents
+evo_takeeliteasparents = 1
+
+# restrict fit parameters
+evo_evorestrictfitparameters = 1
+
+# optical constant handling
+ocautomatic = 0
+
+# multilayer script
+enablemultilayer = 0
+multilayerscript = 
+
+# chantler database
+usechantlerdatabase = 0
+
+# asymmetry definition
+asymmetrydef = 0
+
+# script parameters
+# script before calculation
+
+# default script
+
+# active data set index
+activedatasetindex = 0
+# measurement data
+measurementdataversion = 2

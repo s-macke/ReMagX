@@ -135,6 +135,7 @@ export const calculationSchema = z.object({
     direction: magnetizationDirectionSchema,
   }),
   asymmetryDefinition: z.enum(['normalized', 'difference']), // (R1-R2)/(R1+R2) or R1-R2
+  profileCoupling: z.boolean(), // legacy "gausscoupling": couple depth-profile functions
   epsilon: finite,
   averaging: z.number().int().nonnegative(),
   postProcessing: z.object({

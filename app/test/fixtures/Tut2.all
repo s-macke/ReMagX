@@ -1,0 +1,767 @@
+# Complete Status of ReMagX
+# File Version
+fileversion = 1
+
+# layer configuration
+layerversion = 3
+# layer 0
+ layer = 0
+  layer_d = 0
+  layer_db = STO
+  layer_material = Co
+  layer_density = 8.9
+  layer_delta = 0.0010955
+  layer_beta = 0.000305711
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_sigma = 1
+
+# layer 1
+ layer = 1
+  layer_d = 160
+  layer_db = LCO
+  layer_material = Cu
+  layer_density = 8.96
+  layer_delta = 0.000969649
+  layer_beta = 0.00083398
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_sigma = 1
+
+# layer 2
+ layer = 2
+  layer_d = 0
+  layer_db = vacuum
+  layer_material = Co
+  layer_density = 8.9
+  layer_delta = 0
+  layer_beta = 0
+  layer_ddelta = 0
+  layer_dbeta = 0
+  layer_sigma = 0
+
+
+# element configuration
+elementlayerversion = 1
+# magnetic configuration with gauss
+magneticversion = 4
+# gauss function 1
+ gauss_function = 1
+ gauss_delta = 0
+ gauss_beta = 0
+ gauss_variance= 1
+ gauss_z = 0
+ gauss_fit = 0
+ gauss_fita = 0
+ gauss_fitvar = 0
+ gauss_fitz = 0
+ gauss_usespline = 0
+ gauss_acoupling = -1
+ gauss_varcoupling = -1
+ gauss_bindtolayer = -1
+ gauss_splinepoints= 0
+
+
+# fit variables
+fitvariableversion = 1
+
+
+# mode (material or element)
+mode = 0
+
+# numerical precision
+precision = 1
+
+# disable script
+disablescript = 0
+
+# energy (saved for compatibility)
+energy = 900
+
+
+# resolution
+resolution = 0.0001
+
+# max qz to show
+qzmax = 0.6
+
+# number of points to show
+numberofpoints = 300
+
+# averaging value
+averaging = 0
+
+# temperature for fitting
+fittemp = 1
+
+# delta temperature for fitting
+fitdtemp = -0.01
+
+# minimum qz for fitting
+fitqzmin = 0
+
+# maximum qz for fitting
+fitqzmax = 9999
+
+# fast calculation of resolution
+fastresolution = 1
+
+# use measurement data for determine qz
+usemeasurementqz = 0
+
+# show qz(false) or angle (true)
+showangle = 0
+
+# fit algorithm
+fitalgorithm = 0
+
+# fit error function
+fiterrorfunction = 0
+
+# fit resolution
+fitresolution = 0
+
+# fit asymmetry (with magnetic field)
+fitasymmetry = 0
+
+# gausscoupling algorithm
+gausscoupling = 0
+
+# multi slicing mode (0=roughness approx. ...)
+layersegmentationmode = 0
+
+# algorithm (0=Parratt. ...)
+algorithm = 0
+
+# scattering type (0=reflection, 1=transmission)
+scattering = 0
+
+# fit measurement multiplicator
+fitmeasmult = 0
+
+# fit delta qz
+fitdeltaqz = 0
+
+# energy scan qz
+engscanqz = 0.1
+
+# energy scan min
+engscanmin = 300
+
+# energy scan max
+engscanmax = 30000
+
+# polarization of sigma part and pi part in complex numbers
+ray1sigmare = 1
+ray1sigmaim = 0
+ray1pire = 0
+ray1piim = 0
+ray2sigmare = 0
+ray2sigmaim = 0
+ray2pire = 1
+ray2piim = 0
+
+# minimal layer thickness
+minlayerthickness = 2
+
+# maximal layer thickness
+maxlayerthickness = 3
+
+# gradient scale
+gradientscale = 1
+
+# segmentation model
+segmentationmodel = 2
+
+# use magnetization
+magnetizationmode = 0
+
+# magnetization direction
+maggamma = 90
+
+magphi = 90
+
+# random number seed
+evo_random = 100
+
+# population
+evo_population = 50
+
+# percent elite of population
+evo_elite = 10
+
+# percent of parents
+evo_parents = 40
+
+# mutation range in real numbers in percent
+evo_range = 10
+
+# probability of mixing
+evo_mixing = 33
+
+# probability of mutation
+evo_probability = 25
+
+# take elite as parents
+evo_takeeliteasparents = 0
+
+# restrict fit parameters
+evo_evorestrictfitparameters = 0
+
+# optical constant handling
+ocautomatic = 0
+
+# script parameters
+# script before calculation
+
+# default script
+
+# active data set index
+activedatasetindex = 1
+# measurement data
+measurementdataversion = 2
+# dataset 1
+datasetnumber = 1
+ datasettitle = LCO_900eV.dat
+ datasetenergy = 900
+ datasetresolution = 0.0001
+ datasetmultiplicator = 1
+ datasettranslator = 0
+ datasetqztranslation = 0
+ datasetray1sigmare = 1
+ datasetray1sigmaim = 0
+ datasetray1pire = 0
+ datasetray1piim = 0
+ datasetray2sigmare = 0
+ datasetray2sigmaim = 0
+ datasetray2pire = 1
+ datasetray2piim = 0
+ datasetactive = 0
+ datasetcomment = 
+ datasetfile = C:\reMagX3\Tutorial\LCO_900eV.dat
+ datasetpoints = 262
+  dataset_qz = 0
+  dataset_R0 = 1.97714
+  dataset_qz = 0.00199011
+  dataset_R0 = 2.02003
+  dataset_qz = 0.0039802
+  dataset_R0 = 2.05137
+  dataset_qz = 0.00597028
+  dataset_R0 = 2.05476
+  dataset_qz = 0.00796033
+  dataset_R0 = 0.58855
+  dataset_qz = 0.00995034
+  dataset_R0 = 0.32465
+  dataset_qz = 0.0119403
+  dataset_R0 = 0.34841
+  dataset_qz = 0.0139302
+  dataset_R0 = 0.38736
+  dataset_qz = 0.0159201
+  dataset_R0 = 0.41576
+  dataset_qz = 0.0179098
+  dataset_R0 = 0.4428
+  dataset_qz = 0.0198995
+  dataset_R0 = 0.46615
+  dataset_qz = 0.0218891
+  dataset_R0 = 0.4816
+  dataset_qz = 0.0238786
+  dataset_R0 = 0.49019
+  dataset_qz = 0.0258679
+  dataset_R0 = 0.48748
+  dataset_qz = 0.0278572
+  dataset_R0 = 0.47893
+  dataset_qz = 0.0298463
+  dataset_R0 = 0.45979
+  dataset_qz = 0.0318353
+  dataset_R0 = 0.43901
+  dataset_qz = 0.0338241
+  dataset_R0 = 0.41325
+  dataset_qz = 0.0358127
+  dataset_R0 = 0.3812
+  dataset_qz = 0.0378012
+  dataset_R0 = 0.34358
+  dataset_qz = 0.0397895
+  dataset_R0 = 0.30622
+  dataset_qz = 0.0417776
+  dataset_R0 = 0.27039
+  dataset_qz = 0.0437656
+  dataset_R0 = 0.23736
+  dataset_qz = 0.0457533
+  dataset_R0 = 0.2035
+  dataset_qz = 0.0477408
+  dataset_R0 = 0.17337
+  dataset_qz = 0.049728
+  dataset_R0 = 0.14552
+  dataset_qz = 0.0517151
+  dataset_R0 = 0.11667
+  dataset_qz = 0.0537018
+  dataset_R0 = 0.09519
+  dataset_qz = 0.0556884
+  dataset_R0 = 0.07682
+  dataset_qz = 0.0576746
+  dataset_R0 = 0.06093
+  dataset_qz = 0.0596606
+  dataset_R0 = 0.04919
+  dataset_qz = 0.0616463
+  dataset_R0 = 0.04047
+  dataset_qz = 0.0636317
+  dataset_R0 = 0.03407
+  dataset_qz = 0.0656168
+  dataset_R0 = 0.02926
+  dataset_qz = 0.0676016
+  dataset_R0 = 0.02621
+  dataset_qz = 0.0695861
+  dataset_R0 = 0.02407
+  dataset_qz = 0.0715703
+  dataset_R0 = 0.02193
+  dataset_qz = 0.0735541
+  dataset_R0 = 0.02021
+  dataset_qz = 0.0755375
+  dataset_R0 = 0.01843
+  dataset_qz = 0.0775206
+  dataset_R0 = 0.01652
+  dataset_qz = 0.0795033
+  dataset_R0 = 0.01457
+  dataset_qz = 0.0814857
+  dataset_R0 = 0.01258
+  dataset_qz = 0.0834676
+  dataset_R0 = 0.01058
+  dataset_qz = 0.0854492
+  dataset_R0 = 0.00872
+  dataset_qz = 0.0874303
+  dataset_R0 = 0.0071
+  dataset_qz = 0.0894111
+  dataset_R0 = 0.00551
+  dataset_qz = 0.0913914
+  dataset_R0 = 0.00417
+  dataset_qz = 0.0933713
+  dataset_R0 = 0.00326
+  dataset_qz = 0.0953507
+  dataset_R0 = 0.0025
+  dataset_qz = 0.0973297
+  dataset_R0 = 0.00196
+  dataset_qz = 0.0993082
+  dataset_R0 = 0.00164
+  dataset_qz = 0.101286
+  dataset_R0 = 0.00147
+  dataset_qz = 0.103264
+  dataset_R0 = 0.00143
+  dataset_qz = 0.105241
+  dataset_R0 = 0.00145
+  dataset_qz = 0.107217
+  dataset_R0 = 0.00154
+  dataset_qz = 0.109193
+  dataset_R0 = 0.00163
+  dataset_qz = 0.111169
+  dataset_R0 = 0.00171
+  dataset_qz = 0.113144
+  dataset_R0 = 0.00176
+  dataset_qz = 0.115118
+  dataset_R0 = 0.00179
+  dataset_qz = 0.117092
+  dataset_R0 = 0.00177
+  dataset_qz = 0.119066
+  dataset_R0 = 0.00171
+  dataset_qz = 0.121039
+  dataset_R0 = 0.00161
+  dataset_qz = 0.123011
+  dataset_R0 = 0.00147
+  dataset_qz = 0.124982
+  dataset_R0 = 0.00132
+  dataset_qz = 0.126953
+  dataset_R0 = 0.00113
+  dataset_qz = 0.128924
+  dataset_R0 = 0.000948084
+  dataset_qz = 0.130894
+  dataset_R0 = 0.000787964
+  dataset_qz = 0.132863
+  dataset_R0 = 0.000626886
+  dataset_qz = 0.134831
+  dataset_R0 = 0.000483923
+  dataset_qz = 0.136799
+  dataset_R0 = 0.00038003
+  dataset_qz = 0.138767
+  dataset_R0 = 0.000303293
+  dataset_qz = 0.140733
+  dataset_R0 = 0.000253809
+  dataset_qz = 0.142699
+  dataset_R0 = 0.000240026
+  dataset_qz = 0.144665
+  dataset_R0 = 0.000252978
+  dataset_qz = 0.146629
+  dataset_R0 = 0.000293858
+  dataset_qz = 0.148593
+  dataset_R0 = 0.000351486
+  dataset_qz = 0.150556
+  dataset_R0 = 0.000410664
+  dataset_qz = 0.152519
+  dataset_R0 = 0.00048269
+  dataset_qz = 0.15448
+  dataset_R0 = 0.000546033
+  dataset_qz = 0.156441
+  dataset_R0 = 0.000596211
+  dataset_qz = 0.158402
+  dataset_R0 = 0.000636261
+  dataset_qz = 0.160361
+  dataset_R0 = 0.000650184
+  dataset_qz = 0.16232
+  dataset_R0 = 0.000645104
+  dataset_qz = 0.164278
+  dataset_R0 = 0.000618649
+  dataset_qz = 0.166235
+  dataset_R0 = 0.000576642
+  dataset_qz = 0.168191
+  dataset_R0 = 0.000521088
+  dataset_qz = 0.170147
+  dataset_R0 = 0.000457943
+  dataset_qz = 0.172102
+  dataset_R0 = 0.000383532
+  dataset_qz = 0.174056
+  dataset_R0 = 0.000317456
+  dataset_qz = 0.176009
+  dataset_R0 = 0.000257141
+  dataset_qz = 0.177961
+  dataset_R0 = 0.000202617
+  dataset_qz = 0.179913
+  dataset_R0 = 0.00016376
+  dataset_qz = 0.181863
+  dataset_R0 = 0.00013985
+  dataset_qz = 0.183813
+  dataset_R0 = 0.000129778
+  dataset_qz = 0.185762
+  dataset_R0 = 0.00013456
+  dataset_qz = 0.18771
+  dataset_R0 = 0.00015008
+  dataset_qz = 0.189657
+  dataset_R0 = 0.000175775
+  dataset_qz = 0.191603
+  dataset_R0 = 0.000206693
+  dataset_qz = 0.193548
+  dataset_R0 = 0.000233505
+  dataset_qz = 0.195492
+  dataset_R0 = 0.000260943
+  dataset_qz = 0.197436
+  dataset_R0 = 0.000281896
+  dataset_qz = 0.199378
+  dataset_R0 = 0.000296463
+  dataset_qz = 0.20132
+  dataset_R0 = 0.000298788
+  dataset_qz = 0.20326
+  dataset_R0 = 0.00029508
+  dataset_qz = 0.2052
+  dataset_R0 = 0.000280982
+  dataset_qz = 0.207139
+  dataset_R0 = 0.000259496
+  dataset_qz = 0.209076
+  dataset_R0 = 0.000230647
+  dataset_qz = 0.211013
+  dataset_R0 = 0.000198572
+  dataset_qz = 0.212948
+  dataset_R0 = 0.000167366
+  dataset_qz = 0.214883
+  dataset_R0 = 0.000134737
+  dataset_qz = 0.216817
+  dataset_R0 = 0.000106873
+  dataset_qz = 0.218749
+  dataset_R0 = 8.50958e-05
+  dataset_qz = 0.220681
+  dataset_R0 = 6.75513e-05
+  dataset_qz = 0.220681
+  dataset_R0 = 6.71817e-05
+  dataset_qz = 0.222611
+  dataset_R0 = 5.67805e-05
+  dataset_qz = 0.224541
+  dataset_R0 = 5.27186e-05
+  dataset_qz = 0.224541
+  dataset_R0 = 5.26492e-05
+  dataset_qz = 0.226469
+  dataset_R0 = 5.4606e-05
+  dataset_qz = 0.228396
+  dataset_R0 = 6.0833e-05
+  dataset_qz = 0.228396
+  dataset_R0 = 6.12982e-05
+  dataset_qz = 0.230322
+  dataset_R0 = 7.06556e-05
+  dataset_qz = 0.232247
+  dataset_R0 = 8.20309e-05
+  dataset_qz = 0.232247
+  dataset_R0 = 8.16313e-05
+  dataset_qz = 0.236094
+  dataset_R0 = 0.000104318
+  dataset_qz = 0.239937
+  dataset_R0 = 0.00011768
+  dataset_qz = 0.243774
+  dataset_R0 = 0.000115807
+  dataset_qz = 0.247608
+  dataset_R0 = 9.98026e-05
+  dataset_qz = 0.251436
+  dataset_R0 = 7.61474e-05
+  dataset_qz = 0.25526
+  dataset_R0 = 5.07002e-05
+  dataset_qz = 0.259078
+  dataset_R0 = 2.99742e-05
+  dataset_qz = 0.262892
+  dataset_R0 = 1.89124e-05
+  dataset_qz = 0.266701
+  dataset_R0 = 1.75347e-05
+  dataset_qz = 0.270505
+  dataset_R0 = 2.33327e-05
+  dataset_qz = 0.274303
+  dataset_R0 = 3.21059e-05
+  dataset_qz = 0.278097
+  dataset_R0 = 3.93418e-05
+  dataset_qz = 0.281885
+  dataset_R0 = 4.21049e-05
+  dataset_qz = 0.285667
+  dataset_R0 = 4.00494e-05
+  dataset_qz = 0.289445
+  dataset_R0 = 3.31407e-05
+  dataset_qz = 0.293217
+  dataset_R0 = 2.41032e-05
+  dataset_qz = 0.296983
+  dataset_R0 = 1.53498e-05
+  dataset_qz = 0.300743
+  dataset_R0 = 8.67535e-06
+  dataset_qz = 0.304498
+  dataset_R0 = 5.41111e-06
+  dataset_qz = 0.308247
+  dataset_R0 = 5.41347e-06
+  dataset_qz = 0.31199
+  dataset_R0 = 7.62892e-06
+  dataset_qz = 0.315727
+  dataset_R0 = 1.06497e-05
+  dataset_qz = 0.319459
+  dataset_R0 = 1.2963e-05
+  dataset_qz = 0.323184
+  dataset_R0 = 1.39625e-05
+  dataset_qz = 0.326903
+  dataset_R0 = 1.34007e-05
+  dataset_qz = 0.330615
+  dataset_R0 = 1.13376e-05
+  dataset_qz = 0.334322
+  dataset_R0 = 8.63191e-06
+  dataset_qz = 0.338022
+  dataset_R0 = 5.76884e-06
+  dataset_qz = 0.341715
+  dataset_R0 = 3.71451e-06
+  dataset_qz = 0.345403
+  dataset_R0 = 2.49342e-06
+  dataset_qz = 0.349083
+  dataset_R0 = 2.24027e-06
+  dataset_qz = 0.352757
+  dataset_R0 = 2.67431e-06
+  dataset_qz = 0.356424
+  dataset_R0 = 3.41207e-06
+  dataset_qz = 0.360085
+  dataset_R0 = 4.44056e-06
+  dataset_qz = 0.363738
+  dataset_R0 = 5.09506e-06
+  dataset_qz = 0.367385
+  dataset_R0 = 5.50889e-06
+  dataset_qz = 0.371024
+  dataset_R0 = 5.33171e-06
+  dataset_qz = 0.374657
+  dataset_R0 = 4.73916e-06
+  dataset_qz = 0.378282
+  dataset_R0 = 3.87357e-06
+  dataset_qz = 0.381901
+  dataset_R0 = 3.10163e-06
+  dataset_qz = 0.385512
+  dataset_R0 = 2.18588e-06
+  dataset_qz = 0.389115
+  dataset_R0 = 1.5118e-06
+  dataset_qz = 0.392711
+  dataset_R0 = 1.40733e-06
+  dataset_qz = 0.3963
+  dataset_R0 = 1.65091e-06
+  dataset_qz = 0.399881
+  dataset_R0 = 1.92914e-06
+  dataset_qz = 0.403455
+  dataset_R0 = 2.60772e-06
+  dataset_qz = 0.407021
+  dataset_R0 = 3.14057e-06
+  dataset_qz = 0.410579
+  dataset_R0 = 3.38239e-06
+  dataset_qz = 0.414129
+  dataset_R0 = 3.31534e-06
+  dataset_qz = 0.417672
+  dataset_R0 = 3.0381e-06
+  dataset_qz = 0.421206
+  dataset_R0 = 2.46653e-06
+  dataset_qz = 0.424733
+  dataset_R0 = 1.90165e-06
+  dataset_qz = 0.428251
+  dataset_R0 = 1.28386e-06
+  dataset_qz = 0.431761
+  dataset_R0 = 1.01526e-06
+  dataset_qz = 0.435263
+  dataset_R0 = 9.19222e-07
+  dataset_qz = 0.438757
+  dataset_R0 = 1.27244e-06
+  dataset_qz = 0.442242
+  dataset_R0 = 1.51023e-06
+  dataset_qz = 0.445719
+  dataset_R0 = 1.75536e-06
+  dataset_qz = 0.449188
+  dataset_R0 = 2.01133e-06
+  dataset_qz = 0.452648
+  dataset_R0 = 2.11273e-06
+  dataset_qz = 0.456099
+  dataset_R0 = 1.97504e-06
+  dataset_qz = 0.459542
+  dataset_R0 = 1.83019e-06
+  dataset_qz = 0.462976
+  dataset_R0 = 1.32394e-06
+  dataset_qz = 0.466401
+  dataset_R0 = 9.73835e-07
+  dataset_qz = 0.469817
+  dataset_R0 = 6.34091e-07
+  dataset_qz = 0.473224
+  dataset_R0 = 5.75798e-07
+  dataset_qz = 0.476622
+  dataset_R0 = 4.84472e-07
+  dataset_qz = 0.480011
+  dataset_R0 = 5.94473e-07
+  dataset_qz = 0.483391
+  dataset_R0 = 6.96655e-07
+  dataset_qz = 0.486762
+  dataset_R0 = 8.37822e-07
+  dataset_qz = 0.490124
+  dataset_R0 = 8.95935e-07
+  dataset_qz = 0.493476
+  dataset_R0 = 9.83418e-07
+  dataset_qz = 0.496819
+  dataset_R0 = 9.36925e-07
+  dataset_qz = 0.500152
+  dataset_R0 = 7.76413e-07
+  dataset_qz = 0.503476
+  dataset_R0 = 5.13288e-07
+  dataset_qz = 0.50679
+  dataset_R0 = 3.83183e-07
+  dataset_qz = 0.510095
+  dataset_R0 = 3.15611e-07
+  dataset_qz = 0.51339
+  dataset_R0 = 2.79014e-07
+  dataset_qz = 0.516675
+  dataset_R0 = 2.40612e-07
+  dataset_qz = 0.51995
+  dataset_R0 = 2.09794e-07
+  dataset_qz = 0.523215
+  dataset_R0 = 1.9235e-07
+  dataset_qz = 0.526471
+  dataset_R0 = 2.643e-07
+  dataset_qz = 0.529716
+  dataset_R0 = 1.82764e-07
+  dataset_qz = 0.532952
+  dataset_R0 = 3.64509e-07
+  dataset_qz = 0.536177
+  dataset_R0 = 3.09778e-07
+  dataset_qz = 0.539392
+  dataset_R0 = 2.66022e-07
+  dataset_qz = 0.542596
+  dataset_R0 = 1.01816e-07
+  dataset_qz = 0.545791
+  dataset_R0 = 1.13113e-08
+  dataset_qz = 0.548975
+  dataset_R0 = -4.47292e-08
+  dataset_qz = 0.552148
+  dataset_R0 = -3.33888e-08
+  dataset_qz = 0.555311
+  dataset_R0 = -6.14917e-08
+  dataset_qz = 0.558464
+  dataset_R0 = -1.39968e-07
+  dataset_qz = 0.561605
+  dataset_R0 = -1.03396e-07
+  dataset_qz = 0.564736
+  dataset_R0 = -8.28422e-08
+  dataset_qz = 0.567857
+  dataset_R0 = -1.21669e-07
+  dataset_qz = 0.570966
+  dataset_R0 = 2.04464e-08
+  dataset_qz = 0.574065
+  dataset_R0 = -1.34843e-08
+  dataset_qz = 0.577153
+  dataset_R0 = 9.92072e-08
+  dataset_qz = 0.580229
+  dataset_R0 = -2.36677e-08
+  dataset_qz = 0.583295
+  dataset_R0 = -3.25999e-08
+  dataset_qz = 0.58635
+  dataset_R0 = -8.70833e-08
+  dataset_qz = 0.589393
+  dataset_R0 = -1.43473e-07
+  dataset_qz = 0.592425
+  dataset_R0 = -1.25337e-07
+  dataset_qz = 0.595446
+  dataset_R0 = -1.49083e-07
+  dataset_qz = 0.598456
+  dataset_R0 = -1.7729e-07
+  dataset_qz = 0.601454
+  dataset_R0 = -2.4415e-07
+  dataset_qz = 0.604441
+  dataset_R0 = -1.91087e-07
+  dataset_qz = 0.607416
+  dataset_R0 = -1.60919e-07
+  dataset_qz = 0.61038
+  dataset_R0 = -2.18807e-07
+  dataset_qz = 0.613332
+  dataset_R0 = -2.77655e-07
+  dataset_qz = 0.616272
+  dataset_R0 = -3.02298e-07
+  dataset_qz = 0.619201
+  dataset_R0 = -3.08037e-07
+  dataset_qz = 0.622118
+  dataset_R0 = -3.36368e-07
+  dataset_qz = 0.625023
+  dataset_R0 = -2.62646e-07
+  dataset_qz = 0.627916
+  dataset_R0 = -2.64958e-07
+  dataset_qz = 0.630797
+  dataset_R0 = -2.28649e-07
+  dataset_qz = 0.633666
+  dataset_R0 = -2.5179e-07
+  dataset_qz = 0.636523
+  dataset_R0 = -3.34734e-07
+  dataset_qz = 0.639368
+  dataset_R0 = -3.62104e-07
+  dataset_qz = 0.642201
+  dataset_R0 = -3.19337e-07
+  dataset_qz = 0.645022
+  dataset_R0 = -4.11467e-07
+  dataset_qz = 0.64783
+  dataset_R0 = -3.53366e-07
+  dataset_qz = 0.650626
+  dataset_R0 = -2.26234e-07
+  dataset_qz = 0.653409
+  dataset_R0 = -2.1486e-07
+  dataset_qz = 0.656181
+  dataset_R0 = -2.56095e-07
+  dataset_qz = 0.658939
+  dataset_R0 = -2.30964e-07
+  dataset_qz = 0.661685
+  dataset_R0 = -2.1748e-07
+  dataset_qz = 0.664419
+  dataset_R0 = -1.32057e-07
+  dataset_qz = 0.66714
+  dataset_R0 = -1.69151e-07
+  dataset_qz = 0.669848
+  dataset_R0 = -2.20144e-07
+  dataset_qz = 0.672543
+  dataset_R0 = -9.40921e-08
+  dataset_qz = 0.675226
+  dataset_R0 = -7.3521e-08
+  dataset_qz = 0.677895
+  dataset_R0 = 1.07994e-07
+  dataset_qz = 0.680552
+  dataset_R0 = 1.42915e-07
+  dataset_qz = 0.683196
+  dataset_R0 = 2.7e-07
+  dataset_qz = 0.685827
+  dataset_R0 = 2.19373e-07
+  dataset_qz = 0.688445
+  dataset_R0 = 2.49129e-07
+  dataset_qz = 0.691049
+  dataset_R0 = 2.57842e-07
+  dataset_qz = 0.693641
+  dataset_R0 = 3.17311e-07
+
