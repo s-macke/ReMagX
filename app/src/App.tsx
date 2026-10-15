@@ -12,7 +12,9 @@ import { ProjectProvider } from './state/ProjectProvider'
 import { useCalculation } from './state/useCalculation'
 import { usePersistence } from './state/usePersistence'
 import { Dialog } from './ui/Dialog'
-import { forgetCurrentFile, openProjectInteractive, saveProjectToFile } from './ui/fileActions'
+import { chooseFile, downloadText, forgetCurrentFile, openProjectInteractive, saveProjectToFile } from './ui/fileActions'
+import { AsciiImportDialog } from './ui/AsciiImportDialog'
+import { layerTableToText, seriesToText } from './import/asciiData'
 import { ImportReportDialog } from './ui/ImportReportDialog'
 import { LayerTable } from './ui/LayerTable'
 import { MenuBar, type Menu } from './ui/MenuBar'
@@ -42,6 +44,13 @@ function Workspace() {
   const [aboutOpen, setAboutOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
   const [scriptOpen, setScriptOpen] = useState(false)
+  const [asciiFile, setAsciiFile] = useState<{ name: string; text: string } | null>(null)
+
+  const importDatasets = async () => {
+    const file = await chooseFile('.dat,.txt,.csv,.asc,*')
+    if (file) setAsciiFile({ name: file.name, text: await file.text() })
+  }
+
 
   const measured = useMemo(() => {
     const dataset = activeDataset(project)
@@ -54,6 +63,18 @@ function Workspace() {
       return curve ? [{ label: `measured ${quantity === 'reflectivity' ? 'R' : quantity}`, curve }] : []
     })
   }, [project, scanKind, displayMode, plotView])
+
+  const baseName = state.fileName.replace(/\.json$/i, '')
+  const saveDiagramData = () => {
+    const curve = calculation.curve
+    if (!curve) return
+    const xLabel = curve.axis === 'qz' ? 'qz (1/A)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (A)'
+    const series = [
+      ...curve.series.map((s) => ({ label: s.label, x: curve.x, y: s.y })),
+      ...measured.map((m) => ({ label: m.label, x: m.curve.x, y: m.curve.y })),
+    ]
+    downloadText(`${baseName}-diagram.txt`, seriesToText(xLabel, series))
+  }
 
   const open = async () => {
     try {
@@ -119,6 +140,10 @@ function Workspace() {
         { label: 'Open… (.all, .json)   Ctrl+O', onSelect: () => void open() },
         { label: 'Save   Ctrl+S', onSelect: () => void save(false) },
         { label: 'Save As…   Ctrl+Shift+S', onSelect: () => void save(true) },
+        'separator',
+        { label: 'Import Datasets… (ASCII)', onSelect: () => void importDatasets() },
+        { label: 'Save diagram data', onSelect: saveDiagramData, disabled: !calculation.curve },
+        { label: 'Export Table as ASCII', onSelect: () => downloadText(`${baseName}-layers.txt`, layerTableToText(project)) },
         'separator',
         ...examples.map((example) => ({ label: example.label, onSelect: () => openExample(example) })),
       ],
@@ -190,6 +215,20 @@ function Workspace() {
         <Dialog title="Could not open the file" onClose={() => setError(null)}>
           <pre className="dialog__pre">{error}</pre>
         </Dialog>
+      )}
+      {asciiFile && (
+        <AsciiImportDialog
+          fileName={asciiFile.name}
+          text={asciiFile.text}
+          onCancel={() => setAsciiFile(null)}
+          onImport={(dataset) => {
+            setAsciiFile(null)
+            dispatch({
+              type: 'updateProject',
+              update: (p) => ({ ...p, datasets: [...p.datasets, dataset], activeDatasetIndex: p.datasets.length }),
+            })
+          }}
+        />
       )}
       {preferencesOpen && <PreferencesDialog onClose={() => setPreferencesOpen(false)} />}
       {scriptOpen && (
