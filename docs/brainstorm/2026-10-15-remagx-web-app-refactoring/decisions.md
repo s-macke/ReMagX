@@ -218,6 +218,14 @@ D-34: [accepted] **Ported code gets proper, descriptive names; legacy names are 
 - Exception: the user-visible Lua script API keeps its legacy names (D-22), because renaming would break users' scripts.
 - (Source: user instruction, 2026-10-15)
 
+D-35: [accepted] **Command-line tool from the native engine build, in the engine phase; the legacy webserver stays dropped**
+- The legacy program had a console mode (`ReMagX_Terminal.exe [options] statefile`: -refl, -dicrefl, -fit, -map, -convert, -v; F-12) and a webserver started from the Settings dialog.
+- Decision: a native CLI built from the same C++ engine as the WASM target (D-6), with the legacy options, reading legacy `.all` and JSON projects and writing results as text (fit: the fitted project). `-map` follows once maps exist (D-25).
+- Evaluated: native CLI in the engine phase; Node.js CLI on the WASM engine; later/optional.
+- Rejected Node CLI: needs Node at runtime; the native build exists anyway.
+- Rejected later/optional: cheap once the native build exists, and useful for batch runs.
+- The webserver is not rebuilt: the product itself is a static website (F-27, D-19). (Source: user answer, 2026-10-15)
+
 ## Rejected Approaches
 
 Rust rewrite of the numerics (approach B): too costly and risky for the MVP. Reconsider if the ported C++ core proves unmaintainable.

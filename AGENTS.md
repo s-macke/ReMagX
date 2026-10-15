@@ -127,4 +127,5 @@ The legacy example files in `old/reMagX3` can serve as a local corpus
 - [ ] Clean-room Nelder-Mead and annealing in C++ (D-32); fit golden tests (AC-9)
 - [ ] Lua scripting with wasmoon and the full legacy script API (D-2, D-22; AC-7, AC-7a, AC-8)
 - [ ] Replace the mock with the WASM engine behind `ComputeService` (D-33)
+- [ ] Native command-line tool like the legacy `ReMagX_Terminal`: `-refl`, `-dicrefl`, `-fit`, `-convert` (`.db` + `.m` → `.e`), `-v`; `-map` once maps exist; reads `.all` and JSON (D-35). The legacy webserver is dropped.
 - [ ] Later features: transmission, maps, TEY, Kramers-Kronig, evolution fit (D-25)
