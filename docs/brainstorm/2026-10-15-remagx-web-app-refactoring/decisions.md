@@ -34,6 +34,8 @@ F-26: [verified] git repository initialized in the project root on 2026-10-15 (u
 F-27: [verified] Docker is wanted only as a build (compile) option. The final product is a static website that runs in the browser; running, developing and testing are not tied to Docker. (Source: user message, 2026-10-15)
 F-28: [verified] The legacy core is not header-only: the formalisms are templates in headers (`shared/simul/*.h`, `RechenHilfe.h`), but `shared/` also contains .cpp files (e.g. CChiSquareFit.cpp, CStateHandler.cpp, MaterialConstants.cpp, LayerSegmentation.cpp). The legacy toolchain is Borland C++ Builder XE2 (GUI) and MinGW 4.6.2 or newer (DLL). (Source: `ls old/reMagX3/shared`, old/reMagX3/Readme.txt)
 F-29: [verified] Legacy `.all` section version keys present in the corpus: `fileversion = 1`, `layerversion = 3`, `elementlayerversion = 1`, `magneticversion = 4`, `fitvariableversion = 1`, `measurementdataversion = 2`. Legacy error codes (`RX_STATUS` in CStateHandler.h): RX_QZ (angles above 90°), RX_CSCRIPT, RX_ESCRIPT, RX_UNKNOWN, RX_DB (db files missing), RX_ML (multilayer script parse error). Legacy main menu: File, Edit, Mode, Layer, Tools, Preferences, Help. (Source: grep over corpus; shared/CStateHandler.h; client/Unit1.dfm)
+F-30: [verified] The corpus scripts (1,136 non-empty, non-comment lines across all `.all` files outside backup/) use no Lua 5.1-only standard-library features (no unpack, setfenv/getfenv, module, table.getn, loadstring, math.mod, gfind). They depend entirely on the ReMagX script API: arrays `delta`, `beta`, `par`, `thickness`, `sigma`, `density`, `deltam`, `betam`, `gauss_delta`, `gauss_beta`, dielectric-tensor components `exx_r` … `ezz_i`; element objects with `setsigma`/`getsigma`/`setthickness`/`getthickness`/`setdensity`/`getdensity`/`setf`/`get`/`set`; functions `SetChemicalFormula`, `FillTensors`, `print`. The legacy engine registers further globals: `energy`, `epsilon`, `resolution`, `energyscan_qz`, `renewocs`, `write`, `CalculateReflectivity`, `CalculateDicReflectivity`, `CalculateEnergyscan`, `ShowMatrixEigenvalues`, `ShowEScanEigenvalues`, `GetError`, `SetName`, `SetDeltaBeta`, `KramersKronigRange`, `GetGaussLorentzianReal`/`Imag`. (Source: grep over corpus scripts; shared/script.cpp, scriptmetaobject.cpp, scriptmetaarray.cpp)
+F-31: [verified] git branch is `main`; remote `origin` = https://github.com/s-macke/ReMagX.git (added 2026-10-15, nothing pushed yet). An anonymous GitHub API request for that repo returns 404, so it is private or not yet created. (Source: git remote -v; curl api.github.com)
 
 ## Decisions & Rationale
 
@@ -139,12 +141,61 @@ D-21: [accepted] **Resolution of the cold spec review (Step 8)**
 - Spec details that had no journal source were either grounded (F-28, F-29) or recorded as explicit assumptions (Q-5 to Q-9), and the spec cites those Q-entries.
 - D-5 said "a few cases" for the Wine cross-check; D-17.2 later extended this to all corpus files 2.3.1 can compute. D-17.2 applies.
 
+D-22: [accepted] **Full legacy ReMagX script API on Lua 5.4** (resolves Q-1)
+- Evaluated: full legacy API; only the names used in the corpus; a new API plus a migration tool.
+- Rejected corpus-only: user scripts outside the corpus would fail with generic "undefined" errors.
+- Rejected new API: every legacy script would need migrating; the rewriter adds risk.
+- Chosen because: the Lua 5.4 language is no obstacle (F-30), so implementing all legacy names (arrays, element objects, functions, globals per F-30) lets old scripts run unchanged. Names that need non-MVP features (e.g. KramersKronigRange, ShowMatrixEigenvalues, ShowEScanEigenvalues) raise a clear "not supported yet" error instead of being undefined.
+
+D-23: [accepted] **Golden tolerance: |new − ref| ≤ 1e-10·|ref| + 1e-15 per data point** (resolves the tolerance part of Q-2)
+- Evaluated: 1e-10 relative with a 1e-15 absolute floor; 1e-8 relative (+1e-14); bit-exact.
+- Rejected 1e-8: subtle regressions between 1e-10 and 1e-8 would go unnoticed.
+- Rejected bit-exact: breaks on reordered sums, different libm (WASM vs glibc) and compiler flags; it would block cleanup.
+- Chosen because: same code and double precision leave only ~1e-15 to 1e-13 differences, so 1e-10 has headroom yet catches physics changes; the floor avoids false alarms in deep minima. Native builds use `-ffp-contract=off` so native and WASM round the same way. Applies to every compared quantity (R, Rp, Rm, asymmetry, ...). Exceptions only for listed cases with a reason (ASK FIRST).
+
+D-24: [accepted] **Optimizers: port the NR-derived code as-is first, replace it clean-room before any public release** (resolves Q-4)
+- Evaluated: port first and rewrite before release; clean-room now; port and keep.
+- Rejected clean-room now: fit paths would differ from legacy during the physics port, leaving golden fit tests with only final chi-square.
+- Rejected port and keep: the NR licence forbids source redistribution, blocking any public release.
+- Chosen because: during private development the ported code (isolated in `engine/src/optim/legacy_nr/`, D-10) gives the same fit paths as legacy with the same seed. Before a public release (or once Q-3 requires it), a clean-room Nelder-Mead and annealing implementation in `engine/src/optim/` replaces it. It is written from the published algorithms, not copied, and validated by final chi-square ≤ legacy chi-square (+1e-6 relative).
+
+D-25: [accepted] **MVP feature split** (resolves Q-5, extends D-3)
+- In the MVP, besides D-3: compound and element mode; Nevot-Croce roughness and adaptive slicing; Gaussian magnetic profiles (with spline and coupling); arbitrary polarization (sigma/pi, analyzer); asymmetry (Rp/Rm, both definitions); `.db`/`.m`/`.ff`/`.e` tables.
+- Later: transmission, 2D maps, TEY, Parratt without multiple scattering (PHASE), Kramers-Kronig fitting, evolution fit, "Scratch" tools, webserver, OpenCL, desktop packaging.
+- Evaluated: this split; a smaller MVP (compound mode only); a bigger MVP (plus transmission, maps, evolution).
+- Rejected smaller: element-mode corpus projects could not be golden-tested.
+- Rejected bigger: delays the first usable release.
+- Open detail: the layer/electric-field viewer (legacy "Show layers and electric field") was shown with a question mark; see Q-10.
+
+D-26: [accepted] **Depth-profile view in the MVP; electric-field view later** (resolves Q-10)
+- MVP: a plot of delta(z), beta(z), delta_m(z) and beta_m(z) as the engine uses them after roughness/slicing, as a sanity check of the sample model.
+- Later: |E(z)| inside the sample (legacy CReflDetails).
+- Evaluated: profile only; profile plus field; neither.
+
+D-27: [accepted] **LM/evolution projects import with a Simplex fallback** (resolves Q-6)
+- `fitalgorithm = 1` (LM) imports as Simplex, and the import report says "Levenberg-Marquardt is not available; switched to Simplex." `evo_*` keys are kept in the JSON (`fit.evolution`), unused until evolution exists.
+- Evaluated: Simplex fallback with a note; annealing fallback; ask the user in an import dialog.
+- Rejected annealing fallback: slower; Simplex is the legacy default (fitalgorithm 0).
+- Rejected dialog: interrupts batch imports (large corpus, F-25).
+
+D-28: [accepted] **Thresholds confirmed** (resolves Q-7): golden fit final chi-square ≤ legacy × (1 + 1e-6) with the same project and seed; Stop ends a running fit or calculation within 1 s; the UI reacts to a click within 200 ms during a fit. All measured by automated tests.
+- Evaluated: as proposed; stricter (0.5 s / 100 ms, needs cancellation inside single evaluations); looser (3 s / 500 ms, chi-square 1e-4).
+
+D-29: [accepted] **All three ASK FIRST rules confirmed** (resolves Q-8): ask before loosening a golden tolerance or adding an exception; ask before deviating from legacy physics, even apparent bugs (confirmed deviations are documented); ask before changing user-visible Lua globals or semantics.
+
+D-30: [accepted] **Legacy `old/` tree stays outside git** (resolves Q-9)
+- `old/` stays ignored and lives only on disk and in the user's backup. The legacy sources needed for golden data (`shared/`, terminal) are copied into `tools/golden/legacy/` and are therefore versioned.
+- Evaluated: keep outside git; separate private repo (with LFS); main repo with Git LFS.
+- Rejected main repo with LFS: large repo, and all-rights-reserved legacy code and binaries would follow the repo if it ever goes public.
+- Rejected separate repo: one more repo to manage, no current need.
+
 ## Rejected Approaches
 
 Rust rewrite of the numerics (approach B): too costly and risky for the MVP. Reconsider if the ported C++ core proves unmaintainable.
 Faithful replica of the Borland UI: dated UX, no real benefit (D-16).
 Automatic Borland-to-React conversion: no such tool; event handlers mix UI and logic (F-22). The .dfm files are used only as an inventory.
 Levenberg-Marquardt fitting via levmar: never worked in practice (F-17), GPL dependency. Reconsider only with a working, licence-compatible implementation and a real need for parameter errors.
+New modern script API with automatic migration of legacy scripts: every script must be migrated, and the rewriter is a risk (D-22).
 TypeScript/AssemblyScript numerics (approach C): no complex-number/numerics ecosystem, performance concerns. Reconsider only for small helper calculations.
 Golden data from Wine + 2.3.1 binary: precision limited to %e and outdated version (F-12). Still used for cross-checking the rebuild.
 Full feature parity as first release (from D-1): delays a usable product.
@@ -152,12 +203,12 @@ Full feature parity as first release (from D-1): delays a usable product.
 
 ## Open Questions / Assumptions
 
-Q-1: [assumption] How compatible must legacy Lua 5.1 scripts be under Lua 5.4?
+Q-1: [resolved by D-22] How compatible must legacy Lua 5.1 scripts be under Lua 5.4?
 - Current assumption: a small compatibility prelude (e.g. `unpack = table.unpack`) plus the same global names (`par`, `energy`, `thickness`, ...) covers the scripts in the example corpus; anything else is reported as a script error with a migration hint.
 - Impact if wrong: some legacy projects cannot be computed without manual script edits.
 - Evidence so far (F-20): the LNOSTO script runs unchanged under Lua 5.4.
 
-Q-2: [assumption] Can the legacy binaries be run headless (e.g. ReMagX_Terminal.exe under Wine) to produce golden outputs, and which tolerance applies?
+Q-2: [resolved by D-5 and D-23] Can the legacy binaries be run headless (e.g. ReMagX_Terminal.exe under Wine) to produce golden outputs, and which tolerance applies?
 - Current assumption: yes; relative tolerance around 1e-10 for pure calculations, looser where algorithms are known to be approximate (fast resolution).
 - Impact if wrong: golden data must be produced manually from the GUI, or the acceptance gate changes.
 - Partially answered by F-12: headless works, but the existing binaries are 2.3.1 and limit precision to about 1e-6 relative.
@@ -165,32 +216,38 @@ Q-2: [assumption] Can the legacy binaries be run headless (e.g. ReMagX_Terminal.
 
 Q-3: [assumption] Under which licence can the ported code be published on GitHub and remagx.org?
 - Current assumption: open, to be confirmed by the user (who has to settle rights with the original authors / Max Planck Society per F-14).
+- 2026-10-15 review: the user confirmed it stays open for now. Development continues privately; pushing to `origin` (F-31) is fine only while that repo is private.
 - Impact if wrong: public GitHub hosting (F-9) may be impossible, and NR/levmar code must be replaced depending on the target licence.
 
-Q-4: [assumption] Port the NR-derived Simplex/annealing code or rewrite it clean-room?
+Q-4: [resolved by D-24] Port the NR-derived Simplex/annealing code or rewrite it clean-room?
 - Current assumption: port it first (isolated per D-10) so golden fit results can match legacy with the same seed; replace it with a clean-room implementation before any open-source release.
 - Impact if wrong: a public release could infringe the Numerical Recipes licence; a clean-room rewrite changes fit trajectories, so golden fit tests must compare final chi-square/parameters within tolerance instead of exact paths.
 
-Q-5: [assumption] Which legacy features beyond D-3's list are in the MVP?
+Q-5: [resolved by D-25] Which legacy features beyond D-3's list are in the MVP?
 - Current assumption: everything the golden tests of the corpus need is in the MVP: compound and element mode, Nevot-Croce and adaptive slicing, Gaussian magnetic profiles, arbitrary polarization, asymmetry (Rp/Rm), `.e` tables (F-6). Deferred: transmission, maps, TEY, "Parratt without multiple scattering" (PHASE), Kramers-Kronig fitting, OpenCL, desktop packaging.
 - Impact if wrong: MVP is larger or smaller than expected; to be confirmed by the user before implementation.
 
-Q-6: [assumption] How are `.all` projects with `fitalgorithm = 1` (Levenberg-Marquardt) or evolution settings imported?
+Q-6: [resolved by D-27] How are `.all` projects with `fitalgorithm = 1` (Levenberg-Marquardt) or evolution settings imported?
 - Current assumption: they import; the fit algorithm falls back to Simplex, and the import report states the fallback. Evolution parameters are kept in the JSON but unused.
 - Impact if wrong: users lose settings or are surprised by a different algorithm.
 
-Q-7: [assumption] Numeric thresholds in the spec: golden fit chi-square within 1e-6 relative (AC-9); Stop ends a computation within 1 s and the UI responds within 200 ms during a fit (AC-10).
+Q-7: [resolved by D-28] Numeric thresholds in the spec: golden fit chi-square within 1e-6 relative (AC-9); Stop ends a computation within 1 s and the UI responds within 200 ms during a fit (AC-10).
 - Current assumption: reasonable defaults set by the spec author, not yet confirmed by the user.
 - Impact if wrong: ACs fail or are too loose; adjust when measured.
 
-Q-8: [assumption] Spec-author boundaries not yet confirmed by the user: ASK FIRST before loosening a golden tolerance, before deviating from legacy physics (even apparent bugs), and before changing user-visible Lua globals.
+Q-8: [resolved by D-29] Spec-author boundaries not yet confirmed by the user: ASK FIRST before loosening a golden tolerance, before deviating from legacy physics (even apparent bugs), and before changing user-visible Lua globals.
 - Current assumption: these follow from D-4 (legacy output is the reference) and D-2/Q-1 (script compatibility).
 - Impact if wrong: unnecessary escalations, or silent behaviour changes.
 
-Q-9: [assumption] Legacy `old/` tree outside main history: archive or Git LFS?
+Q-9: [resolved by D-30] Legacy `old/` tree outside main history: archive or Git LFS?
 - Current assumption: kept outside git entirely (current `.gitignore`, F-26); the decision can be revisited.
 - Impact if wrong: legacy sources are not versioned alongside the new code.
+
+Q-10: [resolved by D-26] Is the layer profile / electric field viewer part of the MVP?
+- Current assumption: to be asked.
+- Impact if wrong: users miss a diagnostic view, or MVP effort grows.
 
 ## Process notes
 - 2026-10-15: Several journal writes (F-17..F-25, D-11..D-18 and the "Rejected Approaches" heading) silently failed during the session because an earlier scripted edit removed the anchor heading. They were re-inserted from the session record with unchanged content and are marked as such. Later scripted edits assert that their anchor exists.
 - 2026-10-15: Cold review (Step 8) done by a fresh subagent; findings resolved in D-21 and Q-5 to Q-9. Brainstorm closed on user request; the implementation roadmap is deferred.
+- 2026-10-15: Open assumptions reviewed one by one with the user: Q-1, Q-2 and Q-4 to Q-10 resolved (D-22 to D-30); only Q-3 (licence) remains open.

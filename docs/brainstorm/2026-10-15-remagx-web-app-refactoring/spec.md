@@ -58,16 +58,24 @@ Native build of the same C++ core → golden-data generator + CI regression test
   (`engine.wasm` for the browser).
 - Optimizers sit behind one optimizer interface in their own source directory (D-10). MVP
   algorithms: Simplex (Nelder-Mead) and Simplex with simulated annealing (D-11). No
-  Levenberg-Marquardt (F-17). Whether the NR-derived code is ported or rewritten clean-room
-  depends on the licence (Q-4).
+  Levenberg-Marquardt (F-17). The NR-derived code is first ported as-is into
+  `engine/src/optim/legacy_nr/`, then replaced by a clean-room implementation before any public
+  release (D-24).
+- MVP physics scope (D-3, D-25): Parratt, full 4x4 matrix, Zak; qz and energy scans; angular and
+  energy resolution; compound and element mode; Nevot-Croce roughness and adaptive slicing;
+  Gaussian magnetic profiles (spline, coupling); arbitrary polarization with analyzer; asymmetry
+  (both definitions). The engine also exposes the sliced depth profile for the profile view (D-26).
 
 ### 3. Scripting (D-2, D-12)
 
 - wasmoon (Lua 5.4) runs inside the compute worker.
-- Legacy globals are provided with legacy semantics: `par` (0-based), `energy`, `thickness`,
-  `delta`, `beta`, ... The bridge builds Lua tables itself with numeric keys, because automatic
-  JS→Lua conversion yields string keys (F-21).
-- A small Lua 5.1 compatibility prelude (e.g. `unpack`) is loaded before user scripts (Q-1).
+- The full legacy ReMagX script API is provided with legacy semantics (D-22, names per F-30):
+  arrays (`par` 0-based, `delta`, `beta`, `thickness`, `sigma`, `density`, `deltam`, `betam`,
+  `gauss_*`, tensor components `exx_r` … `ezz_i`), element objects with their methods, functions
+  (`SetChemicalFormula`, `FillTensors`, `print`, `write`, ...) and globals (`energy`, `epsilon`,
+  `resolution`, ...). Names that need non-MVP features raise a clear "not supported yet" error.
+- The bridge builds Lua tables itself with numeric keys, because automatic JS→Lua conversion
+  yields string keys (F-21). No Lua 5.1 shim is needed for the corpus (F-30).
 - The "before calculation" script runs before every model evaluation (every fit iteration).
   Measured cost is about 32 µs per call (F-20).
 - Script errors are shown with line numbers (D-14).
@@ -82,9 +90,9 @@ Native build of the same C++ core → golden-data generator + CI regression test
   - ignores `precision` and always uses double;
   - imports embedded datasets and Lua scripts;
   - imports projects using Levenberg-Marquardt or evolution settings with a fallback to Simplex,
-    stated in the import report (assumption Q-6);
+    stated in the import report; `evo_*` settings are kept unused (D-27);
   - produces an import report listing ignored or unsupported keys.
-- Optical-constant tables (`.db`, `.m`, `.ff`, and `.e` per assumption Q-5; F-6) are imported into a per-browser material library;
+- Optical-constant tables (`.db`, `.m`, `.ff`, `.e`; F-6, D-25) are imported into a per-browser material library;
   the built-in periodic-table data ships as a static asset.
 - Storage: IndexedDB autosave; open/save via the File System Access API on Chromium, with an
   upload/download fallback on Firefox/Safari.
@@ -97,7 +105,8 @@ Native build of the same C++ core → golden-data generator + CI regression test
 - Collapsible section side panel per tab (accordion), with the legacy section names, independent
   expand/collapse, scrolling and context-dependent visibility (e.g. algorithm-specific sections).
   Collapsed state is a per-user local preference (D-18; panel behaviour per F-23).
-- Plots with uPlot (log axes, many points).
+- Plots with uPlot (log axes, many points): reflectivity/energy-scan plots and the depth-profile
+  view of delta, beta, delta_m, beta_m vs. z (D-26).
 - A script parses the legacy `.dfm` files and the `Items->Add` calls into a settings/handler
   inventory (F-22, F-24). It serves as the completeness checklist: every entry is marked
   ported / dropped / deferred. Logic from legacy event handlers is moved into the TS model or the
@@ -128,7 +137,8 @@ Native build of the same C++ core → golden-data generator + CI regression test
 - Docker is an optional, reproducible build: a pinned image (emsdk + g++ + Node) and
   `docker compose run build`. Building with a local toolchain is also possible; tests are not tied
   to Docker.
-- git repository. The legacy `old/` tree and release zips stay outside git (`.gitignore`; Q-9).
+- git repository. The legacy `old/` tree and release zips stay outside git (`.gitignore`; D-30). The legacy
+  sources needed for golden data are copied into `tools/golden/legacy/` and versioned.
 - Layout: `engine/` (C++, native + Emscripten), `app/` (React + Vite), `tools/golden/`
   (rebuild of legacy core + generator), `tools/inventory/` (.dfm parser), `docker/`, `docs/`.
 
@@ -151,27 +161,32 @@ Native build of the same C++ core → golden-data generator + CI regression test
   injected unknown key `foo_bar = 1` yields a report entry "foo_bar".
 - AC-5: When an MVP project (Parratt, full matrix or Zak; qz or energy scan; with or without
   angular/energy resolution) is calculated, the system SHALL match the golden output of the native
-  legacy rebuild within relative tolerance 1e-10 per point (tolerance per assumption Q-2; looser
-  per-case tolerances MAY be set only for explicitly listed cases, with a reason).
-  DoD: `docker compose run test` golden suite green for both the native and the WASM build.
+  legacy rebuild per data point with |new − ref| ≤ 1e-10·|ref| + 1e-15 (D-23); looser per-case
+  tolerances MAY be set only for explicitly listed cases, with a reason.
+  DoD: golden suite green for both the native build and the WASM build (in Node).
 - AC-6: The golden-data tooling SHALL show that the native legacy rebuild agrees with the shipped Wine-run 2.3.1 terminal within
   1e-6 relative on all corpus files that 2.3.1 can compute (D-17.2).
   DoD: `tools/golden/crosscheck` report shows 0 mismatches (listed exceptions need a documented reason).
 - AC-7: When a project with a legacy "before calculation" Lua script is calculated, the system SHALL
-  execute it with legacy global semantics (0-based `par`, `energy`, `thickness`, `delta`, `beta`)
-  and SHALL match the golden output (AC-5 tolerance).
-  DoD: golden tests for LNOSTO.all, NiL3_try2.all and PNO_LSAT.all pass.
+  execute it with the legacy script API (D-22) and SHALL match the golden output (AC-5 tolerance).
+  DoD: golden tests for all corpus projects with non-empty scripts pass (at least LNOSTO.all,
+  NiL3_try2.all, PNO_LSAT.all).
+- AC-7a: If a script calls a legacy API name that needs a non-MVP feature, the system SHALL report
+  "not supported yet" with the name and line number instead of an undefined-name error (D-22).
+  DoD: unit test calling `KramersKronigRange()` yields a message containing "KramersKronigRange" and "not supported".
+- AC-7b: When a `.all` file with `fitalgorithm = 1` is imported, the system SHALL set the fit
+  algorithm to Simplex and SHALL state the fallback in the import report (D-27).
+  DoD: fixture import yields `fit.algorithm == "simplex"` and a report entry mentioning Levenberg-Marquardt.
 - AC-8: If a Lua script fails to compile or run, the system SHALL show the error with its line number
   and SHALL NOT change the project.
   DoD: unit test with a script containing a syntax error on line 3 yields a message containing "3",
   and the serialized project JSON is byte-identical before and after the run.
 - AC-9: When a fit is started with Simplex or Simplex+annealing, the system SHALL reach a final
-  chi-square no worse than the legacy rebuild's on the same project and seed (within 1e-6 relative;
-  threshold per assumption Q-7).
+  chi-square ≤ the legacy rebuild's × (1 + 1e-6) on the same project and seed (D-28).
   DoD: golden fit tests on at least 3 corpus projects pass.
 - AC-10: While a fit or calculation is running, the UI SHALL stay responsive and SHALL show
   per-iteration progress; when the user presses Stop, the computation SHALL end within 1 s
-  (thresholds per assumption Q-7).
+  (D-28).
   DoD: Playwright test: start a fit; the iteration counter increases at least twice; click a tab
   during the fit (UI responds < 200 ms); press Stop; status "stopped" within 1 s.
 - AC-11: The UI SHALL provide the legacy collapsible section panels (General, Sample, Fit) with the
@@ -197,15 +212,16 @@ Native build of the same C++ core → golden-data generator + CI regression test
 
 - ALWAYS: keep the golden test suite green; refactor legacy C++ only in steps that keep it green (D-17.5).
 - ALWAYS: keep optimizer code (NR-derived, any third-party) isolated behind the optimizer interface (D-10).
+- NEVER: release publicly while NR-derived optimizer code is still in the repo (D-24).
 - NEVER: let other Numerical Recipes- or GPL-derived code enter the engine core outside the optimizer directory (D-10).
 - ALWAYS: add every new legacy file the user supplies to the private corpus (F-25, D-20).
 - ALWAYS: keep the Docker build working and producing the static site (D-19).
 - ALWAYS: commit work to git; keep the legacy `old/` tree and binaries out of the main history (F-19, D-19).
 - NEVER: commit corpus or research data to the main repo (D-20).
 - ASK FIRST: before adding any feature outside the MVP scope (D-3, Out of Scope).
-- ASK FIRST: before loosening a golden tolerance or adding a golden exception (assumption Q-8).
-- ASK FIRST: before deviating from legacy physics behaviour, even if the legacy behaviour looks like a bug; document confirmed deviations (assumption Q-8).
-- ASK FIRST: before changing the user-visible Lua globals or semantics (assumption Q-8).
+- ASK FIRST: before loosening a golden tolerance or adding a golden exception (D-29).
+- ASK FIRST: before deviating from legacy physics behaviour, even if the legacy behaviour looks like a bug; document confirmed deviations (D-29).
+- ASK FIRST: before changing the user-visible Lua globals or semantics (D-29).
 - NEVER: publish the repository or the site publicly before the licence question (Q-3) is decided (D-17.4).
 - NEVER: reintroduce single, extended or arbitrary precision (F-3).
 - NEVER: silently drop data or keys during `.all` import; everything unhandled goes into the import report.
@@ -216,14 +232,14 @@ Native build of the same C++ core → golden-data generator + CI regression test
 - Levenberg-Marquardt fitting and parameter standard deviations (D-11, F-17).
 - Evolutionary fit algorithm (CEvolution) (D-11).
 - 2D maps, TEY, webserver (D-3); transmission, "Parratt without multiple scattering" (legacy PHASE
-  algorithm), Kramers-Kronig fitting, OpenCL (assumption Q-5).
+  algorithm), Kramers-Kronig fitting, "Scratch" tools, OpenCL (D-25).
+- Electric-field view |E(z)| (D-26).
 - `.all` export / round-trip with legacy ReMagX (D-8).
 - Shared or collaborative features, accounts, server back end (F-2).
-- Desktop packaging (Electron/Tauri) (assumption Q-5; the deliverable is a static site, F-27).
+- Desktop packaging (Electron/Tauri) (D-25; the deliverable is a static site, F-27).
 - Rewriting the engine in Rust (rejected, see decisions.md).
 
-## Open assumptions to confirm before implementation
+## Open questions
 
-Q-1 (Lua 5.1 compatibility), Q-2 (golden tolerance), Q-3 (licence), Q-4 (port vs clean-room
-optimizer), Q-5 (MVP feature list beyond D-3), Q-6 (LM/evolution import fallback), Q-7 (numeric
-thresholds), Q-8 (author-set ASK FIRST rules), Q-9 (legacy tree outside git). See decisions.md.
+Only Q-3 (licence) remains open. Until it is decided, development stays private (the `origin`
+repository must stay private, F-31). All other assumptions were confirmed (D-22 to D-30).
