@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultProject, createLayer, wavelengthFromEnergy } from './defaults'
+import { createDefaultProject, createLayer } from './defaults'
 import { validateProject } from './project'
+import { wavelengthFromEnergy } from './units'
 
 describe('default project', () => {
   it('is valid against the schema', () => {

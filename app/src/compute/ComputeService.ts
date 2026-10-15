@@ -1,0 +1,64 @@
+// The interface between the UI and the numerics (D-7, D-12, D-33). The UI depends only on
+// ComputeService; today it is backed by a Web Worker running the TypeScript mock engine, later
+// by the same worker running the WebAssembly engine.
+
+import type { Project } from '../model/project'
+
+export interface ReflectivityCurve {
+  qz: number[]
+  reflectivity: number[]
+}
+
+export interface EnergyScanCurve {
+  energy: number[]
+  reflectivity: number[]
+}
+
+// Reflectivity for the two beams (legacy "dichroic" mode) and their asymmetry.
+export interface AsymmetryCurve {
+  qz: number[]
+  reflectivityPlus: number[]
+  reflectivityMinus: number[]
+  asymmetry: number[]
+}
+
+// Optical constants vs. depth z as used by the calculation (after roughness), D-26.
+// z = 0 is the substrate surface; z grows towards the ambient medium.
+export interface DepthProfile {
+  z: number[]
+  delta: number[]
+  beta: number[]
+  deltaMag: number[]
+  betaMag: number[]
+}
+
+export interface FitProgress {
+  iteration: number
+  chi2: number
+  values: number[] // current value of each fit parameter, same order as project.fit.parameters
+}
+
+export interface FitResult {
+  project: Project // the project with the best parameter values applied
+  chi2: number
+  iterations: number
+  stopped: boolean // true if ended by stopFit(), false if converged or hit the iteration limit
+}
+
+export interface ComputeService {
+  calcReflectivity(project: Project): Promise<ReflectivityCurve>
+  calcEnergyScan(project: Project): Promise<EnergyScanCurve>
+  calcAsymmetry(project: Project): Promise<AsymmetryCurve>
+  depthProfile(project: Project): Promise<DepthProfile>
+  startFit(project: Project, onProgress: (progress: FitProgress) => void): Promise<FitResult>
+  stopFit(): void
+  dispose(): void
+}
+
+// Error raised for invalid input or unsupported features; the message is shown to the user.
+export class ComputeError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ComputeError'
+  }
+}

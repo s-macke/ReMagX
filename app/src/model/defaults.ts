@@ -138,10 +138,3 @@ export function createDefaultProject(): Project {
     scripts: { enabled: true, beforeCalculation: '', default: '', parameters: [] },
   }
 }
-
-// Photon wavelength in Å for an energy in eV (hc = 12398.4198 eV·Å).
-export const HC_EV_ANGSTROM = 12398.41984332
-
-export function wavelengthFromEnergy(energy: number): number {
-  return HC_EV_ANGSTROM / energy
-}
