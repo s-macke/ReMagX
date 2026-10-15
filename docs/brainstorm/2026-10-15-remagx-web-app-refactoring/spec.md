@@ -228,6 +228,7 @@ Native build of the same C++ core → golden-data generator + CI regression test
 - NEVER: reintroduce single, extended or arbitrary precision (F-3).
 - NEVER: silently drop data or keys during `.all` import; everything unhandled goes into the import report.
 - NEVER: put domain logic in React components; it belongs in the TS model or the engine.
+- NEVER: carry over legacy or IDE-generated identifiers (`Button1Click`, `TFrame4`, `Edit17`, `Schicht`, ...) into new code; use descriptive English names. Legacy names appear only in import/inventory mappings, traceability comments, and the user-visible Lua API (D-34, D-22).
 
 ## Out of Scope (MVP)
 

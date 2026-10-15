@@ -210,6 +210,12 @@ D-33: [accepted] **Build the UI first against a mocked compute interface**
 - Evaluated importer timing: real importer now; hand-made sample projects only. Rejected samples-only: real legacy projects could not be viewed.
 - Plan: /home/sebastian/.claude/plans/ok-so-what-next-dapper-cook.md (Steps 0-8). (Source: user, 2026-10-15)
 
+D-34: [accepted] **Ported code gets proper, descriptive names; legacy names are not kept**
+- No Borland/IDE-generated or legacy names survive the port: no `Button1Click`, `RadioGroup1Click`, `TFrame4`, `Edit17`, `Schicht`, `RechenHilfe`, `CLNFloat`, etc. Functions, components, types and variables are named after what they do or represent (e.g. `onAlgorithmChange`, `SectionPanel`, `Layer`, `calcReflectivity`), in English.
+- Applies to the TypeScript UI and to the ported C++ engine. Legacy names may appear only in mapping tables, such as the `.all` key importer, the inventory (legacy component → new element), and comments that reference the legacy source for traceability.
+- Exception: the user-visible Lua script API keeps its legacy names (D-22), because renaming would break users' scripts.
+- (Source: user instruction, 2026-10-15)
+
 ## Rejected Approaches
 
 Rust rewrite of the numerics (approach B): too costly and risky for the MVP. Reconsider if the ported C++ core proves unmaintainable.
