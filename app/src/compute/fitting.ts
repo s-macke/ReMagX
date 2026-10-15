@@ -73,7 +73,7 @@ export function fitError(project: Project): number {
     (q) => parratt(layers, q, dataset.energy || project.experiment.energy, beamWeights(dataset.polarization.beam1)),
     qz,
     project.experiment.resolution.angularFwhm,
-  ).map((r) => r * dataset.intensityScale)
+  ).map((r) => (r + dataset.intensityOffset) * dataset.intensityScale)
 
   const log = project.fit.errorFunction === 'log-chi2'
   let sum = 0

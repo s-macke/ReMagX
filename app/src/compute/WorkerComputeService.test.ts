@@ -36,6 +36,7 @@ function fitProject(): Project {
     energyShift: 0,
     angularResolution: 0,
     intensityScale: 1,
+    intensityOffset: 0,
     qzShift: 0,
     errorWeight: 1,
     polarization: project.experiment.polarization,

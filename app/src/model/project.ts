@@ -156,6 +156,7 @@ export const datasetSchema = z
     energyShift: finite,
     angularResolution: nonNegative,
     intensityScale: finite,
+    intensityOffset: finite, // added to the reflectivity before scaling: (R + offset) * scale
     qzShift: finite,
     errorWeight: finite,
     polarization: polarizationSchema,
@@ -167,6 +168,7 @@ export const datasetSchema = z
       reflectivityPlus: z.array(finite).optional(),
       reflectivityMinus: z.array(finite).optional(),
       asymmetry: z.array(finite).optional(),
+      electronYield: z.array(finite).optional(),
     }),
   })
   .superRefine((dataset, ctx) => {

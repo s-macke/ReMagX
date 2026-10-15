@@ -54,6 +54,7 @@ describe('validation', () => {
       energyShift: 0,
       angularResolution: 0,
       intensityScale: 1,
+      intensityOffset: 0,
       qzShift: 0,
       errorWeight: 1,
       polarization: base,
@@ -74,7 +75,7 @@ describe('validation', () => {
 
 describe('wavelengthFromEnergy', () => {
   it('converts eV to Å', () => {
-    expect(wavelengthFromEnergy(12398.41984332)).toBeCloseTo(1, 14)
-    expect(wavelengthFromEnergy(777.198)).toBeCloseTo(15.9527, 4)
+    expect(wavelengthFromEnergy(12398.326)).toBeCloseTo(1, 14)
+    expect(wavelengthFromEnergy(777.198)).toBeCloseTo(15.95260, 5)
   })
 })

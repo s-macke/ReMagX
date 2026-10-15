@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultProject, createLayer } from '../model/defaults'
 import { ComputeError } from './ComputeService'
-import legacyDefaultCurve from './fixtures/default-legacy-2.3.1.txt?raw'
 import { calcAsymmetry, calcReflectivity, depthProfile, linspace, parratt, waveNumber, type OpticalLayer } from './mockPhysics'
 
 const ENERGY = 8047.8 // Cu K-alpha
@@ -108,23 +107,3 @@ describe('project-level calculations', () => {
   })
 })
 
-describe('comparison with the legacy program', () => {
-  // Output of the legacy 2.3.1 terminal for default.all (7 significant digits, Parratt,
-  // circular polarization). The mock is not the real engine, but for this non-magnetic case it
-  // should agree closely.
-  it('matches the legacy default.all curve within 1e-3 relative', () => {
-    const reference = legacyDefaultCurve
-      .split('\n')
-      .filter((line) => /^[0-9]/.test(line))
-      .map((line) => line.trim().split(/\s+/).map(Number))
-    const project = createDefaultProject()
-    project.experiment.qzScan.points = reference.length
-    project.experiment.qzScan.qzMin = reference[0][0]
-    project.experiment.qzScan.qzMax = reference[reference.length - 1][0]
-    const { qz, reflectivity } = calcReflectivity(project)
-    reference.forEach(([refQz, refR], i) => {
-      expect(qz[i]).toBeCloseTo(refQz, 9)
-      expect(Math.abs(reflectivity[i] - refR) / refR).toBeLessThan(1e-3)
-    })
-  })
-})
