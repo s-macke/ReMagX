@@ -106,9 +106,9 @@ The legacy example files in `old/reMagX3` can serve as a local corpus
 - [x] ASCII dataset import dialog; "Save diagram data"; "Export Table as ASCII"
 - [x] Layer table: material, density, per-layer magnetization; element-mode slab table
 - [x] Built-in examples (default project, Tutorials 1–3)
+- [x] Toolbar under the menu: new/open/save, undo/redo, add/remove layer, element mode and navigation, script window
 
 ### UI phase: still to do
-- [ ] Toolbar under the menu (icons: new/open/save, undo/redo, add/remove layer, element navigation)
 - [ ] Summary window (legacy `guidll/SummaryForm`)
 - [ ] Electric-field view |E(z)| (D-26: later)
 - [ ] "Scratch" tools of the legacy Tools menu (decide which are worth keeping)

@@ -23,6 +23,7 @@ import { ModePanel } from './ui/ModePanel'
 import { PlotPanel } from './ui/PlotPanel'
 import { PreferencesDialog } from './ui/PreferencesDialog'
 import { SidePanel } from './ui/SidePanel'
+import { Toolbar } from './ui/Toolbar'
 
 // The script window pulls in the code editor; load it only when opened.
 const ScriptWindow = lazy(() => import('./ui/ScriptWindow').then((m) => ({ default: m.ScriptWindow })))
@@ -199,9 +200,38 @@ function Workspace() {
     { label: 'Help', items: [{ label: 'About ReMagX Web', onSelect: () => setAboutOpen(true) }] },
   ]
 
+  const elements = project.sample.elementProfiles
+  const elementIndex = Math.min(state.selectedElement, Math.max(0, elements.length - 1))
+  const elementMode = project.sample.mode === 'element'
+  const setMode = (mode: 'compound' | 'element') => dispatch({ type: 'updateProject', update: (p) => ({ ...p, sample: { ...p.sample, mode } }) })
+
   return (
     <div className="app">
       <MenuBar menus={menus} title={unsaved ? `${state.fileName} • unsaved` : state.fileName} />
+      <Toolbar
+        actions={{
+          newProject,
+          open: () => void open(),
+          save: () => void save(false),
+          undo: () => dispatch({ type: 'undo' }),
+          redo: () => dispatch({ type: 'redo' }),
+          addLayer: () => dispatch({ type: 'insertLayer' }),
+          removeLayer: () => dispatch({ type: 'removeLayer' }),
+          toggleElementMode: () => setMode(elementMode ? 'compound' : 'element'),
+          previousElement: () => dispatch({ type: 'selectElement', index: elementIndex - 1 }),
+          nextElement: () => dispatch({ type: 'selectElement', index: elementIndex + 1 }),
+          openScript: () => setScriptOpen(true),
+        }}
+        state={{
+          canUndo: state.history.past.length > 0,
+          canRedo: state.history.future.length > 0,
+          canRemoveLayer: elementMode ? canRemoveSlab(project, elementIndex, state.selectedLayer) : canRemoveLayer(project, state.selectedLayer),
+          elementMode,
+          elementName: elements[elementIndex]?.element ?? null,
+          canPreviousElement: elementIndex > 0,
+          canNextElement: elementIndex < elements.length - 1,
+        }}
+      />
       <main className="workspace">
         <LayerTable />
         <PlotPanel curve={calculation.curve} measured={measured} />
