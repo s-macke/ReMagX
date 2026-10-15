@@ -21,7 +21,8 @@ F-14: [verified] Legacy licence: "All rights reserved by the authors and the Max
 F-15: [verified] Legacy fit algorithms (`fitalgorithm`): 0 = Simplex (NR amoeba), 1 = Levenberg-Marquardt (levmar `dlevmar_bc_dif`, box constraints, numeric Jacobian, gives standard deviations from the covariance), 2 = Simplex with simulated annealing (NR amebsa). The evolutionary algorithm (`CEvolution`) runs separately. (Source: shared/CChiSquareFit.cpp, server/ReMagX_Terminal.cpp)
 F-16: [verified] Some legacy sources are Latin-1 encoded (German umlauts), so plain grep treats them as binary. Porting needs a UTF-8 conversion step. (Source: `file shared/CChiSquareFit.cpp`)
 F-17: [verified] The user reports that the legacy Levenberg-Marquardt fit (levmar) "never worked" in practice; users fit with Simplex and Simplex+annealing. (Source: user answer, 2026-10-15) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
-F-18: [verified] Requirement: everything (native C++ core, Emscripten WASM build, web app, golden-data tools) must build inside Docker. (Source: user message, 2026-10-15) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
+F-18: [REFUTED] Requirement: everything (native C++ core, Emscripten WASM build, web app, golden-data tools) must build inside Docker. (Source: user message, 2026-10-15) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
+     Erratum: "everything must build inside Docker" overstated the requirement; the user wants Docker only as a build option, and the deliverable is a static site. Corrected in F-27.
 F-19: [verified] Requirement: the project uses git for version control. At brainstorm time the working directory is not yet a git repository. (Source: user message, 2026-10-15; environment check) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
 F-20: [verified] Spike: the real LNOSTO.all "before calculation" script (5 Lorentz oscillators driven by `par[0..4]` and `energy`, writing `delta[1]`/`beta[1]`) runs unchanged under wasmoon 1.16 (Lua 5.4, Node 22) in about 32 µs per call when the parameters are passed as scalars and the tables stay on the Lua side. The script runs once per energy/evaluation, not per qz point, so the overhead is negligible next to a reflectivity calculation. (Source: scratchpad/luaspike/bench.mjs, 2026-10-15) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
 F-21: [verified] Spike: passing a JS object to wasmoon produces a Lua table with string keys (`{0:1}` → `par["0"]`), so legacy 0-based `par[0]` is nil. The bridge must build Lua tables itself (numeric keys, 0-based `par`) and cannot rely on automatic JS→Lua conversion. (Source: same spike, first run failed with "attempt to perform arithmetic on a nil value") [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
@@ -30,6 +31,9 @@ F-23: [verified] The legacy right-hand panel is a custom collapsible "box" panel
 F-24: [verified] Many option lists (algorithm, roughness model, precision, asymmetry definition, error function, ...) are filled in code (`Items->Add` in `Unit1.cpp`), not in the .dfm files. A .dfm-only inventory is therefore incomplete; the inventory script must also scan the `Items->Add` calls. (Source: client/Unit1.cpp lines 155-300) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
 F-25: [verified] `.all` import input conditions per user: files may use LF or CRLF; content is essentially ASCII and may be decoded as Unicode (UTF-8; F-16 Latin-1 umlauts only matter in comments). The user will supply many more legacy files for comparison, so the golden/import corpus will grow well beyond the 99 files found. (Source: user note on pre-mortem, 2026-10-15) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
 F-26: [verified] git repository initialized in the project root on 2026-10-15 (updates F-19). `.gitignore` excludes `/old/` (legacy sources, binaries, release zips), node_modules, build output, `*.wasm`, `*.exe`, `*.dll`. No commit made yet. (Source: `git init`, user approval)
+F-27: [verified] Docker is wanted only as a build (compile) option. The final product is a static website that runs in the browser; running, developing and testing are not tied to Docker. (Source: user message, 2026-10-15)
+F-28: [verified] The legacy core is not header-only: the formalisms are templates in headers (`shared/simul/*.h`, `RechenHilfe.h`), but `shared/` also contains .cpp files (e.g. CChiSquareFit.cpp, CStateHandler.cpp, MaterialConstants.cpp, LayerSegmentation.cpp). The legacy toolchain is Borland C++ Builder XE2 (GUI) and MinGW 4.6.2 or newer (DLL). (Source: `ls old/reMagX3/shared`, old/reMagX3/Readme.txt)
+F-29: [verified] Legacy `.all` section version keys present in the corpus: `fileversion = 1`, `layerversion = 3`, `elementlayerversion = 1`, `magneticversion = 4`, `fitvariableversion = 1`, `measurementdataversion = 2`. Legacy error codes (`RX_STATUS` in CStateHandler.h): RX_QZ (angles above 90°), RX_CSCRIPT, RX_ESCRIPT, RX_UNKNOWN, RX_DB (db files missing), RX_ML (multilayer script parse error). Legacy main menu: File, Edit, Mode, Layer, Tools, Preferences, Help. (Source: grep over corpus; shared/CStateHandler.h; client/Unit1.dfm)
 
 ## Decisions & Rationale
 
@@ -102,7 +106,7 @@ D-13: [accepted] **Storage and files**: IndexedDB autosave; File System Access A
 
 D-14: [accepted] **Error handling**: legacy RX_* error codes become user-facing messages; Lua errors show line numbers; `.all` import shows a report of ignored/unsupported keys, including that `precision` is overridden to double. (Source: design-draft.md, accepted by user) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
 
-D-15: [accepted] **Testing, build and repo**: native C++ build plus golden data is the regression gate; the same golden tests run against the WASM build in Node; a few Playwright end-to-end tests. A pinned Docker image (emsdk + g++ + Node) builds and tests everything via `docker compose run build|test`, and CI uses the same image (F-18). git repository with the legacy `old/` tree and release zips kept out of the main history (F-19). Layout: `engine/`, `app/`, `tools/golden/`, `docker/`, `docs/`. (Source: design-draft.md, accepted by user) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
+D-15: [superseded-by D-19] **Testing, build and repo**: native C++ build plus golden data is the regression gate; the same golden tests run against the WASM build in Node; a few Playwright end-to-end tests. A pinned Docker image (emsdk + g++ + Node) builds and tests everything via `docker compose run build|test`, and CI uses the same image (F-18). git repository with the legacy `old/` tree and release zips kept out of the main history (F-19). Layout: `engine/`, `app/`, `tools/golden/`, `docker/`, `docs/`. (Source: design-draft.md, accepted by user) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
 
 D-16: [accepted] **UI = same concepts as legacy, modern web layout** [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
 - Evaluated: same concepts with modern layout; faithful replica of the Borland forms; fresh redesign.
@@ -119,6 +123,21 @@ D-17: [accepted] **Pre-mortem mitigations (all five accepted by the user)** [re-
 
 D-18: [accepted] **Keep the collapsible section panel concept** (consequence of D-16, F-23) [re-inserted 2026-10-15: written live during the session, but the original edit silently failed because of a missing anchor; content unchanged]
 - The React UI has an accordion-style side panel per tab (General/Experiment, Sample, Fit) with the same section names, independent expand/collapse, scrolling, and context-dependent visibility (e.g. algorithm-specific sections). Expanded/collapsed state is remembered per user (local UI preference).
+
+D-19: [accepted] **Docker is an optional, reproducible build; output is a static site** (replaces D-15, based on F-27)
+- A Dockerfile/compose setup (pinned emsdk + g++ + Node) is provided as the reproducible way to build the native engine, the WASM engine and the static web app (`app/dist`). Building with a local toolchain stays possible; tests are not tied to Docker.
+- Unchanged from D-15: native C++ build plus golden data is the regression gate; the same golden tests run against the WASM build in Node; a few Playwright end-to-end tests; git with `old/` out of history; layout `engine/`, `app/`, `tools/golden/`, `docker/`, `docs/`, plus `tools/inventory/` for the D-16/D-17.1 inventory script.
+
+D-20: [accepted] **Test corpus lives in a separate private folder/repo**
+- Evaluated: separate private location (e.g. `../reMagX4-corpus`, passed as `CORPUS_DIR`); inside the main repo (Git LFS); both.
+- Rejected in-repo: legacy projects may contain unpublished research data, which would become public along with the repo (F-9).
+- Rejected both: unnecessary for now.
+- Chosen because: keeps research data private; the main repo holds only a few small shareable fixtures. Initial corpus: `old/reMagX3/examples`, `old/reMagX3/Tutorial`, plus files supplied by the user (F-25).
+
+D-21: [accepted] **Resolution of the cold spec review (Step 8)**
+- Spec fixed: "header-only" removed (F-28); wrong F-23 citation for persisted panel state replaced by D-18; D-10's "no other NR/GPL code in the core" added to Boundaries; D-17.3 encoding added to AC-4; AC-15 restructured to match D-13; AC-12 rewritten in EARS form; DoDs of AC-2, AC-4, AC-8, AC-10, AC-11 tightened; AC-1 adapted to D-19; corpus via D-20.
+- Spec details that had no journal source were either grounded (F-28, F-29) or recorded as explicit assumptions (Q-5 to Q-9), and the spec cites those Q-entries.
+- D-5 said "a few cases" for the Wine cross-check; D-17.2 later extended this to all corpus files 2.3.1 can compute. D-17.2 applies.
 
 ## Rejected Approaches
 
@@ -142,6 +161,7 @@ Q-2: [assumption] Can the legacy binaries be run headless (e.g. ReMagX_Terminal.
 - Current assumption: yes; relative tolerance around 1e-10 for pure calculations, looser where algorithms are known to be approximate (fast resolution).
 - Impact if wrong: golden data must be produced manually from the GUI, or the acceptance gate changes.
 - Partially answered by F-12: headless works, but the existing binaries are 2.3.1 and limit precision to about 1e-6 relative.
+- Method resolved by D-5 (native rebuild); the tolerance part is still an assumption (used in spec AC-5).
 
 Q-3: [assumption] Under which licence can the ported code be published on GitHub and remagx.org?
 - Current assumption: open, to be confirmed by the user (who has to settle rights with the original authors / Max Planck Society per F-14).
@@ -151,5 +171,26 @@ Q-4: [assumption] Port the NR-derived Simplex/annealing code or rewrite it clean
 - Current assumption: port it first (isolated per D-10) so golden fit results can match legacy with the same seed; replace it with a clean-room implementation before any open-source release.
 - Impact if wrong: a public release could infringe the Numerical Recipes licence; a clean-room rewrite changes fit trajectories, so golden fit tests must compare final chi-square/parameters within tolerance instead of exact paths.
 
+Q-5: [assumption] Which legacy features beyond D-3's list are in the MVP?
+- Current assumption: everything the golden tests of the corpus need is in the MVP: compound and element mode, Nevot-Croce and adaptive slicing, Gaussian magnetic profiles, arbitrary polarization, asymmetry (Rp/Rm), `.e` tables (F-6). Deferred: transmission, maps, TEY, "Parratt without multiple scattering" (PHASE), Kramers-Kronig fitting, OpenCL, desktop packaging.
+- Impact if wrong: MVP is larger or smaller than expected; to be confirmed by the user before implementation.
+
+Q-6: [assumption] How are `.all` projects with `fitalgorithm = 1` (Levenberg-Marquardt) or evolution settings imported?
+- Current assumption: they import; the fit algorithm falls back to Simplex, and the import report states the fallback. Evolution parameters are kept in the JSON but unused.
+- Impact if wrong: users lose settings or are surprised by a different algorithm.
+
+Q-7: [assumption] Numeric thresholds in the spec: golden fit chi-square within 1e-6 relative (AC-9); Stop ends a computation within 1 s and the UI responds within 200 ms during a fit (AC-10).
+- Current assumption: reasonable defaults set by the spec author, not yet confirmed by the user.
+- Impact if wrong: ACs fail or are too loose; adjust when measured.
+
+Q-8: [assumption] Spec-author boundaries not yet confirmed by the user: ASK FIRST before loosening a golden tolerance, before deviating from legacy physics (even apparent bugs), and before changing user-visible Lua globals.
+- Current assumption: these follow from D-4 (legacy output is the reference) and D-2/Q-1 (script compatibility).
+- Impact if wrong: unnecessary escalations, or silent behaviour changes.
+
+Q-9: [assumption] Legacy `old/` tree outside main history: archive or Git LFS?
+- Current assumption: kept outside git entirely (current `.gitignore`, F-26); the decision can be revisited.
+- Impact if wrong: legacy sources are not versioned alongside the new code.
+
 ## Process notes
 - 2026-10-15: Several journal writes (F-17..F-25, D-11..D-18 and the "Rejected Approaches" heading) silently failed during the session because an earlier scripted edit removed the anchor heading. They were re-inserted from the session record with unchanged content and are marked as such. Later scripted edits assert that their anchor exists.
+- 2026-10-15: Cold review (Step 8) done by a fresh subagent; findings resolved in D-21 and Q-5 to Q-9. Brainstorm closed on user request; the implementation roadmap is deferred.
