@@ -24,8 +24,9 @@ Lua scripts, and simulate and fit them with results matching legacy ReMagX (D-3,
   which requires a static, server-less build (F-9).
 - The code lives in git (F-19, F-26). Docker is offered as an optional, reproducible build; the deliverable is a static website (F-27, D-19).
 - The test corpus of legacy projects is private and lives outside the main repo (D-20).
-- The licence is not yet decided; the legacy code is "all rights reserved" (MPG) and contains
-  Numerical Recipes-derived code (F-14, Q-3).
+- Licence: GPL-3.0; the repository https://github.com/s-macke/ReMagX is public (D-31, F-32). The
+  rights to the legacy code are cleared for publication (F-33). The legacy Numerical Recipes-derived
+  optimizer code is not covered and is rewritten (D-32).
 
 ## Design
 
@@ -58,9 +59,8 @@ Native build of the same C++ core → golden-data generator + CI regression test
   (`engine.wasm` for the browser).
 - Optimizers sit behind one optimizer interface in their own source directory (D-10). MVP
   algorithms: Simplex (Nelder-Mead) and Simplex with simulated annealing (D-11). No
-  Levenberg-Marquardt (F-17). The NR-derived code is first ported as-is into
-  `engine/src/optim/legacy_nr/`, then replaced by a clean-room implementation before any public
-  release (D-24).
+  Levenberg-Marquardt (F-17). Both are new implementations in `engine/src/optim/`, written from the
+  published algorithm descriptions and not translated from the Numerical Recipes code (D-32).
 - MVP physics scope (D-3, D-25): Parratt, full 4x4 matrix, Zak; qz and energy scans; angular and
   energy resolution; compound and element mode; Nevot-Croce roughness and adaptive slicing;
   Gaussian magnetic profiles (spline, coupling); arbitrary polarization with analyzer; asymmetry
@@ -122,7 +122,9 @@ Native build of the same C++ core → golden-data generator + CI regression test
 ### 7. Validation (D-4, D-5, D-17)
 
 - Golden data: the legacy 2.6 core and terminal are rebuilt natively (modern g++, double,
-  `%.17g` output) and run on the corpus (D-5).
+  `%.17g` output) and run on the corpus (D-5). The public rebuild uses the rewritten optimizers;
+  reference fit results come from an original build with the NR code, run once on the user's
+  machine and never committed. Only its output is stored, in the private corpus (D-32).
 - Corpus: a separate private folder/repo passed as `CORPUS_DIR` (D-20), seeded with
   `old/reMagX3/examples` and `Tutorial` and growing with user-supplied files (F-25). The main repo
   holds only small shareable fixtures.
@@ -182,7 +184,7 @@ Native build of the same C++ core → golden-data generator + CI regression test
   DoD: unit test with a script containing a syntax error on line 3 yields a message containing "3",
   and the serialized project JSON is byte-identical before and after the run.
 - AC-9: When a fit is started with Simplex or Simplex+annealing, the system SHALL reach a final
-  chi-square ≤ the legacy rebuild's × (1 + 1e-6) on the same project and seed (D-28).
+  chi-square ≤ the original legacy program's × (1 + 1e-6) on the same project (D-28, D-32).
   DoD: golden fit tests on at least 3 corpus projects pass.
 - AC-10: While a fit or calculation is running, the UI SHALL stay responsive and SHALL show
   per-iteration progress; when the user presses Stop, the computation SHALL end within 1 s
@@ -211,9 +213,9 @@ Native build of the same C++ core → golden-data generator + CI regression test
 ## Boundaries
 
 - ALWAYS: keep the golden test suite green; refactor legacy C++ only in steps that keep it green (D-17.5).
-- ALWAYS: keep optimizer code (NR-derived, any third-party) isolated behind the optimizer interface (D-10).
-- NEVER: release publicly while NR-derived optimizer code is still in the repo (D-24).
-- NEVER: let other Numerical Recipes- or GPL-derived code enter the engine core outside the optimizer directory (D-10).
+- ALWAYS: keep optimizers behind the optimizer interface in `engine/src/optim/` (D-10).
+- NEVER: commit Numerical Recipes code, or code translated from it, anywhere in the repository (D-32).
+- NEVER: add third-party code whose licence is incompatible with GPL-3.0 (D-31).
 - ALWAYS: add every new legacy file the user supplies to the private corpus (F-25, D-20).
 - ALWAYS: keep the Docker build working and producing the static site (D-19).
 - ALWAYS: commit work to git; keep the legacy `old/` tree and binaries out of the main history (F-19, D-19).
@@ -222,7 +224,7 @@ Native build of the same C++ core → golden-data generator + CI regression test
 - ASK FIRST: before loosening a golden tolerance or adding a golden exception (D-29).
 - ASK FIRST: before deviating from legacy physics behaviour, even if the legacy behaviour looks like a bug; document confirmed deviations (D-29).
 - ASK FIRST: before changing the user-visible Lua globals or semantics (D-29).
-- NEVER: publish the repository or the site publicly before the licence question (Q-3) is decided (D-17.4).
+- ALWAYS: keep the GPL-3.0 `LICENSE` file and licence headers consistent (D-31).
 - NEVER: reintroduce single, extended or arbitrary precision (F-3).
 - NEVER: silently drop data or keys during `.all` import; everything unhandled goes into the import report.
 - NEVER: put domain logic in React components; it belongs in the TS model or the engine.
@@ -241,5 +243,4 @@ Native build of the same C++ core → golden-data generator + CI regression test
 
 ## Open questions
 
-Only Q-3 (licence) remains open. Until it is decided, development stays private (the `origin`
-repository must stay private, F-31). All other assumptions were confirmed (D-22 to D-30).
+None. All assumptions are resolved (D-22 to D-32).

@@ -36,6 +36,8 @@ F-28: [verified] The legacy core is not header-only: the formalisms are template
 F-29: [verified] Legacy `.all` section version keys present in the corpus: `fileversion = 1`, `layerversion = 3`, `elementlayerversion = 1`, `magneticversion = 4`, `fitvariableversion = 1`, `measurementdataversion = 2`. Legacy error codes (`RX_STATUS` in CStateHandler.h): RX_QZ (angles above 90°), RX_CSCRIPT, RX_ESCRIPT, RX_UNKNOWN, RX_DB (db files missing), RX_ML (multilayer script parse error). Legacy main menu: File, Edit, Mode, Layer, Tools, Preferences, Help. (Source: grep over corpus; shared/CStateHandler.h; client/Unit1.dfm)
 F-30: [verified] The corpus scripts (1,136 non-empty, non-comment lines across all `.all` files outside backup/) use no Lua 5.1-only standard-library features (no unpack, setfenv/getfenv, module, table.getn, loadstring, math.mod, gfind). They depend entirely on the ReMagX script API: arrays `delta`, `beta`, `par`, `thickness`, `sigma`, `density`, `deltam`, `betam`, `gauss_delta`, `gauss_beta`, dielectric-tensor components `exx_r` … `ezz_i`; element objects with `setsigma`/`getsigma`/`setthickness`/`getthickness`/`setdensity`/`getdensity`/`setf`/`get`/`set`; functions `SetChemicalFormula`, `FillTensors`, `print`. The legacy engine registers further globals: `energy`, `epsilon`, `resolution`, `energyscan_qz`, `renewocs`, `write`, `CalculateReflectivity`, `CalculateDicReflectivity`, `CalculateEnergyscan`, `ShowMatrixEigenvalues`, `ShowEScanEigenvalues`, `GetError`, `SetName`, `SetDeltaBeta`, `KramersKronigRange`, `GetGaussLorentzianReal`/`Imag`. (Source: grep over corpus scripts; shared/script.cpp, scriptmetaobject.cpp, scriptmetaarray.cpp)
 F-31: [verified] git branch is `main`; remote `origin` = https://github.com/s-macke/ReMagX.git (added 2026-10-15, nothing pushed yet). An anonymous GitHub API request for that repo returns 404, so it is private or not yet created. (Source: git remote -v; curl api.github.com)
+F-32: [verified] The user made https://github.com/s-macke/ReMagX public (2026-10-15). The GitHub API shows: public, empty (size 0, nothing pushed yet), no licence set. This affects F-31, the NEVER-publish boundary (D-17.4), D-24 (porting NR code as-is) and D-30 (legacy sources copied into tools/golden/legacy/). (Source: user message; api.github.com)
+F-33: [verified] The user states that the rights to the legacy ReMagX code are cleared, so the ported engine (D-6) and the legacy rebuild for golden data (D-5, D-30) may be published under GPL-3.0. The Numerical Recipes-derived code (F-14) is not covered and stays excluded. (Source: user answer, 2026-10-15; who cleared it is not recorded)
 
 ## Decisions & Rationale
 
@@ -153,7 +155,7 @@ D-23: [accepted] **Golden tolerance: |new − ref| ≤ 1e-10·|ref| + 1e-15 per 
 - Rejected bit-exact: breaks on reordered sums, different libm (WASM vs glibc) and compiler flags; it would block cleanup.
 - Chosen because: same code and double precision leave only ~1e-15 to 1e-13 differences, so 1e-10 has headroom yet catches physics changes; the floor avoids false alarms in deep minima. Native builds use `-ffp-contract=off` so native and WASM round the same way. Applies to every compared quantity (R, Rp, Rm, asymmetry, ...). Exceptions only for listed cases with a reason (ASK FIRST).
 
-D-24: [accepted] **Optimizers: port the NR-derived code as-is first, replace it clean-room before any public release** (resolves Q-4)
+D-24: [superseded-by D-32] **Optimizers: port the NR-derived code as-is first, replace it clean-room before any public release** (resolves Q-4)
 - Evaluated: port first and rewrite before release; clean-room now; port and keep.
 - Rejected clean-room now: fit paths would differ from legacy during the physics port, leaving golden fit tests with only final chi-square.
 - Rejected port and keep: the NR licence forbids source redistribution, blocking any public release.
@@ -189,6 +191,18 @@ D-30: [accepted] **Legacy `old/` tree stays outside git** (resolves Q-9)
 - Rejected main repo with LFS: large repo, and all-rights-reserved legacy code and binaries would follow the repo if it ever goes public.
 - Rejected separate repo: one more repo to manage, no current need.
 
+D-31: [accepted] **Licence = GPL-3.0** (resolves Q-3; D-10's "decide later" is settled)
+- Evaluated: MIT, GPL-3.0, Apache-2.0, no licence yet.
+- Chosen by the user after making the repo public (F-32): derivatives must stay open source.
+- Consequences: Numerical Recipes-derived code must never be pushed (its licence forbids source redistribution), so D-24's "port as-is first" must be revisited. Publishing legacy-derived code (the ported engine, D-6; the golden rebuild, D-30) requires the rights to the legacy code (F-14).
+
+D-32: [accepted] **Rewrite Simplex and annealing from the published algorithms now; reference fit results from the original code, generated locally only** (replaces D-24, due to D-31 and F-32)
+- The engine gets new Nelder-Mead and simplex simulated-annealing implementations (GPL-3.0) in `engine/src/optim/`, written from the published algorithm descriptions and not translated from the Numerical Recipes code. The legacy rebuild in `tools/golden/legacy/` uses this rewrite too, so the public repo contains no NR code.
+- Reference fit results are generated once on the user's machine with an original legacy build (with NR code) that is never committed anywhere. Only the output data is stored, in the private corpus (D-20).
+- Fit test (AC-9): final chi-square(new) ≤ chi-square(original) × (1 + 1e-6); step-by-step paths are not compared (D-28).
+- Evaluated: original code locally only for references; rewrite only with synthetic parameter-recovery tests.
+- Rejected rewrite-only: there would be no comparison against the original program's fit quality.
+
 ## Rejected Approaches
 
 Rust rewrite of the numerics (approach B): too costly and risky for the MVP. Reconsider if the ported C++ core proves unmaintainable.
@@ -196,6 +210,7 @@ Faithful replica of the Borland UI: dated UX, no real benefit (D-16).
 Automatic Borland-to-React conversion: no such tool; event handlers mix UI and logic (F-22). The .dfm files are used only as an inventory.
 Levenberg-Marquardt fitting via levmar: never worked in practice (F-17), GPL dependency. Reconsider only with a working, licence-compatible implementation and a real need for parameter errors.
 New modern script API with automatic migration of legacy scripts: every script must be migrated, and the rewriter is a risk (D-22).
+Porting the Numerical Recipes optimizer code as-is (D-24): impossible in a public GPL-3.0 repo, because the NR licence forbids source redistribution (D-32).
 TypeScript/AssemblyScript numerics (approach C): no complex-number/numerics ecosystem, performance concerns. Reconsider only for small helper calculations.
 Golden data from Wine + 2.3.1 binary: precision limited to %e and outdated version (F-12). Still used for cross-checking the rebuild.
 Full feature parity as first release (from D-1): delays a usable product.
@@ -214,7 +229,7 @@ Q-2: [resolved by D-5 and D-23] Can the legacy binaries be run headless (e.g. Re
 - Partially answered by F-12: headless works, but the existing binaries are 2.3.1 and limit precision to about 1e-6 relative.
 - Method resolved by D-5 (native rebuild); the tolerance part is still an assumption (used in spec AC-5).
 
-Q-3: [assumption] Under which licence can the ported code be published on GitHub and remagx.org?
+Q-3: [resolved by D-31] Under which licence can the ported code be published on GitHub and remagx.org?
 - Current assumption: open, to be confirmed by the user (who has to settle rights with the original authors / Max Planck Society per F-14).
 - 2026-10-15 review: the user confirmed it stays open for now. Development continues privately; pushing to `origin` (F-31) is fine only while that repo is private.
 - Impact if wrong: public GitHub hosting (F-9) may be impossible, and NR/levmar code must be replaced depending on the target licence.
@@ -251,3 +266,4 @@ Q-10: [resolved by D-26] Is the layer profile / electric field viewer part of th
 - 2026-10-15: Several journal writes (F-17..F-25, D-11..D-18 and the "Rejected Approaches" heading) silently failed during the session because an earlier scripted edit removed the anchor heading. They were re-inserted from the session record with unchanged content and are marked as such. Later scripted edits assert that their anchor exists.
 - 2026-10-15: Cold review (Step 8) done by a fresh subagent; findings resolved in D-21 and Q-5 to Q-9. Brainstorm closed on user request; the implementation roadmap is deferred.
 - 2026-10-15: Open assumptions reviewed one by one with the user: Q-1, Q-2 and Q-4 to Q-10 resolved (D-22 to D-30); only Q-3 (licence) remains open.
+- 2026-10-15: Repo made public by the user (F-32). Licence decided as GPL-3.0 (D-31), legacy rights cleared (F-33), NR code replaced by a rewrite (D-32). No open questions remain.
