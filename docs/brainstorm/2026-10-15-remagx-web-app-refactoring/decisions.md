@@ -203,6 +203,13 @@ D-32: [accepted] **Rewrite Simplex and annealing from the published algorithms n
 - Evaluated: original code locally only for references; rewrite only with synthetic parameter-recovery tests.
 - Rejected rewrite-only: there would be no comparison against the original program's fit quality.
 
+D-33: [accepted] **Build the UI first against a mocked compute interface**
+- The React UI is built before the C++→WASM port, against a `ComputeService` interface. A `MockComputeService` runs in a real Web Worker; later a `WasmComputeService` replaces it without UI changes (fits D-7, D-12).
+- The mock computes real curves with a small scalar Parratt + Nevot-Croce in TypeScript, so the UI can be judged with realistic behaviour. The real `.all` importer (D-8, D-27) is part of this phase.
+- Evaluated mock data: TS mini-Parratt; purely synthetic curves; recorded legacy outputs. Rejected synthetic: does not respond like real physics. Rejected recorded outputs: edits would not change the curve.
+- Evaluated importer timing: real importer now; hand-made sample projects only. Rejected samples-only: real legacy projects could not be viewed.
+- Plan: /home/sebastian/.claude/plans/ok-so-what-next-dapper-cook.md (Steps 0-8). (Source: user, 2026-10-15)
+
 ## Rejected Approaches
 
 Rust rewrite of the numerics (approach B): too costly and risky for the MVP. Reconsider if the ported C++ core proves unmaintainable.
