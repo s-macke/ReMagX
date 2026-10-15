@@ -31,10 +31,14 @@ export interface AppState {
   // Optical-constant tables loaded in this browser session, by file name (Co.db, Co.m, ...).
   opticalTables: OpticalTable[]
   fitStatus: FitStatus
+  savedProject: Project // the project as last opened or saved; differs from project when unsaved
+  notice: string | null // short message in the status bar (saved, restored, …)
 }
 
 export type Action =
-  | { type: 'loadProject'; project: Project; fileName: string; report?: ImportReport }
+  | { type: 'loadProject'; project: Project; fileName: string; report?: ImportReport; notice?: string; unsaved?: boolean }
+  | { type: 'markSaved'; fileName: string }
+  | { type: 'setNotice'; notice: string | null }
   | { type: 'updateProject'; update: (project: Project) => Project }
   | { type: 'updateLayer'; index: number; patch: Partial<Layer> }
   | { type: 'selectLayer'; index: number }
@@ -50,8 +54,11 @@ export type Action =
   | { type: 'setFitStatus'; fitStatus: Partial<FitStatus> }
 
 export function initialState(): AppState {
+  const project = createDefaultProject()
   return {
-    project: createDefaultProject(),
+    project,
+    savedProject: project,
+    notice: null,
     fileName: 'default.json',
     selectedLayer: 1,
     scanKind: 'reflectivity',
@@ -70,10 +77,17 @@ export function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         project: action.project,
+        // An imported legacy file or a restored autosave has not been saved as a project yet.
+        savedProject: action.unsaved ? state.savedProject : action.project,
         fileName: action.fileName,
         selectedLayer: Math.min(1, action.project.sample.layers.length - 1),
         importReport: action.report ?? null,
+        notice: action.notice ?? null,
       }
+    case 'markSaved':
+      return { ...state, savedProject: state.project, fileName: action.fileName, notice: `Saved ${action.fileName}.` }
+    case 'setNotice':
+      return { ...state, notice: action.notice }
     case 'updateProject':
       return { ...state, project: action.update(state.project) }
     case 'updateLayer':

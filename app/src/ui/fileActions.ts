@@ -58,3 +58,65 @@ export function chooseFiles(accept: string): Promise<File[]> {
     input.click()
   })
 }
+
+// --- File System Access API (Chromium) with download/upload fallback (spec AC-15) ------------
+
+const PROJECT_TYPES: FilePickerAcceptType[] = [
+  { description: 'ReMagX project or legacy state file', accept: { 'application/json': ['.json'], 'text/plain': ['.all'] } },
+]
+const JSON_TYPES: FilePickerAcceptType[] = [{ description: 'ReMagX project', accept: { 'application/json': ['.json'] } }]
+
+// The file the current project was opened from or last saved to (JSON only; a legacy .all
+// file is never overwritten).
+let currentHandle: FileSystemFileHandle | null = null
+
+export function forgetCurrentFile(): void {
+  currentHandle = null
+}
+
+const isAbort = (error: unknown) => error instanceof DOMException && error.name === 'AbortError'
+
+export async function openProjectInteractive(): Promise<OpenedProject | null> {
+  if (!window.showOpenFilePicker) {
+    const file = await chooseFile('.all,.json')
+    if (!file) return null
+    currentHandle = null
+    return readProjectFile(file)
+  }
+  try {
+    const [handle] = await window.showOpenFilePicker({ types: PROJECT_TYPES })
+    const opened = await readProjectFile(await handle.getFile())
+    currentHandle = handle.name.toLowerCase().endsWith('.json') ? handle : null
+    return opened
+  } catch (error) {
+    if (isAbort(error)) return null
+    throw error
+  }
+}
+
+async function writeToHandle(handle: FileSystemFileHandle, project: Project): Promise<void> {
+  const writable = await handle.createWritable()
+  await writable.write(JSON.stringify(project, null, 1))
+  await writable.close()
+}
+
+// Saves the project. Returns the file name it was saved under, or null if the user cancelled.
+export async function saveProjectToFile(project: Project, fileName: string, saveAs: boolean): Promise<string | null> {
+  try {
+    if (!saveAs && currentHandle) {
+      await writeToHandle(currentHandle, project)
+      return currentHandle.name
+    }
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({ types: JSON_TYPES, suggestedName: fileName.endsWith('.json') ? fileName : `${fileName}.json` })
+      await writeToHandle(handle, project)
+      currentHandle = handle
+      return handle.name
+    }
+    downloadProject(project, fileName)
+    return fileName
+  } catch (error) {
+    if (isAbort(error)) return null
+    throw error
+  }
+}

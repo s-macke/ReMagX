@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import defaultExample from '../test/fixtures/default.all?raw'
 import tutorial1 from '../test/fixtures/Tut1.all?raw'
 import tutorial2 from '../test/fixtures/Tut2.all?raw'
@@ -10,8 +10,9 @@ import { canRemoveLayer } from './model/layers'
 import { useAppState, useDispatch } from './state/context'
 import { ProjectProvider } from './state/ProjectProvider'
 import { useCalculation } from './state/useCalculation'
+import { usePersistence } from './state/usePersistence'
 import { Dialog } from './ui/Dialog'
-import { chooseFile, downloadProject, readProjectFile } from './ui/fileActions'
+import { forgetCurrentFile, openProjectInteractive, saveProjectToFile } from './ui/fileActions'
 import { ImportReportDialog } from './ui/ImportReportDialog'
 import { LayerTable } from './ui/LayerTable'
 import { MenuBar, type Menu } from './ui/MenuBar'
@@ -35,6 +36,8 @@ function Workspace() {
   const dispatch = useDispatch()
   const { project, scanKind, displayMode, plotView } = state
   const calculation = useCalculation(project, { scanKind, displayMode, plotView })
+  usePersistence()
+  const unsaved = project !== state.savedProject
   const [error, setError] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
@@ -53,20 +56,50 @@ function Workspace() {
   }, [project, scanKind, displayMode, plotView])
 
   const open = async () => {
-    const file = await chooseFile('.all,.json')
-    if (!file) return
     try {
-      const opened = await readProjectFile(file)
-      dispatch({ type: 'loadProject', ...opened })
+      const opened = await openProjectInteractive()
+      if (opened) dispatch({ type: 'loadProject', ...opened, unsaved: opened.report !== undefined })
     } catch (e) {
       setError((e as Error).message)
     }
   }
 
+  const save = async (saveAs: boolean) => {
+    try {
+      const savedAs = await saveProjectToFile(project, state.fileName, saveAs)
+      if (savedAs) dispatch({ type: 'markSaved', fileName: savedAs })
+    } catch (e) {
+      setError(`Saving failed: ${(e as Error).message}`)
+    }
+  }
+
+  const newProject = () => {
+    forgetCurrentFile()
+    dispatch({ type: 'loadProject', project: createDefaultProject(), fileName: 'untitled.json' })
+  }
+
+  // Keyboard shortcuts of the File menu.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return
+      const key = event.key.toLowerCase()
+      if (key === 's') {
+        event.preventDefault()
+        void save(event.shiftKey)
+      } else if (key === 'o') {
+        event.preventDefault()
+        void open()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   const openExample = (example: (typeof examples)[number]) => {
     try {
       const { project: imported, report } = importAllFile(example.content, example.file)
-      dispatch({ type: 'loadProject', project: imported, fileName: example.file.replace('.all', '.json'), report })
+      forgetCurrentFile()
+      dispatch({ type: 'loadProject', project: imported, fileName: example.file.replace('.all', '.json'), report, unsaved: true })
     } catch (e) {
       setError((e as Error).message)
     }
@@ -76,9 +109,10 @@ function Workspace() {
     {
       label: 'File',
       items: [
-        { label: 'New', onSelect: () => dispatch({ type: 'loadProject', project: createDefaultProject(), fileName: 'default.json' }) },
-        { label: 'Open… (.all, .json)', onSelect: () => void open() },
-        { label: 'Save project (.json)', onSelect: () => downloadProject(project, state.fileName) },
+        { label: 'New', onSelect: newProject },
+        { label: 'Open… (.all, .json)   Ctrl+O', onSelect: () => void open() },
+        { label: 'Save   Ctrl+S', onSelect: () => void save(false) },
+        { label: 'Save As…   Ctrl+Shift+S', onSelect: () => void save(true) },
         'separator',
         ...examples.map((example) => ({ label: example.label, onSelect: () => openExample(example) })),
       ],
@@ -121,7 +155,7 @@ function Workspace() {
 
   return (
     <div className="app">
-      <MenuBar menus={menus} title={state.fileName} />
+      <MenuBar menus={menus} title={unsaved ? `${state.fileName} • unsaved` : state.fileName} />
       <main className="workspace">
         <LayerTable />
         <PlotPanel curve={calculation.curve} measured={measured} />
@@ -132,7 +166,7 @@ function Workspace() {
       </main>
       <footer className="status-bar" role="status">
         <span className={calculation.error ? 'status-bar__error' : undefined}>
-          {calculation.error ?? (calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
+          {calculation.error ?? state.notice ?? (calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
         </span>
         <span className="status-bar__mock">Mock calculation, not the real ReMagX engine</span>
       </footer>
