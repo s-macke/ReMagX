@@ -1,6 +1,7 @@
 // Fitting for the mock engine: maps fit parameters onto the project, defines the error function
 // against the active dataset and drives the Nelder-Mead optimizer.
 
+import { activeDataset, adaptedMeasurement } from '../model/datasets'
 import type { FitParameter, Project } from '../model/project'
 import { ComputeError } from './ComputeService'
 import { beamWeights, convolveResolution, parratt } from './mockPhysics'
@@ -49,16 +50,17 @@ export function withParameters(project: Project, values: number[]): Project {
   return copy
 }
 
-// Error between simulation and the active dataset inside the fit window.
+// Error between simulation and the active dataset inside the fit window. The dataset's shift,
+// offset and scale are applied to the measurement (adaptedMeasurement), as in the legacy program.
 // log-chi2: mean squared difference of log10 reflectivities; lin-chi2: mean squared relative difference.
 export function fitError(project: Project): number {
-  const dataset = project.activeDatasetIndex === null ? undefined : project.datasets[project.activeDatasetIndex]
-  const measured = dataset?.columns.reflectivity
+  const dataset = activeDataset(project)
+  const measured = dataset && adaptedMeasurement(dataset, 'reflectivity', 'qz')
   if (!dataset || !measured) throw new ComputeError('Fitting needs an active dataset with reflectivity values.')
 
   const window = project.fit.window
-  const selected = dataset.columns.qz
-    .map((qz, i) => ({ qz, r: measured[i] }))
+  const selected = measured.x
+    .map((qz, i) => ({ qz, r: measured.y[i] }))
     .filter(({ qz, r }) => qz >= window.qzMin && qz <= window.qzMax && r > 0)
   if (selected.length === 0) throw new ComputeError('No measured points with R > 0 inside the fit window.')
 
@@ -68,12 +70,11 @@ export function fitError(project: Project): number {
     thickness: l.thickness,
     roughness: l.roughness,
   }))
-  const qz = selected.map((p) => p.qz + dataset.qzShift)
   const simulated = convolveResolution(
     (q) => parratt(layers, q, dataset.energy || project.experiment.energy, beamWeights(dataset.polarization.beam1)),
-    qz,
+    selected.map((p) => p.qz),
     project.experiment.resolution.angularFwhm,
-  ).map((r) => (r + dataset.intensityOffset) * dataset.intensityScale)
+  )
 
   const log = project.fit.errorFunction === 'log-chi2'
   let sum = 0
