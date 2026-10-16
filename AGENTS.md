@@ -127,7 +127,7 @@ Fixes found in the audit:
 Missing legacy controls and windows:
 - [ ] Plot (legacy `Chart1`): mouse-wheel zoom and "Zoom Out", cursor coordinate readout, Properties dialog (axis ranges, log toggles, colours, line width, font size, points), copy data/graphic to the clipboard, save picture; decide on "Select Area" and "Fit Lorentzian+Step"
 - [ ] Layer table right-click menu: Fit on/off per cell, show δ/β and δm/βm spectrum, dielectric-tensor parts, "Get optical constants from database" / "Get f1/f2 from database", Properties → Materials dialog (name, formula, density, magneto-optics, dielectric tensor, "Fill Dielectric Tensor")
-- [ ] Value slider for live tweaking of the selected layer/parameter cell (legacy ScrollBar2)
+- [ ] Value slider: the horizontal bar directly below the layer table (legacy ScrollBar2, `Unit1.cpp` SchichtEingabeSelectCell / ScrollBar2Change). Disabled until a numeric cell is selected; on selection the thumb is set to 250 of 0–1000, which stands for the cell's value; dragging sets value = position / 250 × original value (0 to 4×) and recalculates the current view live. Works for the layer table (not the db and coupling columns, the vacuum's thickness and σ, or the substrate thickness), the magnetization-profile table and the script-parameter list. Not to be confused with the browser scrollbar of the wide table.
 - [ ] Adaptive Layer Segmentation: "To layer list" and "Illustrate Segmentation"
 - [ ] Element Mode: "Show Scattering Factors f1/f2", "Show Density Profiles" (also a toolbar button in legacy), "Material to Elements"
 - [ ] Magneto-Optics and magnetization profile: "Fit" checkboxes; profile spline "Build spline" and point editing
