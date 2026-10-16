@@ -193,7 +193,8 @@ Missing legacy controls and windows:
 - [x] Value slider below the layer table: fixed selected-cell baseline (250 = 1×, 1000 = 4×), layer/slab and element-factor cells, Gaussian/spline profile values and script parameters. Unsupported cells disable it; edits recalculate the current view during dragging, one gesture coalesces for undo, and structural/navigation changes clear stale selections.
 - [ ] Adaptive Layer Segmentation: "To layer list" and "Illustrate Segmentation"
 - [x] Element Mode: "Show Scattering Factors f1/f2" through the worker, with selected-element navigation, missing-table errors and plot exports. Current mock shows labelled .ff table previews; script-driven evaluation remains engine work.
-- [ ] Element Mode: "Show Density Profiles" (also a toolbar button in legacy), "Material to Elements"
+- [x] Element Mode: "Show Density Profiles" in the Sample section and toolbar; all elements share a depth axis with slab boundary marks, live editing, undo and plot exports. Bounded mock sampling/smoothing is labelled; real density evaluation and scripting remain engine work.
+- [ ] Element Mode: "Material to Elements"
 - [x] Active magnetization-profile Fit checkboxes: δ/β amplitude, center and width; synchronized parameter list, undo and safe profile deletion with fit/coupling reindexing. Hidden general Fit placeholders remain pending scope review.
 - [x] Magnetization profile spline editor: Build spline creates nine legacy Gaussian samples; edit the five interior y values, retain boundary points, switch Gaussian/spline controls, undo and save. Actual spline evaluation remains engine work.
 - [x] Magnetization profile binding: distinct all/air/layer/bulk/none choices using saved legacy indices; layer insertion/deletion preserves bindings (deleted target becomes none). Coupling offers earlier profiles, retaining unusual stored references visibly.
@@ -210,7 +211,7 @@ Data:
 - [ ] Optical-constant tables used by calculations (energy scans currently keep δ/β constant)
 
 Quality gates:
-- [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 458 ported, 29 dropped and 189 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
+- [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 461 ported, 29 dropped and 186 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
 - [ ] Run all private-corpus imports in CI using `CORPUS_DIR` with private data access; fail if the corpus is missing or empty, without publishing research data in the repository, logs or artifacts (D-17.3, D-20, AC-4). Today the Pages workflow does not supply the corpus and the suite skips.
 - [x] Playwright end-to-end tests in Chromium headless (D-36): AC-10 responsiveness/Stop, AC-11 section toggles and persistence, AC-13 static Python hosting with external requests blocked, AC-14 IndexedDB reload restoration, and AC-15 upload/download and direct file-handle Open/Save/Save As. Native picker dialogs are substituted with real browser OPFS handles in headless tests; operating-system dialog interaction is not automated. These tests verify the current UI/mock phase, not real-engine acceptance.
 
@@ -232,6 +233,7 @@ Quality gates:
 - [ ] Clean-room Nelder-Mead and annealing in C++ behind the optimizer interface in `engine/src/optim/`, also used by the public legacy rebuild (D-10, D-32).
 - [ ] Fit golden tests on at least 3 corpus projects, using the same project and seed: final χ²(new) ≤ χ²(original) × (1 + 1e-6), compared with the private original-optimizer references (D-28, D-32, AC-9).
 - [ ] Multi-dataset fits over all datasets flagged for fitting; asymmetry, dichroic and energy-scan fits; honour the additional fit parameters (F-5, D-3)
+- [ ] Legacy-exact element density profiles and sampling (including BeforeCalculation); replace the bounded mock behind the existing density view.
 - [ ] Element mode and element→material conversion; optical-constant interpolation with the periodic-table data (D-25, spec §2)
 - [ ] Port angular and energy resolution, including fast/exact convolution; complete dichroic/asymmetry energy scans (D-25, spec §2, AC-5)
 - [ ] Legacy error conditions (RX_QZ, RX_DB, RX_CSCRIPT, RX_ESCRIPT, RX_ML, RX_UNKNOWN) as clear UI messages (D-14)

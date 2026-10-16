@@ -688,16 +688,13 @@
     {
       "name": "element-tools",
       "status": "deferred",
-      "reason": "Implement density plots (including toolbar) and Material to Elements. Scattering-factor UI is in its own group; full script-driven evaluation remains engine work.",
+      "reason": "Material to Elements remains to implement; scattering-factor and density-profile UI have separate groups. Real numerical evaluation remains engine work.",
       "references": [
         "AGENTS.md"
       ],
       "entries": [
         "client/ElementFrame.dfm::ElementFrame/Button2",
-        "client/ElementFrame.dfm::ElementFrame/ShowDensityProfilesButton",
-        "client/Unit1.cpp::event:d5d0cdb3a74bc3df:1",
-        "client/Unit1.cpp::event:478587ce5cde9155:1",
-        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton10"
+        "client/Unit1.cpp::event:478587ce5cde9155:1"
       ],
       "phase": "ui"
     },
@@ -1230,6 +1227,23 @@
       "entries": [
         "client/ElementFrame.dfm::ElementFrame/Element/ShowScatteringFactorsButton",
         "client/Unit1.cpp::event:76c251acfb0eca60:1"
+      ]
+    },
+    {
+      "name": "element-density-profiles",
+      "status": "ported",
+      "reason": "Sample section and element toolbar show all element density profiles through the compute worker on a shared depth axis, with slab boundary marks, live edits, undo and exports. Mock uses bounded sampling and approximate smoothing; legacy-exact sampling, density evaluation and scripts remain engine work.",
+      "references": [
+        "app/src/compute/mockDensityProfiles.ts",
+        "app/src/ui/Toolbar.tsx",
+        "app/src/ui/PlotPanel.tsx",
+        "app/src/ui/sections/SampleSections.tsx",
+        "app/e2e/densityProfiles.spec.ts"
+      ],
+      "entries": [
+        "client/ElementFrame.dfm::ElementFrame/ShowDensityProfilesButton",
+        "client/Unit1.cpp::event:d5d0cdb3a74bc3df:1",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton10"
       ]
     }
   ],

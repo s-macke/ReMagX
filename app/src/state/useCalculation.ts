@@ -43,6 +43,13 @@ export function discardComputeService(): void {
 
 async function calculate(service: ComputeService, project: Project, request: CalculationRequest): Promise<CalculatedCurve> {
   const { scanKind, displayMode: mode, plotView } = request
+  if (plotView === 'densityProfiles') {
+    const profiles = await service.densityProfiles(project)
+    return { axis: 'z', x: profiles.z, series: profiles.elements.map(element => ({ label: element.name, y: element.density })),
+      logScale: false, yLabel: 'density (mock)',
+      boundaryMarks: profiles.elements.flatMap((element, seriesIndex) => element.boundaries.map(boundary => ({ x: boundary.z, y: boundary.density, seriesIndex }))),
+    }
+  }
   if (plotView === 'scatteringFactors') {
     const spectrum = await service.scatteringFactors(project, { elementIndex: request.elementIndex ?? 0, tables: request.tables ?? [] })
     return { axis: 'energy', x: spectrum.energy, series: [

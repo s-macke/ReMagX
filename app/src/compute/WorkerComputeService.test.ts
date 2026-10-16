@@ -413,3 +413,35 @@ describe('mock element scattering-factor service', () => {
     service.dispose()
   })
 })
+
+describe('mock density-profile service', () => {
+  it('returns every element on one depth grid with boundaries and responds to slab edits', async () => {
+    const service = new WorkerComputeService(inProcessWorker)
+    const project = createDefaultProject()
+    project.sample.mode = 'element'
+    project.sample.elementProfiles = ['Co', 'Ni'].map((element, index) => ({ element, f1: 1, f2: 2, f1Mag: 0, f2Mag: 0,
+      slabs: [{ thickness: 0, density: 0.1, roughness: 0 }, { thickness: 20 + index * 10, density: 0.3, roughness: 0 }, { thickness: 0, density: 0, roughness: 0 }] }))
+    const before = structuredClone(project)
+    const profiles = await service.densityProfiles(project)
+    expect(profiles.elements.map(element => element.name)).toEqual(['Co', 'Ni'])
+    expect(profiles.elements[0].boundaries).toEqual([{ z: 0, density: 0.2 }, { z: 20, density: 0.15 }])
+    expect(profiles.elements[1].boundaries).toEqual([{ z: 0, density: 0.2 }, { z: 30, density: 0.15 }])
+    for (const element of profiles.elements) {
+      expect(element.density).toHaveLength(profiles.z.length)
+      expect(element.density[0]).toBe(0.1)
+      expect(element.density.at(-1)).toBe(0)
+      expect(element.density.every(Number.isFinite)).toBe(true)
+    }
+    expect(project).toEqual(before)
+    project.sample.elementProfiles[0].slabs[1] = { thickness: 40, density: 0.6, roughness: 4 }
+    const edited = await service.densityProfiles(project)
+    expect(edited.elements[0].boundaries[1].z).toBe(40)
+    expect(edited.elements[0].density.some(value => value > 0.3)).toBe(true)
+    expect(edited.elements[0].density.some(value => value > 0 && value < 0.1)).toBe(true)
+    project.sample.elementProfiles[0].slabs = []
+    await expect(service.densityProfiles(project)).rejects.toThrow('substrate and ambient')
+    project.sample.mode = 'compound'
+    await expect(service.densityProfiles(project)).rejects.toThrow('Define elements')
+    service.dispose()
+  })
+})

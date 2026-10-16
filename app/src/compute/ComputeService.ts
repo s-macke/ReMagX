@@ -9,6 +9,11 @@ export interface ElementSpectrumQuery { elementIndex: number; tables: OpticalTab
 export interface LayerSpectrumQuery { layerIndex: number; magnetic: boolean; tables: OpticalTable[] }
 export interface LayerSpectrum { energy: number[]; first: number[]; second: number[] }
 
+export interface DensityProfiles {
+  z: number[]
+  elements: { name: string; density: number[]; boundaries: { z: number; density: number }[] }[]
+}
+
 export interface ReflectivityCurve {
   qz: number[]
   reflectivity: number[]
@@ -52,6 +57,7 @@ export interface FitResult {
 }
 
 export interface ComputeService {
+  densityProfiles(project: Project): Promise<DensityProfiles>
   scatteringFactors(project: Project, query: ElementSpectrumQuery): Promise<LayerSpectrum>
   layerSpectrum(project: Project, query: LayerSpectrumQuery): Promise<LayerSpectrum>
   calcReflectivity(project: Project): Promise<ReflectivityCurve>

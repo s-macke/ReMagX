@@ -7,6 +7,7 @@ import {
   type AsymmetryCurve,
   type ComputeService,
   type DepthProfile,
+  type DensityProfiles,
   type EnergyScanCurve,
   type FitProgress,
   type FitResult,
@@ -85,6 +86,10 @@ export class WorkerComputeService implements ComputeService {
 
   calcAsymmetry(project: Project): Promise<AsymmetryCurve> {
     return this.request('asymmetry', project)
+  }
+
+  densityProfiles(project: Project): Promise<DensityProfiles> {
+    return this.request('densityProfiles', project)
   }
 
   depthProfile(project: Project): Promise<DepthProfile> {

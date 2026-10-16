@@ -67,6 +67,8 @@ const forScale = (values: number[], logScale: boolean) =>
 // legacy Hold / Clear / Scale buttons. Drag to zoom; the zoom is kept while values change.
 export function PlotPanel({ curve, measured }: PlotPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const boundaryMarksRef = useRef(curve?.boundaryMarks)
+  boundaryMarksRef.current = curve?.boundaryMarks
   const plotRef = useRef<uPlot | null>(null)
   const coordinatesRef = useRef<HTMLSpanElement>(null)
   const zoomRef = useRef<((factor: number) => void) | null>(null)
@@ -125,7 +127,24 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       height: Math.max(120, container.clientHeight),
       scales: { x: { time: false, distr: logX ? 3 : 1 }, y: logY ? { distr: 3, log: 10 } : { auto: true } },
       legend: { show: false },
-      hooks: { setCursor: [showCoordinates], draw: [showCoordinates] },
+      hooks: { setCursor: [showCoordinates], draw: [showCoordinates, plot => {
+        const { ctx, bbox } = plot
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(bbox.left, bbox.top, bbox.width, bbox.height)
+        ctx.clip()
+        for (const mark of boundaryMarksRef.current ?? []) {
+          if (plot.series[mark.seriesIndex + 1]?.show === false || (logX && mark.x <= 0) || (logY && mark.y - 0.002 <= 0)) continue
+          ctx.strokeStyle = properties?.colors[mark.seriesIndex % properties.colors.length] ?? SIMULATED_COLORS[mark.seriesIndex % SIMULATED_COLORS.length]
+          ctx.lineWidth = devicePixelRatio
+          const x = plot.valToPos(mark.x, 'x', true)
+          ctx.beginPath()
+          ctx.moveTo(x, plot.valToPos(mark.y - 0.002, 'y', true))
+          ctx.lineTo(x, plot.valToPos(mark.y + 0.002, 'y', true))
+          ctx.stroke()
+        }
+        ctx.restore()
+      }] },
       cursor: { drag: { x: true, y: true, uni: 20 } },
       axes: [
         { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'angle' ? 'theta (°)' : curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (Å), 0 = substrate surface' },

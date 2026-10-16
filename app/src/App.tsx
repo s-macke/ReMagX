@@ -244,6 +244,7 @@ function Workspace() {
           toggleElementMode: () => setMode(elementMode ? 'compound' : 'element'),
           previousElement: () => dispatch({ type: 'selectElement', index: elementIndex - 1 }),
           nextElement: () => dispatch({ type: 'selectElement', index: elementIndex + 1 }),
+          showDensityProfiles: () => dispatch({ type: 'setPlotView', plotView: 'densityProfiles' }),
           openScript: () => setScriptOpen(true),
         }}
         state={{

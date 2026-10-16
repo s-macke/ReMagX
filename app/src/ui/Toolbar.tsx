@@ -1,4 +1,4 @@
-import { Atom, ChevronLeft, ChevronRight, FileCode, FilePlus, FolderOpen, Redo2, Save, SquareMinus, SquarePlus, Undo2, type LucideIcon } from 'lucide-react'
+import { ChartNoAxesCombined, Atom, ChevronLeft, ChevronRight, FileCode, FilePlus, FolderOpen, Redo2, Save, SquareMinus, SquarePlus, Undo2, type LucideIcon } from 'lucide-react'
 
 export interface ToolbarActions {
   newProject: () => void
@@ -11,6 +11,7 @@ export interface ToolbarActions {
   toggleElementMode: () => void
   previousElement: () => void
   nextElement: () => void
+  showDensityProfiles: () => void
   openScript: () => void
 }
 
@@ -49,6 +50,7 @@ export function Toolbar({ actions, state }: { actions: ToolbarActions; state: To
       <ToolButton icon={Atom} label={state.elementMode ? 'Switch to compound mode' : 'Switch to element mode'} onClick={actions.toggleElementMode} pressed={state.elementMode} />
       {state.elementMode && (
         <>
+          <ToolButton icon={ChartNoAxesCombined} label="Show Density Profiles" onClick={actions.showDensityProfiles} />
           <ToolButton icon={ChevronLeft} label="Previous element" onClick={actions.previousElement} disabled={!state.canPreviousElement} />
           <span className="toolbar__element">{state.elementName ?? '--'}</span>
           <ToolButton icon={ChevronRight} label="Next element" onClick={actions.nextElement} disabled={!state.canNextElement} />

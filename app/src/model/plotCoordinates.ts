@@ -12,6 +12,7 @@ export interface CalculatedCurve {
   series: CurveSeries[]
   logScale: boolean
   yLabel: string
+  boundaryMarks?: { x: number; y: number; seriesIndex: number }[]
 }
 
 type MeasurementSeries = { label: string; curve: MeasuredCurve }[]

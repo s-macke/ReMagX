@@ -1,9 +1,10 @@
 // Messages between WorkerComputeService (UI thread) and the compute worker.
 
 import type { Project } from '../model/project'
-import type { AsymmetryCurve, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
+import type { AsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
+  densityProfiles: DensityProfiles
   scatteringFactors: LayerSpectrum
   layerSpectrum: LayerSpectrum
   reflectivity: ReflectivityCurve

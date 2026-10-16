@@ -1,6 +1,7 @@
 // Worker-side request handling for the mock engine. Kept free of worker globals so it can be
 // tested directly; worker.ts only wires it to postMessage.
 
+import { mockDensityProfiles } from './mockDensityProfiles'
 import { mockLayerSpectrum, mockScatteringFactors } from './mockSpectrum'
 import type { Project } from '../model/project'
 import { ComputeError, type FitResult } from './ComputeService'
@@ -77,6 +78,9 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
           break
         case 'asymmetry':
           result = calcAsymmetry(project)
+          break
+        case 'densityProfiles':
+          result = mockDensityProfiles(project)
           break
         case 'depthProfile':
           result = depthProfile(project)
