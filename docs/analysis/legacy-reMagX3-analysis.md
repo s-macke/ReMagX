@@ -252,3 +252,24 @@ and `mode`; the latter four use the C enums/flags. Both adapters reject sparse a
 There are 3,360 additional native/WASM intensity comparisons in Node and Chromium,
 for 7,680 values in total. Integrating project preparation into ComputeService remains
 separate work; the deployed app still uses the mock.
+
+### Compound project preparation stage
+
+`app/src/model/compoundLayers.ts` packs compound layers into the eight-double C API
+row layout. It follows `FillLayers` (`shared/RechenHilfe.h`): optical constants and
+per-layer magnetization angles are copied directly, with no density scaling or global
+angle substitution. Table refresh and BeforeCalculation execution belong before this
+stage. Element conversion and adaptive segmentation still require their own ports.
+
+The optional multilayer sequence follows `Interpret`/`ExecuteMultilayer`
+(`shared/RechenHilfe.cpp`) and `CVector::Implement`. Substrate and ambient are appended
+automatically, so explicitly naming their indices duplicates them. For five source
+layers, `2*(1,2)` expands to indices `[0,1,2,1,2,4]`. Nested repetitions, zero repeats
+and the defined legacy character-handling quirks are retained. A missing closing
+parenthesis fails rather than reproducing an out-of-bounds source read; expansion
+is limited to 100,000 rows and 128 nesting levels with explicit errors.
+
+Three unit tests cover expansion, invalid/resource cases and immutable packing. A
+local temporary harness compiled the original interpreter with minimal container/state
+scaffolding and matched 257 generated/edge-case patterns; this was a focused manual
+check, not a committed full-project oracle. No private source or corpus was added to git.
