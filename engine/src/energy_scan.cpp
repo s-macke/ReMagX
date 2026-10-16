@@ -75,3 +75,17 @@ extern "C" int remagx_visnovsky_energy_scan(const RemagxMatrixLayer* layers, siz
                 beam1, beam2, analyzer, scan_mode, angular_width, 0, result);
         });
 }
+
+extern "C" int remagx_zak_energy_scan(const RemagxLayer* layers, size_t layer_count,
+                      const double* energies, const double* qz, const int* enabled, size_t point_count,
+                      int magnetic_enabled, const RemagxBeam* beam1, const RemagxBeam* beam2,
+                      int analyzer, int scan_mode, double angular_width, double energy_width,
+                      RemagxReflectivity* output) {
+    if (magnetic_enabled != 0 && magnetic_enabled != 1) return REMAGX_INVALID_ARGUMENT;
+    return prepared_energy_scan(layers, layer_count, energies, qz, enabled, point_count, beam1, beam2,
+        analyzer, scan_mode, angular_width, energy_width, output,
+        [&](const RemagxLayer* stack, const double* coordinate, double energy, RemagxReflectivity* result) {
+            return remagx_zak_qz_resolution(stack, layer_count, coordinate, 1, energy, magnetic_enabled,
+                beam1, beam2, analyzer, scan_mode, angular_width, 0, result);
+        });
+}

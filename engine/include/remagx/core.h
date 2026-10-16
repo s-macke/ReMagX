@@ -169,6 +169,17 @@ int remagx_zak_qz_resolution(const RemagxLayer* layers, size_t layer_count,
                   const double* qz, size_t point_count, double energy_ev, int magnetic_enabled,
                   const RemagxBeam* beam1, const RemagxBeam* beam2, int analyzer,
                   int scan_mode, double width, int fast, RemagxReflectivity* output);
+// Prepared Zak energy batch: one consecutive scalar stack per energy. Optional
+// 0/1 enabled mask preserves initialized intensity one for range-skipped points
+// (beam2 zero in monochromatic mode); disabled stacks are not inspected.
+// Exact angular resolution precedes whole-scan energy convolution. Both beams
+// use the same magnetic stack. Caller handles tables, Lua and postprocessing.
+// Output is unchanged on validation, allocation or later numerical failure.
+int remagx_zak_energy_scan(const RemagxLayer* layers, size_t layer_count,
+                  const double* energies, const double* qz, const int* enabled, size_t point_count,
+                  int magnetic_enabled, const RemagxBeam* beam1, const RemagxBeam* beam2,
+                  int analyzer, int scan_mode, double angular_width, double energy_width,
+                  RemagxReflectivity* output);
 // Prepared substrate-first matrix stack, including ambient as the last layer.
 // Tensor entries are packed row-major complex real/imag; anisotropic is 0/1.
 // Scalars supply the isotropic index directly. Tensors are already constructed
