@@ -1,24 +1,24 @@
-// Imports every .all file below CORPUS_DIR (the private legacy corpus, D-20); skipped if unset.
-// Run: CORPUS_DIR=/path/to/corpus npm test
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { importAllFile } from '../src/import/allFile'
+// Optional in the public suite; npm run test:corpus requires a nonempty CORPUS_DIR.
+import { describe, it } from 'vitest'
+import { discoverCorpus, validateCorpusFile } from './corpusSupport'
 
-const corpusDir = process.env.CORPUS_DIR
-
-function findAllFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name)
-    if (statSync(path).isDirectory()) return findAllFiles(path)
-    return name.toLowerCase().endsWith('.all') ? [path] : []
-  })
+const configured = process.env.CORPUS_DIR !== undefined
+const required = process.env.CORPUS_REQUIRED === '1'
+const enabled = configured || required
+let files: string[] = []
+let discoveryError: Error | undefined
+if (enabled) {
+  try { files = discoverCorpus(process.env.CORPUS_DIR) }
+  catch (error) { discoveryError = error as Error }
 }
 
-describe.skipIf(!corpusDir)('legacy corpus import (CORPUS_DIR)', () => {
-  const files = corpusDir ? findAllFiles(corpusDir) : []
-  it.each(files)('%s', (file) => {
-    const { project } = importAllFile(readFileSync(file), file)
-    expect(project.sample.layers.length).toBeGreaterThanOrEqual(2)
+describe.skipIf(!enabled)('private legacy corpus import', () => {
+  it('requires an accessible, nonempty corpus when requested', () => {
+    if (discoveryError) throw discoveryError
+  })
+  // Numeric IDs remain deterministic for a fixed corpus. Never put paths into test
+  // titles, assertions, parameterized cases or error causes: reporters print them.
+  files.forEach((file, index) => {
+    it(`private project ${index + 1}`, () => validateCorpusFile(file))
   })
 })

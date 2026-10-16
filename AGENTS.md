@@ -78,13 +78,16 @@ npm run lint              # oxlint
 npm run build             # static site in app/dist
 npx playwright install --with-deps --only-shell chromium  # browser-test setup
 npm run test:e2e           # Chromium headless against app/dist (build first)
-CORPUS_DIR=/path/to/corpus npx vitest run test/corpus.test.ts   # import every legacy .all file
+CORPUS_DIR=/path/to/corpus npm run test:corpus   # strict private corpus gate; never skips
 ```
 
 The **test corpus** is the set of legacy projects in `old/reMagX3` (mainly `examples/`, plus
 `Tutorial/` and `bin/`): private, git-ignored, copied along with the folder. Use
 `CORPUS_DIR=../old/reMagX3`; all 99 files must import. Further legacy files from the user go
-there or into another private folder (D-20); never into git.
+there or into another private folder (D-20); never into git. `test:corpus` fails for an unset,
+missing or empty corpus and rejects symbolic links. Test titles use stable numeric IDs; parser
+diagnostics and private paths are withheld. The ordinary public `npm test` run skips the corpus
+only when `CORPUS_DIR` is entirely unset. An explicitly empty value fails.
 
 Inventory commands (from the repository root; Python 3.10+, no Wine or dependencies):
 
@@ -219,7 +222,8 @@ Data:
 
 Quality gates:
 - [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 530 ported, 29 dropped and 117 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
-- [ ] Run all private-corpus imports in CI using `CORPUS_DIR` with private data access; fail if the corpus is missing or empty, without publishing research data in the repository, logs or artifacts (D-17.3, D-20, AC-4). Today the Pages workflow does not supply the corpus and the suite skips.
+- [x] Strict private-corpus runner: `npm run test:corpus` never skips, rejects missing/empty/unreadable roots and symlinks, imports and schema-validates all discovered projects, and sanitizes paths/content from output. All 99 local projects pass; failure-path probes verify nonzero exit and no private-marker leakage.
+- [ ] Connect private-corpus access in CI and require the strict runner (D-17.3, D-20, AC-4). The choice of a private repository/read-only credential or a self-hosted runner is pending; Pages still does not supply the corpus. No private data may enter public logs or artifacts.
 - [x] Playwright end-to-end tests in Chromium headless (D-36): AC-10 responsiveness/Stop, AC-11 section toggles and persistence, AC-13 static Python hosting with external requests blocked, AC-14 IndexedDB reload restoration, and AC-15 upload/download and direct file-handle Open/Save/Save As. Native picker dialogs are substituted with real browser OPFS handles in headless tests; operating-system dialog interaction is not automated. These tests verify the current UI/mock phase, not real-engine acceptance.
 
 ### Engine phase: still to do

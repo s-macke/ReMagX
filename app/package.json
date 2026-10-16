@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:corpus": "node scripts/run-corpus.mjs",
     "test:e2e": "tsc -p tsconfig.e2e.json && playwright test"
   },
   "dependencies": {
