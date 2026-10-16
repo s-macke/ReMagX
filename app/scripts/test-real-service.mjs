@@ -44,7 +44,7 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
   const results = await page.evaluate(async () => {
-    const { prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
+    const { applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve
     const NativeWorker = window.Worker
     window.Worker = class extends NativeWorker {
@@ -335,6 +335,12 @@ try {
         const snapshot = JSON.stringify(aggregate)
         const chi2 = await service.calcChi2(aggregate)
         output.datasetErrors.push({ algorithm, chi2, unchanged: snapshot === JSON.stringify(aggregate) })
+        aggregate.fit.parameters = [{ target: 'intensityScale', index: null, elementIndex: null,
+          value: 2, step: 0, lowerBound: 0, upperBound: 10 }]
+        const parameterSnapshot = JSON.stringify(aggregate)
+        const candidate = applyRealFitParameters(aggregate, [4])
+        output.datasetErrors.at(-1).candidate = await service.calcChi2(candidate.project)
+        output.datasetErrors.at(-1).mappingUnchanged = parameterSnapshot === JSON.stringify(aggregate)
         aggregate.datasets.forEach(data => { data.active = false })
         output.datasetErrors.at(-1).empty = await service.calcChi2(aggregate)
       }
@@ -373,6 +379,10 @@ try {
     assert.ok(Math.abs(result.chi2 - expected) <= 1e-15 + 1e-10 * Math.abs(expected), `${result.algorithm} dataset error: ${result.chi2}`)
     assert.equal(result.unchanged, true)
     assert.equal(result.empty, 0)
+    const first = 1 + Math.log10(2), second = 2 + Math.log10(2)
+    const candidateExpected = 5 * first * first + 9 * (first * first + second * second) + 7 * .25 * .25
+    assert.ok(Math.abs(result.candidate - candidateExpected) <= 1e-15 + 1e-10 * Math.abs(candidateExpected), 'Dataset-wide fit scale')
+    assert.equal(result.mappingUnchanged, true)
   }
   assert.equal(results.fitInputUnchanged, true)
   assert.deepEqual(results.fitPrepared, results.fitBaseline)
