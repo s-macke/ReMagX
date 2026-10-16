@@ -1,5 +1,5 @@
 // Shared checks run against actual WASM in Node and a Chromium module worker.
-export function checkOptimizer(module, minimize, cases, calculateParratt) {
+export function checkOptimizer(module, minimize, cases, calculateParratt, calculateFitError) {
   const check = (condition, message) => { if (!condition) throw new Error(`Optimizer: ${message}`) }
   const close = (value, target) => Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target)
   const expectThrow = (run, matches) => {
@@ -50,12 +50,8 @@ export function checkOptimizer(module, minimize, cases, calculateParratt) {
   const target = curve(35)
   const recovered = minimize(module, { simplex: [[30], [40]], objective: parameters => {
     const calculated = curve(parameters[0])
-    let residual = 0
-    for (let i = 0; i < target.length; i++) {
-      const difference = Math.log10(calculated[i]) - Math.log10(target[i])
-      residual += difference * difference
-    }
-    return residual
+    return calculateFitError(module, { mode: 0, qz: points.map(point => 2 * point[1] * Math.sin(point[0])),
+      measured: target, calculated, qzMin: 0, qzMax: 1 }).error
   } })
   check(recovered.termination === 'converged' && recovered.value < 1e-16 &&
     Math.abs(recovered.parameters[0] - 35) < 1e-7, 'nested WASM reflectivity recovery')

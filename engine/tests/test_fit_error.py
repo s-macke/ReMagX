@@ -1,5 +1,6 @@
 import ctypes
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -124,4 +125,16 @@ vector<double> residuals(count,23.5);double error=0;switch(mode){
                 self.assertTrue(math.isfinite(actual) and abs(actual-reference) <= 1e-15+1e-10*abs(reference), (mode, actual, reference))
         print('Original dataset objectives: 12,480 means/residuals across eight modes matched.')
 
-if __name__ == '__main__': unittest.main()
+if __name__ == '__main__':
+    if '--wasm-payload' in sys.argv:
+        payload = []
+        for mode, columns in cases():
+            status, error, accepted, residuals = evaluate(mode, columns)
+            assert status == 0
+            payload.append(dict(mode=mode, qz=columns[0], energy=columns[1], measured=columns[2],
+                calculated=columns[3], measuredSecond=columns[4], calculatedSecond=columns[5],
+                qzMin=0, qzMax=.5, energyMin=620, energyMax=680, residuals=[23.5]*len(columns[0]),
+                expected=dict(error=error, accepted=accepted, residuals=residuals)))
+        print(json.dumps(payload))
+    else:
+        unittest.main()
