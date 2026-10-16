@@ -54,3 +54,17 @@ it('skips tensor construction for range failures and validates unsupported setti
   expect(() => calculateVisnovskyEnergyScan(project, tables, lookup, construct, calculate)).toThrow('profile')
   expect(calculate).toHaveBeenCalledTimes(1)
 })
+
+it('uses per-energy imported tensors and retains their cursor across layers and energies', () => {
+  const { project, tables, construct, calculate } = setup()
+  tables.push({ name: 'sample', kind: 'e', energy: [90, 210], columns: Array.from({ length: 18 }, () => [0, 1]), warnings: [] })
+  const seen: number[] = []
+  const lookup = (table: OpticalTable, queries: number[], cursor: number) => {
+    if (table.kind === 'e') seen.push(cursor)
+    return { values: new Float64Array(table.kind === 'e' ? 18 : 2).fill(queries[0] / 1000), cursor: cursor + 1 }
+  }
+  calculateVisnovskyEnergyScan(project, tables, lookup, construct, calculate)
+  expect(construct).not.toHaveBeenCalled()
+  expect(seen).toEqual(Array.from({ length: project.sample.layers.length * 3 }, (_, index) => index))
+  expect(calculate.mock.calls[0][0].stacks.map(stack => stack[0].values[4])).toEqual([.1, .15, .2])
+})

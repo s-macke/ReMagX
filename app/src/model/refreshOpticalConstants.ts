@@ -11,13 +11,14 @@ export class OpticalTableRangeError extends Error {}
 // Compound branch of MaterialConstantsHelper.cpp Filldb / CMaterialConstants::Getdb.
 // Called inside the compute worker with the native table lookup implementation.
 // The caller supplies the calculation energy (including any legacy conversion).
-export function refreshCompoundConstants(project: Project, tables: OpticalTable[], energy: number, lookup: RealTableLookup, cursors = new Map<OpticalTable, number>()): Project['sample']['layers'] {
+export function refreshCompoundOptics(project: Project, tables: OpticalTable[], energy: number, lookup: RealTableLookup, cursors = new Map<OpticalTable, number>()): { layers: Project['sample']['layers']; dielectricTensors: (Float64Array | null)[] } {
   if (project.sample.mode !== 'compound') throw new Error('Real optical-table refresh for element mode is not implemented yet.')
   if (!Number.isFinite(energy) || energy <= 0) throw new Error('Optical-table refresh needs a positive finite energy.')
   let rangeError = ''
-  const read = (table: OpticalTable): Float64Array => {
+  const dielectricTensors: (Float64Array | null)[] = project.sample.layers.map(() => null)
+  const read = (table: OpticalTable, width = 2): Float64Array => {
     const result = lookup(table, [energy], cursors.get(table) ?? 0)
-    if (result.values.length !== 2 || !result.values.every(Number.isFinite)) throw new Error(`Invalid optical constants in ${table.name}.${table.kind}.`)
+    if (result.values.length !== width || !result.values.every(Number.isFinite)) throw new Error(`Invalid optical constants in ${table.name}.${table.kind}.`)
     cursors.set(table, result.cursor)
     return result.values
   }
@@ -30,15 +31,22 @@ export function refreshCompoundConstants(project: Project, tables: OpticalTable[
       rangeError = `Layer ${index}: ${energy} eV is outside ${name}.db.`
       return { ...layer } // Filldb continues refreshing other layers before returning false.
     }
-    if (tables.some(candidate => candidate.name === name && candidate.kind === 'e' && candidate.energy.length)) {
-      throw new Error(`Layer ${index}: real dielectric-tensor table refresh is not implemented yet (${name}.e).`)
-    }
     const primary = read(table)
     const magneticTable = tables.find(candidate => candidate.name === name && candidate.kind === 'm')
     // Getdb skips empty magnetic tables; Get returns zeros outside their range.
     const magnetic = magneticTable?.energy.length ? read(magneticTable) : [0, 0]
+    const tensorTable = tables.find(candidate => candidate.name === name && candidate.kind === 'e')
+    // Getdb marks any nonempty .e table anisotropic, even out-of-range zeros.
+    if (tensorTable?.energy.length) dielectricTensors[index] = read(tensorTable, 18).slice()
     return { ...layer, delta: primary[0], beta: primary[1], deltaMag: magnetic[0], betaMag: magnetic[1] }
   })
   if (rangeError) throw new OpticalTableRangeError(rangeError)
-  return layers
+  return { layers, dielectricTensors }
+}
+
+// Scalar callers still perform the full Getdb lookup sequence. Parratt uses the
+// refreshed scalar fields and does not consume the tensor, as in legacy code.
+export function refreshCompoundConstants(project: Project, tables: OpticalTable[], energy: number,
+  lookup: RealTableLookup, cursors = new Map<OpticalTable, number>()): Project['sample']['layers'] {
+  return refreshCompoundOptics(project, tables, energy, lookup, cursors).layers
 }

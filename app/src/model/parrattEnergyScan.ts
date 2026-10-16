@@ -1,14 +1,15 @@
 import type { OpticalTable } from '../import/tables'
-import { prepareCompoundLayers, type PreparedCompoundLayer } from './compoundLayers'
+import { prepareCompoundLayers, prepareCompoundLayerIndices, type PreparedCompoundLayer } from './compoundLayers'
 import type { Project } from './project'
 import { prepareEnergyCoordinates } from './energyScanCoordinates'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from './parrattRequest'
 import { postprocessParrattResult } from './parrattResult'
-import { OpticalTableRangeError, refreshCompoundConstants, type RealTableLookup } from './refreshOpticalConstants'
+import { OpticalTableRangeError, refreshCompoundOptics, type RealTableLookup } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 
 export interface PreparedEnergyScan extends Pick<PreparedParrattQzRequest, 'beam1' | 'beam2' | 'tensor' | 'analyzer' | 'magnetic' | 'mode'> {
   stacks: PreparedCompoundLayer[][]
+  dielectricTensors?: (Float64Array | null)[][]
   energy: number[]
   qz: number[]
   enabled: number[]
@@ -39,22 +40,25 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
   const cursors = new Map<OpticalTable, number>()
   const stacks: PreparedCompoundLayer[][] = []
   const enabled: number[] = []
+  const dielectricTensors: (Float64Array | null)[][] = []
   coordinates.energy.forEach(energy => {
-    let layers: Project['sample']['layers']
+    let refreshed: ReturnType<typeof refreshCompoundOptics>
     try {
-      layers = refreshCompoundConstants(project, tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors)
+      refreshed = refreshCompoundOptics(project, tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors)
     } catch (error) {
       if (error instanceof OpticalTableRangeError) {
         stacks.push(template.layers)
+        dielectricTensors.push(template.layers.map(() => null))
         enabled.push(0)
         return
       }
       throw error
     }
-    stacks.push(prepareCompoundLayers({ ...local, sample: { ...project.sample, layers } }))
+    stacks.push(prepareCompoundLayers({ ...local, sample: { ...project.sample, layers: refreshed.layers } }))
+    dielectricTensors.push(prepareCompoundLayerIndices(local).map(index => refreshed.dielectricTensors[index]))
     enabled.push(1)
   })
-  const resolved = calculate({ stacks, enabled, energy: coordinates.energy, qz: coordinates.qz,
+  const resolved = calculate({ stacks, dielectricTensors, enabled, energy: coordinates.energy, qz: coordinates.qz,
     beam1: template.beam1, beam2: template.beam2, tensor: template.tensor, analyzer: template.analyzer,
     magnetic: template.magnetic, mode: template.mode, angularWidth: template.resolution.width, energyWidth: width })
   const result = postprocessParrattResult(project, coordinates.qz, resolved, mode, coordinates.energy)

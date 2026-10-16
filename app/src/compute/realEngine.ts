@@ -1,7 +1,7 @@
 import { calculateVisnovskyEnergyScan, type VisnovskyEnergyCalculator } from '../model/visnovskyEnergyScan'
 import { prepareVisnovskyQzRequest, type PreparedVisnovskyQzRequest, type DielectricTensorCalculator } from '../model/visnovskyRequest'
 import { calculateParrattEnergyScan, type EnergyScanCalculator } from '../model/parrattEnergyScan'
-import { refreshCompoundConstants, type RealTableLookup } from '../model/refreshOpticalConstants'
+import { refreshCompoundOptics, type RealTableLookup } from '../model/refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from '../model/units'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from '../model/parrattRequest'
 import { postprocessParrattResult } from '../model/parrattResult'
@@ -40,17 +40,19 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         return
       }
       let project = message.project
+      let dielectricTensors: (Float64Array | null)[] | undefined
       if (project.calculation.automaticOpticalConstants) {
         // Filldb reads LambdaToEnergy after the GUI has stored EnergyToLambda.
         const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / project.experiment.energy)
-        const layers = refreshCompoundConstants(project, message.tables ?? [], energy, engine.lookup)
-        project = { ...project, sample: { ...project.sample, layers },
+        const refreshed = refreshCompoundOptics(project, message.tables ?? [], energy, engine.lookup)
+        dielectricTensors = refreshed.dielectricTensors
+        project = { ...project, sample: { ...project.sample, layers: refreshed.layers },
           calculation: { ...project.calculation, automaticOpticalConstants: false } }
       }
       const mode = message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic'
       let qz: number[], values: Float64Array
       if (project.calculation.algorithm === 'matrix') {
-        const request = prepareVisnovskyQzRequest(project, mode, engine.dielectricTensor)
+        const request = prepareVisnovskyQzRequest(project, mode, engine.dielectricTensor, dielectricTensors)
         qz = request.qz
         values = engine.matrixQz(request)
       } else {

@@ -6,7 +6,7 @@ import { prepareCompoundQzRequest } from './parrattRequest'
 import { prepareVisnovskyLayers, validateVisnovskyProject, type DielectricTensorCalculator,
   type PreparedVisnovskyQzRequest } from './visnovskyRequest'
 
-export interface PreparedVisnovskyEnergyScan extends Omit<PreparedEnergyScan, 'stacks' | 'tensor' | 'magnetic'> {
+export interface PreparedVisnovskyEnergyScan extends Omit<PreparedEnergyScan, 'stacks' | 'tensor' | 'magnetic' | 'dielectricTensors'> {
   stacks: PreparedVisnovskyQzRequest['layers'][]
   epsilon: number
 }
@@ -17,9 +17,9 @@ export function calculateVisnovskyEnergyScan(project: Project, tables: OpticalTa
   mode: 'monochromatic' | 'dichroic' = 'monochromatic') {
   validateVisnovskyProject(project)
   return calculateCompoundEnergyScan(project, tables, lookup, prepared => {
-    const { stacks, tensor, magnetic, ...scan } = prepared
+    const { stacks, tensor, magnetic, dielectricTensors, ...scan } = prepared
     const matrixStacks = stacks.map((stack, index) => {
-      if (scan.enabled[index]) return prepareVisnovskyLayers(stack, tensor, magnetic, constructTensor)
+      if (scan.enabled[index]) return prepareVisnovskyLayers(stack, tensor, magnetic, constructTensor, dielectricTensors?.[index])
       // Native skips these stacks entirely. Supply finite storage without
       // constructing tensors from stale/out-of-range optical constants.
       return stack.map(() => ({ values: [0, 0, 1, ...Array<number>(19).fill(0)], anisotropic: 0 as const }))

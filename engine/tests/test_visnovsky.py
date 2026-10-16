@@ -300,7 +300,26 @@ double first,second;engine.MatrixFormalism(angle,wave,false,second,first,beam,ep
         print(f'Original Visnovsky stacks: {len(inputs)*2} intensities matched.', flush=True)
 
 if __name__ == '__main__':
-    if '--worker-reference' in sys.argv:
+    if '--tensor-table-reference' in sys.argv:
+        rows = [[.98, .002, .0002, .0001, 0, 0, -.0002, -.0001, .985, .003, 0, 0, 0, 0, 0, 0, .99, .001],
+                [.97, .002, .0002, .0001, 0, 0, -.0002, -.0001, .985, .003, 0, 0, 0, 0, 0, 0, .99, .001]]
+        def tensor_stack(energy):
+            energy = 12398.326 / (12398.326 / energy)
+            entries = []
+            for index, row in enumerate(rows):
+                values = [value - (639-energy)/(639-641)*(value-value*1.001) for value in row]
+                entries.append(Layer(0 if index == 0 else 20, 2 if index == 0 else 1,
+                    .99, .002, (ctypes.c_double * 18)(*values), 1))
+            return [entries[0], entries[1], entries[1], layer()]
+        first, second = (1, .2, .3, -.1), (.2, -.3, .4, .1)
+        status, qz_values = evaluate_qz(tensor_stack(640), [.01, .02, .03, .04], beam1=first, beam2=second, resolution=(.001, 0))
+        assert status == 0
+        energies = [639.25, 639.625, 640, 640.375, 640.75]
+        status, energy_values = evaluate_energy([tensor_stack(energy) for energy in energies], energies, [.03]*5,
+            beam1=first, beam2=second, angular=.001, width=.4)
+        assert status == 0
+        print(json.dumps(dict(qz=qz_values, energy=energy_values)))
+    elif '--worker-reference' in sys.argv:
         class ScalarLayer(ctypes.Structure):
             _fields_ = [('values', ctypes.c_double * 8)]
         library.remagx_dielectric_tensor.argtypes = [ctypes.POINTER(ScalarLayer), ctypes.c_int, ctypes.c_int,

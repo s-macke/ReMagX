@@ -44,3 +44,20 @@ it('rejects incomplete preparation and malformed engine tensors', () => {
   project.calculation.roughnessModel = 'segmentation'
   expect(() => prepareVisnovskyQzRequest(project, 'monochromatic', construct)).toThrow('segmentation')
 })
+
+it('expands imported tensors with multilayers and bypasses scalar construction even for zero tensors', () => {
+  const project = createDefaultProject()
+  project.calculation.algorithm = 'matrix'
+  project.calculation.magnetization.mode = 'none'
+  project.sample.multilayer = { enabled: true, pattern: '2*(1)' }
+  const overrides = project.sample.layers.map(() => null as Float64Array | null)
+  overrides[1] = new Float64Array(18)
+  const construct = vi.fn(() => ({ values: new Float64Array(18).fill(1), anisotropic: false }))
+  const result = prepareVisnovskyQzRequest(project, 'monochromatic', construct, overrides)
+  expect(construct).toHaveBeenCalledTimes(2)
+  expect(result.layers.map(layer => layer.anisotropic)).toEqual([0, 1, 1, 0])
+  expect(result.layers[1].values.slice(4)).toEqual(Array(18).fill(0))
+  overrides[1][0] = 50
+  expect(result.layers[1].values[4]).toBe(0)
+  expect(() => prepareVisnovskyQzRequest(project, 'monochromatic', construct, [])).toThrow('mapping')
+})

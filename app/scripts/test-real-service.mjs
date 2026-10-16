@@ -212,6 +212,23 @@ try {
       output.matrixEnergyUnchanged = energySnapshot === JSON.stringify(matrix)
       matrix.calculation.asymmetryDefinition = 'difference'
       output.matrixEnergyDifference = await service.calcEnergyAsymmetry(matrix)
+      const tensorRows = [
+        [.98, .002, .0002, .0001, 0, 0, -.0002, -.0001, .985, .003, 0, 0, 0, 0, 0, 0, .99, .001],
+        [.97, .002, .0002, .0001, 0, 0, -.0002, -.0001, .985, .003, 0, 0, 0, 0, 0, 0, .99, .001],
+      ]
+      tensorRows.forEach((values, index) => tables.push({ name: `matrix-${index}`, kind: 'e', energy: [639, 641],
+        columns: values.map(value => [value, value * 1.001]), warnings: [] }))
+      matrix.calculation.magnetization.mode = 'none'
+      matrix.calculation.tensorContribution = 'tetragonal'
+      matrix.calculation.asymmetryDefinition = 'normalized'
+      matrix.experiment.resolution.fastConvolution = false
+      const tensorSnapshot = JSON.stringify(matrix)
+      output.importedTensorQz = await service.calcAsymmetry(matrix)
+      output.importedTensorEnergy = await service.calcEnergyAsymmetry(matrix)
+      output.importedTensorUnchanged = tensorSnapshot === JSON.stringify(matrix)
+      for (const table of tables) if (table.kind === 'e') table.energy = [700, 710]
+      try { await service.calcReflectivity(matrix) } catch (error) { output.tensorOutsideRange = error.message }
+      tables = tables.filter(table => table.kind !== 'e')
       matrix.calculation.magnetization.mode = 'profile'
       try { await service.calcReflectivity(matrix) } catch (error) { output.matrixProfileError = error.message }
       tables = []
@@ -304,6 +321,17 @@ try {
     near(results.matrixEnergyDifference.asymmetry[index], plus - minus)
   })
   assert.equal(results.matrixEnergyUnchanged, true)
+  const tensorReferences = JSON.parse(execFileSync('python3', [resolve(root, 'engine/tests/test_visnovsky.py'),
+    resolve(root, 'build/engine/libremagx_core.so'), '--tensor-table-reference'], { encoding: 'utf8' }))
+  for (const [curve, expected] of [[results.importedTensorQz, tensorReferences.qz], [results.importedTensorEnergy, tensorReferences.energy]]) {
+    curve.reflectivityPlus.forEach((plus, index) => {
+      near(plus, expected[index * 2])
+      near(curve.reflectivityMinus[index], expected[index * 2 + 1])
+      near(curve.asymmetry[index], (expected[index * 2] - expected[index * 2 + 1]) / (expected[index * 2] + expected[index * 2 + 1]))
+    })
+  }
+  assert.equal(results.importedTensorUnchanged, true)
+  assert.match(results.tensorOutsideRange, /nonfinite numerical result/)
   assert.equal(results.matrixUnchanged, true)
   assert.match(results.matrixProfileError, /profile/)
   assert.equal(results.refreshUnchanged, true)
@@ -312,7 +340,7 @@ try {
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/tensors/multilayers/automatic tables/postprocessing, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

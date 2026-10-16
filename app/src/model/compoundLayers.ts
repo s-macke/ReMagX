@@ -49,6 +49,12 @@ export function compoundLayerIndices(layerCount: number, pattern: string, maximu
   return [0, ...parse(0, 0).indices, layerCount - 1]
 }
 
+export function prepareCompoundLayerIndices(project: Project): number[] {
+  return project.sample.multilayer.enabled
+    ? compoundLayerIndices(project.sample.layers.length, project.sample.multilayer.pattern)
+    : project.sample.layers.map((_, index) => index)
+}
+
 // A stage of real-engine project preparation, not a complete calculation request.
 // The caller must refresh tables and execute BeforeCalculation before packing layers.
 // Legacy FillLayers copies constants directly, without multiplying them by density.
@@ -56,9 +62,7 @@ export function prepareCompoundLayers(project: Project): PreparedCompoundLayer[]
   if (project.sample.mode !== 'compound') throw new Error('Element-mode preparation is not implemented yet.')
   if (project.calculation.roughnessModel !== 'nevot-croce') throw new Error('Adaptive segmentation is not implemented in real-engine preparation yet.')
   const layers = project.sample.layers
-  const indices = project.sample.multilayer.enabled
-    ? compoundLayerIndices(layers.length, project.sample.multilayer.pattern)
-    : layers.map((_, index) => index)
+  const indices = prepareCompoundLayerIndices(project)
   return indices.map(index => {
     const layer = layers[index]
     const row: PreparedCompoundLayer = [layer.thickness, layer.roughness, layer.delta, layer.beta,

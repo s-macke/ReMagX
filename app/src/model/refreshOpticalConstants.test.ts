@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { createDefaultProject } from './defaults'
 import type { OpticalTable } from '../import/tables'
-import { refreshCompoundConstants, type RealTableLookup } from './refreshOpticalConstants'
+import { refreshCompoundConstants, refreshCompoundOptics, type RealTableLookup } from './refreshOpticalConstants'
 
 const table = (kind: OpticalTable['kind'] = 'db'): OpticalTable => ({
   name: 'sample', kind, energy: [100, 200], columns: [[1, 2], [3, 4]], warnings: [],
@@ -41,7 +41,7 @@ it('zeros missing or empty magnetics, and delegates out-of-range magnetic lookup
   expect(lookup.mock.calls.some(([source]) => source.kind === 'm' && source.energy[0] === 300)).toBe(true)
 })
 
-it('rejects missing, empty, differently named and out-of-range primary tables, tensor data and invalid results', () => {
+it('rejects missing, empty, differently named and out-of-range primary tables, malformed tensor data and invalid results', () => {
   const project = projectWithTables()
   const before = structuredClone(project)
   const lookup: RealTableLookup = () => ({ values: new Float64Array([1, 2]), cursor: 0 })
@@ -54,4 +54,36 @@ it('rejects missing, empty, differently named and out-of-range primary tables, t
   expect(project).toEqual(before)
   project.sample.mode = 'element'
   expect(() => refreshCompoundConstants(project, [table()], 150, lookup)).toThrow('element mode')
+})
+
+it('preserves Getdb lookup order and tensor entries without changing scalar constants', () => {
+  const project = projectWithTables()
+  const before = structuredClone(project)
+  const tensor = { ...table('e'), columns: Array.from({ length: 18 }, (_, index) => [index, index + 1]) }
+  const tables = [table(), table('m'), tensor]
+  const values = new Float64Array(Array.from({ length: 18 }, (_, index) => index / 10))
+  const seen: string[] = []
+  const lookup: RealTableLookup = (source, _queries, cursor) => {
+    seen.push(`${source.kind}:${cursor}`)
+    return { values: source.kind === 'e' ? values : new Float64Array([.01, .002]), cursor: cursor + 1 }
+  }
+  const result = refreshCompoundOptics(project, tables, 150, lookup)
+  expect(seen).toEqual(project.sample.layers.flatMap((_, index) => [`db:${index}`, `m:${index}`, `e:${index}`]))
+  expect(result.layers[0]).toMatchObject({ delta: .01, beta: .002, deltaMag: .01, betaMag: .002 })
+  expect(result.dielectricTensors[0]).toEqual(values)
+  values[0] = 100
+  expect(result.dielectricTensors[0]?.[0]).toBe(0)
+  expect(project).toEqual(before)
+  expect(refreshCompoundConstants(project, tables, 150, lookup)[0].delta).toBe(.01)
+})
+
+it('does not use tensor-table ranges as primary range checks and distinguishes empty from zero tensors', () => {
+  const project = projectWithTables()
+  const tensor = { ...table('e'), energy: [300, 400], columns: Array.from({ length: 18 }, () => [1, 1]) }
+  const lookup = vi.fn<RealTableLookup>(source => ({ values: new Float64Array(source.kind === 'e' ? 18 : 2), cursor: 0 }))
+  const result = refreshCompoundOptics(project, [table(), tensor], 150, lookup)
+  expect(result.dielectricTensors.every(value => value !== null && value.every(component => component === 0))).toBe(true)
+  const empty = refreshCompoundOptics(project, [table(), { ...tensor, energy: [] }], 150, lookup)
+  expect(empty.dielectricTensors.every(value => value === null)).toBe(true)
+  expect(() => refreshCompoundOptics(project, [tensor], 150, lookup)).toThrow('missing optical table')
 })
