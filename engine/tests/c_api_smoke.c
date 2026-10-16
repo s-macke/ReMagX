@@ -1,4 +1,10 @@
 #include "remagx/core.h"
+#include "remagx/optimizer.h"
+static int quadratic(const double* parameters, size_t count, void* context, double* value) {
+    (void)count; (void)context;
+    *value = parameters[0] * parameters[0];
+    return 0;
+}
 int main(void) {
     const RemagxLayer layers[2] = {{0}, {0}};
     const RemagxParrattPoint point = {0.1, 1.0, 0.0};
@@ -25,5 +31,10 @@ int main(void) {
     const double energies[2] = {1.0, 2.0}, values[2] = {2.0, 4.0}, query = 1.5;
     size_t cursor = 0;
     status = remagx_table_lookup(energies, values, 2, 1, &query, 1, &cursor, &result);
-    return status != REMAGX_SUCCESS || result != 3.0 || cursor != 1;
+    if (status != REMAGX_SUCCESS || result != 3.0 || cursor != 1) return 1;
+    const double simplex[2] = {-1, 2};
+    const RemagxSimplexOptions options = {1000, 1000, 1e-8, 1e-12};
+    RemagxFitSummary summary;
+    status = remagx_nelder_mead(simplex, 1, &options, quadratic, NULL, NULL, NULL, &result, &summary);
+    return status != REMAGX_SUCCESS || summary.termination != REMAGX_FIT_CONVERGED || summary.value > 1e-12;
 }
