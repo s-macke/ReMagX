@@ -193,3 +193,32 @@ export function calculateDielectricTensor(module, { layer, tensor = 0, magnetic 
     return { values: module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + 18), anisotropic: kind === 1 }
   })
 }
+
+// One angle for a prepared substrate-first tensor stack. Both beams see the
+// supplied tensors; the caller prepares any magnetization-reversed stack.
+export function calculateVisnovsky(module, { layers, angle, waveNumber, epsilon, beam1, beam2, analyzer = 0 }) {
+  if (!Array.isArray(layers) || layers.length < 2 || !Array.from(layers).every(layer =>
+      layer && validVector(layer.values, 22) && [0, 1].includes(layer.anisotropic)) ||
+      !Number.isFinite(angle) || !Number.isFinite(waveNumber) || !Number.isFinite(epsilon) ||
+      !validVector(beam1, 4) || !validVector(beam2, 4) || ![0, 1, 2].includes(analyzer)) {
+    throw new TypeError('Invalid prepared Visnovsky input')
+  }
+  return withBuffers(module, allocate => {
+    const layerPointer = allocate(layers.length * 23)
+    const firstPointer = allocate(4)
+    const secondPointer = allocate(4)
+    const outputPointer = allocate(2)
+    const view = new DataView(module.HEAPF64.buffer)
+    layers.forEach((layer, index) => {
+      const offset = layerPointer + index * 184
+      module.HEAPF64.set(layer.values, offset / 8)
+      view.setInt32(offset + 176, layer.anisotropic, true)
+      view.setInt32(offset + 180, 0, true) // trailing ABI padding
+    })
+    module.HEAPF64.set(beam1, firstPointer / 8)
+    module.HEAPF64.set(beam2, secondPointer / 8)
+    checkStatus(module._remagx_visnovsky(layerPointer, layers.length, angle, waveNumber, epsilon,
+      firstPointer, secondPointer, analyzer, outputPointer), 'Visnovsky reflection')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + 2)
+  })
+}

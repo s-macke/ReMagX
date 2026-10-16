@@ -233,7 +233,9 @@ class NativeParrattTest(unittest.TestCase):
                     self.assertEqual(tensor_function(ctypes.byref(layer), tensor, magnetic, output, ctypes.byref(kind)), 0)
                     tensor_cases.append(dict(layer=case['layers'][0], tensor=tensor, magnetic=magnetic,
                         expected=list(output), anisotropic=bool(kind.value)))
-        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases))
+        matrix_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_visnovsky.py')),
+            library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
+        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
                        input=payload, text=True, check=True)

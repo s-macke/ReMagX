@@ -1,6 +1,7 @@
 import cmath
 import ctypes
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -139,4 +140,16 @@ double first,second;engine.MatrixFormalism(angle,wave,false,second,first,beam,ep
                 self.assertTrue(math.isfinite(got) and math.isfinite(wanted) and abs(got-wanted) <= 1e-15+1e-10*abs(wanted), (case_number, got, wanted))
         print(f'Original Visnovsky stacks: {len(inputs)*2} intensities matched.', flush=True)
 
-if __name__ == '__main__': unittest.main()
+if __name__ == '__main__':
+    if '--wasm-payload' in sys.argv:
+        payload = []
+        for arguments in cases():
+            layers, angle, wave, epsilon, analyzer, first, second = arguments
+            status, expected = evaluate(*arguments)
+            assert status == 0
+            payload.append(dict(layers=[dict(values=[entry.thickness, entry.roughness, entry.index_real,
+                entry.index_imaginary, *entry.dielectric], anisotropic=entry.anisotropic) for entry in layers],
+                angle=angle, waveNumber=wave, epsilon=epsilon, analyzer=analyzer, beam1=first, beam2=second, expected=expected))
+        print(json.dumps(payload))
+    else:
+        unittest.main()

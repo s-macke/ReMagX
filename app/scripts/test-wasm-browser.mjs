@@ -31,7 +31,7 @@ try {
   browser = await chromium.launch()
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
-  const result = await page.evaluate(async ({ cases, tables, energy, scans, tensors }) => {
+  const result = await page.evaluate(async ({ cases, tables, energy, scans, tensors, matrices }) => {
     const next = (worker, kind) => new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { cleanup(); reject(new Error(`Worker timeout: ${kind}`)) }, 10000)
       const cleanup = () => {
@@ -51,8 +51,8 @@ try {
     try {
       await next(worker, 'ready')
       const response = next(worker, 'results')
-      worker.postMessage({ cases, tables, energy, scans, tensors })
-      const { values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults } = await response
+      worker.postMessage({ cases, tables, energy, scans, tensors, matrices })
+      const { values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults, matrices: matrixResults } = await response
       const entered = next(worker, 'entered')
       let finished = false
       worker.addEventListener('message', event => { if (event.data.kind === 'finished') finished = true })
@@ -69,11 +69,11 @@ try {
       const replacementResponse = next(worker, 'results')
       worker.postMessage({ cases: [cases[0]] })
       const replacement = (await replacementResponse).values[0]
-      return { tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
+      return { matrixResults, tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
     } finally {
       worker.terminate()
     }
-  }, { cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors })
+  }, { cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors, matrices: input.matrices })
   let count = 0, maxLogError = 0
   for (const [caseIndex, prepared] of cases.entries()) {
     assert.equal(result.values[caseIndex].length, prepared.expected.length)
@@ -90,6 +90,18 @@ try {
     })
   }
   assert.equal(count, 14880)
+  let matrixCount = 0
+  input.matrices.forEach((item, index) => {
+    assert.equal(result.matrixResults[index].length, 2)
+    result.matrixResults[index].forEach((value, beam) => {
+      const target = item.expected[beam]
+      assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
+        `Visnovsky case ${index}, beam ${beam}: ${value} vs ${target}`)
+      matrixCount++
+    })
+  })
+  assert.equal(matrixCount, 2880)
+  console.log(`Chromium Visnovsky: ${matrixCount} intensities matched native.`)
   let tensorCount = 0
   input.tensors.forEach((item, index) => {
     assert.equal(result.tensorResults[index].anisotropic, item.anisotropic)

@@ -94,6 +94,9 @@ SolvePolynomial(coefficients[0],coefficients[1],coefficients[2],coefficients[3],
 cout<<setprecision(17);for(auto root:roots)cout<<root.real()<<' '<<root.imag()<<' ';cout<<'\\n';}}
 '''
         inputs = list(cases())
+        # Normalization must retain the native extreme-scale handling as well.
+        inputs += [[coefficient * scale for coefficient in case]
+                   for case in list(cases())[4:20] for scale in [1e-200, 1e200]]
         payload = '\n'.join(' '.join(str(part) for value in map(complex, coefficients) for part in (value.real, value.imag)) for coefficients in inputs) + '\n'
         with tempfile.TemporaryDirectory() as directory:
             path, binary = Path(directory) / 'reference.cpp', Path(directory) / 'reference'
