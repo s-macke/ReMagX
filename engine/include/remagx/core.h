@@ -136,6 +136,16 @@ int remagx_analytic_modes(int kind, const double* tensor, const double* refracti
 int remagx_matrix_modes(int anisotropic, const double* tensor, const double* refractive_index,
                         double epsilon, double angle, double wave_number, double thickness,
                         double* roots, double* boundary, double* propagation);
+// Single-layer Zak boundary/propagation matrices. Angles (including gamma/phi)
+// are radians; index and magnetic constant are complex real/imag pairs. The
+// caller supplies Q = 2*(-delta_m + i*beta_m), or zero when magnetism is disabled.
+// Outputs: 2 root doubles and two row-major complex matrices of 32 doubles each.
+// Matches legacy column storage and angle clamp. For zero thickness propagation
+// is NOT written: the stack caller must retain its previous matrix, as legacy does.
+// Buffers must not overlap. All outputs remain untouched on failure.
+int remagx_zak_modes(const double* refractive_index, const double* magnetic_constant,
+                     double angle, double gamma, double phi, double wave_number,
+                     double thickness, double* root, double* boundary, double* propagation);
 // Prepared substrate-first matrix stack, including ambient as the last layer.
 // Tensor entries are packed row-major complex real/imag; anisotropic is 0/1.
 // Scalars supply the isotropic index directly. Tensors are already constructed
