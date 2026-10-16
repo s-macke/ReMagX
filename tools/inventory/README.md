@@ -93,4 +93,6 @@ These findings are reconciled into AGENTS.md. The full per-entry mapping is in `
 `report` prints a compact group summary.
 
 Worker lifecycle recovery was completed after the initial review; `review.json` now marks
-that group ported. The 1-second Stop requirement remains deferred.
+that group ported. Cancellation controls and the 250 ms fit fallback were then completed,
+and real blocked-worker tests verify the 1-second threshold. Browser progress, responsiveness
+and cancellation timing verification remain outstanding under AC-10.

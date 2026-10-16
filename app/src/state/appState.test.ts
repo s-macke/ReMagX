@@ -65,3 +65,23 @@ describe('undo and redo', () => {
     expect(state.history.past).toHaveLength(0)
   })
 })
+
+describe('pausing automatic calculation after Stop', () => {
+  it('keeps the project and history, and stays paused through late fit status updates', () => {
+    const state = initialState()
+    const stopped = reducer(state, { type: 'setCalculationPaused', paused: true })
+    expect(stopped.project).toBe(state.project)
+    expect(stopped.history).toBe(state.history)
+    const settled = reducer(stopped, { type: 'setFitStatus', fitStatus: { running: false, parameters: null, values: null, message: 'Stopped.' } })
+    expect(settled.calculationPaused).toBe(true)
+    expect(settled.project).toBe(state.project)
+  })
+
+  it('resumes on an edit or an explicit scan, including the already selected scan', () => {
+    const stopped = reducer(initialState(), { type: 'setCalculationPaused', paused: true })
+    expect(reducer(stopped, { type: 'updateLayer', index: 1, patch: { thickness: 123 } }).calculationPaused).toBe(false)
+    expect(reducer(stopped, { type: 'setScanKind', scanKind: stopped.scanKind }).calculationPaused).toBe(false)
+    expect(reducer(stopped, { type: 'setPlotView', plotView: 'opticalProfile' }).calculationPaused).toBe(false)
+    expect(reducer(stopped, { type: 'setDisplayMode', displayMode: 'dichroic' }).calculationPaused).toBe(false)
+  })
+})

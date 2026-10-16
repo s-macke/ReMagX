@@ -58,7 +58,7 @@ function Workspace() {
     () => (fitStatus.running && fitStatus.parameters && fitStatus.values ? applyFitValues(project, fitStatus.parameters, fitStatus.values) : project),
     [project, fitStatus.running, fitStatus.parameters, fitStatus.values],
   )
-  const calculation = useCalculation(displayedProject, { scanKind, displayMode, plotView })
+  const calculation = useCalculation(displayedProject, { scanKind, displayMode, plotView }, state.calculationPaused)
   usePersistence()
   const unsaved = project !== state.savedProject
   const [error, setError] = useState<string | null>(null)
@@ -255,12 +255,19 @@ function Workspace() {
         <PlotPanel curve={calculation.curve} measured={measured} />
         <aside className="workspace__side">
           <SidePanel />
-          <ModePanel />
+          <ModePanel
+            busy={calculation.busy || fitStatus.running || fitStatus.evaluating}
+            onStop={() => {
+              dispatch({ type: 'setCalculationPaused', paused: true })
+              calculation.stop()
+            }}
+            onCalculate={calculation.recalculate}
+          />
         </aside>
       </main>
       <footer className="status-bar" role="status">
         <span className={calculation.error ? 'status-bar__error' : undefined}>
-          {calculation.error ?? state.notice ?? (calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
+          {calculation.error ?? (calculation.stopped ? 'Stopped.' : null) ?? state.notice ?? (calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
         </span>
         <span className="status-bar__mock">Mock calculation, not the real ReMagX engine</span>
       </footer>

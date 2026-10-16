@@ -3,6 +3,7 @@
 import type { Project } from '../model/project'
 import {
   ComputeError,
+  ComputeCancelled,
   type AsymmetryCurve,
   type ComputeService,
   type DepthProfile,
@@ -23,13 +24,14 @@ export interface WorkerPort {
 }
 
 interface Pending {
+  kind: keyof CalculationResults
   resolve: (value: unknown) => void
   reject: (error: Error) => void
   onProgress?: (progress: FitProgress) => void
 }
 
-// If a fit does not end within this time after stopFit(), discard the worker (D-12).
-export const STOP_TIMEOUT_MS = 2000
+// Leave time for the UI to settle within D-28’s 1 s deadline, even for a stuck fit.
+export const STOP_TIMEOUT_MS = 250
 
 const createWorker = (): WorkerPort => new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerPort
 
@@ -38,6 +40,7 @@ export class WorkerComputeService implements ComputeService {
   private readonly pending = new Map<number, Pending>()
   private worker: WorkerPort | null = null
   private disposed = false
+  private stopping = false
   private readonly createWorker: () => WorkerPort
   private stopTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -86,25 +89,39 @@ export class WorkerComputeService implements ComputeService {
   }
 
   stopFit(): void {
-    if (!this.worker || this.pending.size === 0) return
-    try {
-      this.worker.postMessage({ kind: 'stopFit' })
-    } catch (error) {
-      this.failWorker(`Could not send Stop to the compute worker: ${String(error)}`)
+    this.stop()
+  }
+
+  stop(): void {
+    if (!this.worker || this.pending.size === 0 || this.stopping) return
+    // Standalone calculations are synchronous inside the worker and cannot process a Stop
+    // message until they finish. Terminating them immediately also clears queued requests.
+    if (![...this.pending.values()].some((request) => request.kind === 'fit')) {
+      this.failWorker(new ComputeCancelled())
       return
     }
-    this.clearStopTimer()
-    this.stopTimer = setTimeout(() => this.failWorker('The computation did not react to Stop and was cancelled.'), STOP_TIMEOUT_MS)
+    this.stopping = true
+    this.stopTimer = setTimeout(
+      () => this.failWorker(new ComputeCancelled('Stopped. The computation did not react to Stop.')),
+      STOP_TIMEOUT_MS,
+    )
+    try {
+      this.worker.postMessage({ kind: 'stopFit' })
+    } catch {
+      // If delivery fails, cancellation still succeeds by terminating the worker.
+      this.failWorker(new ComputeCancelled())
+    }
   }
 
   private clearStopTimer(): void {
     if (this.stopTimer !== null) clearTimeout(this.stopTimer)
     this.stopTimer = null
+    this.stopping = false
   }
 
   // Fail all requests without touching the project. Create a replacement only when new work
   // arrives, so a worker that cannot load does not enter an automatic restart loop.
-  private failWorker(reason: string): void {
+  private failWorker(reason: string | ComputeError): void {
     this.clearStopTimer()
     const worker = this.worker
     this.worker = null
@@ -114,7 +131,7 @@ export class WorkerComputeService implements ComputeService {
       worker.onmessageerror = null
       worker.terminate()
     }
-    for (const { reject } of this.pending.values()) reject(new ComputeError(reason))
+    for (const { reject } of this.pending.values()) reject(typeof reason === 'string' ? new ComputeError(reason) : reason)
     this.pending.clear()
   }
 
@@ -129,9 +146,10 @@ export class WorkerComputeService implements ComputeService {
     onProgress?: (progress: FitProgress) => void,
   ): Promise<CalculationResults[K]> {
     if (this.disposed) return Promise.reject(new ComputeError('Compute service was shut down.'))
+    if (this.stopping) return Promise.reject(new ComputeCancelled())
     const id = this.nextId++
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (value: unknown) => void, reject, onProgress })
+      this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress })
       try {
         this.worker ??= this.connect()
         this.worker.postMessage({ id, kind, project } as WorkerRequest)
@@ -145,12 +163,17 @@ export class WorkerComputeService implements ComputeService {
     const pending = this.pending.get(response.id)
     if (!pending) return
     if (response.type === 'fitProgress') {
-      pending.onProgress?.(response.progress)
+      if (!this.stopping) pending.onProgress?.(response.progress)
       return
     }
+    const wasStopping = this.stopping
     this.pending.delete(response.id)
     if (this.pending.size === 0) this.clearStopTimer()
-    if (response.type === 'result') pending.resolve(response.result)
+    if (wasStopping) {
+      if (pending.kind === 'fit' && response.type === 'result') {
+        pending.resolve({ ...response.result as FitResult, stopped: true })
+      } else pending.reject(new ComputeCancelled())
+    } else if (response.type === 'result') pending.resolve(response.result)
     else pending.reject(new ComputeError(response.message))
   }
 }

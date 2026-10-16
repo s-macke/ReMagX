@@ -43,7 +43,7 @@ export interface FitResult {
   values: number[] // best value of each fit parameter, same order as project.fit.parameters
   chi2: number
   iterations: number
-  stopped: boolean // true if ended by stopFit(), false if converged or hit the iteration limit
+  stopped: boolean // true if ended by Stop, false if converged or hit the iteration limit
 }
 
 export interface ComputeService {
@@ -54,6 +54,8 @@ export interface ComputeService {
   // Error between simulation and the active dataset (the value a fit minimizes).
   calcChi2(project: Project): Promise<number>
   startFit(project: Project, onProgress: (progress: FitProgress) => void): Promise<FitResult>
+  // Stop all current work in the shared worker, including standalone calculations.
+  stop(): void
   stopFit(): void
   dispose(): void
 }
@@ -63,5 +65,13 @@ export class ComputeError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'ComputeError'
+  }
+}
+
+// Cancellation is a normal user action, not an engine failure.
+export class ComputeCancelled extends ComputeError {
+  constructor(message = 'Stopped.') {
+    super(message)
+    this.name = 'ComputeCancelled'
   }
 }

@@ -705,6 +705,10 @@ button.primary {
   padding: 6px;
 }
 
+.mode-panel__stop {
+  grid-column: 1 / -1;
+}
+
 /* --- dialogs --------------------------------------------------------------------------------- */
 
 .dialog {

@@ -1,3 +1,4 @@
+import { ComputeCancelled } from './ComputeService'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createDefaultProject } from '../model/defaults'
 import type { Project } from '../model/project'
@@ -132,7 +133,7 @@ function controlledWorker() {
 }
 
 function deliverResult(port: WorkerPort, result: number) {
-  const request = vi.mocked(port.postMessage).mock.calls.at(-1)![0]
+  const request = vi.mocked(port.postMessage).mock.calls.findLast(([message]) => 'id' in message)![0]
   if (!('id' in request)) throw new Error('Expected a calculation request')
   port.onmessage?.({ data: { id: request.id, type: 'result', result } } as MessageEvent<WorkerResponse>)
 }
@@ -231,7 +232,7 @@ describe('WorkerComputeService failure recovery', () => {
     const port = controlledWorker()
     const service = new WorkerComputeService(() => port)
     const fit = service.startFit(createDefaultProject(), () => {})
-    const failure = expect(fit).rejects.toThrow('Could not send Stop')
+    const failure = expect(fit).rejects.toBeInstanceOf(ComputeCancelled)
     vi.mocked(port.postMessage).mockImplementationOnce(() => { throw new Error('worker unavailable') })
     expect(() => service.stopFit()).not.toThrow()
     await failure
@@ -244,7 +245,7 @@ describe('WorkerComputeService failure recovery', () => {
     const port = controlledWorker()
     const factory = vi.fn(() => port)
     const service = new WorkerComputeService(factory)
-    const result = service.calcChi2(createDefaultProject())
+    const result = service.startFit(createDefaultProject(), () => {})
     const failure = expect(result).rejects.toThrow('shut down')
     service.stopFit()
     service.dispose()
@@ -277,4 +278,90 @@ describe('WorkerComputeService failure recovery', () => {
     await expect(retry).resolves.toBe(2)
     service.dispose()
   })
+})
+
+describe('cancellation deadline', () => {
+  it.each(['calcReflectivity', 'calcEnergyScan', 'calcAsymmetry', 'depthProfile', 'calcChi2'] as const)(
+    'immediately stops %s and queued work without changing the project', async (method) => {
+      const first = controlledWorker()
+      const second = controlledWorker()
+      const service = new WorkerComputeService(vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second))
+      const project = createDefaultProject()
+      const before = JSON.stringify(project)
+      const calculation = service[method](project)
+      const queued = service.calcChi2(project)
+      const failures = Promise.all([
+        expect(calculation).rejects.toBeInstanceOf(ComputeCancelled),
+        expect(queued).rejects.toBeInstanceOf(ComputeCancelled),
+      ])
+      service.stop()
+      expect(first.terminate).toHaveBeenCalledOnce()
+      await failures
+      expect(JSON.stringify(project)).toBe(before)
+      const retry = service.calcChi2(project)
+      deliverResult(second, 4)
+      await expect(retry).resolves.toBe(4)
+      service.dispose()
+    },
+  )
+
+  it('does not extend the deadline or admit new work while stopping a fit', async () => {
+    vi.useFakeTimers()
+    const port = controlledWorker()
+    const service = new WorkerComputeService(() => port)
+    const progress = vi.fn()
+    const fit = service.startFit(createDefaultProject(), progress)
+    const failure = expect(fit).rejects.toBeInstanceOf(ComputeCancelled)
+    const request = vi.mocked(port.postMessage).mock.calls[0][0]
+    if (!('id' in request)) throw new Error('Expected a fit request')
+    service.stopFit()
+    vi.advanceTimersByTime(STOP_TIMEOUT_MS - 1)
+    service.stop()
+    await expect(service.calcChi2(createDefaultProject())).rejects.toBeInstanceOf(ComputeCancelled)
+    port.onmessage?.({ data: { id: request.id, type: 'fitProgress', progress: { iteration: 1, chi2: 0, values: [42] } } } as MessageEvent<WorkerResponse>)
+    expect(progress).not.toHaveBeenCalled()
+    expect(port.terminate).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    await failure
+    expect(port.terminate).toHaveBeenCalledOnce()
+    expect(STOP_TIMEOUT_MS).toBeLessThan(1000)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('cancels live curves while preserving a cooperatively stopped fit result', async () => {
+    vi.useFakeTimers()
+    const port = controlledWorker()
+    const service = new WorkerComputeService(() => port)
+    const project = fitProject()
+    const fit = service.startFit(project, () => {})
+    const curve = service.calcChi2(project)
+    const cancelledCurve = expect(curve).rejects.toBeInstanceOf(ComputeCancelled)
+    service.stop()
+    deliverResult(port, 999)
+    await cancelledCurve
+    const request = vi.mocked(port.postMessage).mock.calls[0][0]
+    if (!('id' in request)) throw new Error('Expected a fit request')
+    port.onmessage?.({ data: { id: request.id, type: 'result', result: {
+      project, values: [49], iterations: 2, chi2: 1, stopped: false,
+    } } } as MessageEvent<WorkerResponse>)
+    await expect(fit).resolves.toMatchObject({ stopped: true, values: [49] })
+    expect(port.terminate).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    service.dispose()
+  })
+
+  it('does not run another optimizer step after the stop flag arrives', async () => {
+    const messages: WorkerResponse[] = []
+    const handle = createRequestHandler((response) => {
+      messages.push(response)
+      if (response.type === 'fitProgress') void handle({ kind: 'stopFit' })
+    })
+    await handle({ id: 1, kind: 'fit', project: fitProject() })
+    const progress = messages.find((message) => message.type === 'fitProgress')
+    const result = messages.find((message) => message.type === 'result')
+    expect(progress?.type).toBe('fitProgress')
+    if (progress?.type !== 'fitProgress') throw new Error('Expected progress')
+    expect(result).toMatchObject({ result: { stopped: true, iterations: progress.progress.iteration } })
+  })
+
 })

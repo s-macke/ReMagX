@@ -14,6 +14,7 @@ export type PlotView = 'scan' | 'opticalProfile' | 'magneticProfile'
 export type EnergyUnit = 'eV' | 'angstrom'
 
 export interface FitStatus {
+  evaluating: boolean
   running: boolean
   iteration: number
   chi2: number | null
@@ -34,6 +35,7 @@ export interface AppState {
   displayMode: DisplayMode
   plotView: PlotView
   energyUnit: EnergyUnit
+  calculationPaused: boolean // Stop pauses automatic redraw until an edit or explicit calculation
   importReport: ImportReport | null // shown after opening a legacy file
   // Optical-constant tables loaded in this browser session, by file name (Co.db, Co.m, ...).
   opticalTables: OpticalTable[]
@@ -75,6 +77,7 @@ export type Action =
   | { type: 'setEnergyUnit'; energyUnit: EnergyUnit }
   | { type: 'addOpticalTables'; tables: OpticalTable[] }
   | { type: 'clearOpticalTables' }
+  | { type: 'setCalculationPaused'; paused: boolean }
   | { type: 'setFitStatus'; fitStatus: Partial<FitStatus> }
   | { type: 'appendDebug'; lines: string[] }
   | { type: 'clearDebug' }
@@ -93,9 +96,10 @@ export function initialState(): AppState {
     displayMode: 'monochromatic',
     plotView: 'scan',
     energyUnit: 'eV',
+    calculationPaused: false,
     importReport: null,
     opticalTables: [],
-    fitStatus: { running: false, iteration: 0, chi2: null, message: null, parameters: null, values: null },
+    fitStatus: { evaluating: false, running: false, iteration: 0, chi2: null, message: null, parameters: null, values: null },
     debugLog: [],
   }
 }
@@ -115,18 +119,18 @@ export function reducer(state: AppState, action: Action): AppState {
       action.type === 'undo'
         ? { past: rest, future: [...future, state.project], lastKey: null, lastAt: 0 }
         : { past: [...past, state.project], future: rest, lastKey: null, lastAt: 0 }
-    return { ...state, project, history, notice: null }
+    return { ...state, project, history, notice: null, calculationPaused: false }
   }
 
   const next = transition(state, action)
-  if (action.type === 'loadProject') return { ...next, history: emptyHistory() }
+  if (action.type === 'loadProject') return { ...next, history: emptyHistory(), calculationPaused: false }
   if (next.project === state.project) return next
 
   const now = Date.now()
   const key = 'coalesce' in action ? (action.coalesce ?? null) : null
   const merge = key !== null && key === state.history.lastKey && now - state.history.lastAt < COALESCE_MS
   const past = merge ? state.history.past : [...state.history.past, state.project].slice(-HISTORY_LIMIT)
-  return { ...next, notice: null, history: { past, future: [], lastKey: key, lastAt: now } }
+  return { ...next, notice: null, calculationPaused: false, history: { past, future: [], lastKey: key, lastAt: now } }
 }
 
 function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | { type: 'redo' }>): AppState {
@@ -172,13 +176,13 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
       return { ...state, project, selectedLayer: Math.max(1, Math.min(state.selectedLayer, rows - 2)) }
     }
     case 'setScanKind':
-      return { ...state, scanKind: action.scanKind, plotView: 'scan' }
+      return { ...state, scanKind: action.scanKind, plotView: 'scan', calculationPaused: false }
     case 'setDisplayMode':
-      return { ...state, displayMode: action.displayMode }
+      return { ...state, displayMode: action.displayMode, calculationPaused: false }
     case 'dismissImportReport':
       return { ...state, importReport: null }
     case 'setPlotView':
-      return { ...state, plotView: action.plotView }
+      return { ...state, plotView: action.plotView, calculationPaused: false }
     case 'setEnergyUnit':
       return { ...state, energyUnit: action.energyUnit }
     case 'addOpticalTables': {
@@ -188,6 +192,8 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
     }
     case 'clearOpticalTables':
       return { ...state, opticalTables: [] }
+    case 'setCalculationPaused':
+      return { ...state, calculationPaused: action.paused }
     case 'setFitStatus':
       return { ...state, fitStatus: { ...state.fitStatus, ...action.fitStatus } }
     case 'appendDebug':

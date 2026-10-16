@@ -267,13 +267,13 @@ export function FitStartStopSection() {
   return (
     <>
       <ButtonRow>
-        <button type="button" className="primary" onClick={start} disabled={fitStatus.running || !canFit}>
+        <button type="button" className="primary" onClick={start} disabled={fitStatus.running || fitStatus.evaluating || !canFit}>
           Start
         </button>
-        <button type="button" onClick={stop} disabled={!fitStatus.running}>
+        <button type="button" onClick={stop} disabled={!fitStatus.running && !fitStatus.evaluating}>
           Stop
         </button>
-        <button type="button" onClick={evaluate} disabled={fitStatus.running || project.activeDatasetIndex === null} title="χ² of the current parameters">
+        <button type="button" onClick={evaluate} disabled={fitStatus.running || fitStatus.evaluating || project.activeDatasetIndex === null} title="χ² of the current parameters">
           χ²
         </button>
       </ButtonRow>

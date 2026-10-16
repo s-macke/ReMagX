@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { ComputeCancelled } from '../compute'
 import { applyFitValues } from '../model/fitTargets'
 import { useAppState, useDispatch } from './context'
 import { computeService } from './useCalculation'
@@ -10,6 +11,7 @@ export function useFitRunner() {
   const dispatch = useDispatch()
 
   const start = useCallback(() => {
+    dispatch({ type: 'setCalculationPaused', paused: false })
     const parameters = project.fit.parameters
     dispatch({ type: 'setFitStatus', fitStatus: { running: true, iteration: 0, message: 'Fitting…', parameters, values: null } })
     dispatch({ type: 'appendDebug', lines: [`Fit started: ${project.fit.algorithm}, ${parameters.length} parameter(s)`] })
@@ -20,6 +22,7 @@ export function useFitRunner() {
       })
       .then((result) => {
         dispatch({ type: 'updateProject', update: (current) => applyFitValues(current, parameters, result.values) })
+        if (result.stopped) dispatch({ type: 'setCalculationPaused', paused: true })
         const message = result.stopped ? `Stopped after ${result.iterations} iterations.` : `Finished after ${result.iterations} iterations.`
         dispatch({
           type: 'setFitStatus',
@@ -29,20 +32,24 @@ export function useFitRunner() {
       })
       .catch((error: Error) => {
         dispatch({ type: 'setFitStatus', fitStatus: { running: false, message: error.message, parameters: null, values: null } })
-        dispatch({ type: 'appendDebug', lines: [`Fit error: ${error.message}`] })
+        dispatch({ type: 'appendDebug', lines: [error instanceof ComputeCancelled ? error.message : `Fit error: ${error.message}`] })
       })
   }, [project, dispatch])
 
-  const stop = useCallback(() => computeService().stopFit(), [])
+  const stop = useCallback(() => {
+    dispatch({ type: 'setCalculationPaused', paused: true })
+    computeService().stopFit()
+  }, [dispatch])
 
   const evaluate = useCallback(() => {
+    dispatch({ type: 'setFitStatus', fitStatus: { evaluating: true, message: 'Calculating χ²…' } })
     computeService()
       .calcChi2(project)
       .then((chi2) => {
-        dispatch({ type: 'setFitStatus', fitStatus: { chi2, message: 'χ² of the current parameters.' } })
+        dispatch({ type: 'setFitStatus', fitStatus: { evaluating: false, chi2, message: 'χ² of the current parameters.' } })
         dispatch({ type: 'appendDebug', lines: [`Chi^2 of the current parameters: ${chi2.toPrecision(6)}`] })
       })
-      .catch((error: Error) => dispatch({ type: 'setFitStatus', fitStatus: { message: error.message } }))
+      .catch((error: Error) => dispatch({ type: 'setFitStatus', fitStatus: { evaluating: false, message: error.message } }))
   }, [project, dispatch])
 
   return { start, stop, evaluate }

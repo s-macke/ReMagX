@@ -863,21 +863,27 @@
     },
     {
       "name": "stop-deadline",
-      "status": "deferred",
-      "reason": "Stop control exists, but cancellation and worker fallback must meet 1 s for fits and standalone calculations (D-28, AC-10).",
+      "status": "ported",
+      "reason": "Stop cancels standalone work immediately and gives fits a cooperative stop with a non-extendable 250 ms termination fallback. Controls cover scans, profiles, fits and chi-square; paused redraw prevents automatic restart. Real blocked-worker tests pass the 1 s threshold. Browser progress/responsiveness and end-to-end timing verification remain in the AC-10 checklist.",
       "references": [
+        "app/src/compute/WorkerComputeService.ts",
+        "app/src/compute/WorkerComputeService.test.ts",
+        "app/test/workerCancellation.test.ts",
+        "app/src/state/useCalculation.ts",
+        "app/src/state/useFitRunner.ts",
+        "app/src/ui/ModePanel.tsx",
+        "app/src/ui/sections/FitSections.tsx",
         "AGENTS.md"
       ],
       "entries": [
         "client/FitStartStop.dfm::Frame19/Button11",
         "client/Unit1.cpp::event:916c9a917d00d23f:1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "worker-lifecycle",
       "status": "ported",
-      "reason": "Worker error/messageerror and startup/send failures reject all pending requests without changing project state. Failed workers are detached and terminated, the next request creates a replacement, and disposal rejects further work. The separate Stop deadline remains incomplete.",
+      "reason": "Worker error/messageerror and startup/send failures reject all pending requests without changing project state. Failed workers are detached and terminated, the next request creates a replacement, and disposal rejects further work. Browser cancellation timing verification remains in the AC-10 checklist.",
       "references": [
         "app/src/compute/WorkerComputeService.ts",
         "app/src/compute/WorkerComputeService.test.ts",

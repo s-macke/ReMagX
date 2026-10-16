@@ -41,7 +41,7 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
     while (!state.done && !stopRequested) {
       post({ id, type: 'fitProgress', progress: { iteration: state.value.iteration, chi2: state.value.bestValue, values: state.value.best } })
       await yieldToEventLoop()
-      state = optimizer.next()
+      if (!stopRequested) state = optimizer.next()
     }
     const best = state.value
     return {
