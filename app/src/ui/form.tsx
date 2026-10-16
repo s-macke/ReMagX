@@ -1,3 +1,4 @@
+import type { ValueCell } from '../model/valueSlider'
 import { useId, type ReactNode } from 'react'
 import { NumberCell } from './NumberCell'
 
@@ -25,6 +26,7 @@ export function Field({ label, unit, children }: { label: string; unit?: string;
 }
 
 interface NumberFieldProps {
+  sliderTarget?: ValueCell
   label: string
   value: number
   onChange: (value: number) => void
@@ -33,10 +35,10 @@ interface NumberFieldProps {
   integer?: boolean
 }
 
-export function NumberField({ label, value, onChange, unit, min, integer }: NumberFieldProps) {
+export function NumberField({ label, value, onChange, unit, min, integer, sliderTarget }: NumberFieldProps) {
   return (
     <Field label={label} unit={unit}>
-      <NumberCell label={label} value={value} min={min} onCommit={(v) => onChange(integer ? Math.round(v) : v)} />
+      <NumberCell sliderTarget={sliderTarget} label={label} value={value} min={min} onCommit={(v) => onChange(integer ? Math.round(v) : v)} />
     </Field>
   )
 }

@@ -83,10 +83,11 @@ async function calculate(service: ComputeService, project: Project, request: Cal
   return { axis: 'qz', x: curve.qz, series: [{ label: 'simulated asymmetry', y: curve.asymmetry }], logScale: false, yLabel: 'asymmetry' }
 }
 
-export function useCalculation(project: Project, request: CalculationRequest, paused = false) {
+export function useCalculation(project: Project, request: CalculationRequest, paused = false, live = false) {
   const { scanKind, displayMode, plotView } = request
   const [state, setState] = useState<CalculationState>({ curve: null, error: null, busy: true, stopped: false })
   const requestId = useRef(0)
+  const lastCalculation = useRef(-Infinity)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [revision, setRevision] = useState(0)
   const recalculate = useCallback(() => setRevision((value) => value + 1), [])
@@ -104,6 +105,7 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
     let active = true
     const timer = setTimeout(() => {
       debounceTimer.current = null
+      lastCalculation.current = performance.now()
       setState((s) => ({ ...s, busy: true, stopped: false, error: null }))
       calculate(computeService(), project, { scanKind, displayMode, plotView })
         .then((curve) => {
@@ -112,14 +114,14 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
         .catch((error: Error) => {
           if (active && id === requestId.current) setState((s) => ({ curve: s.curve, error: error instanceof ComputeCancelled ? null : error.message, busy: false, stopped: error instanceof ComputeCancelled }))
         })
-    }, DEBOUNCE_MS)
+    }, live ? Math.max(0, DEBOUNCE_MS - (performance.now() - lastCalculation.current)) : DEBOUNCE_MS)
     debounceTimer.current = timer
     return () => {
       clearTimeout(timer)
       debounceTimer.current = null
       active = false
     }
-  }, [project, scanKind, displayMode, plotView, revision, paused])
+  }, [project, scanKind, displayMode, plotView, revision, paused, live])
 
   return { ...(paused ? { ...state, busy: false, stopped: true, error: null } : state), stop, recalculate }
 }

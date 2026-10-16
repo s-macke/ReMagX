@@ -1,16 +1,23 @@
-import { useState } from 'react'
+import { useDispatch } from '../state/context'
+import { valueCellKey, type ValueCell } from '../model/valueSlider'
+import { useEffect, useState } from 'react'
 import { formatNumber, parseNumber } from './numberFormat'
 
 interface NumberCellProps {
   value: number
   onCommit: (value: number) => void
   label: string
+  sliderTarget?: ValueCell
   min?: number
 }
 
 // Editable number: commits on Enter or blur, Escape restores the stored value, invalid input is
 // marked and not committed.
-export function NumberCell({ value, onCommit, label, min }: NumberCellProps) {
+export function NumberCell({ value, onCommit, label, min, sliderTarget }: NumberCellProps) {
+  const dispatch = useDispatch()
+  const sliderKey = sliderTarget ? valueCellKey(sliderTarget) : null
+  useEffect(() => () => { if (sliderKey) dispatch({ type: 'clearValueCell', key: sliderKey }) }, [sliderKey, dispatch])
+  const select = () => sliderTarget ? dispatch({ type: 'selectValueCell', target: sliderTarget, label }) : dispatch({ type: 'clearValueCell' })
   const [draft, setDraft] = useState<string | null>(null)
   const parsed = draft === null ? value : parseNumber(draft)
   const invalid = draft !== null && (parsed === null || (min !== undefined && parsed < min))
@@ -27,7 +34,8 @@ export function NumberCell({ value, onCommit, label, min }: NumberCellProps) {
       aria-invalid={invalid}
       inputMode="decimal"
       value={draft ?? formatNumber(value)}
-      onFocus={(event) => event.currentTarget.select()}
+      onFocus={(event) => { event.currentTarget.select(); select() }}
+      onClick={select}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {

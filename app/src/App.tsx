@@ -19,6 +19,7 @@ import { chooseFile, downloadText, forgetCurrentFile, openProjectInteractive, sa
 import { AsciiImportDialog } from './ui/AsciiImportDialog'
 import { diagramSeries, layerTableToText, seriesToText } from './import/asciiData'
 import { ImportReportDialog } from './ui/ImportReportDialog'
+import { ValueSlider } from './ui/ValueSlider'
 import { LayerTable } from './ui/LayerTable'
 import { MenuBar, type Menu } from './ui/MenuBar'
 import { ModePanel } from './ui/ModePanel'
@@ -59,7 +60,7 @@ function Workspace() {
     () => (fitStatus.running && fitStatus.parameters && fitStatus.values ? applyFitValues(project, fitStatus.parameters, fitStatus.values) : project),
     [project, fitStatus.running, fitStatus.parameters, fitStatus.values],
   )
-  const calculation = useCalculation(displayedProject, { scanKind, displayMode, plotView }, state.calculationPaused)
+  const calculation = useCalculation(displayedProject, { scanKind, displayMode, plotView }, state.calculationPaused, state.valueSlider !== null)
   usePersistence()
   const unsaved = project !== state.savedProject
   const [error, setError] = useState<string | null>(null)
@@ -254,7 +255,7 @@ function Workspace() {
         }}
       />
       <main className="workspace">
-        <LayerTable />
+        <div className="layer-stack"><LayerTable /><ValueSlider /></div>
         <PlotPanel curve={plot.curve} measured={plot.measured} />
         <aside className="workspace__side">
           <SidePanel />

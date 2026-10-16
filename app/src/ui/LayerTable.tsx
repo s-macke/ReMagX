@@ -33,7 +33,12 @@ function rowLabel(index: number, count: number): string {
 // selected element instead (legacy SchichtEingabe in element mode).
 export function LayerTable() {
   const { project } = useAppState()
-  return project.sample.mode === 'element' ? <ElementLayerTable /> : <CompoundLayerTable />
+  const dispatch = useDispatch()
+  return <div className="layer-stack__table" onFocusCapture={event => {
+    if (!(event.target instanceof HTMLInputElement) || !event.target.classList.contains('number-cell')) dispatch({ type: 'clearValueCell' })
+  }} onPointerDownCapture={event => {
+    if (!(event.target as HTMLElement).closest('input.number-cell')) dispatch({ type: 'clearValueCell' })
+  }}>{project.sample.mode === 'element' ? <ElementLayerTable /> : <CompoundLayerTable />}</div>
 }
 
 function CompoundLayerTable() {
@@ -96,7 +101,7 @@ function CompoundLayerTable() {
                   {outer ? (
                     <span className="layer-table__none">--</span>
                   ) : (
-                    <FittableNumberCell fitTarget={{ target: 'thickness', index, elementIndex: null }} label={`thickness of layer ${index}`} value={layer.thickness} min={0} onCommit={(thickness) => update(index, { thickness })} />
+                    <FittableNumberCell sliderTarget={{ kind: 'layer', field: 'thickness', index }} fitTarget={{ target: 'thickness', index, elementIndex: null }} label={`thickness of layer ${index}`} value={layer.thickness} min={0} onCommit={(thickness) => update(index, { thickness })} />
                   )}
                 </td>
                 <td>
@@ -116,17 +121,18 @@ function CompoundLayerTable() {
                   />
                 </td>
                 <td>
-                  <NumberCell label={`density of layer ${label(index)}`} value={layer.density} min={0} onCommit={(density) => update(index, { density })} />
+                  <NumberCell sliderTarget={{ kind: 'layer', field: 'density', index }} label={`density of layer ${label(index)}`} value={layer.density} min={0} onCommit={(density) => update(index, { density })} />
                 </td>
                 {opticalColumns.map((c) => (
                   <td key={c.field}>
-                    <FittableNumberCell fitTarget={{ target: c.field, index, elementIndex: null }} label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
+                    <FittableNumberCell sliderTarget={{ kind: 'layer', field: c.field, index }} fitTarget={{ target: c.field, index, elementIndex: null }} label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
                   </td>
                 ))}
                 {showMagnetization && (
                   <>
                     <td>
                       <NumberCell
+                        sliderTarget={{ kind: 'layer', field: 'gamma', index }}
                         label={`magnetization gamma of layer ${label(index)}`}
                         value={layer.magnetization.gamma}
                         onCommit={(gamma) => update(index, { magnetization: { ...layer.magnetization, gamma } })}
@@ -134,6 +140,7 @@ function CompoundLayerTable() {
                     </td>
                     <td>
                       <NumberCell
+                        sliderTarget={{ kind: 'layer', field: 'phi', index }}
                         label={`magnetization phi of layer ${label(index)}`}
                         value={layer.magnetization.phi}
                         onCommit={(phi) => update(index, { magnetization: { ...layer.magnetization, phi } })}
@@ -190,7 +197,7 @@ function ElementLayerTable() {
         {fields.map(([field, label]) => (
           <label key={field} className="element-bar__field">
             {label}
-            <FittableNumberCell fitTarget={{ target: ({ f1: 'elementF1', f2: 'elementF2', f1Mag: 'elementF1Mag', f2Mag: 'elementF2Mag' } as const)[field], index: null, elementIndex: current }} label={`${label} of ${element.element}`} value={element[field]} onCommit={(v) => update((p) => updateElement(p, current, { [field]: v }))} />
+            <FittableNumberCell sliderTarget={{ kind: 'element', index: current, field }} fitTarget={{ target: ({ f1: 'elementF1', f2: 'elementF2', f1Mag: 'elementF1Mag', f2Mag: 'elementF2Mag' } as const)[field], index: null, elementIndex: current }} label={`${label} of ${element.element}`} value={element[field]} onCommit={(v) => update((p) => updateElement(p, current, { [field]: v }))} />
           </label>
         ))}
       </div>
@@ -217,14 +224,14 @@ function ElementLayerTable() {
                   {outer ? (
                     <span className="layer-table__none">--</span>
                   ) : (
-                    <FittableNumberCell fitTarget={{ target: 'elementThickness', index, elementIndex: current }} label={`thickness of slab ${index}`} value={slab.thickness} min={0} onCommit={(thickness) => update((p) => updateSlab(p, current, index, { thickness }))} />
+                    <FittableNumberCell sliderTarget={{ kind: 'slab', field: 'thickness', index, element: current }} fitTarget={{ target: 'elementThickness', index, elementIndex: current }} label={`thickness of slab ${index}`} value={slab.thickness} min={0} onCommit={(thickness) => update((p) => updateSlab(p, current, index, { thickness }))} />
                   )}
                 </td>
                 <td>
-                  <FittableNumberCell fitTarget={{ target: 'elementDensity', index, elementIndex: current }} label={`density of slab ${index}`} value={slab.density} min={0} onCommit={(density) => update((p) => updateSlab(p, current, index, { density }))} />
+                  <FittableNumberCell sliderTarget={{ kind: 'slab', field: 'density', index, element: current }} fitTarget={{ target: 'elementDensity', index, elementIndex: current }} label={`density of slab ${index}`} value={slab.density} min={0} onCommit={(density) => update((p) => updateSlab(p, current, index, { density }))} />
                 </td>
                 <td>
-                  <FittableNumberCell fitTarget={{ target: 'elementRoughness', index, elementIndex: current }} label={`roughness of slab ${index}`} value={slab.roughness} min={0} onCommit={(roughness) => update((p) => updateSlab(p, current, index, { roughness }))} />
+                  <FittableNumberCell sliderTarget={{ kind: 'slab', field: 'roughness', index, element: current }} fitTarget={{ target: 'elementRoughness', index, elementIndex: current }} label={`roughness of slab ${index}`} value={slab.roughness} min={0} onCommit={(roughness) => update((p) => updateSlab(p, current, index, { roughness }))} />
                 </td>
               </tr>
             )

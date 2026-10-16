@@ -315,7 +315,7 @@ export function MagnetizationProfileSection() {
 
   const couplingSelect = (label: string, value: number | null, onChange: (v: number | null) => void) => (
     <Field label={label}>
-      <select className="select" value={value ?? ''} onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}>
+      <select className="select" onFocus={() => dispatch({ type: 'clearValueCell' })} value={value ?? ''} onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}>
         <option value="">none</option>
         {value !== null && value >= current && <option value={value}>M{value + 1} (stored reference)</option>}
         {functions.map((_, i) =>
@@ -365,19 +365,20 @@ export function MagnetizationProfileSection() {
       {fn && (
         <Group title={fn.spline.enabled ? 'Spline' : 'Gauss'}>
           {!fn.spline.enabled && <>
-          <NumberField label="δ amplitude" value={fn.deltaAmplitude} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].deltaAmplitude = v))} />
+          <NumberField sliderTarget={{ kind: 'profile', field: 'deltaAmplitude', index: current }} label="δ amplitude" value={fn.deltaAmplitude} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].deltaAmplitude = v))} />
           <FitCheckbox label="Fit δ amplitude" target={{ target: 'profileDeltaAmplitude', index: current, elementIndex: null }} />
-          <NumberField label="β amplitude" value={fn.betaAmplitude} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].betaAmplitude = v))} />
+          <NumberField sliderTarget={{ kind: 'profile', field: 'betaAmplitude', index: current }} label="β amplitude" value={fn.betaAmplitude} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].betaAmplitude = v))} />
           <FitCheckbox label="Fit β amplitude" target={{ target: 'profileBetaAmplitude', index: current, elementIndex: null }} />
-          <NumberField label="center z" unit="Å" value={fn.center} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].center = v))} />
+          <NumberField sliderTarget={{ kind: 'profile', field: 'center', index: current }} label="center z" unit="Å" value={fn.center} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].center = v))} />
           <FitCheckbox label="Fit center z" target={{ target: 'profileCenter', index: current, elementIndex: null }} />
-          <NumberField label="width (σ)" unit="Å" min={0} value={fn.width} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].width = v))} />
+          <NumberField sliderTarget={{ kind: 'profile', field: 'width', index: current }} label="width (σ)" unit="Å" min={0} value={fn.width} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].width = v))} />
           <FitCheckbox label="Fit width (σ)" target={{ target: 'profileWidth', index: current, elementIndex: null }} />
           {couplingSelect('amplitude coupled to', fn.amplitudeCoupledTo, (v) => edit((p) => void (p.sample.depthProfileFunctions[current].amplitudeCoupledTo = v)))}
           {couplingSelect('width coupled to', fn.widthCoupledTo, (v) => edit((p) => void (p.sample.depthProfileFunctions[current].widthCoupledTo = v)))}
           <Field label="bound to layer">
             <select
               className="select"
+              onFocus={() => dispatch({ type: 'clearValueCell' })}
               value={fn.boundToLayer ?? ''}
               onChange={(e) => edit((p) => void (p.sample.depthProfileFunctions[current].boundToLayer = e.target.value === '' ? null : Number(e.target.value)))}
             >
@@ -390,7 +391,7 @@ export function MagnetizationProfileSection() {
           </Field>
           </>}
           {fn.spline.enabled && fn.spline.points.slice(2, -2).map((point, pointIndex) => (
-            <NumberField key={pointIndex} label={`y${pointIndex}`} value={point.value}
+            <NumberField sliderTarget={{ kind: 'spline', profile: current, index: pointIndex + 2 }} key={pointIndex} label={`y${pointIndex}`} value={point.value}
               onChange={(value) => edit((p) => void (p.sample.depthProfileFunctions[current].spline.points[pointIndex + 2].value = value))} />
           ))}
           {fn.spline.enabled && fn.spline.points.length < 5 && <Note>No editable spline points. Use Build spline to create them.</Note>}

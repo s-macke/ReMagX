@@ -75,7 +75,7 @@ export function AdditionalFitParametersSection() {
                 <tr key={i}>
                   <th scope="row">par[{i}]</th>
                   <td>
-                    <NumberCell label={`script parameter ${i}`} value={value} onCommit={(v) => edit((p) => void (p.scripts.parameters[i] = v))} />
+                    <NumberCell sliderTarget={{ kind: 'script', index: i }} label={`script parameter ${i}`} value={value} onCommit={(v) => edit((p) => void (p.scripts.parameters[i] = v))} />
                   </td>
                 </tr>
               ))}

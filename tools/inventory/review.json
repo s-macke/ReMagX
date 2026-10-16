@@ -650,10 +650,13 @@
     },
     {
       "name": "value-slider",
-      "status": "deferred",
-      "reason": "Implement numeric-cell selection and the 0\u20134\u00d7 slider for layer, magnetic-profile and script-parameter tables.",
+      "status": "ported",
+      "reason": "Fixed-baseline 0\u20134\u00d7 slider for eligible layer/slab/scattering-factor, magnetic profile/spline and script values, with current-view recalculation during dragging, gesture undo and stale-target clearing.",
       "references": [
-        "AGENTS.md"
+        "app/src/model/valueSlider.ts",
+        "app/src/ui/ValueSlider.tsx",
+        "app/src/state/appState.ts",
+        "app/e2e/valueSlider.spec.ts"
       ],
       "entries": [
         "client/FitFrame1.dfm::Frame2/StringGrid1",
@@ -665,8 +668,7 @@
         "client/Unit1.cpp::event:9213c98bd24eb709:3",
         "client/Unit1.cpp::event:a5c5abb39e9a3f49:3",
         "client/Unit1.dfm::Form1/ScrollBar2"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "segmentation-actions",

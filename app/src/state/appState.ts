@@ -1,6 +1,7 @@
 // Application state: the current project plus UI-only view settings. Components dispatch
 // actions; project changes go through the pure helpers in model/.
 
+import { applyValueSlider, readValueCell, valueCellKey, type ValueCell, type ValueSliderSelection } from '../model/valueSlider'
 import { fitStructureChanged } from '../model/fitStructure'
 import { createDefaultProject } from '../model/defaults'
 import { insertSlabAbove, removeSlab } from '../model/elements'
@@ -29,6 +30,7 @@ const DEBUG_LOG_LIMIT = 500
 
 export interface AppState {
   project: Project
+  valueSlider: ValueSliderSelection | null
   fitEpoch: number // callbacks must match the current fit/evaluation session
   fitInvalidations: number // requests worker cancellation independently of panel mounting
   fileName: string
@@ -63,6 +65,9 @@ const COALESCE_MS = 1000
 export type FitEvent = Extract<Action, { type: 'setFitStatus' | 'updateProject' | 'setCalculationPaused' | 'appendDebug' }>
 
 export type Action =
+  | { type: 'selectValueCell'; target: ValueCell; label: string }
+  | { type: 'clearValueCell'; key?: string }
+  | { type: 'slideValue'; position: number; coalesce: string }
   | { type: 'beginFit'; parameters: FitParameter[] | null }
   | { type: 'fitEvent'; epoch: number; event: FitEvent }
   | { type: 'loadProject'; project: Project; fileName: string; report?: ImportReport; notice?: string; unsaved?: boolean }
@@ -93,6 +98,7 @@ export function initialState(): AppState {
   const project = createDefaultProject()
   return {
     project,
+    valueSlider: null,
     fitEpoch: 0,
     fitInvalidations: 0,
     savedProject: project,
@@ -136,24 +142,40 @@ export function reducer(state: AppState, action: Action): AppState {
       action.type === 'undo'
         ? { past: rest, future: [...future, state.project], lastKey: null, lastAt: 0 }
         : { past: [...past, state.project], future: rest, lastKey: null, lastAt: 0 }
-    const next = { ...state, project, history, notice: null, calculationPaused: false }
+    const next = { ...state, project, history, notice: null, calculationPaused: false, valueSlider: null }
     return invalidateFit(next, 'Fit cancelled by undo/redo.')
   }
 
   let next = transition(state, action)
-  if (action.type === 'loadProject') return { ...invalidateFit(next, 'Fit cancelled because a project was loaded.'), history: emptyHistory(), calculationPaused: false }
+  if (action.type === 'loadProject') return { ...invalidateFit(next, 'Fit cancelled because a project was loaded.'), history: emptyHistory(), calculationPaused: false, valueSlider: null }
   if (next.project === state.project) return next
-  if (fitStructureChanged(state.project, next.project)) next = invalidateFit(next, 'Fit cancelled because project structure changed.')
+  if (fitStructureChanged(state.project, next.project)) next = { ...invalidateFit(next, 'Fit cancelled because project structure changed.'), valueSlider: null }
+  if (next.valueSlider && action.type !== 'slideValue') {
+    const value = readValueCell(next.project, next.valueSlider.target)
+    if (value === undefined) next = { ...next, valueSlider: null }
+    else if (value !== readValueCell(state.project, next.valueSlider.target)) next = { ...next, valueSlider: { ...next.valueSlider, originalValue: value, position: 250 } }
+  }
 
   const now = Date.now()
   const key = 'coalesce' in action ? (action.coalesce ?? null) : null
-  const merge = key !== null && key === state.history.lastKey && now - state.history.lastAt < COALESCE_MS
+  const merge = key !== null && key === state.history.lastKey && (action.type === 'slideValue' || now - state.history.lastAt < COALESCE_MS)
   const past = merge ? state.history.past : [...state.history.past, state.project].slice(-HISTORY_LIMIT)
   return { ...next, notice: null, calculationPaused: false, history: { past, future: [], lastKey: key, lastAt: now } }
 }
 
 function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | { type: 'redo' }>): AppState {
   switch (action.type) {
+    case 'selectValueCell': {
+      const value = readValueCell(state.project, action.target)
+      return { ...state, valueSlider: value === undefined ? null : { target: action.target, label: action.label, originalValue: value, position: 250 } }
+    }
+    case 'clearValueCell':
+      return !action.key || (state.valueSlider && valueCellKey(state.valueSlider.target) === action.key) ? { ...state, valueSlider: null } : state
+    case 'slideValue': {
+      if (!state.valueSlider || !Number.isInteger(action.position) || action.position < 0 || action.position > 1000 || !Number.isFinite(action.position / 250 * state.valueSlider.originalValue)) return state
+      const project = applyValueSlider(state.project, state.valueSlider, action.position)
+      return { ...state, project, valueSlider: { ...state.valueSlider, position: action.position } }
+    }
     case 'fitEvent': return state // handled by the reducer wrapper
     case 'beginFit':
       return { ...state, fitEpoch: state.fitEpoch + 1, fitStatus: { running: action.parameters !== null, evaluating: action.parameters === null, iteration: 0, chi2: null, parameters: action.parameters, values: null, message: action.parameters === null ? 'Calculating χ²…' : 'Fitting…' } }
@@ -180,7 +202,7 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
     case 'selectLayer':
       return { ...state, selectedLayer: action.index }
     case 'selectElement':
-      return { ...state, selectedElement: action.index, selectedLayer: 1 }
+      return { ...state, selectedElement: action.index, selectedLayer: 1, valueSlider: null }
     // In element mode, Add/Remove Layer act on the slabs of the selected element.
     case 'insertLayer': {
       const { project, inserted } =
