@@ -6,18 +6,21 @@ import { postprocessParrattResult } from './parrattResult'
 import { OpticalTableRangeError, refreshCompoundConstants, type RealTableLookup } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 
+export type EnergyConvolution = (energies: number[], values: Float64Array, width: number) => Float64Array
+
 // CalcEScan refreshes constants even when automaticOpticalConstants is off, and
 // calls CalculateResolution (exact angular convolution, independent of fast flag).
 export function calculateParrattEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
-  calculate: (request: PreparedParrattQzRequest) => Float64Array) {
-  if (project.experiment.resolution.energyFwhm >= 1e-10) throw new Error('Real energy-resolution convolution is not implemented yet.')
+  calculate: (request: PreparedParrattQzRequest) => Float64Array, convolve: EnergyConvolution) {
+  const width = project.experiment.resolution.energyFwhm
+  if (!Number.isFinite(width) || width < 0) throw new Error('Energy resolution must be finite and nonnegative.')
   const coordinates = prepareEnergyCoordinates(project, tables)
   const calculation = { ...project.calculation, automaticOpticalConstants: false }
   const local: Project = { ...project, calculation, experiment: { ...project.experiment,
     qzScan: { ...project.experiment.qzScan, useDatasetPoints: false, points: 2, qzMin: 0, qzMax: 0 },
     resolution: { ...project.experiment.resolution, fastConvolution: false } } }
   // Validate unsupported settings even when every dataset point lies outside the tables.
-  const template = prepareParrattQzRequest(local, 'monochromatic')
+  prepareParrattQzRequest(local, 'monochromatic')
   for (const layer of project.sample.layers) {
     if (!tables.some(table => layer.opticalTable && table.name === layer.opticalTable && table.kind === 'db' && table.energy.length)) {
       throw new Error(`Missing optical table ${layer.opticalTable || '(unnamed)'}.db for energy scan.`)
@@ -36,10 +39,11 @@ export function calculateParrattEnergyScan(project: Project, tables: OpticalTabl
     }
     const prepared = prepareParrattQzRequest({ ...local, sample: { ...project.sample, layers },
       experiment: { ...local.experiment, energy } }, 'monochromatic')
-    const result = calculate({ ...template, ...prepared, qz: [coordinates.qz[index]] })
+    const result = calculate({ ...prepared, qz: [coordinates.qz[index]] })
     if (result.length !== 2 || !result.every(Number.isFinite)) throw new Error('The real engine returned invalid energy-scan values.')
     values[index * 2] = result[0]
   })
-  const result = postprocessParrattResult(project, coordinates.qz, values, 'monochromatic', coordinates.energy)
+  const resolved = width >= 1e-10 ? convolve(coordinates.energy, values, width) : values
+  const result = postprocessParrattResult(project, coordinates.qz, resolved, 'monochromatic', coordinates.energy)
   return { energy: coordinates.energy, reflectivity: result.reflectivityPlus }
 }

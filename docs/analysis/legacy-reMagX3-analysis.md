@@ -430,3 +430,14 @@ values and 80 final cursors, while the optional private native test compares tho
 same cases with the hash-gated original method. Adapter tests additionally exercise
 cursor continuation/bounds, memory growth, invalid input and allocation cleanup.
 This exposes the numerical primitive only; automatic material refresh is not yet wired.
+
+### Energy convolution integration (2026-10-16)
+
+`remagx_energy_resolution` now supplies the post-scan convolution used by the real
+monochromatic energy worker. The WASM adapter `convolveEnergy` accepts both interleaved
+intensity columns and runs before `postprocessParrattResult`. Width below 1e-10 is
+bypassed unchanged; the legacy fixed kernel and GetLinY fallback apply above it.
+Native/WASM agreement covers 1,680 values in Node and Chromium; a real-service scan
+also checks the combined path against the reviewed interpolation reference. This
+supersedes the earlier energy-convolution implementation gaps above, but does not
+establish dichroic energy, full native orchestration or private-corpus acceptance.

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { mkdir, readFile, readdir, copyFile, writeFile } from 'node:fs/promises'
@@ -127,6 +128,8 @@ try {
         reference.sample.layers[0].beta = .001 + (.003 - .001) * fraction
         output.energyReference.push((await service.calcReflectivity(reference)).reflectivity[0])
       }
+      energyProject.experiment.resolution.energyFwhm = .4
+      output.energyResolved = await service.calcEnergyScan(energyProject)
       tables = tables.filter(table => table.name !== 'ambient')
       try { await service.calcReflectivity(automatic) } catch (error) { output.missingTable = error.message }
       tables = []
@@ -173,6 +176,10 @@ try {
   }
   assert.equal(results.energyScan.energy.length, 5)
   results.energyScan.reflectivity.forEach((value, index) => assert.ok(Math.abs(value - results.energyReference[index]) <= 1e-15 + 1e-10 * Math.abs(results.energyReference[index])))
+  const convolutionReference = JSON.parse(execFileSync('node', ['--experimental-strip-types', resolve(root, 'engine/tests/compare_resolution.mjs')], {
+    input: JSON.stringify([{ qz: results.energyScan.energy, raw: results.energyScan.reflectivity.flatMap(value => [value, 0]), width: .4, fast: true, dichroic: false }]), encoding: 'utf8',
+  }))[0].values
+  results.energyResolved.reflectivity.forEach((value, index) => assert.ok(Math.abs(value - convolutionReference[index * 2]) <= 1e-15 + 1e-10 * Math.abs(convolutionReference[index * 2])))
   assert.equal(results.refreshUnchanged, true)
   assert.match(results.missingTable, /missing optical table ambient/)
   assert.equal(results.stopped, 'ComputeCancelled')

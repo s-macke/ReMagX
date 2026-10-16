@@ -124,3 +124,20 @@ export function lookupTable(module, table, queries, cursor = 0) {
     }
   })
 }
+
+// Both intensity columns are convolved before asymmetry and postprocessing.
+export function convolveEnergy(module, energies, values, width) {
+  if (!validVector(energies) || !(values instanceof Float64Array) || values.length !== energies.length * 2 ||
+      !values.every(Number.isFinite) || !Number.isFinite(width) || width < 0) {
+    throw new TypeError('Invalid energy-resolution input')
+  }
+  return withBuffers(module, allocate => {
+    const energyPointer = allocate(energies.length)
+    const valuePointer = allocate(values.length)
+    const outputPointer = allocate(values.length)
+    module.HEAPF64.set(energies, energyPointer / 8)
+    module.HEAPF64.set(values, valuePointer / 8)
+    checkStatus(module._remagx_energy_resolution(energyPointer, valuePointer, energies.length, width, outputPointer), 'Energy convolution')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + values.length)
+  })
+}

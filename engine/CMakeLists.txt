@@ -30,7 +30,7 @@ if(EMSCRIPTEN)
   set_target_properties(remagx_wasm PROPERTIES OUTPUT_NAME "remagx-core" SUFFIX ".mjs")
   target_link_options(remagx_wasm PRIVATE --no-entry -fexceptions
     "-sMODULARIZE=1" "-sEXPORT_ES6=1" "-sENVIRONMENT=web,worker,node"
-    "-sEXPORTED_FUNCTIONS=['_remagx_parratt','_remagx_parratt_qz','_remagx_parratt_qz_resolution','_remagx_table_lookup','_malloc','_free']"
+    "-sEXPORTED_FUNCTIONS=['_remagx_parratt','_remagx_parratt_qz','_remagx_parratt_qz_resolution','_remagx_table_lookup','_remagx_energy_resolution','_malloc','_free']"
     "-sEXPORTED_RUNTIME_METHODS=['HEAPF64']"
     "-sALLOW_MEMORY_GROWTH=1" "-sABORTING_MALLOC=0")
 endif()

@@ -186,7 +186,20 @@ class NativeParrattTest(unittest.TestCase):
             status, values, cursor = table_lookup(table['energy'], list(zip(*table['columns'])), table['queries'], table['cursor'], len(table['columns']))
             self.assertEqual(status, 0)
             table_cases.append(dict(table, expected=values, expectedCursor=cursor))
-        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases))
+        energy_cases = []
+        convolve = library.remagx_energy_resolution
+        convolve.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.POINTER(Reflectivity), ctypes.c_size_t, ctypes.c_double, ctypes.POINTER(Reflectivity)]
+        for index in range(120):
+            energies = [float((point * 7 + index) % 23 - 2) for point in range(7)]
+            if index % 2: energies.sort()
+            raw = [math.sin(index + point) for point in range(14)]
+            width = [0, 1e-11, 1e-10, .5, 20][index % 5]
+            source = (Reflectivity * 7)(*(Reflectivity(*raw[point:point+2]) for point in range(0, 14, 2)))
+            output = (Reflectivity * 7)()
+            self.assertEqual(convolve((ctypes.c_double * 7)(*energies), source, 7, width, output), 0)
+            energy_cases.append(dict(energy=energies, raw=raw, width=width,
+                expected=[value for row in output for value in (row.beam1, row.beam2)]))
+        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
                        input=payload, text=True, check=True)
