@@ -85,3 +85,35 @@ extern "C" int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t la
     } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
       catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
 }
+
+// CalcEScan / CalcDicEScan apply this interpolation kernel after the full scan,
+// before asymmetry and other postprocessing. It is independent of fast settings.
+extern "C" int remagx_energy_resolution(const double* energies,
+                      const RemagxReflectivity* input, size_t point_count,
+                      double width, RemagxReflectivity* output) {
+    if (!energies || !input || !output || !point_count || !std::isfinite(width) || width < 0.0)
+        return REMAGX_INVALID_ARGUMENT;
+    for (size_t index = 0; index < point_count; ++index)
+        if (!std::isfinite(energies[index]) || !std::isfinite(input[index].beam1) ||
+            !std::isfinite(input[index].beam2)) return REMAGX_INVALID_ARGUMENT;
+    try {
+        const std::vector<RemagxReflectivity> source(input, input + point_count);
+        std::vector<RemagxReflectivity> results(point_count, {0.0, 0.0});
+        if (width < 1e-10) results = source;
+        else for (size_t index = 0; index < point_count; ++index) {
+            for (size_t sample = 0; sample < 19; ++sample) {
+                const double energy = energies[index] + offsets[sample] * width;
+                if (!std::isfinite(energy)) return REMAGX_NUMERICAL_ERROR;
+                if (energy < 0.0) continue;
+                const auto value = interpolate(energies, source, index, energy);
+                results[index].beam1 += weights[sample] * value.beam1;
+                results[index].beam2 += weights[sample] * value.beam2;
+            }
+            if (!std::isfinite(results[index].beam1) || !std::isfinite(results[index].beam2))
+                return REMAGX_NUMERICAL_ERROR;
+        }
+        std::copy(results.begin(), results.end(), output);
+        return REMAGX_SUCCESS;
+    } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
+      catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
+}

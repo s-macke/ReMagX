@@ -68,6 +68,12 @@ int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t layer_count,
                       const RemagxBeam* beam1, const RemagxBeam* beam2,
                       int tensor, int analyzer, int magnetization_enabled,
                       int scan_mode, double width, int fast, RemagxReflectivity* output);
+// Post-scan legacy energy convolution of both intensity columns, before asymmetry.
+// Preserves supplied point order, GetLinY boundary fallback and negative-sample
+// omission without renormalization. Width below 1e-10 eV copies inputs unchanged.
+// Output has point_count records, must not overlap inputs and is unchanged on error.
+int remagx_energy_resolution(const double* energies, const RemagxReflectivity* input,
+                            size_t point_count, double width, RemagxReflectivity* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
