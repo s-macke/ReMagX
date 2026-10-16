@@ -42,6 +42,7 @@ export interface AppState {
   scanKind: ScanKind
   displayMode: DisplayMode
   plotView: PlotView
+  illustrateSegmentation: boolean
   energyUnit: EnergyUnit
   calculationPaused: boolean // Stop pauses automatic redraw until an edit or explicit calculation
   importReport: ImportReport | null // shown after opening a legacy file
@@ -93,6 +94,7 @@ export type Action =
   | { type: 'setScanKind'; scanKind: ScanKind }
   | { type: 'setDisplayMode'; displayMode: DisplayMode }
   | { type: 'dismissImportReport' }
+  | { type: 'setIllustrateSegmentation'; value: boolean }
   | { type: 'setPlotView'; plotView: PlotView }
   | { type: 'setEnergyUnit'; energyUnit: EnergyUnit }
   | { type: 'restoreOpticalTables'; tables: OpticalTable[]; error: string | null; warning?: string | null }
@@ -122,6 +124,7 @@ export function initialState(): AppState {
     scanKind: 'reflectivity',
     displayMode: 'monochromatic',
     plotView: 'scan',
+    illustrateSegmentation: true,
     energyUnit: 'eV',
     calculationPaused: false,
     importReport: null,
@@ -250,6 +253,8 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
       return { ...state, displayMode: action.displayMode, calculationPaused: false }
     case 'dismissImportReport':
       return { ...state, importReport: null }
+    case 'setIllustrateSegmentation':
+      return { ...state, illustrateSegmentation: action.value, calculationPaused: false }
     case 'setPlotView':
       return { ...state, plotView: action.plotView, calculationPaused: false }
     case 'setEnergyUnit':

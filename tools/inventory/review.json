@@ -663,13 +663,12 @@
     {
       "name": "segmentation-actions",
       "status": "deferred",
-      "reason": "To layer list and Illustrate Segmentation require UI actions and the engine segmentation output.",
+      "reason": "To layer list needs worker segmentation output and guarded application to the project. Illustration is implemented separately as a mock UI preview; adaptive engine output remains pending.",
       "references": [
         "AGENTS.md"
       ],
       "entries": [
         "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Button13",
-        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/CheckBox1",
         "client/Unit1.cpp::event:0dd769a356830cf2:1"
       ],
       "phase": "ui"
@@ -1296,6 +1295,19 @@
         "client/Unit1.cpp::item:044c0db584147fff:3",
         "client/Unit1.cpp::item:044c0db584147fff:4",
         "client/Unit1.cpp::item:d41f4c83dbad7376:2"
+      ]
+    },
+    {
+      "name": "segmentation-illustration",
+      "status": "ported",
+      "reason": "Default-on display checkbox switches both optical profiles between smooth curves and steps with zero-boundary strokes. Worker mock supplies fixed sampling intervals, explicitly labelled as such. Real adaptive slices remain engine work. Exports use the displayed points; toggling does not edit project data.",
+      "references": [
+        "app/src/model/profileView.ts",
+        "app/src/compute/mockPhysics.ts",
+        "app/e2e/segmentation.spec.ts"
+      ],
+      "entries": [
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/CheckBox1"
       ]
     }
   ],

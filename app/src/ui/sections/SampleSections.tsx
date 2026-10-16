@@ -88,7 +88,7 @@ export function DatasetSection() {
 }
 
 export function SegmentationSection() {
-  const { project } = useAppState()
+  const { project, illustrateSegmentation } = useAppState()
   const dispatch = useDispatch()
   const edit = useEditProject()
   const s = project.calculation.segmentation
@@ -96,6 +96,8 @@ export function SegmentationSection() {
   return (
     <>
       {!active && <Note>Used when the roughness approximation is set to layer segmentation (Preferences).</Note>}
+      <CheckboxField label="Illustrate Segmentation" checked={illustrateSegmentation} onChange={value => dispatch({ type: 'setIllustrateSegmentation', value })} />
+      <Note>Mock profiles illustrate fixed sampling intervals. Adaptive segmentation follows with the real engine.</Note>
       <NumberField label="minimal layer thickness" unit="Å" min={0} value={s.minThickness} onChange={(v) => edit((p) => void (p.calculation.segmentation.minThickness = v))} />
       <NumberField label="maximal layer thickness" unit="Å" min={0} value={s.maxThickness} onChange={(v) => edit((p) => void (p.calculation.segmentation.maxThickness = v))} />
       <NumberField label="gradient scale" value={s.gradientScale} onChange={(v) => edit((p) => void (p.calculation.segmentation.gradientScale = v))} />

@@ -217,11 +217,19 @@ export function depthProfile(project: Project, points = 400): DepthProfile {
       return value
     })
 
-  return {
+  const values = {
     z: grid,
     delta: profile((l) => l.delta),
     beta: profile((l) => l.beta),
     deltaMag: profile((l) => l.deltaMag),
     betaMag: profile((l) => l.betaMag),
   }
+  // Fixed sampling intervals illustrate the UI only, not adaptive segmentation.
+  const segments = grid.slice(0, -1).map((start, index) => ({ start, end: grid[index + 1],
+    delta: (values.delta[index] + values.delta[index + 1]) / 2,
+    beta: (values.beta[index] + values.beta[index + 1]) / 2,
+    deltaMag: (values.deltaMag[index] + values.deltaMag[index + 1]) / 2,
+    betaMag: (values.betaMag[index] + values.betaMag[index + 1]) / 2,
+  }))
+  return { ...values, segments }
 }

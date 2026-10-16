@@ -7,6 +7,7 @@ import type { OpticalTable } from '../import/tables'
 import type { Project } from '../model/project'
 import type { DisplayMode, PlotView, ScanKind } from './appState'
 
+import { profilePlot } from '../model/profileView'
 import { tensorPlot } from '../model/tensorView'
 import type { CalculatedCurve } from '../model/plotCoordinates'
 export type { CalculatedCurve, CurveSeries } from '../model/plotCoordinates'
@@ -15,6 +16,7 @@ export interface CalculationRequest {
   scanKind: ScanKind
   displayMode: DisplayMode
   plotView: PlotView
+  illustrateSegmentation?: boolean
   elementIndex?: number
   layerIndex?: number
   tables?: OpticalTable[]
@@ -70,22 +72,7 @@ async function calculate(service: ComputeService, project: Project, request: Cal
   }
   if (plotView !== 'scan') {
     const profile = await service.depthProfile(project)
-    const magnetic = plotView === 'magneticProfile'
-    return {
-      axis: 'z',
-      x: profile.z,
-      series: magnetic
-        ? [
-            { label: 'δm', y: profile.deltaMag },
-            { label: 'βm', y: profile.betaMag },
-          ]
-        : [
-            { label: 'δ', y: profile.delta },
-            { label: 'β', y: profile.beta },
-          ],
-      logScale: false,
-      yLabel: magnetic ? 'magnetic optical constants' : 'optical constants',
-    }
+    return profilePlot(profile, plotView === 'magneticProfile', request.illustrateSegmentation ?? true)
   }
   if (scanKind === 'energyScan') {
     if (mode !== 'monochromatic') throw new Error('Dichroic and asymmetry energy scans are not available in the mock engine yet.')
@@ -113,7 +100,7 @@ async function calculate(service: ComputeService, project: Project, request: Cal
 }
 
 export function useCalculation(project: Project, request: CalculationRequest, paused = false, live = false) {
-  const { scanKind, displayMode, plotView, layerIndex, elementIndex, tables } = request
+  const { scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables } = request
   const [state, setState] = useState<CalculationState>({ curve: null, error: null, busy: true, stopped: false })
   const requestId = useRef(0)
   const lastCalculation = useRef(-Infinity)
@@ -136,7 +123,7 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
       debounceTimer.current = null
       lastCalculation.current = performance.now()
       setState((s) => ({ ...s, busy: true, stopped: false, error: null }))
-      calculate(computeService(), project, { scanKind, displayMode, plotView, layerIndex, elementIndex, tables })
+      calculate(computeService(), project, { scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables })
         .then((curve) => {
           if (active && id === requestId.current) setState({ curve, error: null, busy: false, stopped: false })
         })
@@ -150,7 +137,7 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
       debounceTimer.current = null
       active = false
     }
-  }, [project, scanKind, displayMode, plotView, layerIndex, elementIndex, tables, revision, paused, live])
+  }, [project, scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables, revision, paused, live])
 
   return { ...(paused ? { ...state, busy: false, stopped: true, error: null } : state), stop, recalculate }
 }

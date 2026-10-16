@@ -37,7 +37,13 @@ export interface AsymmetryCurve {
 
 // Optical constants vs. depth z as used by the calculation (after roughness), D-26.
 // z = 0 is the substrate surface; z grows towards the ambient medium.
+export interface ProfileSegment {
+  start: number; end: number
+  delta: number; beta: number; deltaMag: number; betaMag: number
+}
 export interface DepthProfile {
+  segments?: ProfileSegment[] // actual engine slices; mock supplies its sampling intervals
+
   z: number[]
   delta: number[]
   beta: number[]
