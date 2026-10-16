@@ -4,7 +4,7 @@
 import { createDefaultProject } from '../model/defaults'
 import { insertSlabAbove, removeSlab } from '../model/elements'
 import { insertLayerAbove, removeLayer, updateLayer } from '../model/layers'
-import type { Layer, Project } from '../model/project'
+import type { FitParameter, Layer, Project } from '../model/project'
 import type { ImportReport } from '../import/allFile'
 import type { OpticalTable } from '../import/tables'
 
@@ -18,7 +18,12 @@ export interface FitStatus {
   iteration: number
   chi2: number | null
   message: string | null
+  // Parameters of the running fit and their current best values, for the live curve.
+  parameters: FitParameter[] | null
+  values: number[] | null
 }
+
+const DEBUG_LOG_LIMIT = 500
 
 export interface AppState {
   project: Project
@@ -36,6 +41,7 @@ export interface AppState {
   savedProject: Project // the project as last opened or saved; differs from project when unsaved
   notice: string | null // short message in the status bar (saved, restored, …)
   history: History
+  debugLog: string[] // legacy "Debug Window": fit and script messages
 }
 
 // Undo/redo stacks of whole projects (projects are immutable, so entries share unchanged parts).
@@ -70,6 +76,8 @@ export type Action =
   | { type: 'addOpticalTables'; tables: OpticalTable[] }
   | { type: 'clearOpticalTables' }
   | { type: 'setFitStatus'; fitStatus: Partial<FitStatus> }
+  | { type: 'appendDebug'; lines: string[] }
+  | { type: 'clearDebug' }
 
 export function initialState(): AppState {
   const project = createDefaultProject()
@@ -87,7 +95,8 @@ export function initialState(): AppState {
     energyUnit: 'eV',
     importReport: null,
     opticalTables: [],
-    fitStatus: { running: false, iteration: 0, chi2: null, message: null },
+    fitStatus: { running: false, iteration: 0, chi2: null, message: null, parameters: null, values: null },
+    debugLog: [],
   }
 }
 
@@ -181,6 +190,10 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
       return { ...state, opticalTables: [] }
     case 'setFitStatus':
       return { ...state, fitStatus: { ...state.fitStatus, ...action.fitStatus } }
+    case 'appendDebug':
+      return { ...state, debugLog: [...state.debugLog, ...action.lines].slice(-DEBUG_LOG_LIMIT) }
+    case 'clearDebug':
+      return { ...state, debugLog: [] }
   }
 }
 

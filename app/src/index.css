@@ -1032,3 +1032,15 @@ button.primary {
   text-align: center;
   font-weight: 600;
 }
+
+.debug-log {
+  max-height: 180px;
+  margin: 0;
+  padding: 4px 6px;
+  overflow: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}

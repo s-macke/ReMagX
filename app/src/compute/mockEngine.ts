@@ -46,6 +46,7 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
     const best = state.value
     return {
       project: withParameters(project, best.best),
+      values: best.best,
       chi2: best.bestValue,
       iterations: best.iteration,
       stopped: stopRequested,

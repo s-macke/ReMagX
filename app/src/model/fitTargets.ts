@@ -147,3 +147,41 @@ export function createFitParameter(project: Project, target: FitTargetKind, inde
   const span = Math.abs(value) * 0.5 || 1
   return { ...draft, value, step: Math.abs(0.05 * value) || 0.05, lowerBound: value - span, upperBound: value + span }
 }
+
+// Copy of the project that writes can be applied to: everything is copied except the measured
+// data columns, which fit parameters never change.
+function writableCopy(project: Project): Project {
+  return { ...structuredClone({ ...project, datasets: [] }), datasets: project.datasets.map((d) => ({ ...d })) }
+}
+
+const sameTarget = (a: FitParameter, b: FitParameter) => a.target === b.target && a.index === b.index && a.elementIndex === b.elementIndex
+
+// Applies fitted values to the project: the fitted quantities and the start values of the
+// matching fit parameters. Parameters are matched by target, so edits made elsewhere in the
+// project (also during a running fit) are kept.
+export function applyFitValues(project: Project, parameters: FitParameter[], values: number[]): Project {
+  const result = writableCopy(project)
+  parameters.forEach((parameter, i) => {
+    writeFitTarget(result, parameter, values[i])
+    const entry = result.fit.parameters.find((p) => sameTarget(p, parameter))
+    if (entry) entry.value = values[i]
+  })
+  return result
+}
+
+// Legacy "Transfer all initial values to layer table".
+export function transferStartValuesToProject(project: Project): Project {
+  const result = writableCopy(project)
+  for (const parameter of result.fit.parameters) writeFitTarget(result, parameter, parameter.value)
+  return result
+}
+
+// Legacy "Transfer all initial values from layer table".
+export function transferProjectValuesToStart(project: Project): Project {
+  const result = writableCopy(project)
+  for (const parameter of result.fit.parameters) {
+    const value = readFitTarget(result, parameter)
+    if (value !== undefined) parameter.value = value
+  }
+  return result
+}

@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createDefaultProject } from '../model/defaults'
 import type { Project } from '../model/project'
 import { calcReflectivity } from './mockPhysics'
 import { createRequestHandler } from './mockEngine'
 import type { WorkerRequest, WorkerResponse } from './protocol'
-import { WorkerComputeService, type WorkerPort } from './WorkerComputeService'
+import { STOP_TIMEOUT_MS, WorkerComputeService, type WorkerPort } from './WorkerComputeService'
 
 // Runs the worker-side handler in-process, with structuredClone standing in for the message copy.
 function inProcessWorker(): WorkerPort {
@@ -53,20 +53,20 @@ function fitProject(): Project {
 
 describe('WorkerComputeService with the mock engine', () => {
   it('returns a reflectivity curve', async () => {
-    const service = new WorkerComputeService(inProcessWorker())
+    const service = new WorkerComputeService(inProcessWorker)
     const curve = await service.calcReflectivity(createDefaultProject())
     expect(curve.qz).toHaveLength(300)
   })
 
   it('turns engine errors into rejected promises with the message', async () => {
-    const service = new WorkerComputeService(inProcessWorker())
+    const service = new WorkerComputeService(inProcessWorker)
     const project = createDefaultProject()
     project.experiment.qzScan.qzMax = 50
     await expect(service.calcReflectivity(project)).rejects.toThrow(/above 90°/)
   })
 
   it('fits a layer thickness back to the true value and reports progress', async () => {
-    const service = new WorkerComputeService(inProcessWorker())
+    const service = new WorkerComputeService(inProcessWorker)
     const progress: number[] = []
     const result = await service.startFit(fitProject(), (p) => progress.push(p.chi2))
     expect(result.stopped).toBe(false)
@@ -75,7 +75,7 @@ describe('WorkerComputeService with the mock engine', () => {
   })
 
   it('stops a running fit within one second', async () => {
-    const service = new WorkerComputeService(inProcessWorker())
+    const service = new WorkerComputeService(inProcessWorker)
     const project = fitProject()
     project.fit.algorithm = 'simplex-annealing'
     let stopRequestedAt = 0
@@ -89,8 +89,24 @@ describe('WorkerComputeService with the mock engine', () => {
     expect(performance.now() - stopRequestedAt).toBeLessThan(1000)
   })
 
+  it('restarts a worker that ignores Stop and rejects the open request', async () => {
+    vi.useFakeTimers()
+    let created = 0
+    const silentWorker = (): WorkerPort => {
+      created++
+      return { onmessage: null, postMessage() {}, terminate() {} }
+    }
+    const service = new WorkerComputeService(silentWorker)
+    const fit = service.startFit(fitProject(), () => {})
+    service.stopFit()
+    vi.advanceTimersByTime(STOP_TIMEOUT_MS)
+    await expect(fit).rejects.toThrow(/did not react to Stop/)
+    expect(created).toBe(2)
+    vi.useRealTimers()
+  })
+
   it('rejects fit targets the mock does not support', async () => {
-    const service = new WorkerComputeService(inProcessWorker())
+    const service = new WorkerComputeService(inProcessWorker)
     const project = fitProject()
     project.fit.parameters[0] = { ...project.fit.parameters[0], target: 'elementF1' }
     await expect(service.startFit(project, () => {})).rejects.toThrow(/elementF1/)

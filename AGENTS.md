@@ -109,7 +109,8 @@ but has known gaps, listed under "still to do".
 - [x] Main window in the legacy layout: layer table, log plot (Hold/Clear/Scale, drag zoom), tabs with collapsible sections, Mode panel, menu bar (partial: menu structure, see below)
 - [x] Side-panel sections Experiment, Sample, Fit with the main legacy fields (partial: missing controls listed below; Map Calculations is a placeholder)
 - [x] Preferences dialog; optical and magneto-optical depth-profile views
-- [x] Fit from the UI: parameter table, Start/Stop/χ², iteration and χ² progress, results written back (partial: see fit items below)
+- [x] Fit from the UI: parameter table, Start/Stop/χ², live curve during the fit, only fitted values written back (edits made meanwhile are kept), Debug Window with fit messages
+- [x] Stop fallback: a worker that ignores Stop for 2 s is terminated and restarted (D-12)
 - [x] Script window: Lua editor (CodeMirror), Default/BeforeCalculation, code generator (execution comes with the engine)
 - [x] Autosave in IndexedDB; Open/Save/Save As with file handles; unsaved marker; Ctrl+O/S
 - [x] Undo/Redo (Edit menu, Ctrl+Z/Y) with coalesced typing
@@ -121,13 +122,10 @@ but has known gaps, listed under "still to do".
 ### UI phase: still to do
 
 Fixes found in the audit:
-- [ ] **Bug:** fit write-back replaces the whole project with the copy taken at fit start, so edits made during a fit are lost (`state/useFitRunner.ts`). Write back only the fitted parameters, or lock editing while fitting.
 - [ ] Menus as in legacy 2.6 (F-29): Script as a submenu of Tools, remove the extra "Show reflectivity" item, add Help → License (GPL-3.0 notice); fix the stale comment in `MenuBar.tsx`
 - [ ] Mode panel as in legacy 2.6: Monochromatic, Dichroic, Asymmetry only ("Sensitivity" is from an older version, not 2.6)
 - [ ] Context-dependent sections (AC-11): show "Algorithm Parameters" only for Simplex with annealing; Evolution and Debug Window sections as in legacy (Evolution disabled until it exists)
 - [ ] Move remaining domain logic out of components into `model/`: "Apply to all layers" (Magneto-Optics), value transfer in the fit parameter table, measured-series selection and diagram export (`App.tsx`)
-- [ ] Stop fallback by terminating the worker; cancel running calculations, not only fits (D-12, AC-10)
-- [ ] Live curve update during a fit (use the progress values)
 
 Missing legacy controls and windows:
 - [ ] Plot (legacy `Chart1`): mouse-wheel zoom and "Zoom Out", cursor coordinate readout, Properties dialog (axis ranges, log toggles, colours, line width, font size, points), copy data/graphic to the clipboard, save picture; decide on "Select Area" and "Fit Lorentzian+Step"
@@ -136,7 +134,6 @@ Missing legacy controls and windows:
 - [ ] Adaptive Layer Segmentation: "To layer list" and "Illustrate Segmentation"
 - [ ] Element Mode: "Show Scattering Factors f1/f2", "Show Density Profiles" (also a toolbar button in legacy), "Material to Elements"
 - [ ] Magneto-Optics and magnetization profile: "Fit" checkboxes; profile spline "Build spline" and point editing
-- [ ] Debug Window section for script `print` output and fit messages
 - [ ] Summary window (legacy `guidll/SummaryForm`)
 - [ ] Angle (θ) x-axis option
 - [ ] Decide on the legacy layer-table "coupl." column (no `.all` key)

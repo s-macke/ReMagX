@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { createFitParameter, fitParameterName, fitTargetInfo, layerName, readFitTarget, writeFitTarget } from '../../model/fitTargets'
 import { fitTargetKinds, type FitTargetKind, type Project } from '../../model/project'
-import { useAppState } from '../../state/context'
+import { useAppState, useDispatch } from '../../state/context'
 import { useEditProject } from '../../state/useEditProject'
 import { useFitRunner } from '../../state/useFitRunner'
 import { ButtonRow, CheckboxField, Field, Group, Note, NumberField, RadioGroupField } from '../form'
@@ -299,6 +299,24 @@ export function FitStartStopSection() {
       </dl>
       {fitStatus.message && <Note>{fitStatus.message}</Note>}
       {!canFit && <Note>A fit needs an active dataset (Sample → Dataset) and at least one parameter.</Note>}
+    </>
+  )
+}
+
+// Legacy "Debug Window" (DebugFrame): messages of fits and χ² evaluations.
+export function DebugWindowSection() {
+  const { debugLog } = useAppState()
+  const dispatch = useDispatch()
+  return (
+    <>
+      <pre className="debug-log" aria-live="polite">
+        {debugLog.length ? debugLog.slice(-200).join('\n') : 'No messages yet.'}
+      </pre>
+      <ButtonRow>
+        <button type="button" onClick={() => dispatch({ type: 'clearDebug' })} disabled={debugLog.length === 0}>
+          Clear
+        </button>
+      </ButtonRow>
     </>
   )
 }

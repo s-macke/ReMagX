@@ -39,7 +39,8 @@ export interface FitProgress {
 }
 
 export interface FitResult {
-  project: Project // the project with the best parameter values applied
+  project: Project // the project as sent to the fit, with the best parameter values applied
+  values: number[] // best value of each fit parameter, same order as project.fit.parameters
   chi2: number
   iterations: number
   stopped: boolean // true if ended by stopFit(), false if converged or hit the iteration limit

@@ -7,6 +7,7 @@ import { importAllFile } from './import/allFile'
 import { activeDataset, adaptedMeasurement, type MeasuredQuantity } from './model/datasets'
 import { createDefaultProject } from './model/defaults'
 import { canRemoveSlab } from './model/elements'
+import { applyFitValues } from './model/fitTargets'
 import { canRemoveLayer } from './model/layers'
 import { useAppState, useDispatch } from './state/context'
 import { ProjectProvider } from './state/ProjectProvider'
@@ -38,8 +39,13 @@ const examples = [
 function Workspace() {
   const state = useAppState()
   const dispatch = useDispatch()
-  const { project, scanKind, displayMode, plotView } = state
-  const calculation = useCalculation(project, { scanKind, displayMode, plotView })
+  const { project, scanKind, displayMode, plotView, fitStatus } = state
+  // While a fit runs, the plot follows its current best parameters (legacy live redraw).
+  const displayedProject = useMemo(
+    () => (fitStatus.running && fitStatus.parameters && fitStatus.values ? applyFitValues(project, fitStatus.parameters, fitStatus.values) : project),
+    [project, fitStatus.running, fitStatus.parameters, fitStatus.values],
+  )
+  const calculation = useCalculation(displayedProject, { scanKind, displayMode, plotView })
   usePersistence()
   const unsaved = project !== state.savedProject
   const [error, setError] = useState<string | null>(null)

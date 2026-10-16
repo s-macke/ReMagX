@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultProject } from './defaults'
-import { createFitParameter, fitParameterName, readFitTarget, writeFitTarget } from './fitTargets'
+import { applyFitValues, createFitParameter, fitParameterName, readFitTarget, writeFitTarget } from './fitTargets'
 import { normalizeBeam, presetOfBeam } from './presets'
 
 describe('fit targets', () => {
@@ -34,5 +34,21 @@ describe('polarization presets', () => {
     expect(presetOfBeam(beam2)).toBe('right-circular')
     const normalized = normalizeBeam({ sigma: { re: 1, im: 0 }, pi: { re: 0, im: 1 } })
     expect(presetOfBeam(normalized)).toBe('left-circular')
+  })
+})
+
+describe('applying fit results', () => {
+  it('writes only the fitted quantities and keeps other edits', () => {
+    const atStart = createDefaultProject()
+    const parameter = createFitParameter(atStart, 'thickness', 2, null)
+    atStart.fit.parameters = [parameter]
+    // During the fit the user changed another layer.
+    const edited = structuredClone(atStart)
+    edited.sample.layers[5].roughness = 9
+    const result = applyFitValues(edited, [parameter], [57])
+    expect(result.sample.layers[2].thickness).toBe(57)
+    expect(result.fit.parameters[0].value).toBe(57)
+    expect(result.sample.layers[5].roughness).toBe(9)
+    expect(edited.sample.layers[2].thickness).toBe(60)
   })
 })

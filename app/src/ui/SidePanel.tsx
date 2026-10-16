@@ -4,6 +4,7 @@ import { SectionPanel, type Section } from './SectionPanel'
 import { EnergySection, MapSection, PolarizationSection, ResolutionSection, SimulationParametersSection, XAxisSection } from './sections/ExperimentSections'
 import {
   AdditionalFitParametersSection,
+  DebugWindowSection,
   FitAlgorithmParametersSection,
   FitAlgorithmSection,
   FitParametersSection,
@@ -61,6 +62,7 @@ export function SidePanel() {
         title: fitStatus.running ? `Start / Stop — iteration ${fitStatus.iteration}` : 'Start / Stop',
         content: <FitStartStopSection />,
       },
+      { id: 'fit-debug', title: 'Debug Window', content: <DebugWindowSection /> },
     ],
   }
 

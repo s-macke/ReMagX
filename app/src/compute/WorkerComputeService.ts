@@ -26,15 +26,27 @@ interface Pending {
   onProgress?: (progress: FitProgress) => void
 }
 
+// If a fit does not end within this time after stopFit(), the worker is restarted (D-12).
+export const STOP_TIMEOUT_MS = 2000
+
+const createWorker = (): WorkerPort => new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerPort
+
 export class WorkerComputeService implements ComputeService {
   private nextId = 1
   private readonly pending = new Map<number, Pending>()
-  private readonly worker: WorkerPort
+  private worker: WorkerPort
+  private readonly createWorker: () => WorkerPort
+  private stopTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(worker?: WorkerPort) {
-    this.worker =
-      worker ?? (new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerPort)
-    this.worker.onmessage = (event) => this.receive(event.data)
+  constructor(createPort: () => WorkerPort = createWorker) {
+    this.createWorker = createPort
+    this.worker = this.connect()
+  }
+
+  private connect(): WorkerPort {
+    const worker = this.createWorker()
+    worker.onmessage = (event) => this.receive(event.data)
+    return worker
   }
 
   calcReflectivity(project: Project): Promise<ReflectivityCurve> {
@@ -63,9 +75,22 @@ export class WorkerComputeService implements ComputeService {
 
   stopFit(): void {
     this.worker.postMessage({ kind: 'stopFit' })
+    if (this.stopTimer) clearTimeout(this.stopTimer)
+    this.stopTimer = setTimeout(() => this.restart('The computation did not react to Stop and was cancelled.'), STOP_TIMEOUT_MS)
+  }
+
+  // Terminates a stuck worker and starts a fresh one; all open requests fail with `reason`.
+  private restart(reason: string): void {
+    this.stopTimer = null
+    if (this.pending.size === 0) return
+    this.worker.terminate()
+    for (const { reject } of this.pending.values()) reject(new ComputeError(reason))
+    this.pending.clear()
+    this.worker = this.connect()
   }
 
   dispose(): void {
+    if (this.stopTimer) clearTimeout(this.stopTimer)
     this.worker.terminate()
     for (const { reject } of this.pending.values()) reject(new ComputeError('Compute service was shut down.'))
     this.pending.clear()
@@ -91,6 +116,10 @@ export class WorkerComputeService implements ComputeService {
       return
     }
     this.pending.delete(response.id)
+    if (this.pending.size === 0 && this.stopTimer) {
+      clearTimeout(this.stopTimer)
+      this.stopTimer = null
+    }
     if (response.type === 'result') pending.resolve(response.result)
     else pending.reject(new ComputeError(response.message))
   }
