@@ -2,6 +2,7 @@
 // ("air"); both always exist. All functions return a new project and leave the input unchanged.
 
 import { createLayer } from './defaults'
+import { remapProfileBindings } from './magneticProfiles'
 import type { Layer, Project } from './project'
 
 export const isSubstrate = (index: number) => index === 0
@@ -24,7 +25,9 @@ export function insertLayerAbove(project: Project, index: number): { project: Pr
   const template = source <= 0 ? createLayer({ thickness: 10 }) : { ...layers[source] }
   const position = Math.max(1, source + 1)
   layers.splice(position, 0, structuredClone(template))
-  return { project: withLayers(project, layers), inserted: position }
+  const changed = withLayers(project, layers)
+  changed.sample.depthProfileFunctions = remapProfileBindings(project, layers.length, index => index >= position ? index + 1 : index)
+  return { project: changed, inserted: position }
 }
 
 export function canRemoveLayer(project: Project, index: number): boolean {
@@ -33,10 +36,10 @@ export function canRemoveLayer(project: Project, index: number): boolean {
 
 export function removeLayer(project: Project, index: number): Project {
   if (!canRemoveLayer(project, index)) return project
-  return withLayers(
-    project,
-    project.sample.layers.filter((_, i) => i !== index),
-  )
+  const layers = project.sample.layers.filter((_, i) => i !== index)
+  const changed = withLayers(project, layers)
+  changed.sample.depthProfileFunctions = remapProfileBindings(project, layers.length, oldIndex => oldIndex === index ? null : oldIndex > index ? oldIndex - 1 : oldIndex)
+  return changed
 }
 
 // Legacy "Apply to all layers" of the Magneto-Optics frame.

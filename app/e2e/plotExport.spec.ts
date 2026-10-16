@@ -13,7 +13,9 @@ test('plot clipboard and picture exports contain data and real images; denied ac
   expect(rows.length).toBeGreaterThan(2)
   expect(rows.every(row => row.length === 4 && row.every(Number.isFinite) && row[0] === row[2] && row[1] === row[3])).toBe(true)
   await page.getByRole('button', { name: 'Copy graphic to clipboard', exact: true }).click()
-  await expect(page.locator('.plot-panel__export-message')).toHaveText('Graphic copied.')
+  // Chromium may defer canvas encoding beyond the default 5 s assertion window.
+  // Keep checking actual clipboard completion and image contents below.
+  await expect(page.locator('.plot-panel__export-message')).toHaveText('Graphic copied.', { timeout: 15000 })
   const imageSize = await page.evaluate(async () => {
     const [item] = await navigator.clipboard.read()
     const image = await createImageBitmap(await item.getType('image/png'))

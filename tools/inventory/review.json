@@ -719,10 +719,13 @@
     },
     {
       "name": "magnetic-profile-editor",
-      "status": "deferred",
-      "reason": "Spline building and interior point editing are implemented; complete the all-layers/none binding distinction and review coupling choices before marking the whole profile table ported.",
+      "status": "ported",
+      "reason": "Gaussian and spline editing, legacy all/air/layer/bulk/none binding choices and earlier-profile coupling choices are present. Layer edits preserve binding identities; stored unusual references stay visible. Real-engine profile evaluation remains deferred.",
       "references": [
-        "AGENTS.md"
+        "app/src/ui/sections/SampleSections.tsx",
+        "app/src/model/magneticProfiles.ts",
+        "app/src/model/layers.ts",
+        "app/e2e/profileBinding.spec.ts"
       ],
       "entries": [
         "client/MzFrame.dfm::Frame8/GaussEingabe",
@@ -736,8 +739,7 @@
         "client/Unit1.cpp::item:768397b87187ed8b:1",
         "client/Unit1.cpp::item:f32df6ec51bc761a:1",
         "client/Unit1.cpp::item:ba4f370c9fad7bfd:1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "materials",

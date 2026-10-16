@@ -29,3 +29,26 @@ export function buildProfileSpline(profile: Project['sample']['depthProfileFunct
   })
   return { ...profile, spline: { enabled: true, points } }
 }
+
+// The saved binding retains legacy indexing: null = all, 0 = air,
+// layerCount - 1 = bulk, layerCount = none. This is not a layers[] index.
+export function profileBindingOptions(layerCount: number) {
+  return [
+    { value: '', label: 'all' },
+    ...Array.from({ length: layerCount }, (_, binding) => ({
+      value: String(binding),
+      label: binding === 0 ? 'air' : binding === layerCount - 1 ? 'bulk' : `layer ${layerCount - binding - 1}`,
+    })),
+    { value: String(layerCount), label: 'none' },
+  ]
+}
+
+export function remapProfileBindings(project: Project, newLayerCount: number, mapLayer: (index: number) => number | null) {
+  const oldLayerCount = project.sample.layers.length
+  return project.sample.depthProfileFunctions.map(profile => {
+    const binding = profile.boundToLayer
+    if (binding === null || binding > oldLayerCount) return profile
+    const layer = binding === oldLayerCount ? null : mapLayer(oldLayerCount - binding - 1)
+    return { ...profile, boundToLayer: layer === null ? newLayerCount : newLayerCount - layer - 1 }
+  })
+}

@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { tableKinds } from '../../import/tables'
 import { datasetMetadata, deleteDataset, moveDataset, updateDataset } from '../../model/datasets'
-import { buildProfileSpline, removeMagneticProfile } from '../../model/magneticProfiles'
+import { buildProfileSpline, profileBindingOptions, removeMagneticProfile } from '../../model/magneticProfiles'
 import { FitCheckbox } from '../FitCheckbox'
 import { createDepthProfileFunction } from '../../model/defaults'
 import { applyMagnetizationToAllLayers } from '../../model/layers'
@@ -317,8 +317,9 @@ export function MagnetizationProfileSection() {
     <Field label={label}>
       <select className="select" value={value ?? ''} onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}>
         <option value="">none</option>
+        {value !== null && value >= current && <option value={value}>M{value + 1} (stored reference)</option>}
         {functions.map((_, i) =>
-          i === current ? null : (
+          i >= current ? null : (
             <option key={i} value={i}>
               M{i + 1}
             </option>
@@ -380,12 +381,11 @@ export function MagnetizationProfileSection() {
               value={fn.boundToLayer ?? ''}
               onChange={(e) => edit((p) => void (p.sample.depthProfileFunctions[current].boundToLayer = e.target.value === '' ? null : Number(e.target.value)))}
             >
-              <option value="">none</option>
-              {project.sample.layers.map((_, i) => (
-                <option key={i} value={i}>
-                  {i === 0 ? 'bulk' : i === project.sample.layers.length - 1 ? 'air' : `layer ${i}`}
-                </option>
+              {profileBindingOptions(project.sample.layers.length).map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
+              {fn.boundToLayer !== null && fn.boundToLayer > project.sample.layers.length &&
+                <option value={fn.boundToLayer}>Unknown binding ({fn.boundToLayer})</option>}
             </select>
           </Field>
           </>}

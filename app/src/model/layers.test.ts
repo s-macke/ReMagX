@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultProject } from './defaults'
+import { createDefaultProject, createDepthProfileFunction } from './defaults'
 import { applyMagnetizationToAllLayers, canRemoveLayer, insertLayerAbove, removeLayer, updateLayer } from './layers'
 
 describe('layer editing', () => {
@@ -40,4 +40,14 @@ describe('magnetization', () => {
     const project = applyMagnetizationToAllLayers(createDefaultProject(), { gamma: 0, phi: 0 })
     expect(project.sample.layers.every((l) => l.magnetization.gamma === 0 && l.magnetization.phi === 0)).toBe(true)
   })
+})
+
+it('keeps profile bindings on their layers across insertion and deletion, with distinct all/none', () => {
+  const original = createDefaultProject()
+  original.sample.depthProfileFunctions = [null, 0, 13, 14, 11, 12].map(boundToLayer => ({ ...createDepthProfileFunction(), boundToLayer }))
+  const inserted = insertLayerAbove(original, 1).project
+  expect(inserted.sample.depthProfileFunctions.map(p => p.boundToLayer)).toEqual([null, 0, 14, 15, 11, 13])
+  const removed = removeLayer(original, 2)
+  expect(removed.sample.depthProfileFunctions.map(p => p.boundToLayer)).toEqual([null, 0, 12, 13, 13, 11])
+  expect(original.sample.depthProfileFunctions.map(p => p.boundToLayer)).toEqual([null, 0, 13, 14, 11, 12])
 })

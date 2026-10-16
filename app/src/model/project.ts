@@ -80,7 +80,7 @@ export const depthProfileFunctionSchema = z.object({
   }),
   amplitudeCoupledTo: index.nullable(),
   widthCoupledTo: index.nullable(),
-  boundToLayer: index.nullable(),
+  boundToLayer: index.nullable(), // legacy order: null = all; 0 = ambient; layer count = none
 })
 
 export const sampleSchema = z.object({
