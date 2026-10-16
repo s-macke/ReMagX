@@ -82,6 +82,34 @@ CORPUS_DIR=/path/to/corpus npx vitest run test/corpus.test.ts   # import every l
 The legacy example files in `old/reMagX3` can serve as a local corpus
 (`CORPUS_DIR=../old/reMagX3`); all 99 must import.
 
+## Working with the user
+
+- Work in small steps and get the user's OK before starting the next step; report what was done,
+  what was verified and what was not.
+- Put decision questions to the user in plain language with the options and their consequences,
+  and your recommendation. When asking through a dialog, put the content the user must judge
+  into the options themselves (or a file whose path is named): text written just before the
+  dialog is hidden by it.
+- Before building a legacy feature, look up how the legacy program actually does it
+  (`old/reMagX3/client/*.dfm`, `Unit1.cpp`, `shared/`) instead of guessing from screenshots.
+
+## Environment and handoff
+
+- **Legacy sources** are in `old/reMagX3` (629 MB, git-ignored, never committed; D-30). A plain
+  `git clone` does not contain them: copy the folder along (e.g. rsync the whole project).
+  Important parts: `client/` (Borland GUI: `Unit1.cpp`, `*.dfm`), `guidll/` (more forms),
+  `shared/` (numerical core), `examples/` and `Tutorial/` (legacy projects), `bin/` and the
+  release zips (Windows binaries).
+- **Legacy program under Wine** (reference output, AC-6): copy `old/reMagX3/bin/ReMagX_Terminal.exe`
+  with `ReMagX.dll` and the DLLs from `old/reMagX3/bin/` and `old/reMagX3/remagx-terminal/` into an
+  empty folder together with a project and its `.db`/`.m` files, then run
+  `WINEDEBUG=-all wine ReMagX_Terminal.exe -refl default.all`. It prints `qz R` lines with only
+  7 significant digits and is version 2.3.1 (F-12).
+- **Browser checks** of the built app: `tools/browser-check/` (headless Chrome via DevTools).
+- **Pushing** to `origin` (git@github.com:s-macke/ReMagX.git) needs SSH access to the repository;
+  every push to `main` deploys the site.
+- Node 22+ is needed for the app and the browser-check scripts.
+
 ## Code map (`app/src`)
 
 | Path | Contents |
