@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { createDefaultProject } from './defaults'
 import type { OpticalTable } from '../import/tables'
-import { refreshCompoundConstants, refreshCompoundOptics, type RealTableLookup } from './refreshOpticalConstants'
+import { refreshCompoundConstants, refreshCompoundOptics, refreshCompoundOpticsState, type RealTableLookup } from './refreshOpticalConstants'
 
 const table = (kind: OpticalTable['kind'] = 'db'): OpticalTable => ({
   name: 'sample', kind, energy: [100, 200], columns: [[1, 2], [3, 4]], warnings: [],
@@ -86,4 +86,41 @@ it('does not use tensor-table ranges as primary range checks and distinguishes e
   const empty = refreshCompoundOptics(project, [table(), { ...tensor, energy: [] }], 150, lookup)
   expect(empty.dielectricTensors.every(value => value === null)).toBe(true)
   expect(() => refreshCompoundOptics(project, [tensor], 150, lookup)).toThrow('missing optical table')
+})
+
+
+it('retains partial scalar and tensor refreshes across skipped energies without changing prior state', () => {
+  const project = projectWithTables()
+  project.sample.layers = project.sample.layers.slice(0, 2)
+  project.sample.layers[1].opticalTable = 'other'
+  const before = structuredClone(project)
+  const tables = [table(), { ...table(), name: 'other', energy: [150, 250] },
+    { ...table('e'), columns: Array.from({ length: 18 }, () => [1, 2]) }]
+  const oldTensors = [new Float64Array(18).fill(7), new Float64Array(18).fill(8)]
+  const lookup = vi.fn<RealTableLookup>((source, [energy], cursor) => ({
+    values: new Float64Array(source.kind === 'e' ? 18 : 2).fill(energy), cursor: cursor + 1,
+  }))
+  const cursors = new Map<OpticalTable, number>()
+  const first = refreshCompoundOpticsState(project, tables, 125, lookup, cursors, oldTensors)
+  expect(first.rangeError).toContain('other.db')
+  expect(first.layers[0].delta).toBe(125)
+  expect(first.layers[1]).toEqual(before.sample.layers[1])
+  expect(first.dielectricTensors[0]).toEqual(new Float64Array(18).fill(125))
+  expect(first.dielectricTensors[1]).toEqual(oldTensors[1])
+  expect(first.dielectricTensors[1]).not.toBe(oldTensors[1])
+  const next = { ...project, sample: { ...project.sample, layers: first.layers } }
+  const second = refreshCompoundOpticsState(next, tables, 225, lookup, cursors, first.dielectricTensors)
+  expect(second.rangeError).toContain('sample.db')
+  expect(second.layers.map(layer => layer.delta)).toEqual([125, 225])
+  expect(second.dielectricTensors[0]).toEqual(first.dielectricTensors[0])
+  expect(second.dielectricTensors[0]).not.toBe(first.dielectricTensors[0])
+  expect(second.dielectricTensors[1]).toBeNull() // successful scalar refresh replaces the old override
+  expect(lookup.mock.calls.map(([source]) => source.name + '.' + source.kind)).toEqual(['sample.db', 'sample.e', 'other.db'])
+  expect(project).toEqual(before)
+  expect(oldTensors[0][0]).toBe(7)
+  const complete = refreshCompoundOpticsState(next, tables, 175, lookup, cursors, second.dielectricTensors)
+  expect(complete.rangeError).toBeNull()
+  expect(complete.layers.map(layer => layer.delta)).toEqual([175, 175])
+  expect(() => refreshCompoundOptics(project, tables, 125, lookup)).toThrow('other.db')
+  expect(() => refreshCompoundOpticsState(project, tables, 175, lookup, cursors, [])).toThrow('layer count')
 })

@@ -8,14 +8,38 @@ export type RealTableLookup = (table: OpticalTable, queries: number[], cursor: n
 
 export class OpticalTableRangeError extends Error {}
 
+export interface CompoundOpticalState {
+  layers: Project['sample']['layers']
+  dielectricTensors: (Float64Array | null)[]
+}
+
+// Filldb can update some layers even when another layer is outside its table.
+// Keep this state available to serial scan/fit orchestration without mutating inputs.
+export function refreshCompoundOpticsState(project: Project, tables: OpticalTable[], energy: number,
+  lookup: RealTableLookup, cursors = new Map<OpticalTable, number>(),
+  previousTensors?: (Float64Array | null)[]): CompoundOpticalState & { rangeError: string | null } {
+  if (previousTensors && previousTensors.length !== project.sample.layers.length) {
+    throw new Error('Optical tensor state must match the layer count.')
+  }
+  return refreshState(project, tables, energy, lookup, cursors, previousTensors)
+}
+
 // Compound branch of MaterialConstantsHelper.cpp Filldb / CMaterialConstants::Getdb.
 // Called inside the compute worker with the native table lookup implementation.
 // The caller supplies the calculation energy (including any legacy conversion).
-export function refreshCompoundOptics(project: Project, tables: OpticalTable[], energy: number, lookup: RealTableLookup, cursors = new Map<OpticalTable, number>()): { layers: Project['sample']['layers']; dielectricTensors: (Float64Array | null)[] } {
+export function refreshCompoundOptics(project: Project, tables: OpticalTable[], energy: number, lookup: RealTableLookup,
+  cursors = new Map<OpticalTable, number>()): CompoundOpticalState {
+  const result = refreshCompoundOpticsState(project, tables, energy, lookup, cursors)
+  if (result.rangeError) throw new OpticalTableRangeError(result.rangeError)
+  return { layers: result.layers, dielectricTensors: result.dielectricTensors }
+}
+
+function refreshState(project: Project, tables: OpticalTable[], energy: number, lookup: RealTableLookup,
+  cursors: Map<OpticalTable, number>, previousTensors?: (Float64Array | null)[]): CompoundOpticalState & { rangeError: string | null } {
   if (project.sample.mode !== 'compound') throw new Error('Real optical-table refresh for element mode is not implemented yet.')
   if (!Number.isFinite(energy) || energy <= 0) throw new Error('Optical-table refresh needs a positive finite energy.')
   let rangeError = ''
-  const dielectricTensors: (Float64Array | null)[] = project.sample.layers.map(() => null)
+  const dielectricTensors: (Float64Array | null)[] = project.sample.layers.map((_, index) => previousTensors?.[index]?.slice() ?? null)
   const read = (table: OpticalTable, width = 2): Float64Array => {
     const result = lookup(table, [energy], cursors.get(table) ?? 0)
     if (result.values.length !== width || !result.values.every(Number.isFinite)) throw new Error(`Invalid optical constants in ${table.name}.${table.kind}.`)
@@ -37,11 +61,10 @@ export function refreshCompoundOptics(project: Project, tables: OpticalTable[], 
     const magnetic = magneticTable?.energy.length ? read(magneticTable) : [0, 0]
     const tensorTable = tables.find(candidate => candidate.name === name && candidate.kind === 'e')
     // Getdb marks any nonempty .e table anisotropic, even out-of-range zeros.
-    if (tensorTable?.energy.length) dielectricTensors[index] = read(tensorTable, 18).slice()
+    dielectricTensors[index] = tensorTable?.energy.length ? read(tensorTable, 18).slice() : null
     return { ...layer, delta: primary[0], beta: primary[1], deltaMag: magnetic[0], betaMag: magnetic[1] }
   })
-  if (rangeError) throw new OpticalTableRangeError(rangeError)
-  return { layers, dielectricTensors }
+  return { layers, dielectricTensors, rangeError: rangeError || null }
 }
 
 // Scalar callers still perform the full Getdb lookup sequence. Parratt uses the
