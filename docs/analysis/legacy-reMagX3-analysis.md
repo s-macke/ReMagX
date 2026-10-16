@@ -156,3 +156,37 @@ They do not establish full 2.6 project reconstruction, corpus goldens, optical t
 handling, resolution, matrix/Zak calculations, optimizer references, the Wine comparison,
 or native/WASM agreement. Those remain checklist work. The public workflow runs the
 source-gate unit test; the numerical adapter tests skip unless private sources are requested.
+
+
+## Initial cleaned native core (2026-10-16)
+
+`engine/src/parratt.cpp` ports the active Parratt recursion, including magnetic/tetragonal
+refractive-index branches, Nevot-Croce roughness, arbitrary complex beam weights and the
+three analyzer choices. It preserves the zero-real-kz adjustment to 1e-100 and does not
+normalize the supplied beam. No legacy containers, globals, threads, optimizer code,
+optical databases or Lua implementation are carried into this core.
+
+The C-compatible API in `engine/include/remagx/core.h` accepts prepared layers and point
+arrays, with explicit units and caller-owned output. Input validation and numerical errors
+return status codes; failed batches leave output untouched. Callers provide nonoverlapping
+valid buffers of the declared lengths. Energy/qz conversion, table interpolation, slicing,
+resolution and scripting belong to higher-level work still to be ported.
+
+```sh
+cmake -S engine -B build/engine -DCMAKE_BUILD_TYPE=Release
+cmake --build build/engine --parallel 2
+ctest --test-dir build/engine --output-on-failure
+# Adds direct comparisons against the reviewed private 2.6 routine:
+LEGACY_ROOT="$PWD/old/reMagX3" ctest --test-dir build/engine --output-on-failure
+```
+
+The default build is a shared library so Python can exercise the C ABI. The public tests
+cover analytic Fresnel behavior, beam/analyzer weighting, null/invalid inputs, preservation
+of inputs and failed-batch output, zero contrast, equivalent layer partitioning, and C header
+linkage. A source gate rejects alternate floating-point precision and its negative cases are
+tested. With private sources, 120 seeded synthetic stacks compare 4,320 points covering both
+tensor types, all analyzers, complex beams, roughness, absorption, different directions,
+magnetization reversal, zero/negative/near-critical angles and different wave numbers.
+The comparison uses the unchanged AC-5 bound of 1e-10 relative + 1e-15 absolute.
+These are prepared-stack component checks, not project/corpus goldens or native/WASM parity.
+The website continues to use ComputeService's mock implementation.

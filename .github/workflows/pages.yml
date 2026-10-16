@@ -38,6 +38,12 @@ jobs:
           ../tools/inventory/check
           python3 -m unittest discover -s ../tools/golden/legacy -p 'test_*.py'
 
+      - name: Build and test native numerical core
+        run: |
+          cmake -S ../engine -B ../build/engine -DCMAKE_BUILD_TYPE=Release
+          cmake --build ../build/engine --parallel 2
+          ctest --test-dir ../build/engine --output-on-failure
+
       - run: npm ci
       - run: npm run lint
       - run: npm test

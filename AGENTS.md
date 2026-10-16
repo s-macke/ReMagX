@@ -233,6 +233,7 @@ Quality gates:
 - [ ] Generate reference fit outputs once on the user's machine with an original legacy build and its original optimizer; keep that build uncommitted and store only its outputs in the private corpus (D-20, D-32).
 - [ ] Native rebuild of the legacy 2.6 core for golden data, `%.17g` output, no NR code in the repo (D-5, D-32)
 - [ ] Cross-check the rebuild against the Wine 2.3.1 binary within 1e-6 (AC-6)
+- [x] Initial cleaned native Parratt kernel: double-only C API, magnetic/tetragonal branches, complex beam weights, analyzers and Nevot-Croce; C/C++ build and precision gate in CI. Compared 4,320 synthetic prepared-stack points with the private 2.6 routine at 1e-10 relative + 1e-15 absolute. This is component verification, not corpus or WASM acceptance.
 - [ ] Extract and clean the numerical core: double only, descriptive names, data-driven C API; verify the double-only source gate (D-6, D-34, AC-2).
 - [ ] Port Parratt, full 4×4 matrix/Visnovsky and Zak calculations for qz and energy scans; validate each against legacy golden outputs (D-3, D-25, AC-5).
 - [ ] Port Nevot-Croce roughness and adaptive layer segmentation, including segmentation settings (D-25, spec §2).
@@ -240,7 +241,7 @@ Quality gates:
 - [ ] Honor arbitrary complex polarization for both beams and the polarization analyzer; support dichroic reflectivity and both asymmetry definitions (D-25, spec §2).
 - [ ] Expose and display δ(z), β(z), δm(z), βm(z) from the actual engine after roughness/slicing (D-26); replace the mock profile data behind the existing views.
 - [ ] Emscripten build; golden tests native and WASM within 1e-10 rel + 1e-15 abs (AC-5, D-23)
-- [ ] Golden and WASM tests in CI (today `pages.yml` runs only lint, test and build)
+- [ ] Corpus golden and WASM tests in CI (Pages now runs native analytic/API/precision checks alongside app checks; private legacy comparison is opt-in locally)
 - [ ] AC-3 with the real engine: a `precision = 3` project computes bit-identically to `precision = 1`
 - [ ] Clean-room Nelder-Mead and annealing in C++ behind the optimizer interface in `engine/src/optim/`, also used by the public legacy rebuild (D-10, D-32).
 - [ ] Fit golden tests on at least 3 corpus projects, using the same project and seed: final χ²(new) ≤ χ²(original) × (1 + 1e-6), compared with the private original-optimizer references (D-28, D-32, AC-9).
