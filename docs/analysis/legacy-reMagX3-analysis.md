@@ -273,3 +273,26 @@ Three unit tests cover expansion, invalid/resource cases and immutable packing. 
 local temporary harness compiled the original interpreter with minimal container/state
 scaffolding and matched 257 generated/edge-case patterns; this was a focused manual
 check, not a committed full-project oracle. No private source or corpus was added to git.
+
+### Initial real Parratt request preparation
+
+`app/src/model/parrattRequest.ts` combines the compound rows with scan coordinates,
+experiment energy, complex beam amplitudes and C API flags. This remains a pure
+preparation stage awaiting ComputeService integration. It rejects unfinished physics
+and preprocessing rather than returning a request with those effects omitted.
+
+The generated qz grid follows the main legacy calculation action (`Unit1.cpp`
+`Button3Click`): `j=1..N`, using `LinInterpolation(0,j,N,min,max)`. Thus the minimum
+is excluded and the maximum included; reversed/constant ranges are preserved.
+Dataset-point mode instead copies the active dataset coordinates without sorting or
+removing repeats. Only qz shifts with magnitude greater than `1e-10` apply, matching
+`CDataSet::Adapt`; measured intensities and their scaling are not changed by this stage.
+Missing/empty active datasets cause an explicit error. Generated grids are limited
+to 1,000,000 points to avoid unbounded allocation.
+
+The initial zero-resolution path rejects non-Parratt algorithms, transmission,
+automatic optical refresh, enabled BeforeCalculation source, element mode, segmentation,
+nonzero angular resolution, averaging and optional postprocessing. Experiment energy
+and polarizations remain authoritative when borrowing dataset coordinates, matching
+the main legacy action. The fast-dichroic upper boundary is stricter than the non-fast
+native API, so request preparation rejects ratio `qz/(2*k0) >= 1` for that branch.
