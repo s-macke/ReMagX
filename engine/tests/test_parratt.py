@@ -50,17 +50,21 @@ library.remagx_parratt_qz.argtypes = [ctypes.POINTER(Layer), ctypes.c_size_t, ct
     ctypes.c_size_t, ctypes.c_double, ctypes.POINTER(Beam), ctypes.POINTER(Beam), ctypes.c_int,
     ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.POINTER(Reflectivity)]
 library.remagx_parratt_qz.restype = ctypes.c_int
+library.remagx_parratt_qz_resolution.argtypes = library.remagx_parratt_qz.argtypes[:-1] + [ctypes.c_double, ctypes.c_int, ctypes.POINTER(Reflectivity)]
+library.remagx_parratt_qz_resolution.restype = ctypes.c_int
 
 
 def calculate_qz(layers, qz, energy=640, beam1=(1, 0, 0, 0), beam2=(0, 0, 1, 0), tensor=0,
-                 analyzer=0, magnetic=1, mode=1):
+                 analyzer=0, magnetic=1, mode=1, resolution=None):
     layer_array = (Layer * len(layers))(*(Layer(*layer) for layer in layers))
     coordinates = (ctypes.c_double * len(qz))(*qz)
     first, second = Beam(*beam1), Beam(*beam2) if beam2 is not None else None
     output = (Reflectivity * len(qz))(*(Reflectivity(-123, -456) for _ in qz))
     before = bytes(layer_array), bytes(coordinates), bytes(first), bytes(second) if second else None
-    status = library.remagx_parratt_qz(layer_array, len(layers), coordinates, len(qz), energy,
-        ctypes.byref(first), ctypes.byref(second) if second else None, tensor, analyzer, magnetic, mode, output)
+    arguments = [layer_array, len(layers), coordinates, len(qz), energy,
+        ctypes.byref(first), ctypes.byref(second) if second else None, tensor, analyzer, magnetic, mode]
+    status = (library.remagx_parratt_qz(*arguments, output) if resolution is None else
+              library.remagx_parratt_qz_resolution(*arguments, *resolution, output))
     if before != (bytes(layer_array), bytes(coordinates), bytes(first), bytes(second) if second else None):
         raise AssertionError('qz API mutated its input')
     return status, [(value.beam1, value.beam2) for value in output]
@@ -68,6 +72,54 @@ def calculate_qz(layers, qz, energy=640, beam1=(1, 0, 0, 0), beam2=(0, 0, 1, 0),
 
 class QzScanTest(unittest.TestCase):
     layers = [(0, 0, .01, .002, .0001, .00002, 90, 90), (0, 0, 0, 0, 0, 0, 90, 90)]
+
+    def test_native_resolution_matches_reviewed_worker(self):
+        offsets = [-2, -1.77777777777778, -1.55555555555556, -1.33333333333333,
+            -1.11111111111111, -.888888888888889, -.666666666666667, -.444444444444444,
+            -.222222222222222, 0, .222222222222222, .444444444444444, .666666666666667,
+            .888888888888889, 1.11111111111111, 1.33333333333333, 1.55555555555556, 1.77777777777778, 2]
+        inputs, actuals, coordinates = [], [], []
+        for case, prepared in enumerate(synthetic_cases()):
+            energy = [100, 640, 8000][case % 3]
+            wave = 2 * math.pi / (12398.326 / energy)
+            qz = [ratio * 2 * wave for ratio in [-.02, 0, .05, .2, .4]]
+            options = dict(energy=energy, beam1=prepared['beam'], beam2=(.3, .4, .6, .8),
+                tensor=prepared['tensor'], analyzer=prepared['analyzer'], magnetic=(case // 2) % 2, mode=(case // 4) % 2)
+            for width in [0, 1e-11, wave * .01]:
+                for fast in [0, 1]:
+                    points = qz if fast else [q + offset * width for q in qz for offset in (offsets[:1] if width < 1e-10 else offsets)]
+                    status, raw = calculate_qz(prepared['layers'], points, **options)
+                    self.assertEqual(status, 0)
+                    status, actual = calculate_qz(prepared['layers'], qz, **options, resolution=(width, fast))
+                    self.assertEqual(status, 0)
+                    inputs.append(dict(qz=qz, width=width, fast=bool(fast), dichroic=bool(options['mode']), raw=[value for pair in raw for value in pair]))
+                    actuals.append([value for pair in actual for value in pair])
+                    coordinates.append(points)
+        comparison = subprocess.run(['node', '--experimental-strip-types', str(Path(__file__).with_name('compare_resolution.mjs'))],
+            input=json.dumps(inputs), text=True, capture_output=True, check=True)
+        expected = json.loads(comparison.stdout)
+        self.assertEqual(len(expected), 720)
+        for actual, target, points in zip(actuals, expected, coordinates):
+            self.assertEqual(points, target['coordinates'])
+            self.assertEqual(len(actual), len(target['values']))
+            for value, reference in zip(actual, target['values']):
+                self.assertLessEqual(abs(value-reference), 1e-15 + 1e-10 * abs(reference))
+        print('Native angular resolution: 7,200 intensity comparisons with reviewed worker convolution passed.', flush=True)
+
+    def test_native_resolution_original_references_and_failures(self):
+        status, values = calculate_qz(self.layers, [0, .03], magnetic=0, mode=0, resolution=(.002, 0))
+        self.assertEqual(status, 0)
+        for pair, target in zip(values, [.56005877016968919, .87413289596007782]):
+            self.assertLessEqual(abs(pair[0] - target), 1e-15 + 1e-10 * abs(target))
+            self.assertEqual(pair[1], 0)
+        self.assertEqual(calculate_qz(self.layers, [.01, .03], resolution=(0, 0)), calculate_qz(self.layers, [.01, .03]))
+        self.assertEqual(calculate_qz(self.layers, [.01], resolution=(1e-11, 0)), calculate_qz(self.layers, [.01 - 2e-11]))
+        maximum = 2 * (2 * math.pi / (12398.326 / 640))
+        self.assertEqual(calculate_qz(self.layers, [maximum], resolution=(0, 1)), (4, [(-123, -456)]))
+        self.assertEqual(calculate_qz(self.layers, [maximum], resolution=(0, 0))[0], 0)
+        for resolution in [(-1, 0), (math.nan, 0), (0, 2)]:
+            self.assertEqual(calculate_qz(self.layers, [.01], resolution=resolution), (1, [(-123, -456)]))
+        self.assertEqual(calculate_qz(self.layers, [.01, maximum], mode=0, resolution=(.002, 0)), (4, [(-123, -456)] * 2))
 
     def test_legacy_qz_boundaries(self):
         maximum = 2 * (2 * math.pi / (12398.326 / 640))

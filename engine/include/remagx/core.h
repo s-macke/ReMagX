@@ -60,6 +60,14 @@ int remagx_parratt_qz(const RemagxLayer* layers, size_t layer_count,
                       const RemagxBeam* beam1, const RemagxBeam* beam2,
                       int tensor, int analyzer, int magnetization_enabled,
                       int scan_mode, RemagxReflectivity* output);
+// Same prepared-stack contract, with the legacy angular-resolution kernel.
+// width is in inverse Angstrom; fast is 0 (shifted evaluations) or 1 (interpolation).
+// The active kernel has 19 fixed samples. Output remains untouched on any failure.
+int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t layer_count,
+                      const double* qz, size_t point_count, double energy_ev,
+                      const RemagxBeam* beam1, const RemagxBeam* beam2,
+                      int tensor, int analyzer, int magnetization_enabled,
+                      int scan_mode, double width, int fast, RemagxReflectivity* output);
 #ifdef __cplusplus
 }
 #endif

@@ -365,3 +365,17 @@ the original constants/GetLinY matched 448 outputs across 64 generated grid/widt
 cases exactly. Chromium additionally checks two synthetic exact-resolution results
 against original CParratt<double> outputs with the same 19 weights. This is initial
 worker orchestration; full native/C++ resolution and energy convolution remain open.
+
+### Native angular-resolution API
+
+`remagx_parratt_qz_resolution` adds width (inverse Angstrom) and a fast flag to the
+prepared qz contract. It implements the same exact/fast legacy behavior in C++,
+validates numerical results and leaves output unchanged on failure. The C smoke test
+covers linkage. Native tests compare two original-Parratt reference values and 7,200
+intensities across 720 cases against the reviewed worker convolution. That comparison
+uses Node with `--experimental-strip-types` to load the pure TypeScript reference;
+Node is therefore needed for this native test, not for compiling the library itself.
+
+The worker continues to use its previous resolution path until this new C API is
+exported through WASM and integrated. Energy resolution and full project/corpus
+acceptance remain open.
