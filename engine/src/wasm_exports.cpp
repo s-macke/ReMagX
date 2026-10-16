@@ -11,3 +11,16 @@ static_assert(offsetof(RemagxMatrixLayer, anisotropic) == 22 * sizeof(double));
 static_assert(sizeof(RemagxMatrixLayer) == 23 * sizeof(double));
 
 static_assert(sizeof(RemagxGaussianProfile) == 4 * sizeof(double));
+
+#include "remagx/optimizer.h"
+static_assert(sizeof(RemagxSimplexOptions) == 24);
+static_assert(offsetof(RemagxSimplexOptions, max_evaluations) == 0);
+static_assert(offsetof(RemagxSimplexOptions, max_iterations) == 4);
+static_assert(offsetof(RemagxSimplexOptions, parameter_tolerance) == 8);
+static_assert(offsetof(RemagxSimplexOptions, objective_tolerance) == 16);
+static_assert(sizeof(RemagxFitSummary) == 24);
+static_assert(offsetof(RemagxFitSummary, termination) == 0);
+static_assert(offsetof(RemagxFitSummary, has_best) == 4);
+static_assert(offsetof(RemagxFitSummary, iterations) == 8);
+static_assert(offsetof(RemagxFitSummary, evaluations) == 12);
+static_assert(offsetof(RemagxFitSummary, value) == 16);

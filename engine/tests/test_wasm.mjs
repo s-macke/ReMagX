@@ -1,3 +1,5 @@
+import { minimizeSimplex } from '../wasm/optimizer.mjs'
+import { checkOptimizer } from './optimizer_checks.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
@@ -6,6 +8,8 @@ import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calc
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
 const input = JSON.parse(readFileSync(0, 'utf8'))
+const optimizerResult = checkOptimizer(module, minimizeSimplex, input.optimizer, calculateParratt)
+console.log(`WASM/native optimizer: ${optimizerResult.cases} cases, callbacks, Stop, memory growth and cleanup passed.`)
 const cases = [...input.angular, ...input.qz.map(prepared => ({ ...prepared, kind: 'qz' }))]
 const calculate = prepared => prepared.kind === 'qz' ? calculateParrattQz(module, prepared) : calculateParratt(module, prepared)
 let count = 0, maxLogError = 0, zeros = 0, nonpositiveMismatches = 0
