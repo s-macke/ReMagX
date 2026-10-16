@@ -36,6 +36,7 @@ jobs:
         run: |
           python3 -m unittest discover -s ../tools/inventory -p 'test_*.py'
           ../tools/inventory/check
+          python3 -m unittest discover -s ../tools/golden/legacy -p 'test_*.py'
 
       - run: npm ci
       - run: npm run lint

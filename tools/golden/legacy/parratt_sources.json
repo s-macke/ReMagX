@@ -1,0 +1,13 @@
+{
+  "scope": "Reviewed private include closure for the 2.6 Parratt adapter only. No optimizer, Numerical Recipes, Lua, periodic-table dataset or research project is included. Source changes require a fresh review; this is not the full rebuild.",
+  "sha256": {
+    "shared/simul/CParratt.h": "2f1e31a4193150a58a0b0f211574d0c1873781899b14684a6d7e01f862998618",
+    "shared/CPolarization.h": "6b31f19c59b980bcf8d4d6723fa660d63dcf80aa6b9e4fda086b51f05c5bf0b1",
+    "shared/schicht.h": "8ca05f10090bd0b3cfaa7c256a3456e65e7615f90716daaadf61b882813796fb",
+    "shared/MaterialConstants.h": "cade8f592037f678c0f7477129ff1113e605440c4f8aacfeb21fa59051009841",
+    "shared/CVector.h": "1824aaf04b4492f58478545ac3415e470fefebcdea2541ff410f53ce9d1e82be",
+    "shared/CString.h": "1e905908293ce39709af893a2384efc247f83d28ddf362b60a2829a3fe9b3ef7",
+    "shared/CMatrix.h": "ef096be3592ec586c4c10e27a1347e737a9ff452104def1199151e8fdab3ef5e",
+    "shared/CTable.h": "8eda6ac7752643db11e7489c68b3df42dbc31ff8a3b638ee76a37065f5c2a078"
+  }
+}

@@ -117,3 +117,42 @@ Plain ASCII columns (e.g. `LCO_900eV.dat`: `E  qz  R` or similar), imported via 
 3. The GUI is rewritten entirely. Nothing from VCL is reusable.
 4. Browser-local means file access through the File System Access API or upload/download, state
    kept in IndexedDB/OPFS, and long computations in Web Workers.
+
+
+## Native Parratt reference adapter (2026-10-16)
+
+`tools/golden/legacy/parratt_reference.cpp` calls the original private
+`shared/simul/CParratt.h` directly with `double`. It does not copy that implementation,
+link an optimizer, load research files, or invoke the TypeScript mock. The build script
+checks the compiler-reported non-system include closure against eight reviewed header
+hashes in `parratt_sources.json`. Changed, missing or additional dependencies fail closed.
+The adapter retains legacy type/field names only as import mappings. Its counter/mutex
+symbols satisfy the private container header; they are not part of the future engine API.
+
+```sh
+python3 tools/golden/legacy/build_reference.py
+LEGACY_ROOT=old/reMagX3 python3 -m unittest discover -s tools/golden/legacy -p 'test_*.py'
+```
+
+The default executable is `build/legacy-parratt-reference` (git-ignored). It reads whitespace-
+separated numbers from standard input, in this order:
+
+1. Layer count, point count, tensor type (0 isotropic, 1 tetragonal), analyzer (0 both, 1 sigma, 2 pi).
+2. Beam sigma-real, sigma-imaginary, pi-real, pi-imaginary. The adapter does not normalize these.
+3. One row per layer, substrate first and ambient last: thickness, roughness, delta, beta,
+   delta-magnetic, beta-magnetic, gamma-degrees, phi-degrees.
+4. One row per point: grazing angle in radians, vacuum wave number in inverse Angstrom,
+   magnetization multiplier (normally 0, 1 or -1).
+
+One intensity per point is printed with `%.17g`. Exit 2 means invalid input and exit 3 means
+nonfinite output; callers must reject the entire output on any nonzero exit. No curve inputs
+or numerical outputs are committed by the tool. Only synthetic adapter tests live in git.
+The build uses C++17, `-O2` and `-fno-fast-math`; it requires a compiler and the private source
+snapshot, not Wine or Emscripten.
+
+The checks establish adapter wiring against closed-form two-medium Fresnel reflection,
+complex beam weights/analyzers, zero contrast and an equivalent partition of one medium.
+They do not establish full 2.6 project reconstruction, corpus goldens, optical table/Lua
+handling, resolution, matrix/Zak calculations, optimizer references, the Wine comparison,
+or native/WASM agreement. Those remain checklist work. The public workflow runs the
+source-gate unit test; the numerical adapter tests skip unless private sources are requested.

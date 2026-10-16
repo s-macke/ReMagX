@@ -19,3 +19,7 @@ build/
 .vscode/
 .idea/
 .idea/
+
+# Python tooling caches
+__pycache__/
+*.pyc
