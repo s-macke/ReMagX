@@ -66,6 +66,8 @@ jobs:
         run: WASM_BROWSER=1 WASM_MODULE=../build/wasm/remagx-core.mjs python3 ../engine/tests/test_parratt.py ../build/engine/libremagx_core.so
       - name: Verify real engine through ComputeService
         run: node scripts/test-real-service.mjs ../build/wasm
+      - name: Verify full UI responsiveness with the real engine
+        run: node scripts/test-real-ui.mjs ../build/wasm
       - run: npm run test:e2e
 
       - uses: actions/configure-pages@v5
