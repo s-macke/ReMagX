@@ -171,6 +171,17 @@ int remagx_visnovsky_qz_resolution(const RemagxMatrixLayer* layers, size_t layer
                        const double* qz, size_t point_count, double energy_ev, double epsilon,
                        const RemagxBeam* beam1, const RemagxBeam* beam2, int analyzer,
                        int scan_mode, double width, int fast, RemagxReflectivity* output);
+// Prepared matrix energy scan: one consecutive substrate-first stack per point.
+// Tensors/indices have already been refreshed for each energy. enabled is null
+// (all points) or a 0/1 mask; disabled stacks are not read and retain intensity
+// one (beam2 zero for monochromatic). Exact angular convolution precedes energy
+// convolution over the complete scan, then caller postprocessing/asymmetry.
+// Both beams use each point's same tensor stack. Output is unchanged on failure.
+int remagx_visnovsky_energy_scan(const RemagxMatrixLayer* layers, size_t layer_count,
+                       const double* energies, const double* qz, const int* enabled, size_t point_count,
+                       double epsilon, const RemagxBeam* beam1, const RemagxBeam* beam2,
+                       int analyzer, int scan_mode, double angular_width, double energy_width,
+                       RemagxReflectivity* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.

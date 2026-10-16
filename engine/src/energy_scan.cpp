@@ -12,20 +12,20 @@ bool valid_beam(const RemagxBeam* beam) {
 }
 }
 
-extern "C" int remagx_parratt_energy_scan(const RemagxLayer* layers, size_t layer_count,
+namespace {
+template<class Layer, class Evaluate>
+int prepared_energy_scan(const Layer* layers, size_t layer_count,
                       const double* energies, const double* qz, const int* enabled, size_t point_count,
                       const RemagxBeam* beam1, const RemagxBeam* beam2,
-                      int tensor, int analyzer, int magnetization_enabled, int scan_mode,
-                      double angular_width, double energy_width, RemagxReflectivity* output) {
+                      int analyzer, int scan_mode, double angular_width, double energy_width,
+                      RemagxReflectivity* output, Evaluate evaluate) {
     if (!layers || layer_count < 2 || !energies || !qz || !point_count || !output ||
         !valid_beam(beam1) || (scan_mode == REMAGX_DICHROIC && !valid_beam(beam2)) ||
         (scan_mode != REMAGX_MONOCHROMATIC && scan_mode != REMAGX_DICHROIC) ||
-        (tensor != REMAGX_ISOTROPIC && tensor != REMAGX_TETRAGONAL) ||
         analyzer < REMAGX_BOTH || analyzer > REMAGX_PI ||
-        (magnetization_enabled != 0 && magnetization_enabled != 1) ||
         !std::isfinite(angular_width) || angular_width < 0.0 ||
         !std::isfinite(energy_width) || energy_width < 0.0) return REMAGX_INVALID_ARGUMENT;
-    if (point_count > std::numeric_limits<size_t>::max() / sizeof(RemagxLayer) / layer_count)
+    if (point_count > std::numeric_limits<size_t>::max() / sizeof(Layer) / layer_count)
         return REMAGX_ALLOCATION_ERROR;
     for (size_t index = 0; index < point_count; ++index)
         if (!std::isfinite(energies[index]) || energies[index] <= 0.0 || !std::isfinite(qz[index]) ||
@@ -37,13 +37,41 @@ extern "C" int remagx_parratt_energy_scan(const RemagxLayer* layers, size_t laye
             {1.0, scan_mode == REMAGX_DICHROIC ? 1.0 : 0.0});
         for (size_t index = 0; index < point_count; ++index) {
             if (enabled && !enabled[index]) continue;
-            const int status = remagx_parratt_qz_resolution(layers + index * layer_count, layer_count,
-                qz + index, 1, energies[index], beam1, beam2, tensor, analyzer, magnetization_enabled,
-                scan_mode, angular_width, 0, &raw[index]);
+            const int status = evaluate(layers + index * layer_count, qz + index, energies[index], &raw[index]);
             if (status != REMAGX_SUCCESS) return status;
         }
         // This API commits its output only after convolution also succeeds.
         return remagx_energy_resolution(energies, raw.data(), point_count, energy_width, output);
     } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
       catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
+}
+}
+
+extern "C" int remagx_parratt_energy_scan(const RemagxLayer* layers, size_t layer_count,
+                      const double* energies, const double* qz, const int* enabled, size_t point_count,
+                      const RemagxBeam* beam1, const RemagxBeam* beam2,
+                      int tensor, int analyzer, int magnetization_enabled, int scan_mode,
+                      double angular_width, double energy_width, RemagxReflectivity* output) {
+    if ((tensor != REMAGX_ISOTROPIC && tensor != REMAGX_TETRAGONAL) ||
+        (magnetization_enabled != 0 && magnetization_enabled != 1)) return REMAGX_INVALID_ARGUMENT;
+    return prepared_energy_scan(layers, layer_count, energies, qz, enabled, point_count, beam1, beam2,
+        analyzer, scan_mode, angular_width, energy_width, output,
+        [&](const RemagxLayer* stack, const double* coordinate, double energy, RemagxReflectivity* result) {
+            return remagx_parratt_qz_resolution(stack, layer_count, coordinate, 1, energy, beam1, beam2,
+                tensor, analyzer, magnetization_enabled, scan_mode, angular_width, 0, result);
+        });
+}
+
+extern "C" int remagx_visnovsky_energy_scan(const RemagxMatrixLayer* layers, size_t layer_count,
+                      const double* energies, const double* qz, const int* enabled, size_t point_count,
+                      double epsilon, const RemagxBeam* beam1, const RemagxBeam* beam2,
+                      int analyzer, int scan_mode, double angular_width, double energy_width,
+                      RemagxReflectivity* output) {
+    if (!std::isfinite(epsilon)) return REMAGX_INVALID_ARGUMENT;
+    return prepared_energy_scan(layers, layer_count, energies, qz, enabled, point_count, beam1, beam2,
+        analyzer, scan_mode, angular_width, energy_width, output,
+        [&](const RemagxMatrixLayer* stack, const double* coordinate, double energy, RemagxReflectivity* result) {
+            return remagx_visnovsky_qz_resolution(stack, layer_count, coordinate, 1, energy, epsilon,
+                beam1, beam2, analyzer, scan_mode, angular_width, 0, result);
+        });
 }

@@ -51,6 +51,28 @@ def evaluate_qz(layers, qz, energy=640., epsilon=1e-8, analyzer=0, mode=1,
     assert before == (bytes(source), bytes(points), bytes(first), bytes(second) if second else None)
     return status, [value for row in output for value in (row.beam1, row.beam2)]
 
+library.remagx_visnovsky_energy_scan.argtypes = [ctypes.POINTER(Layer), ctypes.c_size_t,
+    ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_int), ctypes.c_size_t,
+    ctypes.c_double, ctypes.POINTER(Beam), ctypes.POINTER(Beam), ctypes.c_int, ctypes.c_int,
+    ctypes.c_double, ctypes.c_double, ctypes.POINTER(Result)]
+library.remagx_energy_resolution.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.POINTER(Result),
+    ctypes.c_size_t, ctypes.c_double, ctypes.POINTER(Result)]
+
+def evaluate_energy(stacks, energy, qz, enabled=None, epsilon=1e-8, analyzer=0, mode=1,
+                    beam1=(1, 0, 0, 0), beam2=(0, 0, 1, 0), angular=0., width=0.):
+    count, layer_count = len(energy), len(stacks[0])
+    source = (Layer * (count * layer_count))(*(entry for stack in stacks for entry in stack))
+    energies, points = (ctypes.c_double * count)(*energy), (ctypes.c_double * count)(*qz)
+    mask = (ctypes.c_int * count)(*enabled) if enabled is not None else None
+    first, second = Beam(*beam1), Beam(*beam2) if beam2 is not None else None
+    output = (Result * count)(*(Result(-123, -456) for _ in energy))
+    inputs = [source, energies, points, first] + ([mask] if mask is not None else []) + ([second] if second is not None else [])
+    before = [bytes(item) for item in inputs]
+    status = library.remagx_visnovsky_energy_scan(source, layer_count, energies, points, mask, count, epsilon,
+        ctypes.byref(first), ctypes.byref(second) if second is not None else None, analyzer, mode, angular, width, output)
+    assert before == [bytes(item) for item in inputs]
+    return status, [value for row in output for value in (row.beam1, row.beam2)]
+
 def cases():
     generator = random.Random(26026)
     for number in range(120):
@@ -169,6 +191,58 @@ class VisnovskyTest(unittest.TestCase):
                 self.assertLessEqual(abs(value-target), 1e-15+1e-10*abs(target))
         self.assertEqual(len(actuals), 720)
         print('Visnovsky angular resolution: 7,200 intensity comparisons matched reviewed kernel.', flush=True)
+
+    def test_energy_scan_matches_per_energy_and_convolution(self):
+        comparisons = 0
+        for number, prepared in enumerate(list(cases())[::12]):
+            layers, _, _, epsilon, _, first, second = prepared
+            stacks = []
+            for point in range(4):
+                stack = [Layer.from_buffer_copy(entry) for entry in layers]
+                for entry in stack[:-1]:
+                    entry.index_real -= .0001 * point
+                    for position in [0, 8, 16]: entry.dielectric[position] -= .0002 * point
+                stacks.append(stack)
+            energies = [640, 645, 642, 650]
+            qz = [-.001, .001, .03, .08]
+            enabled = [1, number % 2, 1, 1]
+            angular, width = [0, 1e-11, .002][number % 3], [0, 1e-11, 1e-10, .5][number % 4]
+            for mode in [0, 1]:
+                raw = []
+                for point in range(4):
+                    if not enabled[point]: raw.append(Result(1, mode)); continue
+                    status, values = evaluate_qz(stacks[point], [qz[point]], energies[point], epsilon,
+                        number % 3, mode, first, second, resolution=(angular, 0))
+                    self.assertEqual(status, 0)
+                    raw.append(Result(*values))
+                expected = (Result * 4)()
+                self.assertEqual(library.remagx_energy_resolution((ctypes.c_double * 4)(*energies),
+                    (Result * 4)(*raw), 4, width, expected), 0)
+                status, actual = evaluate_energy(stacks, energies, qz, enabled, epsilon,
+                    number % 3, mode, first, second, angular, width)
+                self.assertEqual(status, 0)
+                self.assertEqual(actual, [value for row in expected for value in (row.beam1, row.beam2)])
+                comparisons += 8
+        self.assertEqual(comparisons, 1920)
+        print(f'Native matrix energy scans: {comparisons} intensities matched per-energy reference.', flush=True)
+
+    def test_energy_scan_atomic_errors_and_disabled_stacks(self):
+        stacks = [[layer(.99+.001j), layer()], [layer(.98+.002j), layer()]]
+        sentinel = [-123, -456] * 2
+        self.assertEqual(evaluate_energy(stacks, [640, 650], [.03, .04]),
+                         evaluate_energy(stacks, [640, 650], [.03, .04], enabled=[1, 1]))
+        self.assertEqual(evaluate_energy(stacks, [640, 650], [.03, 100]), (4, sentinel))
+        for options in [dict(epsilon=math.nan), dict(mode=2), dict(enabled=[1, 2]), dict(angular=-1), dict(width=-1), dict(beam2=None)]:
+            self.assertEqual(evaluate_energy(stacks, [640, 650], [.03, .04], **options), (1, sentinel))
+        self.assertEqual(evaluate_energy(stacks, [640, 0], [.03, .04]), (1, sentinel))
+        self.assertEqual(evaluate_energy(stacks, [640, 650], [.03, .04], width=1e308), (2, sentinel))
+        stacks[1][0].dielectric[0] = math.nan
+        self.assertEqual(evaluate_energy(stacks, [640, 650], [.03, .04]), (1, sentinel))
+        status, actual = evaluate_energy(stacks, [640, 650], [.03, 100], enabled=[1, 0])
+        self.assertEqual(status, 0)
+        self.assertEqual(actual[2:], [1, 1])
+        status, actual = evaluate_energy(stacks, [640, 650], [.03, 100], enabled=[0, 0], mode=0, beam2=None)
+        self.assertEqual((status, actual), (0, [1, 0, 1, 0]))
 
     @unittest.skipUnless(os.environ.get('LEGACY_ROOT'), 'private original stack comparison not requested')
     def test_original_stack(self):
