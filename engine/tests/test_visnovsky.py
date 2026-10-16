@@ -344,6 +344,26 @@ if __name__ == '__main__':
                 prepared = dict(kind='qz', layers=payload[number*12]['layers'], qz=qz, expected=expected, **options)
                 if resolution is not None: prepared['resolution'] = dict(width=resolution[0], fast=bool(resolution[1]))
                 payload.append(prepared)
+        for number, arguments in enumerate(list(cases())[::12]):
+            layers, _, _, epsilon, _, first, second = arguments
+            stacks = []
+            for point in range(4):
+                stack = [Layer.from_buffer_copy(entry) for entry in layers]
+                for entry in stack[:-1]:
+                    entry.index_real -= .0001 * point
+                    for position in [0, 8, 16]: entry.dielectric[position] -= .0002 * point
+                stacks.append(stack)
+            energy, qz, enabled = [640, 645, 642, 650], [-.001, .001, .03, .08], [1, number % 2, 1, 1]
+            angular, width = [0, 1e-11, .002][number % 3], [0, 1e-11, 1e-10, .5][number % 4]
+            for mode in [0, 1]:
+                status, expected = evaluate_energy(stacks, energy, qz, enabled, epsilon,
+                    number % 3, mode, first, second, angular, width)
+                assert status == 0
+                packed = [[dict(values=[entry.thickness, entry.roughness, entry.index_real, entry.index_imaginary,
+                    *entry.dielectric], anisotropic=entry.anisotropic) for entry in stack] for stack in stacks]
+                payload.append(dict(kind='energy', stacks=packed, energy=energy, qz=qz, enabled=enabled,
+                    epsilon=epsilon, beam1=first, beam2=second, analyzer=number % 3, mode=mode,
+                    angularWidth=angular, energyWidth=width, expected=expected))
         print(json.dumps(payload))
     else:
         unittest.main()

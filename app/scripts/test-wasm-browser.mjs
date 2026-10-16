@@ -100,7 +100,7 @@ try {
       matrixCount++
     })
   })
-  assert.equal(matrixCount, 11280)
+  assert.equal(matrixCount, 13200)
   console.log(`Chromium Visnovsky: ${matrixCount} intensities matched native.`)
   let tensorCount = 0
   input.tensors.forEach((item, index) => {
