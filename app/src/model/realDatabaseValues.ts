@@ -6,7 +6,7 @@ import { HC_EV_ANGSTROM } from './units'
 
 // Scalar Getdb/Getff fields for the explicit database-update action. Numerical
 // interpolation (including out-of-range magnetic zeros) is delegated to WASM.
-export function realDatabaseValues(project: Project, tables: OpticalTable[], lookup: RealTableLookup): DatabaseValues {
+export function realDatabaseValues(project: Project, tables: OpticalTable[], lookup: RealTableLookup, cursors = new Map<OpticalTable, number>()): DatabaseValues {
   if (!Number.isFinite(project.experiment.energy) || project.experiment.energy <= 0) {
     throw new Error('Set a positive photon energy before updating database values.')
   }
@@ -17,7 +17,6 @@ export function realDatabaseValues(project: Project, tables: OpticalTable[], loo
   const names = mode === 'compound' ? project.sample.layers.map(layer => layer.opticalTable)
     : project.sample.elementProfiles.map(element => element.element)
   const result: DatabaseValues = { mode, updates: [], warnings: [] }
-  const cursors = new Map<OpticalTable, number>()
   const read = (table: OpticalTable) => {
     const found = lookup(table, [energy], cursors.get(table) ?? 0)
     if (found.values.length !== 2 || !found.values.every(Number.isFinite)) throw new Error(`Invalid scalar values in ${table.name}.${table.kind}.`)

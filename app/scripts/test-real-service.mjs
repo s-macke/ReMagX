@@ -483,6 +483,21 @@ try {
         const result = await service.databaseValues(databaseProject, databaseTables)
         output.databaseUpdates.push({ mode, result, unchanged: before === JSON.stringify(databaseProject) })
       }
+      const spectrumProject = createDefaultProject()
+      spectrumProject.sample.layers = [createLayer({ opticalTable: 'sample', deltaMag: 9, betaMag: 8 })]
+      const spectrumTables = [
+        { name: 'sample', kind: 'db', energy: [120, 180], columns: [[1, 1], [2, 2]], warnings: [] },
+        { name: 'sample', kind: 'm', energy: [100, 150, 200], columns: [[3, 3, 3], [4, 4, 4]], warnings: [] },
+      ]
+      output.realMagneticSpectrum = await service.layerSpectrum(spectrumProject, { layerIndex: 0, magnetic: true, tables: spectrumTables })
+      spectrumProject.sample.mode = 'element'
+      spectrumProject.sample.elementProfiles = [{ element: 'Fe', f1: 7, f2: 8, f1Mag: 0, f2Mag: 0,
+        slabs: [{ thickness: 1, roughness: 0, density: 2 }] }]
+      const factorTables = [{ name: 'Fe', kind: 'ff', energy: [100, 150, 200], columns: [[26, 26, 26], [.5, .5, .5]], warnings: [] }]
+      const spectrumSnapshot = JSON.stringify(spectrumProject)
+      output.realFactors = await service.scatteringFactors(spectrumProject, { elementIndex: 0, tables: factorTables })
+      output.realElementSpectrum = await service.layerSpectrum(spectrumProject, { elementIndex: 0, layerIndex: 0, magnetic: false, tables: factorTables })
+      output.realSpectrumUnchanged = spectrumSnapshot === JSON.stringify(spectrumProject)
       tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
@@ -514,6 +529,15 @@ try {
       return output
     } finally { service.dispose(); window.Worker = NativeWorker }
   })
+  assert.deepEqual(results.realMagneticSpectrum, { energy: [100, 150, 200], first: [9, 3, 3], second: [8, 4, 4] })
+  assert.deepEqual(results.realFactors, { energy: [100, 150, 200], first: [26, 26, 26], second: [.5, .5, .5] })
+  assert.ok(results.realSpectrumUnchanged)
+  for (const [index, energy] of results.realElementSpectrum.energy.entries()) {
+    for (const [field, factor] of [['first', 26], ['second', .5]]) {
+      const expected = factor * 2 / energy / energy * .0004151761541 * 1e6
+      assert.ok(Math.abs(results.realElementSpectrum[field][index] - expected) <= 1e-15 + 1e-10 * Math.abs(expected))
+    }
+  }
   for (const { mode, result, unchanged } of results.databaseUpdates) {
     assert.ok(unchanged)
     assert.equal(result.mode, mode)
