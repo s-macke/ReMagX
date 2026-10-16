@@ -629,7 +629,7 @@
     {
       "name": "layer-table-interactions",
       "status": "deferred",
-      "reason": "Layer/slab editing, Fit menus, value slider and compound spectrum previews exist. Element spectra, dielectric tensor views, material properties and database actions remain.",
+      "reason": "Layer/slab editing, Fit menus, value slider, compound spectrum previews, material settings and database actions exist. Element optical spectra and dielectric tensor views remain.",
       "references": [
         "AGENTS.md"
       ],
@@ -640,10 +640,8 @@
         "client/Unit1.cpp::item:f4745806781e8610:1",
         "client/Unit1.cpp::item:67940c3e1072cb65:1",
         "client/Unit1.cpp::item:044c0db584147fff:3",
-        "client/Unit1.cpp::item:58ef0caf1cc257a9:1",
         "client/Unit1.cpp::item:044c0db584147fff:4",
         "client/Unit1.cpp::item:d41f4c83dbad7376:2",
-        "client/Unit1.cpp::item:5d980d301945dcd0:1",
         "client/Unit1.dfm::Form1/SchichtEingabe"
       ],
       "phase": "ui"
@@ -1257,6 +1255,22 @@
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzxiEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzyiEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzziEdit"
+      ]
+    },
+    {
+      "name": "database-update-actions",
+      "status": "ported",
+      "reason": "Both context-menu actions update every matching entry in the active stack through ComputeService. Mock linear interpolation applies scalar values in one undo step; missing/out-of-range primary tables are retained and reported, absent magnetic tables zero their values with a report. Project/table/session guards reject stale results. Legacy interpolation, built-in data and tensors remain engine work.",
+      "references": [
+        "app/src/compute/mockDatabaseValues.ts",
+        "app/src/model/databaseValues.ts",
+        "app/src/state/useDatabaseUpdate.ts",
+        "app/src/ui/DatabaseUpdateReport.tsx",
+        "app/e2e/databaseValues.spec.ts"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:58ef0caf1cc257a9:1",
+        "client/Unit1.cpp::item:5d980d301945dcd0:1"
       ]
     }
   ],

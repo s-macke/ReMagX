@@ -3,6 +3,7 @@
 // by the same worker running the WebAssembly engine.
 
 import type { OpticalTable } from '../import/tables'
+import type { DatabaseValues } from '../model/databaseValues'
 import type { Project } from '../model/project'
 
 export interface ElementSpectrumQuery { elementIndex: number; tables: OpticalTable[] }
@@ -57,6 +58,7 @@ export interface FitResult {
 }
 
 export interface ComputeService {
+  databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues>
   densityProfiles(project: Project): Promise<DensityProfiles>
   scatteringFactors(project: Project, query: ElementSpectrumQuery): Promise<LayerSpectrum>
   layerSpectrum(project: Project, query: LayerSpectrumQuery): Promise<LayerSpectrum>

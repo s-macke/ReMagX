@@ -25,6 +25,7 @@ import { LayerTable } from './ui/LayerTable'
 import { MenuBar, type Menu } from './ui/MenuBar'
 import { ModePanel } from './ui/ModePanel'
 import { PlotPanel } from './ui/PlotPanel'
+import { DatabaseUpdateReport } from './ui/DatabaseUpdateReport'
 import { MaterialSettingsDialog } from './ui/MaterialSettingsDialog'
 import { PreferencesDialog } from './ui/PreferencesDialog'
 import { SidePanel } from './ui/SidePanel'
@@ -55,7 +56,7 @@ const examples = [
 
 function Workspace() {
   const state = useAppState()
-  const [materialDialog, setMaterialDialog] = useState<{ index: number; invalidations: number } | null>(null)
+  const [materialDialog, setMaterialDialog] = useState<{ index: number; epoch: number } | null>(null)
   const dispatch = useDispatch()
   const { project, scanKind, displayMode, plotView, fitStatus } = state
   // While a fit runs, the plot follows its current best parameters (legacy live redraw).
@@ -228,6 +229,7 @@ function Workspace() {
 
   const elements = project.sample.elementProfiles
   const elementIndex = Math.min(state.selectedElement, Math.max(0, elements.length - 1))
+  const materialDialogActive = Boolean(materialDialog && materialDialog.epoch === state.fitEpoch && project.sample.mode === 'compound' && project.sample.layers[materialDialog.index])
   const elementMode = project.sample.mode === 'element'
   const setMode = (mode: 'compound' | 'element') => dispatch({ type: 'updateProject', update: (p) => ({ ...p, sample: { ...p.sample, mode } }) })
 
@@ -260,12 +262,12 @@ function Workspace() {
         }}
       />
       <main className="workspace">
-        <div className="layer-stack"><LayerTable onProperties={index => setMaterialDialog({ index, invalidations: state.fitInvalidations })} /><ValueSlider /></div>
+        <div className="layer-stack"><LayerTable onProperties={index => setMaterialDialog({ index, epoch: state.fitEpoch })} /><ValueSlider /></div>
         <PlotPanel curve={plot.curve} measured={plot.measured} />
         <aside className="workspace__side">
           <SidePanel />
           <ModePanel
-            busy={calculation.busy || fitStatus.running || fitStatus.evaluating}
+            busy={calculation.busy || fitStatus.running || fitStatus.evaluating || state.databaseUpdate.busy}
             onStop={() => {
               dispatch({ type: 'setCalculationPaused', paused: true })
               calculation.stop()
@@ -276,11 +278,12 @@ function Workspace() {
       </main>
       <footer className="status-bar" role="status">
         <span className={plot.error || calculation.error ? 'status-bar__error' : undefined}>
-          {plot.error ?? calculation.error ?? (calculation.stopped ? 'Stopped.' : null) ?? state.notice ?? (calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
+          {plot.error ?? calculation.error ?? (calculation.stopped ? 'Stopped.' : null) ?? state.notice ?? (state.databaseUpdate.busy ? 'Updating database values…' : calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
         </span>
         <span className="status-bar__mock">Mock calculation, not the real ReMagX engine</span>
       </footer>
-      {materialDialog && materialDialog.invalidations === state.fitInvalidations && project.sample.mode === 'compound' && project.sample.layers[materialDialog.index] && <MaterialSettingsDialog index={materialDialog.index} onClose={() => setMaterialDialog(null)} />}
+      {materialDialogActive && materialDialog && <MaterialSettingsDialog index={materialDialog.index} onClose={() => setMaterialDialog(null)} />}
+      {!materialDialogActive && !preferencesOpen && !scriptOpen && !aboutOpen && !licenseOpen && !error && !asciiFile && !state.importReport && <DatabaseUpdateReport />}
       {state.importReport && (
         <ImportReportDialog report={state.importReport} fileName={state.fileName.replace('.json', '.all')} onClose={() => dispatch({ type: 'dismissImportReport' })} />
       )}

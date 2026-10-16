@@ -1,5 +1,7 @@
 // ComputeService implementation that forwards requests to the compute worker.
 
+import type { OpticalTable } from '../import/tables'
+import type { DatabaseValues } from '../model/databaseValues'
 import type { Project } from '../model/project'
 import {
   ComputeError,
@@ -88,6 +90,10 @@ export class WorkerComputeService implements ComputeService {
     return this.request('asymmetry', project)
   }
 
+  databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues> {
+    return this.request('databaseValues', project, undefined, { tables })
+  }
+
   densityProfiles(project: Project): Promise<DensityProfiles> {
     return this.request('densityProfiles', project)
   }
@@ -160,7 +166,7 @@ export class WorkerComputeService implements ComputeService {
     kind: K,
     project: Project,
     onProgress?: (progress: FitProgress) => void,
-    spectrum?: LayerSpectrumQuery | ElementSpectrumQuery,
+    spectrum?: LayerSpectrumQuery | ElementSpectrumQuery | { tables: OpticalTable[] },
   ): Promise<CalculationResults[K]> {
     if (this.disposed) return Promise.reject(new ComputeError('Compute service was shut down.'))
     if (this.stopping) return Promise.reject(new ComputeCancelled())

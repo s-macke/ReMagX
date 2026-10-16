@@ -188,7 +188,7 @@ export function OpticalConstantsSection() {
           </ul>
         )}
       </Group>
-      <Note>The mock engine does not use the tables yet; energy scans keep δ and β constant.</Note>
+      <Note>Table previews and manual database updates are available. Automatic optical-constant refresh during scans remains engine work.</Note>
     </>
   )
 }

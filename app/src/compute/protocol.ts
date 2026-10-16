@@ -1,9 +1,12 @@
 // Messages between WorkerComputeService (UI thread) and the compute worker.
 
+import type { OpticalTable } from '../import/tables'
+import type { DatabaseValues } from '../model/databaseValues'
 import type { Project } from '../model/project'
 import type { AsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
+  databaseValues: DatabaseValues
   densityProfiles: DensityProfiles
   scatteringFactors: LayerSpectrum
   layerSpectrum: LayerSpectrum
@@ -15,9 +18,10 @@ export interface CalculationResults {
   fit: FitResult
 }
 
-export type CalculationKind = Exclude<keyof CalculationResults, 'fit' | 'layerSpectrum' | 'scatteringFactors'>
+export type CalculationKind = Exclude<keyof CalculationResults, 'fit' | 'layerSpectrum' | 'scatteringFactors' | 'databaseValues'>
 
 export type WorkerRequest =
+  | { id: number; kind: 'databaseValues'; project: Project; spectrum: { tables: OpticalTable[] } }
   | { id: number; kind: 'scatteringFactors'; project: Project; spectrum: ElementSpectrumQuery }
   | { id: number; kind: 'layerSpectrum'; project: Project; spectrum: LayerSpectrumQuery }
   | { id: number; kind: CalculationKind; project: Project }

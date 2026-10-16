@@ -155,3 +155,20 @@ for (const change of ['insert', 'load'] as const) {
     await expect.poll(() => page.evaluate(() => window.results)).toBeGreaterThan(0)
   })
 }
+
+test('Stop terminates an unresponsive database update within 1 s and calculation recovers', async ({ page }) => {
+  await page.evaluate(() => { window.blockedKind = 'databaseValues' })
+  await page.getByRole('textbox', { name: 'thickness of layer 1', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Get optical constants from database', exact: true }).click()
+  await page.waitForFunction(() => window.workerBlocked)
+  const elapsed = await timedClick(page, page.locator('.mode-panel__stop'), '.mode-panel__stop:disabled')
+  expect(elapsed).toBeLessThan(1000)
+  expect(await page.evaluate(() => window.terminations)).toBe(1)
+  const report = page.getByRole('dialog', { name: 'Database update', exact: true })
+  await expect(report).toContainText('Stopped.')
+  await report.getByRole('button', { name: 'Close', exact: true }).click()
+  const results = await page.evaluate(() => { window.blockedKind = undefined; return window.results })
+  await page.getByRole('button', { name: 'Reflectivity', exact: true }).click()
+  await page.waitForFunction(previous => window.results > previous, results)
+  await expect(page.locator('.mode-panel__stop')).toBeDisabled()
+})

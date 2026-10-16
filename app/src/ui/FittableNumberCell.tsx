@@ -19,7 +19,7 @@ export function FittableNumberCell({ fitTarget, extraActions, ...props }: Compon
     document.addEventListener('focusin', dismiss)
     return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('focusin', dismiss) }
   }, [position])
-  const open = (left: number, top: number) => setPosition({ left: Math.max(0, Math.min(left, window.innerWidth - 250)), top: Math.max(0, Math.min(top, window.innerHeight - (extraActions ? 120 : 50))) })
+  const open = (left: number, top: number) => setPosition({ left: Math.max(0, Math.min(left, window.innerWidth - 250)), top: Math.max(0, Math.min(top, window.innerHeight - (extraActions ? 190 : 50))) })
   return <div ref={root} className={fitted ? 'fit-cell fit-cell--active' : 'fit-cell'} title={fitted ? 'Included in fit. Right-click or Shift+F10 to turn off.' : 'Right-click or Shift+F10 to include in fit.'}
     onContextMenu={event => { event.preventDefault(); open(event.clientX, event.clientY) }}
     onKeyDown={event => {

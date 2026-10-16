@@ -3,6 +3,7 @@ import { LayerSpectrumActions, LayerSpectrumMenu, type LayerMenuPosition } from 
 import { canRemoveSlab, updateElement, updateSlab } from '../model/elements'
 import { isAmbient, isSubstrate } from '../model/layers'
 import type { Layer } from '../model/project'
+import { useDatabaseUpdate } from '../state/useDatabaseUpdate'
 import { useAppState, useDispatch } from '../state/context'
 import { FittableNumberCell } from './FittableNumberCell'
 import { NumberCell } from './NumberCell'
@@ -177,6 +178,9 @@ function CompoundLayerTable({ onProperties }: { onProperties: (index: number) =>
 }
 
 function ElementLayerTable() {
+  const updateDatabase = useDatabaseUpdate()
+  const { databaseUpdate } = useAppState()
+  const databaseAction = <button type="button" role="menuitem" disabled={databaseUpdate.busy} onClick={updateDatabase}>Get f1/f2 from database</button>
   const { project, selectedLayer, selectedElement } = useAppState()
   const dispatch = useDispatch()
   const elements = project.sample.elementProfiles
@@ -216,7 +220,7 @@ function ElementLayerTable() {
         {fields.map(([field, label]) => (
           <label key={field} className="element-bar__field">
             {label}
-            <FittableNumberCell sliderTarget={{ kind: 'element', index: current, field }} fitTarget={{ target: ({ f1: 'elementF1', f2: 'elementF2', f1Mag: 'elementF1Mag', f2Mag: 'elementF2Mag' } as const)[field], index: null, elementIndex: current }} label={`${label} of ${element.element}`} value={element[field]} onCommit={(v) => update((p) => updateElement(p, current, { [field]: v }))} />
+            <FittableNumberCell extraActions={databaseAction} sliderTarget={{ kind: 'element', index: current, field }} fitTarget={{ target: ({ f1: 'elementF1', f2: 'elementF2', f1Mag: 'elementF1Mag', f2Mag: 'elementF2Mag' } as const)[field], index: null, elementIndex: current }} label={`${label} of ${element.element}`} value={element[field]} onCommit={(v) => update((p) => updateElement(p, current, { [field]: v }))} />
           </label>
         ))}
       </div>
@@ -243,14 +247,14 @@ function ElementLayerTable() {
                   {outer ? (
                     <span className="layer-table__none">--</span>
                   ) : (
-                    <FittableNumberCell sliderTarget={{ kind: 'slab', field: 'thickness', index, element: current }} fitTarget={{ target: 'elementThickness', index, elementIndex: current }} label={`thickness of slab ${index}`} value={slab.thickness} min={0} onCommit={(thickness) => update((p) => updateSlab(p, current, index, { thickness }))} />
+                    <FittableNumberCell extraActions={databaseAction} sliderTarget={{ kind: 'slab', field: 'thickness', index, element: current }} fitTarget={{ target: 'elementThickness', index, elementIndex: current }} label={`thickness of slab ${index}`} value={slab.thickness} min={0} onCommit={(thickness) => update((p) => updateSlab(p, current, index, { thickness }))} />
                   )}
                 </td>
                 <td>
-                  <FittableNumberCell sliderTarget={{ kind: 'slab', field: 'density', index, element: current }} fitTarget={{ target: 'elementDensity', index, elementIndex: current }} label={`density of slab ${index}`} value={slab.density} min={0} onCommit={(density) => update((p) => updateSlab(p, current, index, { density }))} />
+                  <FittableNumberCell extraActions={databaseAction} sliderTarget={{ kind: 'slab', field: 'density', index, element: current }} fitTarget={{ target: 'elementDensity', index, elementIndex: current }} label={`density of slab ${index}`} value={slab.density} min={0} onCommit={(density) => update((p) => updateSlab(p, current, index, { density }))} />
                 </td>
                 <td>
-                  <FittableNumberCell sliderTarget={{ kind: 'slab', field: 'roughness', index, element: current }} fitTarget={{ target: 'elementRoughness', index, elementIndex: current }} label={`roughness of slab ${index}`} value={slab.roughness} min={0} onCommit={(roughness) => update((p) => updateSlab(p, current, index, { roughness }))} />
+                  <FittableNumberCell extraActions={databaseAction} sliderTarget={{ kind: 'slab', field: 'roughness', index, element: current }} fitTarget={{ target: 'elementRoughness', index, elementIndex: current }} label={`roughness of slab ${index}`} value={slab.roughness} min={0} onCommit={(roughness) => update((p) => updateSlab(p, current, index, { roughness }))} />
                 </td>
               </tr>
             )

@@ -1,6 +1,7 @@
 // Application state: the current project plus UI-only view settings. Components dispatch
 // actions; project changes go through the pure helpers in model/.
 
+import { applyDatabaseValues, type DatabaseValues } from '../model/databaseValues'
 import { mergeOpticalTables } from '../model/materialLibrary'
 import { applyValueSlider, readValueCell, valueCellKey, type ValueCell, type ValueSliderSelection } from '../model/valueSlider'
 import { fitStructureChanged } from '../model/fitStructure'
@@ -30,6 +31,7 @@ export interface FitStatus {
 const DEBUG_LOG_LIMIT = 500
 
 export interface AppState {
+  databaseUpdate: { id: number; busy: boolean; result: DatabaseValues | null; error: string | null }
   project: Project
   valueSlider: ValueSliderSelection | null
   fitEpoch: number // callbacks must match the current fit/evaluation session
@@ -67,6 +69,10 @@ const COALESCE_MS = 1000
 export type FitEvent = Extract<Action, { type: 'setFitStatus' | 'updateProject' | 'setCalculationPaused' | 'appendDebug' }>
 
 export type Action =
+  | { type: 'beginDatabaseUpdate'; id: number }
+  | { type: 'completeDatabaseUpdate'; id: number; source: Project; tables: OpticalTable[]; epoch: number; result: DatabaseValues }
+  | { type: 'failDatabaseUpdate'; id: number; error: string }
+  | { type: 'dismissDatabaseUpdate' }
   | { type: 'selectValueCell'; target: ValueCell; label: string }
   | { type: 'clearValueCell'; key?: string }
   | { type: 'slideValue'; position: number; coalesce: string }
@@ -103,6 +109,7 @@ export function initialState(): AppState {
   const project = createDefaultProject()
   return {
     project,
+    databaseUpdate: { id: 0, busy: false, result: null, error: null },
     valueSlider: null,
     fitEpoch: 0,
     fitInvalidations: 0,
@@ -171,6 +178,18 @@ export function reducer(state: AppState, action: Action): AppState {
 
 function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | { type: 'redo' }>): AppState {
   switch (action.type) {
+    case 'beginDatabaseUpdate':
+      return { ...state, databaseUpdate: { id: action.id, busy: true, result: null, error: null } }
+    case 'completeDatabaseUpdate': {
+      if (action.id !== state.databaseUpdate.id) return state
+      if (action.source !== state.project || action.tables !== state.opticalTables || action.epoch !== state.fitEpoch) return { ...state, databaseUpdate: { id: action.id, busy: false, result: null, error: 'Database update discarded because the project or table library changed. Run the action again.' } }
+      return { ...state, project: applyDatabaseValues(state.project, action.result), databaseUpdate: { id: action.id, busy: false, result: action.result, error: null } }
+    }
+    case 'failDatabaseUpdate':
+      return action.id === state.databaseUpdate.id ? { ...state, databaseUpdate: { id: action.id, busy: false, result: null, error: action.error } } : state
+    case 'dismissDatabaseUpdate':
+      return { ...state, databaseUpdate: { ...state.databaseUpdate, result: null, error: null } }
+
     case 'selectValueCell': {
       const value = readValueCell(state.project, action.target)
       return { ...state, valueSlider: value === undefined ? null : { target: action.target, label: action.label, originalValue: value, position: 250 } }

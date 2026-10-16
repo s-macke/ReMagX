@@ -445,3 +445,41 @@ describe('mock density-profile service', () => {
     service.dispose()
   })
 })
+
+describe('mock database update service', () => {
+  it('updates every matching layer, skips missing/out-of-range tables and preserves the source', async () => {
+    const service = new WorkerComputeService(inProcessWorker)
+    const project = createDefaultProject()
+    project.experiment.energy = 750
+    project.sample.layers = project.sample.layers.slice(0, 3)
+    project.sample.layers.forEach((layer, index) => { layer.opticalTable = index === 2 ? 'Ni' : 'Co' })
+    const before = structuredClone(project)
+    const tables = [
+      { name: 'Co', kind: 'db' as const, energy: [700, 800], columns: [[1, 3], [2, 4]], warnings: [] },
+      { name: 'Co', kind: 'm' as const, energy: [700, 800], columns: [[-2, -4], [-4, -6]], warnings: [] },
+      { name: 'Ni', kind: 'db' as const, energy: [900, 1000], columns: [[5, 6], [7, 8]], warnings: [] },
+    ]
+    const result = await service.databaseValues(project, tables)
+    expect(result.updates).toEqual([0, 1].map(index => ({ index, first: 2, second: 3, firstMag: -3, secondMag: -5 })))
+    expect(result.warnings).toEqual([expect.stringContaining('outside the db table')])
+    expect((await service.databaseValues(project, [])).updates).toHaveLength(0)
+    expect(project).toEqual(before)
+    service.dispose()
+  })
+
+  it('updates all element factors and reports zero magnetic values when no magnetic table exists', async () => {
+    const service = new WorkerComputeService(inProcessWorker)
+    const project = createDefaultProject()
+    project.sample.mode = 'element'
+    project.experiment.energy = 750
+    project.sample.elementProfiles = ['Co', 'Ni'].map(element => ({ element, f1: 99, f2: 99, f1Mag: 99, f2Mag: 99, slabs: [] }))
+    const tables = ['Co', 'Ni'].map(name => ({ name, kind: 'ff' as const, energy: [700, 800], columns: [[1, 3], [2, 4]], warnings: [] }))
+    const result = await service.databaseValues(project, tables)
+    expect(result.mode).toBe('element')
+    expect(result.updates).toEqual([0, 1].map(index => ({ index, first: 2, second: 3, firstMag: 0, secondMag: 0 })))
+    expect(result.warnings).toHaveLength(2)
+    expect(result.warnings[0]).toContain('magnetic values set to zero')
+    expect(project.sample.elementProfiles[0].f1).toBe(99)
+    service.dispose()
+  })
+})
