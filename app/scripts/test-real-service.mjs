@@ -469,6 +469,20 @@ try {
           updates: result.datasetUpdates.length, active: merged.datasets[1].active, comment: merged.datasets[1].comment,
           selection: merged.activeDatasetIndex, unchanged: before === JSON.stringify(current) })
       }
+      output.databaseUpdates = []
+      for (const mode of ['compound', 'element']) {
+        const databaseProject = createDefaultProject()
+        databaseProject.experiment.energy = 150; databaseProject.sample.mode = mode
+        databaseProject.sample.layers = [createLayer({ opticalTable: 'sample' }), createLayer({ opticalTable: 'missing' })]
+        databaseProject.sample.elementProfiles = ['sample', 'missing'].map(element => ({ element, f1: 7, f2: 8, f1Mag: 9, f2Mag: 10, slabs: [] }))
+        const databaseTables = [
+          { name: 'sample', kind: mode === 'compound' ? 'db' : 'ff', energy: [100, 200], columns: [[1, 1], [2, 2]], warnings: [] },
+          { name: 'sample', kind: mode === 'compound' ? 'm' : 'ffm', energy: [300, 400], columns: [[3, 3], [4, 4]], warnings: [] },
+        ]
+        const before = JSON.stringify(databaseProject)
+        const result = await service.databaseValues(databaseProject, databaseTables)
+        output.databaseUpdates.push({ mode, result, unchanged: before === JSON.stringify(databaseProject) })
+      }
       tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
@@ -500,6 +514,13 @@ try {
       return output
     } finally { service.dispose(); window.Worker = NativeWorker }
   })
+  for (const { mode, result, unchanged } of results.databaseUpdates) {
+    assert.ok(unchanged)
+    assert.equal(result.mode, mode)
+    assert.deepEqual(result.updates, [{ index: 0, first: 1, second: 2, firstMag: 0, secondMag: 0 }])
+    assert.ok(result.warnings.some(warning => warning.includes('values kept')))
+    assert.ok(result.warnings.some(warning => warning.includes('magnetic values set to zero')))
+  }
   assert.equal(results.fitMerges.length, 3)
   for (const result of results.fitMerges) {
     assert.ok(result.values.every(value => Math.abs(value - 2) < 1e-8), `${result.algorithm} dataset-wide fit merge`)

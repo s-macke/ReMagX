@@ -1,3 +1,4 @@
+import { realDatabaseValues } from '../model/realDatabaseValues'
 import { runRealFit, type RealMinimizer } from '../model/realFit'
 import { calculateRealCurve, type RealCalculationEngine } from '../model/realCalculation'
 import { calculateProjectDatasetError, type FitErrorCalculator } from '../model/projectDatasetError'
@@ -11,11 +12,15 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
   return async (message: WorkerRequest): Promise<void> => {
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     try {
-      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit') {
+      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
+      if (message.kind === 'databaseValues') {
+        send({ id: message.id, type: 'result', result: realDatabaseValues(message.project, message.spectrum.tables, engine.lookup) })
+        return
+      }
       if (message.kind === 'fit') {
         if (!engine.minimize) throw new Error('The real optimizer is unavailable.')
         const result = runRealFit(message.project, message.tables ?? [], engine, engine.minimize,
