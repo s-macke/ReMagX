@@ -1,4 +1,4 @@
-import type { FitProgress, FitResult } from '../compute/ComputeService'
+import type { FitProgress, FitResult, FitDatasetUpdate } from '../compute/ComputeService'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
 import { applyRealFitParameters } from './realFitParameters'
@@ -41,9 +41,21 @@ export function runRealFit(project: Project, tables: OpticalTable[],
   const prepared = prepareRealFitSimplex(project.fit.parameters)
   let current = project
   let opticalState: SerialOpticalState | undefined
+  const touched = new Map<number, Set<keyof FitDatasetUpdate['values']>>()
   const best: { result: FitResult | null } = { result: null }
   const objective = (coordinates: Float64Array): number => {
     const candidate = applyRealFitParameters(current, prepared.decode(coordinates))
+    for (const parameter of current.fit.parameters) {
+      const field = parameter.target
+      if (field !== 'angularResolution' && field !== 'intensityScale' && field !== 'qzShift' && field !== 'energyShift') continue
+      current.datasets.forEach((dataset, index) => {
+        const applies = field === 'qzShift' || field === 'energyShift' ? index === current.activeDatasetIndex : dataset.active
+        if (applies) {
+          const fields = touched.get(index) ?? new Set<keyof FitDatasetUpdate['values']>()
+          fields.add(field); touched.set(index, fields)
+        }
+      })
+    }
     current = candidate.project
     if (current.calculation.automaticOpticalConstants) {
       // CMultiFit refreshes once in the current context before the dataset loop.
@@ -60,7 +72,9 @@ export function runRealFit(project: Project, tables: OpticalTable[],
     if (!best.result || evaluated.error < best.result.chi2) {
       // Retain the actual evaluated state. Replaying values against a later state
       // can change coordinate-shift targets or optical constants.
-      best.result = { project: current, values: candidate.values.slice(), chi2: evaluated.error, iterations: 0, stopped: false }
+      const datasetUpdates: FitDatasetUpdate[] = Array.from(touched, ([index, fields]) => ({ index,
+        values: Object.fromEntries(Array.from(fields, field => [field, current.datasets[index][field]])) }))
+      best.result = { datasetUpdates, project: current, values: candidate.values.slice(), chi2: evaluated.error, iterations: 0, stopped: false }
     }
     return evaluated.error
   }

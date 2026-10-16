@@ -65,7 +65,14 @@ export interface FitProgress {
   values: number[] // current value of each fit parameter, same order as project.fit.parameters
 }
 
+export interface FitDatasetUpdate {
+  index: number
+  values: Partial<Pick<Project['datasets'][number], 'angularResolution' | 'intensityScale' | 'qzShift' | 'energyShift'>>
+}
+
 export interface FitResult {
+  // Real fits report exactly which dataset fields were fitted. Absent for the mock.
+  datasetUpdates?: FitDatasetUpdate[]
   project: Project // evaluated best snapshot; may include calculation context changed during a real fit
   values: number[] // best value of each fit parameter, same order as project.fit.parameters
   chi2: number

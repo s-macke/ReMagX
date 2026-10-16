@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { ComputeCancelled } from '../compute'
-import { applyFitValues } from '../model/fitTargets'
+import { mergeFitResult } from '../model/mergeFitResult'
 import type { FitEvent } from './appState'
 import { useAppState, useDispatch } from './context'
 import { computeService } from './useCalculation'
@@ -24,7 +24,7 @@ export function useFitRunner() {
         report({ type: 'appendDebug', lines: [`Iteration: ${progress.iteration} Chi^2: ${progress.chi2.toPrecision(6)}`] })
       })
       .then((result) => {
-        report({ type: 'updateProject', update: (current) => applyFitValues(current, parameters, result.values) })
+        report({ type: 'updateProject', update: (current) => mergeFitResult(current, project, result) })
         if (result.stopped) report({ type: 'setCalculationPaused', paused: true })
         const message = result.stopped ? `Stopped after ${result.iterations} iterations.` : `Finished after ${result.iterations} iterations.`
         report({

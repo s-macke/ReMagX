@@ -44,7 +44,7 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
   const results = await page.evaluate(async () => {
-    const { applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
+    const { mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve
     const NativeWorker = window.Worker
     window.Worker = class extends NativeWorker {
@@ -387,6 +387,7 @@ try {
       }
       // Exercise recovery separately for each stored data kind, then a weighted mixed fit.
       output.mixedFits = []
+      output.fitMerges = []
       tables = [
         { name: 'fit-bulk', kind: 'db', energy: [600, 800], columns: [[.009, .011], [.0015, .0025]], warnings: [] },
         { name: 'fit-film', kind: 'db', energy: [600, 800], columns: [[.005, .007], [.0008, .0012]], warnings: [] },
@@ -431,6 +432,30 @@ try {
             value: result.values[0], chi2: result.chi2, unchanged: before === JSON.stringify(fit) })
         }
       }
+      // Native dataset-wide fit results merge into metadata edited during fitting.
+      for (const algorithm of ['parratt', 'matrix', 'zak']) {
+        const source = createDefaultProject()
+        source.fit.algorithm = 'simplex'; source.fit.occamQ = 0
+        source.calculation.algorithm = algorithm
+        source.sample.layers = [createLayer({ delta: .01, beta: .002 }), createLayer()]
+        source.experiment.qzScan.points = 20
+        source.experiment.qzScan.qzMin = .02; source.experiment.qzScan.qzMax = .15
+        const curve = await service.calcReflectivity(source)
+        source.datasets = Array.from({ length: 2 }, (_, index) => ({ title: `fit ${index}`, comment: '', sourceFile: '',
+          energy: source.experiment.energy, energyShift: 0, qzShift: 0, angularResolution: 0, intensityScale: 1.8,
+          intensityOffset: 0, active: true, errorWeight: index + 1, polarization: source.experiment.polarization,
+          columns: { qz: curve.qz.slice(), reflectivity: curve.reflectivity.map(value => value / 2) } }))
+        source.activeDatasetIndex = 0
+        source.fit.parameters = [{ target: 'intensityScale', index: null, elementIndex: null, value: 1.8, step: 0, lowerBound: 1, upperBound: 3 }]
+        const current = { ...source, datasets: source.datasets.map(data => ({ ...data })) }
+        current.datasets[1].comment = 'edited while fitting'; current.datasets[1].active = false
+        const before = JSON.stringify(current)
+        const result = await service.startFit(source, () => {})
+        const merged = mergeFitResult(current, source, result)
+        output.fitMerges.push({ algorithm, values: merged.datasets.map(data => data.intensityScale),
+          updates: result.datasetUpdates.length, active: merged.datasets[1].active, comment: merged.datasets[1].comment,
+          selection: merged.activeDatasetIndex, unchanged: before === JSON.stringify(current) })
+      }
       tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
@@ -462,6 +487,15 @@ try {
       return output
     } finally { service.dispose(); window.Worker = NativeWorker }
   })
+  assert.equal(results.fitMerges.length, 3)
+  for (const result of results.fitMerges) {
+    assert.ok(result.values.every(value => Math.abs(value - 2) < 1e-8), `${result.algorithm} dataset-wide fit merge`)
+    assert.equal(result.updates, 2)
+    assert.equal(result.active, false)
+    assert.equal(result.comment, 'edited while fitting')
+    assert.equal(result.selection, 0)
+    assert.ok(result.unchanged)
+  }
   assert.equal(results.mixedFits.length, 21)
   for (const result of results.mixedFits) {
     const label = `${result.algorithm} ${result.kind}`

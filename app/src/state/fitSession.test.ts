@@ -1,3 +1,4 @@
+import { mergeFitResult } from '../model/mergeFitResult'
 import { expect, it } from 'vitest'
 import { createDefaultProject, createDepthProfileFunction } from '../model/defaults'
 import { applyFitValues, createFitParameter } from '../model/fitTargets'
@@ -82,4 +83,27 @@ it('invalidates dataset replacement and slab edits but permits dataset metadata 
   start.project.sample.elementProfiles = [{ element: 'Co', f1: 1, f2: 0, f1Mag: 0, f2Mag: 0,
     slabs: Array.from({ length: 3 }, () => ({ thickness: 10, density: 1, roughness: 2 })) }]
   expect(reducer(start, { type: 'insertLayer' }).fitStatus.running).toBe(false)
+})
+
+
+it('merges real dataset fit updates as one undoable change while preserving concurrent metadata', () => {
+  const start = fitting()
+  start.project.datasets = [0, 1].map(index => ({ title: `data ${index}`, comment: '', sourceFile: '', energy: 640,
+    energyShift: 0, qzShift: 0, angularResolution: 0, intensityScale: 1, intensityOffset: 0, errorWeight: 1,
+    polarization: start.project.experiment.polarization, active: true, columns: { qz: [.1], reflectivity: [.01] } }))
+  start.project.activeDatasetIndex = 0
+  start.project.fit.parameters = [createFitParameter(start.project, 'intensityScale', null, null)]
+  const edited = reducer(start, { type: 'updateProject', update: project => ({ ...project,
+    datasets: project.datasets.map(data => ({ ...data, comment: 'concurrent edit' })) }) })
+  const fitted = { project: structuredClone(start.project), values: [2], chi2: 0, iterations: 10, stopped: false,
+    datasetUpdates: [{ index: 0, values: { intensityScale: 2 } }, { index: 1, values: { intensityScale: 2 } }] }
+  fitted.project.activeDatasetIndex = 1
+  const complete = reducer(edited, { type: 'fitEvent', epoch: start.fitEpoch, event: {
+    type: 'updateProject', update: current => mergeFitResult(current, start.project, fitted) } })
+  expect(complete.project.datasets.map(data => data.intensityScale)).toEqual([2, 2])
+  expect(complete.project.activeDatasetIndex).toBe(0)
+  expect(complete.fitEpoch).toBe(start.fitEpoch)
+  const undone = reducer(complete, { type: 'undo' })
+  expect(undone.project.datasets.map(data => data.intensityScale)).toEqual([1, 1])
+  expect(undone.project.datasets.every(data => data.comment === 'concurrent edit')).toBe(true)
 })

@@ -37,6 +37,7 @@ it('retains the best evaluated snapshot as later candidates advance the current 
   expect(result).toMatchObject({ chi2: 2, values: [.05], iterations: 2, stopped: false })
   expect(result.project.datasets.map(data => data.qzShift)).toEqual([0, .05])
   expect(result.project.activeDatasetIndex).toBe(1)
+  expect(result.datasetUpdates).toEqual([{ index: 0, values: { qzShift: 0 } }, { index: 1, values: { qzShift: .05 } }])
   expect(vi.mocked(engine.calculate).mock.calls.map(([request]) => request.qz[0])).toEqual([.02, .02, .02, .07, .02, .02 + .1])
   expect(project).toEqual(before)
 })
