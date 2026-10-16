@@ -87,6 +87,14 @@ int remagx_parratt_energy_scan(const RemagxLayer* layers, size_t layer_count,
                       const RemagxBeam* beam1, const RemagxBeam* beam2,
                       int tensor, int analyzer, int magnetization_enabled, int scan_mode,
                       double angular_width, double energy_width, RemagxReflectivity* output);
+// Scalar FillEpsilonTensor construction, with 18 row-major real/imag doubles.
+// Uses delta/beta, magnetic constants and per-layer angles; ignores thickness and
+// roughness. anisotropic receives 0 for nonmagnetic isotropic input, otherwise 1
+// (including zero magnetic constants and tetragonal input with magnetization off).
+// Imported full tensors bypass this construction. Both outputs are unchanged on
+// failure and must not overlap each other or the input.
+int remagx_dielectric_tensor(const RemagxLayer* layer, int tensor,
+                            int magnetization_enabled, double* output, int* anisotropic);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
