@@ -544,12 +544,11 @@
     {
       "name": "plot-tools",
       "status": "deferred",
-      "reason": "Implement wheel zoom, coordinate readout, chart properties (including tick steps), clipboard and picture export.",
+      "reason": "Remaining plot tools: chart properties (including tick steps), clipboard and picture export. Wheel zoom, Zoom Out and coordinate readout are implemented separately.",
       "references": [
         "AGENTS.md"
       ],
       "entries": [
-        "client/Chart1.cpp::item:3bfdba4935382fec:1",
         "client/Chart1.cpp::item:044c0db584147fff:1",
         "client/Chart1.cpp::item:044c0db584147fff:2",
         "client/Chart1.cpp::item:5b05361d28a18c91:1",
@@ -1141,6 +1140,19 @@
         "client/GetFromDatabaseFrame.dfm::Frame10/Button2",
         "client/GetFromDatabaseFrame.dfm::Frame10/Button19",
         "client/Unit1.cpp::event:0ddcd579e9adab64:1"
+      ]
+    },
+    {
+      "name": "plot-navigation",
+      "status": "ported",
+      "reason": "Wheel zoom centers on the pointer with half/double extents in linear or log space. Zoom Out expands around the plot center; Scale restores data bounds. Cursor readout uses displayed axis coordinates.",
+      "references": [
+        "app/src/ui/PlotPanel.tsx",
+        "app/src/model/plotZoom.ts",
+        "app/e2e/plotInteraction.spec.ts"
+      ],
+      "entries": [
+        "client/Chart1.cpp::item:3bfdba4935382fec:1"
       ]
     }
   ],

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
+import { zoomPlotRange } from '../model/plotZoom'
 import type { MeasuredCurve } from '../model/datasets'
 import type { CalculatedCurve } from '../state/useCalculation'
 
@@ -63,6 +64,8 @@ const forScale = (values: number[], logScale: boolean) =>
 export function PlotPanel({ curve, measured }: PlotPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const plotRef = useRef<uPlot | null>(null)
+  const coordinatesRef = useRef<HTMLSpanElement>(null)
+  const zoomRef = useRef<((factor: number) => void) | null>(null)
   const [held, setHeld] = useState<HeldCurve | null>(null)
 
   const heldVisible = held && curve && held.axis === curve.axis && held.logScale === curve.logScale ? held : null
@@ -90,12 +93,24 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
     if (!container || !series || !curve) return
     const text = cssColor('--text', '#222')
     const grid = cssColor('--grid', '#ddd')
+    const coordinateDisplay = coordinatesRef.current
     const simulatedCount = curve.series.length
+    const showCoordinates = (plot: uPlot) => {
+      const { left, top } = plot.cursor
+      if (!coordinatesRef.current) return
+      const bounds = plot.over.getBoundingClientRect()
+      if (left == null || top == null || left < 0 || top < 0 || left > bounds.width || top > bounds.height) {
+        coordinatesRef.current.textContent = 'X: —  Y: —'
+        return
+      }
+      coordinatesRef.current.textContent = `X: ${plot.posToVal(left, 'x').toPrecision(6)}  Y: ${plot.posToVal(top, 'y').toPrecision(6)}`
+    }
     const options: uPlot.Options = {
       width: container.clientWidth,
       height: Math.max(120, container.clientHeight),
       scales: { x: { time: false }, y: curve.logScale ? { distr: 3, log: 10 } : { auto: true } },
       legend: { show: false },
+      hooks: { setCursor: [showCoordinates], draw: [showCoordinates] },
       cursor: { drag: { x: true, y: true, uni: 20 } },
       axes: [
         { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'angle' ? 'theta (°)' : curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (Å), 0 = substrate surface' },
@@ -123,10 +138,29 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
     }
     const plot = new uPlot(options, series.data, container)
     plotRef.current = plot
+    const zoom = (factor: number, left = plot.over.clientWidth / 2, top = plot.over.clientHeight / 2) => {
+      const x = plot.scales.x
+      const y = plot.scales.y
+      if (x.min == null || x.max == null || y.min == null || y.max == null) return
+      const nextX = zoomPlotRange({ min: x.min, max: x.max }, plot.posToVal(left, 'x'), factor)
+      const nextY = zoomPlotRange({ min: y.min, max: y.max }, plot.posToVal(top, 'y'), factor, curve.logScale)
+      if (nextX && nextY) plot.batch(() => { plot.setScale('x', nextX); plot.setScale('y', nextY) })
+    }
+    zoomRef.current = zoom
+    const wheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return
+      event.preventDefault()
+      const bounds = plot.over.getBoundingClientRect()
+      zoom(event.deltaY < 0 ? 0.5 : 2, event.clientX - bounds.left, event.clientY - bounds.top)
+    }
+    plot.over.addEventListener('wheel', wheel, { passive: false })
     const observer = new ResizeObserver(() => plot.setSize({ width: container.clientWidth, height: Math.max(120, container.clientHeight) }))
     observer.observe(container)
     return () => {
       observer.disconnect()
+      plot.over.removeEventListener('wheel', wheel)
+      zoomRef.current = null
+      if (coordinateDisplay) coordinateDisplay.textContent = 'X: —  Y: —'
       plot.destroy()
       plotRef.current = null
     }
@@ -141,7 +175,13 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
     if (curve) setHeld({ x: curve.x, y: curve.series[0].y, logScale: curve.logScale, axis: curve.axis })
   }
   const resetScale = () => {
-    if (series) plotRef.current?.setData(series.data, true)
+    const plot = plotRef.current
+    if (!series || !plot) return
+    plot.batch(() => {
+      plot.setData(series.data, true)
+      const xs = series.data[0]
+      if (xs.length > 1 && xs[0] < xs[xs.length - 1]) plot.setScale('x', { min: xs[0], max: xs[xs.length - 1] })
+    })
   }
 
   const legend = series?.labels.map((label, i) => ({
@@ -167,7 +207,9 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
           ))}
         </ul>
       )}
+      <span className="plot-panel__coordinates" ref={coordinatesRef} aria-label="Cursor coordinates" aria-live="off">X: —  Y: —</span>
       <div className="plot-panel__buttons">
+        <button type="button" onClick={() => zoomRef.current?.(2)} disabled={!curve} title="Double the visible range around the plot center">Zoom Out</button>
         <button type="button" onClick={hold} disabled={!curve} title="Keep the current simulation as a reference curve">
           Hold
         </button>

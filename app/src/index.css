@@ -1071,3 +1071,12 @@ button.primary {
 .menu__parent:focus-within > .menu__list--sub {
   display: block;
 }
+
+.plot-panel__coordinates {
+  position: absolute;
+  bottom: 4px;
+  right: 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
