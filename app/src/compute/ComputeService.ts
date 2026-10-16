@@ -59,7 +59,20 @@ export interface DepthProfile {
   betaMag: number[]
 }
 
+// Curve from the actual best objective evaluation, not a separate redraw.
+export interface FitDatasetPreview {
+  datasetIndex: number
+  scan: 'qz' | 'energy'
+  beams: 'monochromatic' | 'dichroic'
+  qz: number[]
+  energy?: number[]
+  reflectivityPlus: number[]
+  reflectivityMinus: number[]
+  asymmetry: number[]
+}
+
 export interface FitProgress {
+  datasetPreview?: FitDatasetPreview
   iteration: number
   chi2: number
   values: number[] // current value of each fit parameter, same order as project.fit.parameters

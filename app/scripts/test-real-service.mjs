@@ -381,8 +381,13 @@ try {
         fit.sample.layers[1].thickness = 30
         fit.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null, value: 30, step: 0, lowerBound: 20, upperBound: 50 }]
         const before = JSON.stringify(fit), iterations = []
-        const result = await service.startFit(fit, progress => iterations.push(progress.iteration))
-        output.realFits.push({ algorithm, value: result.values[0], chi2: result.chi2, iterations,
+        let preview
+        const result = await service.startFit(fit, progress => {
+          iterations.push(progress.iteration)
+          if (progress.datasetPreview) preview = progress.datasetPreview
+        })
+        const completedCurve = await service.calcReflectivity(result.project)
+        output.realFits.push({ algorithm, value: result.values[0], chi2: result.chi2, iterations, preview, completedCurve,
           unchanged: before === JSON.stringify(fit) })
       }
       // Exercise recovery separately for each stored data kind, then a weighted mixed fit.
@@ -510,6 +515,14 @@ try {
     assert.ok(Math.abs(result.value - 35) < 1e-6, `${result.algorithm} fitted thickness ${result.value}`)
     assert.ok(result.chi2 < 1e-16)
     assert.ok(new Set(result.iterations).size >= 3)
+    assert.equal(result.preview.datasetIndex, 0)
+    assert.equal(result.preview.scan, 'qz')
+    assert.equal(result.preview.beams, 'monochromatic')
+    assert.deepEqual(result.preview.qz, result.completedCurve.qz)
+    result.preview.reflectivityPlus.forEach((value, index) => {
+      const expected = result.completedCurve.reflectivity[index]
+      assert.ok(Math.abs(value - expected) <= 1e-15 + 1e-10 * Math.abs(expected), `${result.algorithm} best-fit preview`)
+    })
   }
   for (const result of results.datasetErrors) {
     assert.ok(result.orderedUnchanged)

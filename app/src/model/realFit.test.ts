@@ -70,3 +70,35 @@ it('reports unsupported fits, cancellation and numerical failures explicitly', (
   vi.mocked(engine.calculate).mockImplementation(() => { throw new Error('failed calculation') })
   expect(run).toThrow('failed calculation')
 })
+
+it('reports independent curves from the best evaluation without recalculating or adopting a worse trial', () => {
+  const { project, engine } = fixture()
+  project.activeDatasetIndex = 1
+  const errors = [2, 2, 1, 1, 3, 3]
+  vi.mocked(engine.fitError).mockImplementation(() => ({ error: errors.shift()!, accepted: 1 }))
+  const curves: number[][] = []
+  const minimize: RealMinimizer = ({ objective, onProgress }) => {
+    objective(new Float64Array([0])); objective(new Float64Array([1]))
+    onProgress({ parameters: new Float64Array([1]), value: 2, iterations: 1, evaluations: 2 })
+    objective(new Float64Array([2]))
+    onProgress({ parameters: new Float64Array([1]), value: 2, iterations: 2, evaluations: 3 })
+    return { termination: 'converged', parameters: new Float64Array([1]), value: 2, iterations: 2, evaluations: 3 }
+  }
+  runRealFit(project, [], engine, minimize, progress => {
+    expect(progress.datasetPreview).toMatchObject({ datasetIndex: 1, scan: 'qz', beams: 'monochromatic', qz: [.07] })
+    curves.push(progress.datasetPreview!.qz.slice())
+    progress.datasetPreview!.qz[0] = 999
+    progress.datasetPreview!.reflectivityPlus[0] = 999
+  })
+  expect(curves).toEqual([[.07], [.07]])
+  expect(engine.calculate).toHaveBeenCalledTimes(6)
+})
+
+it('does not substitute another dataset when the selected dataset is excluded from fitting', () => {
+  const { project, engine } = fixture()
+  project.datasets[0].active = false
+  project.fit.parameters[0].lowerBound = 0; project.fit.parameters[0].upperBound = 0
+  const progress = vi.fn()
+  runRealFit(project, [], engine, vi.fn(), progress)
+  expect(progress.mock.calls[0][0].datasetPreview).toBeUndefined()
+})

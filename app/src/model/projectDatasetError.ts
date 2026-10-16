@@ -2,7 +2,7 @@ import type { OpticalTable } from '../import/tables'
 import type { SerialOpticalState } from './refreshOpticalConstants'
 import type { Project } from './project'
 import { prepareFitDataset, type FitErrorMode } from './fitDataset'
-import { calculateRealCurve, type RealCalculationEngine } from './realCalculation'
+import { calculateRealCurve, type RealCalculationEngine, type RealCurve } from './realCalculation'
 
 export interface FitErrorRequest {
   mode: FitErrorMode
@@ -28,7 +28,8 @@ export function calculateProjectDatasetError(project: Project, tables: OpticalTa
 
 // Return the serial state as well as the objective for the optimizer's next candidate.
 export function evaluateProjectDatasetError(project: Project, tables: OpticalTable[],
-  engine: RealCalculationEngine & { fitError: FitErrorCalculator }, previous?: SerialOpticalState) {
+  engine: RealCalculationEngine & { fitError: FitErrorCalculator }, previous?: SerialOpticalState,
+  observe?: (index: number, scan: 'qz' | 'energy', beams: 'monochromatic' | 'dichroic', curve: RealCurve) => void) {
   let current = project
   let opticalState = previous
   let total = 0
@@ -59,6 +60,7 @@ export function evaluateProjectDatasetError(project: Project, tables: OpticalTab
     }
     total += prepared.weight * result.error
     if (!Number.isFinite(total)) throw new Error('Weighted dataset error exceeds the supported numerical range.')
+    observe?.(index, prepared.scan, prepared.beams, curve)
   }
   return { error: total, project: current, opticalState }
 }

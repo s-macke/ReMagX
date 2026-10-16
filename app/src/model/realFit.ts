@@ -1,4 +1,4 @@
-import type { FitProgress, FitResult, FitDatasetUpdate } from '../compute/ComputeService'
+import type { FitProgress, FitResult, FitDatasetUpdate, FitDatasetPreview } from '../compute/ComputeService'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
 import { applyRealFitParameters } from './realFitParameters'
@@ -42,7 +42,7 @@ export function runRealFit(project: Project, tables: OpticalTable[],
   let current = project
   let opticalState: SerialOpticalState | undefined
   const touched = new Map<number, Set<keyof FitDatasetUpdate['values']>>()
-  const best: { result: FitResult | null } = { result: null }
+  const best: { result: FitResult | null; preview?: FitDatasetPreview } = { result: null }
   const objective = (coordinates: Float64Array): number => {
     const candidate = applyRealFitParameters(current, prepared.decode(coordinates))
     for (const parameter of current.fit.parameters) {
@@ -66,12 +66,19 @@ export function runRealFit(project: Project, tables: OpticalTable[],
       opticalState = { layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors, cursors }
       current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
     }
-    const evaluated = evaluateProjectDatasetError(current, tables, engine, opticalState)
+    let preview: FitDatasetPreview | undefined
+    const evaluated = evaluateProjectDatasetError(current, tables, engine, opticalState, (index, scan, beams, curve) => {
+      if (index === project.activeDatasetIndex) {
+        preview = { datasetIndex: index, scan, beams, qz: curve.qz, ...(curve.energy ? { energy: curve.energy } : {}),
+          reflectivityPlus: curve.reflectivityPlus, reflectivityMinus: curve.reflectivityMinus, asymmetry: curve.asymmetry }
+      }
+    })
     current = evaluated.project
     opticalState = evaluated.opticalState
     if (!best.result || evaluated.error < best.result.chi2) {
       // Retain the actual evaluated state. Replaying values against a later state
       // can change coordinate-shift targets or optical constants.
+      best.preview = preview
       const datasetUpdates: FitDatasetUpdate[] = Array.from(touched, ([index, fields]) => ({ index,
         values: Object.fromEntries(Array.from(fields, field => [field, current.datasets[index][field]])) }))
       best.result = { datasetUpdates, project: current, values: candidate.values.slice(), chi2: evaluated.error, iterations: 0, stopped: false }
@@ -82,12 +89,14 @@ export function runRealFit(project: Project, tables: OpticalTable[],
   if (!prepared.simplex.length) {
     objective(new Float64Array())
     const result = best.result!
-    onProgress({ iteration: 0, chi2: result.chi2, values: result.values.slice() })
+    onProgress({ iteration: 0, chi2: result.chi2, values: result.values.slice(),
+      ...(best.preview ? { datasetPreview: structuredClone(best.preview) } : {}) })
     return result
   }
   const result = minimize({ simplex: prepared.simplex, objective, shouldStop,
     onProgress: progress => {
-      if (best.result) onProgress({ iteration: progress.iterations, chi2: best.result.chi2, values: best.result.values.slice() })
+      if (best.result) onProgress({ iteration: progress.iterations, chi2: best.result.chi2, values: best.result.values.slice(),
+        ...(best.preview ? { datasetPreview: structuredClone(best.preview) } : {}) })
     } })
   if (!best.result && result.termination === 'stopped') throw new FitStoppedBeforeEvaluation('Stopped before evaluating a fit candidate.')
   if (!best.result || result.value !== best.result.chi2 || !Number.isSafeInteger(result.iterations) || result.iterations < 0) {
