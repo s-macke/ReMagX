@@ -4,6 +4,7 @@ import tutorial1 from '../test/fixtures/Tut1.all?raw'
 import tutorial2 from '../test/fixtures/Tut2.all?raw'
 import tutorial3 from '../test/fixtures/Tut3.all?raw'
 import { importAllFile } from './import/allFile'
+import { plotCoordinates } from './model/plotCoordinates'
 import { measuredSeries } from './model/datasets'
 import { createDefaultProject } from './model/defaults'
 import { canRemoveSlab } from './model/elements'
@@ -79,12 +80,14 @@ function Workspace() {
     [project, scanKind, displayMode, plotView],
   )
 
+  const plot = useMemo(() => plotCoordinates(calculation.curve, measured, project.experiment.qzScan.showAngle, project.experiment.energy), [calculation.curve, measured, project.experiment.qzScan.showAngle, project.experiment.energy])
+
   const baseName = state.fileName.replace(/\.json$/i, '')
   const saveDiagramData = () => {
-    const curve = calculation.curve
+    const curve = plot.curve
     if (!curve) return
-    const xLabel = curve.axis === 'qz' ? 'qz (1/A)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (A)'
-    downloadText(`${baseName}-diagram.txt`, seriesToText(xLabel, diagramSeries(curve, measured)))
+    const xLabel = curve.axis === 'angle' ? 'theta (degrees)' : curve.axis === 'qz' ? 'qz (1/A)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (A)'
+    downloadText(`${baseName}-diagram.txt`, seriesToText(xLabel, diagramSeries(curve, plot.measured)))
   }
 
   const open = async () => {
@@ -153,7 +156,7 @@ function Workspace() {
         { label: 'Save As…   Ctrl+Shift+S', onSelect: () => void save(true) },
         'separator',
         { label: 'Import Datasets… (ASCII)', onSelect: () => void importDatasets() },
-        { label: 'Save diagram data', onSelect: saveDiagramData, disabled: !calculation.curve },
+        { label: 'Save diagram data', onSelect: saveDiagramData, disabled: !plot.curve },
         { label: 'Export Table as ASCII', onSelect: () => downloadText(`${baseName}-layers.txt`, layerTableToText(project)) },
         'separator',
         ...examples.map((example) => ({ label: example.label, onSelect: () => openExample(example) })),
@@ -252,7 +255,7 @@ function Workspace() {
       />
       <main className="workspace">
         <LayerTable />
-        <PlotPanel curve={calculation.curve} measured={measured} />
+        <PlotPanel curve={plot.curve} measured={plot.measured} />
         <aside className="workspace__side">
           <SidePanel />
           <ModePanel
@@ -266,8 +269,8 @@ function Workspace() {
         </aside>
       </main>
       <footer className="status-bar" role="status">
-        <span className={calculation.error ? 'status-bar__error' : undefined}>
-          {calculation.error ?? (calculation.stopped ? 'Stopped.' : null) ?? state.notice ?? (calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
+        <span className={plot.error || calculation.error ? 'status-bar__error' : undefined}>
+          {plot.error ?? calculation.error ?? (calculation.stopped ? 'Stopped.' : null) ?? state.notice ?? (calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
         </span>
         <span className="status-bar__mock">Mock calculation, not the real ReMagX engine</span>
       </footer>

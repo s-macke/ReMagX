@@ -98,7 +98,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       legend: { show: false },
       cursor: { drag: { x: true, y: true, uni: 20 } },
       axes: [
-        { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (Å), 0 = substrate surface' },
+        { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'angle' ? 'theta (°)' : curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (Å), 0 = substrate surface' },
         curve.logScale
           ? {
               stroke: text,
@@ -156,7 +156,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
 
   return (
     <section className="plot-panel" aria-label="Plot">
-      <div className="plot-panel__canvas" ref={containerRef} />
+      <div className="plot-panel__canvas" ref={containerRef} aria-label={curve ? `Plot axis: ${curve.axis}` : 'No calculated curve'} />
       {legend && (
         <ul className="plot-panel__legend">
           {legend.map((entry) => (

@@ -528,16 +528,18 @@
     },
     {
       "name": "angle-axis",
-      "status": "deferred",
-      "reason": "Implement theta display and conversion for the x-axis; qz display already exists.",
+      "status": "ported",
+      "reason": "Theta display converts simulated and measured qz coordinates with the legacy hc and current experiment energy; exports use the displayed coordinates. Energy scans and depth profiles retain their axes. Out-of-range values are reported.",
       "references": [
-        "AGENTS.md"
+        "app/src/model/plotCoordinates.ts",
+        "app/src/ui/sections/ExperimentSections.tsx",
+        "app/src/ui/PlotPanel.tsx",
+        "app/e2e/angleAxis.spec.ts"
       ],
       "entries": [
         "client/EScanFrame.dfm::Frame13/GroupBox2/RadioGroup2",
         "client/Unit1.cpp::item:04011ad1f4962d1b:1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "plot-tools",

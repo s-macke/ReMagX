@@ -51,7 +51,7 @@ export function XAxisSection() {
         columns={2}
         options={[
           { value: 'qz', label: 'qz' },
-          { value: 'angle', label: 'theta [°]', disabled: true, title: 'Angle axis follows later' },
+          { value: 'angle', label: 'theta [°]' },
         ]}
         onChange={(v) => edit((p) => void (p.experiment.qzScan.showAngle = v === 'angle'))}
       />

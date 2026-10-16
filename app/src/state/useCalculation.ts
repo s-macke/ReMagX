@@ -6,18 +6,8 @@ import { ComputeCancelled, WorkerComputeService, type ComputeService } from '../
 import type { Project } from '../model/project'
 import type { DisplayMode, PlotView, ScanKind } from './appState'
 
-export interface CurveSeries {
-  label: string
-  y: number[]
-}
-
-export interface CalculatedCurve {
-  axis: 'qz' | 'energy' | 'z'
-  x: number[]
-  series: CurveSeries[]
-  logScale: boolean
-  yLabel: string
-}
+import type { CalculatedCurve } from '../model/plotCoordinates'
+export type { CalculatedCurve, CurveSeries } from '../model/plotCoordinates'
 
 export interface CalculationRequest {
   scanKind: ScanKind
