@@ -1,0 +1,40 @@
+import { readFile } from 'node:fs/promises'
+import { test, expect } from './fixtures'
+
+test('Build spline exposes five interior values, preserves boundaries on edits and saves with undo', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(window, 'showSaveFilePicker', { value: undefined }))
+  await page.goto('/')
+  await page.getByRole('tab', { name: 'Sample', exact: true }).click()
+  await page.getByRole('button', { name: 'Additional Magnetization Profile', exact: true }).click()
+  const section = page.locator('#section-magnetization-profile')
+  await section.getByRole('button', { name: 'Add', exact: true }).click()
+  for (const [name, value] of [['δ amplitude', '2'], ['center z', '10'], ['width (σ)', '2']]) {
+    const input = section.getByRole('textbox', { name, exact: true })
+    await input.fill(value)
+    await input.press('Enter')
+  }
+  await section.getByRole('button', { name: 'Build spline', exact: true }).click()
+  await expect(section.getByRole('checkbox', { name: 'use spline (9 points)', exact: true })).toBeChecked()
+  await expect(section.getByRole('textbox')).toHaveCount(5)
+  await expect(section.getByRole('checkbox', { name: 'Fit center z', exact: true })).toHaveCount(0)
+  const center = section.getByRole('textbox', { name: 'y2', exact: true })
+  await expect(center).toHaveValue('1')
+  await center.fill('0.75')
+  await center.press('Enter')
+  await page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true }).click()
+  await expect(center).toHaveValue('1')
+  await page.getByRole('button', { name: 'Redo (Ctrl+Y)', exact: true }).click()
+  await expect(center).toHaveValue('0.75')
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Save (Ctrl+S)', exact: true }).click()
+  const project = JSON.parse(await readFile((await (await download).path())!, 'utf8'))
+  const profile = project.sample.depthProfileFunctions[0]
+  expect(profile.spline.points.map((point: { z: number }) => point.z)).toEqual([-2, 1, 4, 7, 10, 13, 16, 19, 22])
+  expect(profile.spline.points[4].value).toBe(0.75)
+  expect(profile.spline.points[0].value).toBeCloseTo(Math.exp(-18), 14)
+  expect(profile.spline.points[8].value).toBeCloseTo(Math.exp(-18), 14)
+  await section.getByRole('checkbox', { name: 'use spline (9 points)', exact: true }).uncheck()
+  await expect(section.getByRole('textbox', { name: 'δ amplitude', exact: true })).toHaveValue('2')
+  await section.getByRole('checkbox', { name: 'use spline (9 points)', exact: true }).check()
+  await expect(center).toHaveValue('0.75')
+})

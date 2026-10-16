@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { tableKinds } from '../../import/tables'
 import { datasetMetadata, deleteDataset, moveDataset, updateDataset } from '../../model/datasets'
-import { removeMagneticProfile } from '../../model/magneticProfiles'
+import { buildProfileSpline, removeMagneticProfile } from '../../model/magneticProfiles'
 import { FitCheckbox } from '../FitCheckbox'
 import { createDepthProfileFunction } from '../../model/defaults'
 import { applyMagnetizationToAllLayers } from '../../model/layers'
@@ -308,6 +308,7 @@ export function MagnetizationProfileSection() {
   const dispatch = useDispatch()
   const edit = useEditProject()
   const [index, setIndex] = useState(0)
+  const [splineError, setSplineError] = useState<string | null>(null)
   const functions = project.sample.depthProfileFunctions
   const current = Math.min(index, Math.max(0, functions.length - 1))
   const fn = functions[current]
@@ -362,6 +363,7 @@ export function MagnetizationProfileSection() {
       </div>
       {fn && (
         <Group title={fn.spline.enabled ? 'Spline' : 'Gauss'}>
+          {!fn.spline.enabled && <>
           <NumberField label="δ amplitude" value={fn.deltaAmplitude} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].deltaAmplitude = v))} />
           <FitCheckbox label="Fit δ amplitude" target={{ target: 'profileDeltaAmplitude', index: current, elementIndex: null }} />
           <NumberField label="β amplitude" value={fn.betaAmplitude} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].betaAmplitude = v))} />
@@ -386,6 +388,20 @@ export function MagnetizationProfileSection() {
               ))}
             </select>
           </Field>
+          </>}
+          {fn.spline.enabled && fn.spline.points.slice(2, -2).map((point, pointIndex) => (
+            <NumberField key={pointIndex} label={`y${pointIndex}`} value={point.value}
+              onChange={(value) => edit((p) => void (p.sample.depthProfileFunctions[current].spline.points[pointIndex + 2].value = value))} />
+          ))}
+          {fn.spline.enabled && fn.spline.points.length < 5 && <Note>No editable spline points. Use Build spline to create them.</Note>}
+          <button type="button" onClick={() => {
+            try {
+              const profile = buildProfileSpline(fn)
+              edit((p) => void (p.sample.depthProfileFunctions[current] = profile))
+              setSplineError(null)
+            } catch (error) { setSplineError(error instanceof Error ? error.message : String(error)) }
+          }}>Build spline</button>
+          {splineError && <p role="alert">{splineError}</p>}
           <CheckboxField
             label={`use spline (${fn.spline.points.length} points)`}
             checked={fn.spline.enabled}

@@ -720,14 +720,12 @@
     {
       "name": "magnetic-profile-editor",
       "status": "deferred",
-      "reason": "Profile numeric/coupling fields exist; finish spline point editing, Build spline and the all-layers binding choice.",
+      "reason": "Spline building and interior point editing are implemented; complete the all-layers/none binding distinction and review coupling choices before marking the whole profile table ported.",
       "references": [
         "AGENTS.md"
       ],
       "entries": [
         "client/MzFrame.dfm::Frame8/GaussEingabe",
-        "client/MzFrame.dfm::Frame8/Button7",
-        "client/Unit1.cpp::event:3ec0570cd44b2058:1",
         "client/Unit1.cpp::event:5b9d5cdf7cadc4bc:1",
         "client/Unit1.cpp::item:15dca08ebfe47485:1",
         "client/Unit1.cpp::item:d963af60576946f6:1",
@@ -1183,6 +1181,20 @@
       "entries": [
         "client/Unit1.cpp::item:77b0385c504e42a1:1",
         "client/Unit1.cpp::item:77b0385c504e42a1:2"
+      ]
+    },
+    {
+      "name": "magnetic-profile-spline",
+      "status": "ported",
+      "reason": "Build spline creates the legacy nine samples and enables spline mode; five interior y values are editable, boundary points are preserved, Gaussian controls are hidden in spline mode, and edits support undo and JSON save. Interpolation in calculations remains real-engine work.",
+      "references": [
+        "app/src/model/magneticProfiles.ts",
+        "app/src/ui/sections/SampleSections.tsx",
+        "app/e2e/profileSpline.spec.ts"
+      ],
+      "entries": [
+        "client/MzFrame.dfm::Frame8/Button7",
+        "client/Unit1.cpp::event:3ec0570cd44b2058:1"
       ]
     }
   ],
