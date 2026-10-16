@@ -37,7 +37,7 @@ def build(legacy_root, output, compiler='g++'):
     root = Path(legacy_root).resolve()
     adapter = HERE / 'parratt_reference.cpp'
     manifest = json.loads((HERE / 'parratt_sources.json').read_text())['sha256']
-    flags = [compiler, '-std=c++17', '-O2', '-fno-fast-math', '-pthread', '-I' + str(root / 'shared')]
+    flags = [compiler, '-std=c++17', '-O2', '-fno-fast-math', '-ffp-contract=off', '-pthread', '-I' + str(root / 'shared')]
     dependency_output = subprocess.run([*flags, '-MM', str(adapter)], check=True, capture_output=True, text=True).stdout
     dependencies = shlex.split(dependency_output.split(':', 1)[1].replace('\\\n', ' '))
     verify_dependencies(dependencies, root, manifest, adapter)

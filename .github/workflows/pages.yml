@@ -44,6 +44,19 @@ jobs:
           cmake --build ../build/engine --parallel 2
           ctest --test-dir ../build/engine --output-on-failure
 
+      - name: Build and compare WebAssembly numerical core
+        run: |
+          sdk_version=$(cat ../engine/emscripten.version)
+          sdk_dir="$RUNNER_TEMP/remagx-emsdk"
+          git clone --depth 1 --branch "$sdk_version" https://github.com/emscripten-core/emsdk.git "$sdk_dir"
+          test "$(git -C "$sdk_dir" rev-parse HEAD)" = 35ff8a6d150541276abbc6bae512ca90bcfbe220
+          "$sdk_dir/emsdk" install "$sdk_version"
+          "$sdk_dir/emsdk" activate "$sdk_version"
+          source "$sdk_dir/emsdk_env.sh"
+          emcmake cmake -S ../engine -B ../build/wasm -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+          cmake --build ../build/wasm --parallel 2
+          WASM_MODULE=../build/wasm/remagx-core.mjs python3 ../engine/tests/test_parratt.py ../build/engine/libremagx_core.so
+
       - run: npm ci
       - run: npm run lint
       - run: npm test

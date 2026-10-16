@@ -3,7 +3,8 @@ import ctypes
 import math
 import os
 from pathlib import Path
-import random
+import json
+from parratt_cases import synthetic_cases
 import subprocess
 import sys
 import tempfile
@@ -42,6 +43,17 @@ def calculate(layers, points, beam=(1, 0, 0, 0), tensor=0, analyzer=0):
 
 
 class NativeParrattTest(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get('WASM_MODULE'), 'WASM comparison not requested')
+    def test_wasm_matches_native(self):
+        cases = []
+        for prepared in synthetic_cases():
+            status, values = calculate(**prepared)
+            self.assertEqual(status, 0)
+            cases.append(dict(**prepared, expected=values))
+        subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
+                        str(Path(os.environ['WASM_MODULE']).resolve())],
+                       input=json.dumps(cases), text=True, check=True)
+
     def test_fresnel_and_complex_polarization(self):
         layers = [(0, 0, 0.01, 0.002, 0, 0, 90, 90), (0, 0, 0, 0, 0, 0, 90, 90)]
         angle = 0.2
@@ -89,7 +101,6 @@ class LegacyComparisonTest(unittest.TestCase):
         cls.reference = build(os.environ['LEGACY_ROOT'], Path(cls.directory.name) / 'reference')
 
     def test_prepared_stacks_match_original_all_parratt_branches(self):
-        generator = random.Random(26017)
         comparisons = 0
         positive_pairs = 0
         zero_pairs = 0
@@ -97,17 +108,8 @@ class LegacyComparisonTest(unittest.TestCase):
         below_absolute_floor = 0
         positive_range = [math.inf, 0.0]
         worst_log_error = (0.0, None)
-        for case in range(120):
-            tensor = case % 2
-            analyzer = case % 3
-            beam = generator.choice([(1, 0, 0, 0), (0, 0, 1, 0), (.3, .4, .6, .8), (0, math.sqrt(.5), math.sqrt(.5), 0)])
-            layers = [(generator.uniform(0, 150), generator.choice([0, generator.uniform(0, 8)]),
-                       generator.uniform(-.002, .015), generator.uniform(.001, .003), generator.uniform(-.0003, .0003),
-                       generator.uniform(-.0001, .0001), generator.uniform(-180, 180), generator.uniform(-180, 180))
-                      for _ in range(generator.randint(2, 18))]
-            layers[-1] = (0, 0, 0, 0, 0, 0, 90, 90)
-            points = [(angle, wave, magnetic) for angle in [-.03, 0, 1e-8, .005, .1, math.pi/2]
-                      for wave in [.05, 1] for magnetic in [-1, 0, 1]]
+        for case, prepared in enumerate(synthetic_cases()):
+            layers, points, beam, tensor, analyzer = (prepared[key] for key in ('layers', 'points', 'beam', 'tensor', 'analyzer'))
             payload = f'{len(layers)} {len(points)} {tensor} {analyzer}\n'
             payload += ' '.join(map(str, beam)) + '\n'
             payload += '\n'.join(' '.join(map(str, row)) for row in [*layers, *points]) + '\n'

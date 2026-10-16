@@ -190,3 +190,27 @@ magnetization reversal, zero/negative/near-critical angles and different wave nu
 The comparison uses the unchanged AC-5 bound of 1e-10 relative + 1e-15 absolute.
 These are prepared-stack component checks, not project/corpus goldens or native/WASM parity.
 The website continues to use ComputeService's mock implementation.
+
+### Parratt WebAssembly component
+
+The same C++ core builds as `build/wasm/remagx-core.mjs` and its sibling `.wasm`.
+Use Emscripten **6.0.12**, recorded in `engine/emscripten.version`; CI verifies
+emsdk commit `35ff8a6d150541276abbc6bae512ca90bcfbe220`. After activating that SDK:
+
+```sh
+emcmake cmake -S engine -B build/wasm -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake --build build/wasm --parallel 2
+WASM_MODULE=build/wasm/remagx-core.mjs python3 engine/tests/test_parratt.py build/engine/libremagx_core.so
+```
+
+Build the native library first using the commands above. Adding `LEGACY_ROOT=old/reMagX3`
+also compares the original routine. The 120 synthetic stacks (4,320 points) are shared
+between comparisons; positive values additionally receive logarithmic diagnostics,
+while zero pairs and nonpositive mismatches are counted separately. No new tolerance
+or low-reflectivity cutoff is imposed.
+
+`engine/wasm/parratt.mjs` accepts prepared numeric rows matching the C structs and returns
+an independent `Float64Array`. It validates shape, frees allocated buffers on success
+or failure and refreshes heap views after potential memory growth. It does not prepare
+projects, load optical tables or run outside the worker in the app: integration is still
+pending and the deployed UI continues to use the mock engine.

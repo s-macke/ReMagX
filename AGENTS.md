@@ -240,7 +240,8 @@ Quality gates:
 - [ ] Port Gaussian and spline magnetic profiles with coupling (D-25, spec §2).
 - [ ] Honor arbitrary complex polarization for both beams and the polarization analyzer; support dichroic reflectivity and both asymmetry definitions (D-25, spec §2).
 - [ ] Expose and display δ(z), β(z), δm(z), βm(z) from the actual engine after roughness/slicing (D-26); replace the mock profile data behind the existing views.
-- [ ] Emscripten build; golden tests native and WASM within 1e-10 rel + 1e-15 abs (AC-5, D-23)
+- [x] Initial Parratt WASM component: pinned Emscripten 6.0.12, ES module and prepared-stack adapter; 4,320 native/WASM synthetic comparisons, logarithmic diagnostics, memory-growth and error-recovery checks in CI. The public app still uses the mock.
+- [ ] Full-engine Emscripten build and corpus golden tests native/WASM within 1e-10 rel + 1e-15 abs (AC-5, D-23)
 - [ ] Corpus golden and WASM tests in CI (Pages now runs native analytic/API/precision checks alongside app checks; private legacy comparison is opt-in locally)
 - [ ] AC-3 with the real engine: a `precision = 3` project computes bit-identically to `precision = 1`
 - [ ] Clean-room Nelder-Mead and annealing in C++ behind the optimizer interface in `engine/src/optim/`, also used by the public legacy rebuild (D-10, D-32).
