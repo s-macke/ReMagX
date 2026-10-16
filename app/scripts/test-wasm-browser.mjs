@@ -7,7 +7,8 @@ import { chromium } from '@playwright/test'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const modulePath = resolve(process.argv[2])
-const cases = JSON.parse(readFileSync(0, 'utf8'))
+const input = JSON.parse(readFileSync(0, 'utf8'))
+const cases = [...input.angular, ...input.qz.map(prepared => ({ ...prepared, kind: 'qz' }))]
 const assets = new Map([
   ['/remagx-core.mjs', ['text/javascript', readFileSync(modulePath)]],
   ['/remagx-core.wasm', ['application/wasm', readFileSync(modulePath.replace(/\.mjs$/, '.wasm'))]],
@@ -88,7 +89,7 @@ try {
       count++
     })
   }
-  assert.equal(count, 4320)
+  assert.equal(count, 7680)
   assert.equal(result.finished, false, 'busy calculation must still be running at termination')
   assert.ok(result.tickMilliseconds < 200, `browser event loop took ${result.tickMilliseconds} ms`)
   assert.ok(result.recoveryMilliseconds < 1000, `replacement took ${result.recoveryMilliseconds} ms`)

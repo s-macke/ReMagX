@@ -1,5 +1,5 @@
 import createCore from './remagx-core.mjs'
-import { calculateParratt } from './parratt.mjs'
+import { calculateParratt, calculateParrattQz } from './parratt.mjs'
 
 const core = await createCore()
 self.onmessage = ({ data }) => {
@@ -21,7 +21,7 @@ self.onmessage = ({ data }) => {
       self.postMessage({ kind: 'finished' })
     } else {
       self.postMessage({ kind: 'results', values: data.cases.map(prepared =>
-        Array.from(calculateParratt(core, prepared))) })
+        Array.from(prepared.kind === 'qz' ? calculateParrattQz(core, prepared) : calculateParratt(core, prepared))) })
     }
   } catch (error) {
     self.postMessage({ kind: 'failure', message: String(error) })

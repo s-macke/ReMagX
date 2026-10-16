@@ -215,7 +215,7 @@ or failure and refreshes heap views after potential memory growth. It does not p
 projects, load optical tables or run outside the worker in the app: integration is still
 pending and the deployed UI continues to use the mock engine.
 
-To run the same 4,320 comparisons inside an actual Chromium module worker, install
+To run the angular and qz comparisons inside an actual Chromium module worker, install
 app dependencies and the Chromium headless shell (`cd app && npx playwright install
 --only-shell chromium`), then from the repository root:
 
@@ -244,6 +244,11 @@ zero-resolution coordinate conversion and beam selection. The latter permits rat
 skipped after that check. These differences are preserved, not silently unified.
 
 This API does not refresh optical tables, construct layers, generate a scan grid, execute
-scripts, convolve resolution or apply postprocessing/asymmetry. It currently has native
-coverage, including 1,440 original-routine comparisons; exposing it through the WASM
-adapter and integrating project preparation into ComputeService remain separate work.
+scripts, convolve resolution or apply postprocessing/asymmetry. Native coverage includes 1,440 original-routine comparisons. The WASM adapter
+`calculateParrattQz` returns an independent Float64Array with interleaved beam1/beam2
+intensities, preserving status codes on failure and freeing buffers on every exit.
+It accepts `layers`, `qz`, `energy`, `beam1`, `beam2`, `tensor`, `analyzer`, `magnetic`
+and `mode`; the latter four use the C enums/flags. Both adapters reject sparse arrays.
+There are 3,360 additional native/WASM intensity comparisons in Node and Chromium,
+for 7,680 values in total. Integrating project preparation into ComputeService remains
+separate work; the deployed app still uses the mock.

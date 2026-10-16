@@ -18,3 +18,12 @@ def synthetic_cases():
         yield dict(layers=layers, points=points, beam=beam, tensor=tensor, analyzer=analyzer)
 
 
+def synthetic_qz_cases():
+    for case, prepared in enumerate(synthetic_cases()):
+        energy = [100, 640, 8000][case % 3]
+        wave = 2 * math.pi / (12398.326 / energy)
+        for mode in [0, 1]:
+            yield dict(layers=prepared['layers'],
+                qz=[ratio * 2 * wave for ratio in [-.1, 0, 1e-8, .005, .1, .7, .999]],
+                energy=energy, beam1=prepared['beam'], beam2=(.3, .4, .6, .8) if mode else None,
+                tensor=prepared['tensor'], analyzer=prepared['analyzer'], magnetic=(case // 2) % 2, mode=mode)

@@ -4,7 +4,7 @@ import math
 import os
 from pathlib import Path
 import json
-from parratt_cases import synthetic_cases
+from parratt_cases import synthetic_cases, synthetic_qz_cases
 import subprocess
 import sys
 import tempfile
@@ -116,13 +116,19 @@ class NativeParrattTest(unittest.TestCase):
             status, values = calculate(**prepared)
             self.assertEqual(status, 0)
             cases.append(dict(**prepared, expected=values))
+        qz_cases = []
+        for prepared in synthetic_qz_cases():
+            status, values = calculate_qz(**prepared)
+            self.assertEqual(status, 0)
+            qz_cases.append(dict(**prepared, expected=[value for pair in values for value in pair]))
+        payload = json.dumps(dict(angular=cases, qz=qz_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
-                       input=json.dumps(cases), text=True, check=True)
+                       input=payload, text=True, check=True)
         if os.environ.get('WASM_BROWSER') == '1':
             subprocess.run(['node', str(Path(__file__).resolve().parents[2] / 'app/scripts/test-wasm-browser.mjs'),
                             str(Path(os.environ['WASM_MODULE']).resolve())],
-                           input=json.dumps(cases), text=True, check=True)
+                           input=payload, text=True, check=True)
 
 
     def test_fresnel_and_complex_polarization(self):
