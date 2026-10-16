@@ -180,9 +180,9 @@ function CompoundLayerTable({ onProperties }: { onProperties: (index: number) =>
 function ElementLayerTable() {
   const updateDatabase = useDatabaseUpdate()
   const { databaseUpdate } = useAppState()
-  const databaseAction = <button type="button" role="menuitem" disabled={databaseUpdate.busy} onClick={updateDatabase}>Get f1/f2 from database</button>
   const { project, selectedLayer, selectedElement } = useAppState()
   const dispatch = useDispatch()
+  const databaseAction = <><button type="button" role="menuitem" onClick={() => dispatch({ type: 'setPlotView', plotView: 'opticalSpectrum' })}>Show δ and β spectrum</button><button type="button" role="menuitem" disabled={databaseUpdate.busy} onClick={updateDatabase}>Get f1/f2 from database</button></>
   const elements = project.sample.elementProfiles
   const current = Math.min(selectedElement, Math.max(0, elements.length - 1))
   const element = elements[current]

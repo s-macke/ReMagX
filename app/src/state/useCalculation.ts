@@ -63,10 +63,10 @@ async function calculate(service: ComputeService, project: Project, request: Cal
   }
   if (plotView === 'opticalSpectrum' || plotView === 'magneticSpectrum') {
     const magnetic = plotView === 'magneticSpectrum'
-    const spectrum = await service.layerSpectrum(project, { layerIndex: request.layerIndex ?? 0, magnetic, tables: request.tables ?? [] })
+    const spectrum = await service.layerSpectrum(project, { elementIndex: request.elementIndex ?? 0, layerIndex: request.layerIndex ?? 0, magnetic, tables: request.tables ?? [] })
     return { axis: 'energy', x: spectrum.energy, series: [
       { label: magnetic ? 'δm' : 'δ', y: spectrum.first }, { label: magnetic ? 'βm' : 'β', y: spectrum.second },
-    ], logScale: false, yLabel: magnetic ? 'δm / βm (table preview)' : 'δ / β (table preview)' }
+    ], logScale: false, yLabel: magnetic ? 'δm / βm (table preview)' : project.sample.mode === 'element' ? 'δ / β (mock slab preview)' : 'δ / β (table preview)' }
   }
   if (plotView !== 'scan') {
     const profile = await service.depthProfile(project)

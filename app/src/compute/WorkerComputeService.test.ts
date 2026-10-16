@@ -382,13 +382,13 @@ describe('mock layer spectrum service', () => {
     service.dispose()
   })
 
-  it('reports missing/empty tables and unavailable element conversion without returning invented data', async () => {
+  it('reports missing/empty tables and missing element selection', async () => {
     const service = new WorkerComputeService(inProcessWorker)
     const project = createDefaultProject()
     await expect(service.layerSpectrum(project, { layerIndex: 1, magnetic: false, tables: [] })).rejects.toThrow('Load Co.db')
     await expect(service.layerSpectrum(project, { layerIndex: 1, magnetic: true, tables: [{ name: 'Co', kind: 'm', energy: [], columns: [[], []], warnings: [] }] })).rejects.toThrow('Load Co.m')
     project.sample.mode = 'element'
-    await expect(service.layerSpectrum(project, { layerIndex: 1, magnetic: false, tables: [] })).rejects.toThrow('Element optical spectra')
+    await expect(service.layerSpectrum(project, { layerIndex: 1, magnetic: false, tables: [] })).rejects.toThrow('Select an element')
     service.dispose()
   })
 })
@@ -524,6 +524,35 @@ describe('mock dielectric tensor service', () => {
     const fallback = await service.dielectricTensor(project, { ...query, spectrum: true, tables: [{ name: 'Co', kind: 'db', energy: [700, 800], columns: [[0.1, 0.2], [0, 0]], warnings: [] }] })
     expect(fallback.source).toBe('scalar')
     expect(fallback.tensors[0][0]).not.toEqual(fallback.tensors[1][0])
+    service.dispose()
+  })
+})
+
+describe('mock element optical spectrum', () => {
+  it('uses the selected grid, all slab contributions, and rejects incomplete inputs without mutation', async () => {
+    const service = new WorkerComputeService(inProcessWorker)
+    const project = createDefaultProject()
+    project.sample.mode = 'element'
+    project.sample.elementProfiles = ['Co', 'Ni'].map(element => ({ element, f1: 99, f2: 99, f1Mag: 0, f2Mag: 0,
+      slabs: [{ thickness: 0, density: 0.1, roughness: 0 }, { thickness: 20, density: 0.2, roughness: 0 }, { thickness: 0, density: 0, roughness: 0 }] }))
+    const tables = [
+      { name: 'Co', kind: 'ff' as const, energy: [0, 700, 800], columns: [[99, 2, 4], [99, 1, 2]], warnings: [] },
+      { name: 'Ni', kind: 'ff' as const, energy: [710, 810], columns: [[3, 5], [4, 6]], warnings: [] },
+    ]
+    const before = structuredClone(project)
+    const query = { elementIndex: 0, layerIndex: 1, magnetic: false, tables }
+    const result = await service.layerSpectrum(project, query)
+    expect(result.energy).toEqual([700, 800])
+    expect(result.first.every(Number.isFinite)).toBe(true)
+    const substrate = await service.layerSpectrum(project, { ...query, layerIndex: 0 })
+    expect(result.first).toEqual(substrate.first.map(value => value * 2))
+    expect(result.second).toEqual(substrate.second.map(value => value * 2))
+    expect((await service.layerSpectrum(project, { ...query, layerIndex: 2 })).first).toEqual([0, 0])
+    expect((await service.layerSpectrum(project, { ...query, elementIndex: 1 })).energy).toEqual([710, 810])
+    await expect(service.layerSpectrum(project, { ...query, tables: tables.slice(0, 1) })).rejects.toThrow('Load Ni.ff')
+    expect(project).toEqual(before)
+    project.sample.elementProfiles[1].slabs = []
+    await expect(service.layerSpectrum(project, query)).rejects.toThrow('Ni needs a valid density at slab 1')
     service.dispose()
   })
 })

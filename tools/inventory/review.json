@@ -629,19 +629,14 @@
     {
       "name": "layer-table-interactions",
       "status": "deferred",
-      "reason": "Layer/slab editing, Fit menus, value slider, compound spectrum previews, material settings and database actions exist. Element optical spectra remain; dielectric tensor views have a separate mock UI implementation.",
+      "reason": "Layer/slab editing, Fit, value slider, spectra, material settings and database actions exist. The layer grid remains conservatively deferred until the legacy coupl. column scope decision is resolved.",
       "references": [
         "AGENTS.md"
       ],
       "entries": [
-        "client/Unit1.cpp::item:044c0db584147fff:1",
-        "client/Unit1.cpp::item:044c0db584147fff:2",
-        "client/Unit1.cpp::item:044c0db584147fff:3",
-        "client/Unit1.cpp::item:044c0db584147fff:4",
-        "client/Unit1.cpp::item:d41f4c83dbad7376:2",
         "client/Unit1.dfm::Form1/SchichtEingabe"
       ],
-      "phase": "ui"
+      "phase": "decision"
     },
     {
       "name": "value-slider",
@@ -1284,6 +1279,23 @@
         "client/Unit1.cpp::item:61a2b426cc67354c:1",
         "client/Unit1.cpp::item:f4745806781e8610:1",
         "client/Unit1.cpp::item:67940c3e1072cb65:1"
+      ]
+    },
+    {
+      "name": "element-optical-spectrum-menu",
+      "status": "ported",
+      "reason": "Element table context action selects the slab and uses the selected element energy grid. Worker mock sums density-weighted, linearly interpolated scattering factors across all elements, with missing-table/slab errors and no project mutation. Full Filldb/Lua evaluation remains engine work. Separators organize the implemented menu groups.",
+      "references": [
+        "app/src/compute/mockSpectrum.ts",
+        "app/src/ui/LayerTable.tsx",
+        "app/e2e/scatteringFactors.spec.ts"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:044c0db584147fff:1",
+        "client/Unit1.cpp::item:044c0db584147fff:2",
+        "client/Unit1.cpp::item:044c0db584147fff:3",
+        "client/Unit1.cpp::item:044c0db584147fff:4",
+        "client/Unit1.cpp::item:d41f4c83dbad7376:2"
       ]
     }
   ],
