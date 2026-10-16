@@ -233,7 +233,7 @@ Quality gates:
 - [ ] Generate reference fit outputs once on the user's machine with an original legacy build and its original optimizer; keep that build uncommitted and store only its outputs in the private corpus (D-20, D-32).
 - [ ] Native rebuild of the legacy 2.6 core for golden data, `%.17g` output, no NR code in the repo (D-5, D-32)
 - [ ] Cross-check the rebuild against the Wine 2.3.1 binary within 1e-6 (AC-6)
-- [x] Initial cleaned native Parratt kernel: double-only C API, magnetic/tetragonal branches, complex beam weights, analyzers and Nevot-Croce; C/C++ build and precision gate in CI. Compared 4,320 synthetic prepared-stack points with the private 2.6 routine at 1e-10 relative + 1e-15 absolute. This is component verification, not corpus or WASM acceptance.
+- [x] Initial cleaned native Parratt kernel: double-only C API, magnetic/tetragonal branches, complex beam weights, analyzers and Nevot-Croce; C/C++ build and precision gate in CI. Compared 4,320 synthetic prepared-stack points with the private 2.6 routine at 1e-10 relative + 1e-15 absolute. Comparison diagnostics also report log10 error for positive pairs, zero pairs and nonpositive mismatches without changing D-23. This is component verification, not corpus or WASM acceptance.
 - [ ] Extract and clean the numerical core: double only, descriptive names, data-driven C API; verify the double-only source gate (D-6, D-34, AC-2).
 - [ ] Port Parratt, full 4×4 matrix/Visnovsky and Zak calculations for qz and energy scans; validate each against legacy golden outputs (D-3, D-25, AC-5).
 - [ ] Port Nevot-Croce roughness and adaptive layer segmentation, including segmentation settings (D-25, spec §2).

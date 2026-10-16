@@ -91,6 +91,12 @@ class LegacyComparisonTest(unittest.TestCase):
     def test_prepared_stacks_match_original_all_parratt_branches(self):
         generator = random.Random(26017)
         comparisons = 0
+        positive_pairs = 0
+        zero_pairs = 0
+        nonpositive_mismatches = 0
+        below_absolute_floor = 0
+        positive_range = [math.inf, 0.0]
+        worst_log_error = (0.0, None)
         for case in range(120):
             tensor = case % 2
             analyzer = case % 3
@@ -113,8 +119,31 @@ class LegacyComparisonTest(unittest.TestCase):
             for index, (value, target) in enumerate(zip(actual, expected)):
                 self.assertTrue(math.isfinite(value))
                 self.assertLessEqual(abs(value-target), 1e-15 + 1e-10*abs(target), f'synthetic case {case}, point {index}')
+                if target > 0:
+                    positive_range[0] = min(positive_range[0], target)
+                    positive_range[1] = max(positive_range[1], target)
+                    below_absolute_floor += target < 1e-15
+                if value > 0 and target > 0:
+                    positive_pairs += 1
+                    relative_difference = (value - target) / target
+                    # log1p retains small discrepancies that subtracting two logs loses.
+                    log_error = (abs(math.log1p(relative_difference) / math.log(10))
+                                 if abs(relative_difference) < .5
+                                 else abs(math.log10(value) - math.log10(target)))
+                    if log_error > worst_log_error[0]:
+                        worst_log_error = (log_error, (case, index, target, value))
+                elif value == target == 0:
+                    zero_pairs += 1
+                else:
+                    nonpositive_mismatches += 1
                 comparisons += 1
         self.assertEqual(comparisons, 4320)
+        print(f'Parratt log diagnostics (synthetic stacks only): {positive_pairs} positive pairs; '
+              f'{zero_pairs} both zero; {nonpositive_mismatches} nonpositive mismatches; '
+              f'{below_absolute_floor} positive references below 1e-15; '
+              f'positive reference range {positive_range[0]:.17g} to {positive_range[1]:.17g}; '
+              f'maximum log10 error {worst_log_error[0]:.17g} decades; '
+              f'worst (case, point, reference, actual) = {worst_log_error[1]}', flush=True)
 
 
 if __name__ == '__main__':
