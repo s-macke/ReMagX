@@ -146,6 +146,16 @@ int remagx_matrix_modes(int anisotropic, const double* tensor, const double* ref
 int remagx_zak_modes(const double* refractive_index, const double* magnetic_constant,
                      double angle, double gamma, double phi, double wave_number,
                      double thickness, double* root, double* boundary, double* propagation);
+// Single-angle Zak reflection for substrate-first scalar layers, ambient last.
+// Both supplied complex beams use the same magnetic stack; magnetic_enabled is
+// 0 or 1. Angles on layers are degrees; angle is radians and wave_number is 1/A.
+// Substrate/ambient thickness is ignored. Zero-thickness internal layers retain
+// the previous propagation matrix, including its initial zeros, as in legacy.
+// No determinant clamp, transmission, table refresh, convolution or slicing.
+// Finite inputs and at least two layers required; output is atomic on error.
+int remagx_zak(const RemagxLayer* layers, size_t layer_count, double angle,
+                double wave_number, int magnetic_enabled, const RemagxBeam* beam1,
+                const RemagxBeam* beam2, int analyzer, RemagxReflectivity* output);
 // Prepared substrate-first matrix stack, including ambient as the last layer.
 // Tensor entries are packed row-major complex real/imag; anisotropic is 0/1.
 // Scalars supply the isotropic index directly. Tensors are already constructed
