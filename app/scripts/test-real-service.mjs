@@ -43,7 +43,7 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
   const results = await page.evaluate(async () => {
-    const { createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
+    const { importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve
     const NativeWorker = window.Worker
     window.Worker = class extends NativeWorker {
@@ -60,6 +60,19 @@ try {
     const snapshot = JSON.stringify(project)
     const output = {}
     try {
+      // AC-3: use the actual importer and unmodified public fixture through the real worker.
+      if (!precisionFixture.includes('precision = 1')) throw new Error('Missing precision fixture key')
+      output.precision = []
+      for (const precision of [1, 0, 2, 3]) {
+        const imported = importAllFile(precisionFixture.replace('precision = 1', `precision = ${precision}`))
+        const before = JSON.stringify(imported.project)
+        const result = await service.calcReflectivity(imported.project)
+        const values = new Float64Array(result.reflectivity)
+        output.precision.push({ precision, bytes: Array.from(new Uint8Array(values.buffer)),
+          qz: result.qz, values: Array.from(values),
+          reported: imported.report.messages.some(message => message.text.includes(`precision = ${precision}`)),
+          unchanged: before === JSON.stringify(imported.project) })
+      }
       output.zero = await service.calcReflectivity(project)
       output.asymmetry = await service.calcAsymmetry(project)
       try { await service.depthProfile(project) } catch (error) { output.unsupported = error.message }
@@ -276,6 +289,18 @@ try {
       return output
     } finally { service.dispose(); window.Worker = NativeWorker }
   })
+  assert.equal(results.precision.length, 4)
+  const precisionBaseline = results.precision[0]
+  assert.ok(precisionBaseline.values.length > 1)
+  assert.ok(precisionBaseline.values.every(Number.isFinite))
+  assert.ok(precisionBaseline.values.some(value => value > 0))
+  assert.ok(new Set(precisionBaseline.values).size > 1)
+  for (const item of results.precision) {
+    assert.equal(item.reported, true, `precision ${item.precision} missing from import report`)
+    assert.equal(item.unchanged, true)
+    assert.deepEqual(item.qz, precisionBaseline.qz)
+    assert.deepEqual(item.bytes, precisionBaseline.bytes, `precision ${item.precision} changed result bits`)
+  }
   assert.deepEqual(results.zero.reflectivity, [0, 0, 0, 0])
   assert.deepEqual(results.asymmetry.asymmetry, [0, 0, 0, 0])
   assert.match(results.unsupported, /does not support depthProfile/)
@@ -386,7 +411,7 @@ try {
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))
