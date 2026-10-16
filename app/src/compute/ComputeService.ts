@@ -5,6 +5,7 @@
 import type { OpticalTable } from '../import/tables'
 import type { Project } from '../model/project'
 
+export interface ElementSpectrumQuery { elementIndex: number; tables: OpticalTable[] }
 export interface LayerSpectrumQuery { layerIndex: number; magnetic: boolean; tables: OpticalTable[] }
 export interface LayerSpectrum { energy: number[]; first: number[]; second: number[] }
 
@@ -51,6 +52,7 @@ export interface FitResult {
 }
 
 export interface ComputeService {
+  scatteringFactors(project: Project, query: ElementSpectrumQuery): Promise<LayerSpectrum>
   layerSpectrum(project: Project, query: LayerSpectrumQuery): Promise<LayerSpectrum>
   calcReflectivity(project: Project): Promise<ReflectivityCurve>
   calcEnergyScan(project: Project): Promise<EnergyScanCurve>

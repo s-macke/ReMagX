@@ -13,7 +13,7 @@ import type { OpticalTable } from '../import/tables'
 
 export type ScanKind = 'reflectivity' | 'energyScan'
 export type DisplayMode = 'monochromatic' | 'dichroic' | 'asymmetry'
-export type PlotView = 'opticalSpectrum' | 'magneticSpectrum' | 'scan' | 'opticalProfile' | 'magneticProfile'
+export type PlotView = 'scatteringFactors' | 'opticalSpectrum' | 'magneticSpectrum' | 'scan' | 'opticalProfile' | 'magneticProfile'
 export type EnergyUnit = 'eV' | 'angstrom'
 
 export interface FitStatus {

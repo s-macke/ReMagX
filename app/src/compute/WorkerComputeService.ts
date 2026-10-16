@@ -12,6 +12,7 @@ import {
   type FitResult,
   type LayerSpectrum,
   type LayerSpectrumQuery,
+  type ElementSpectrumQuery,
   type ReflectivityCurve,
 } from './ComputeService'
 import type { CalculationResults, WorkerRequest, WorkerResponse } from './protocol'
@@ -64,6 +65,10 @@ export class WorkerComputeService implements ComputeService {
       if (this.worker === worker) this.failWorker('The compute worker returned an unreadable message.')
     }
     return worker
+  }
+
+  scatteringFactors(project: Project, spectrum: ElementSpectrumQuery): Promise<LayerSpectrum> {
+    return this.request('scatteringFactors', project, undefined, spectrum)
   }
 
   layerSpectrum(project: Project, spectrum: LayerSpectrumQuery): Promise<LayerSpectrum> {
@@ -150,7 +155,7 @@ export class WorkerComputeService implements ComputeService {
     kind: K,
     project: Project,
     onProgress?: (progress: FitProgress) => void,
-    spectrum?: LayerSpectrumQuery,
+    spectrum?: LayerSpectrumQuery | ElementSpectrumQuery,
   ): Promise<CalculationResults[K]> {
     if (this.disposed) return Promise.reject(new ComputeError('Compute service was shut down.'))
     if (this.stopping) return Promise.reject(new ComputeCancelled())

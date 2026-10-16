@@ -14,6 +14,7 @@ export interface CalculationRequest {
   scanKind: ScanKind
   displayMode: DisplayMode
   plotView: PlotView
+  elementIndex?: number
   layerIndex?: number
   tables?: OpticalTable[]
 }
@@ -42,6 +43,12 @@ export function discardComputeService(): void {
 
 async function calculate(service: ComputeService, project: Project, request: CalculationRequest): Promise<CalculatedCurve> {
   const { scanKind, displayMode: mode, plotView } = request
+  if (plotView === 'scatteringFactors') {
+    const spectrum = await service.scatteringFactors(project, { elementIndex: request.elementIndex ?? 0, tables: request.tables ?? [] })
+    return { axis: 'energy', x: spectrum.energy, series: [
+      { label: 'f1', y: spectrum.first }, { label: 'f2', y: spectrum.second },
+    ], logScale: false, yLabel: 'f1 / f2 (table preview)' }
+  }
   if (plotView === 'opticalSpectrum' || plotView === 'magneticSpectrum') {
     const magnetic = plotView === 'magneticSpectrum'
     const spectrum = await service.layerSpectrum(project, { layerIndex: request.layerIndex ?? 0, magnetic, tables: request.tables ?? [] })
@@ -94,7 +101,7 @@ async function calculate(service: ComputeService, project: Project, request: Cal
 }
 
 export function useCalculation(project: Project, request: CalculationRequest, paused = false, live = false) {
-  const { scanKind, displayMode, plotView, layerIndex, tables } = request
+  const { scanKind, displayMode, plotView, layerIndex, elementIndex, tables } = request
   const [state, setState] = useState<CalculationState>({ curve: null, error: null, busy: true, stopped: false })
   const requestId = useRef(0)
   const lastCalculation = useRef(-Infinity)
@@ -117,7 +124,7 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
       debounceTimer.current = null
       lastCalculation.current = performance.now()
       setState((s) => ({ ...s, busy: true, stopped: false, error: null }))
-      calculate(computeService(), project, { scanKind, displayMode, plotView, layerIndex, tables })
+      calculate(computeService(), project, { scanKind, displayMode, plotView, layerIndex, elementIndex, tables })
         .then((curve) => {
           if (active && id === requestId.current) setState({ curve, error: null, busy: false, stopped: false })
         })
@@ -131,7 +138,7 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
       debounceTimer.current = null
       active = false
     }
-  }, [project, scanKind, displayMode, plotView, layerIndex, tables, revision, paused, live])
+  }, [project, scanKind, displayMode, plotView, layerIndex, elementIndex, tables, revision, paused, live])
 
   return { ...(paused ? { ...state, busy: false, stopped: true, error: null } : state), stop, recalculate }
 }

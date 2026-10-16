@@ -652,7 +652,7 @@
     {
       "name": "value-slider",
       "status": "ported",
-      "reason": "Fixed-baseline 0\u20134\u00d7 slider for eligible layer/slab/scattering-factor, magnetic profile/spline and script values, with current-view recalculation during dragging, gesture undo and stale-target clearing.",
+      "reason": "Fixed-baseline 0–4× slider for eligible layer/slab/scattering-factor, magnetic profile/spline and script values, with current-view recalculation during dragging, gesture undo and stale-target clearing.",
       "references": [
         "app/src/model/valueSlider.ts",
         "app/src/ui/ValueSlider.tsx",
@@ -688,16 +688,14 @@
     {
       "name": "element-tools",
       "status": "deferred",
-      "reason": "Implement scattering-factor and density plots (including toolbar) and Material to Elements.",
+      "reason": "Implement density plots (including toolbar) and Material to Elements. Scattering-factor UI is in its own group; full script-driven evaluation remains engine work.",
       "references": [
         "AGENTS.md"
       ],
       "entries": [
-        "client/ElementFrame.dfm::ElementFrame/Element/ShowScatteringFactorsButton",
         "client/ElementFrame.dfm::ElementFrame/Button2",
         "client/ElementFrame.dfm::ElementFrame/ShowDensityProfilesButton",
         "client/Unit1.cpp::event:d5d0cdb3a74bc3df:1",
-        "client/Unit1.cpp::event:76c251acfb0eca60:1",
         "client/Unit1.cpp::event:478587ce5cde9155:1",
         "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton10"
       ],
@@ -1217,6 +1215,21 @@
       "entries": [
         "client/Unit1.cpp::item:d41f4c83dbad7376:1",
         "client/Unit1.cpp::item:700671cf80246c31:1"
+      ]
+    },
+    {
+      "name": "element-scattering-factors",
+      "status": "ported",
+      "reason": "Element-mode Show Scattering Factors f1/f2 uses ComputeService and the worker, follows element selection, reports missing tables and plots/export imported .ff samples without zero-energy rows. Mock view is labelled table preview; per-energy Filldb and BeforeCalculation evaluation remain engine work.",
+      "references": [
+        "app/src/ui/sections/SampleSections.tsx",
+        "app/src/compute/mockSpectrum.ts",
+        "app/src/state/useCalculation.ts",
+        "app/e2e/scatteringFactors.spec.ts"
+      ],
+      "entries": [
+        "client/ElementFrame.dfm::ElementFrame/Element/ShowScatteringFactorsButton",
+        "client/Unit1.cpp::event:76c251acfb0eca60:1"
       ]
     }
   ],

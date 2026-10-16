@@ -392,3 +392,24 @@ describe('mock layer spectrum service', () => {
     service.dispose()
   })
 })
+
+describe('mock element scattering-factor service', () => {
+  it('selects the requested element table, omits zero energy and preserves the project', async () => {
+    const service = new WorkerComputeService(inProcessWorker)
+    const project = createDefaultProject()
+    project.sample.mode = 'element'
+    project.sample.elementProfiles = ['Co', 'Ni'].map(element => ({ element, f1: 1, f2: 2, f1Mag: 0, f2Mag: 0, slabs: [] }))
+    const before = structuredClone(project)
+    const tables = [
+      { name: 'Co', kind: 'ff' as const, energy: [0, 700, 800], columns: [[99, -2, 3], [99, 0, 4]], warnings: [] },
+      { name: 'Ni', kind: 'ff' as const, energy: [710, 810], columns: [[5, 6], [7, 8]], warnings: [] },
+    ]
+    expect(await service.scatteringFactors(project, { elementIndex: 0, tables })).toEqual({ energy: [700, 800], first: [-2, 3], second: [0, 4] })
+    expect(await service.scatteringFactors(project, { elementIndex: 1, tables })).toEqual({ energy: [710, 810], first: [5, 6], second: [7, 8] })
+    await expect(service.scatteringFactors(project, { elementIndex: 0, tables: [] })).rejects.toThrow('Load Co.ff')
+    await expect(service.scatteringFactors(project, { elementIndex: 2, tables })).rejects.toThrow('Select an element')
+    await expect(service.scatteringFactors(project, { elementIndex: 0, tables: [{ ...tables[0], columns: [[1], [2]] }] })).rejects.toThrow('invalid scattering-factor')
+    expect(project).toEqual(before)
+    service.dispose()
+  })
+})

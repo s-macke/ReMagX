@@ -192,7 +192,8 @@ Missing legacy controls and windows:
 - [ ] Layer table right-click menu: element δ/β spectrum, dielectric-tensor parts, "Get optical constants from database" / "Get f1/f2 from database", Properties → Materials dialog (name, formula, density, magneto-optics, dielectric tensor, "Fill Dielectric Tensor")
 - [x] Value slider below the layer table: fixed selected-cell baseline (250 = 1×, 1000 = 4×), layer/slab and element-factor cells, Gaussian/spline profile values and script parameters. Unsupported cells disable it; edits recalculate the current view during dragging, one gesture coalesces for undo, and structural/navigation changes clear stale selections.
 - [ ] Adaptive Layer Segmentation: "To layer list" and "Illustrate Segmentation"
-- [ ] Element Mode: "Show Scattering Factors f1/f2", "Show Density Profiles" (also a toolbar button in legacy), "Material to Elements"
+- [x] Element Mode: "Show Scattering Factors f1/f2" through the worker, with selected-element navigation, missing-table errors and plot exports. Current mock shows labelled .ff table previews; script-driven evaluation remains engine work.
+- [ ] Element Mode: "Show Density Profiles" (also a toolbar button in legacy), "Material to Elements"
 - [x] Active magnetization-profile Fit checkboxes: δ/β amplitude, center and width; synchronized parameter list, undo and safe profile deletion with fit/coupling reindexing. Hidden general Fit placeholders remain pending scope review.
 - [x] Magnetization profile spline editor: Build spline creates nine legacy Gaussian samples; edit the five interior y values, retain boundary points, switch Gaussian/spline controls, undo and save. Actual spline evaluation remains engine work.
 - [x] Magnetization profile binding: distinct all/air/layer/bulk/none choices using saved legacy indices; layer insertion/deletion preserves bindings (deleted target becomes none). Coupling offers earlier profiles, retaining unusual stored references visibly.
@@ -205,11 +206,11 @@ Missing legacy controls and windows:
 Data:
 - [x] Per-browser IndexedDB material library (D-13): all five table kinds restore, same-name/kind imports replace prior copies, explicit cache deletion persists, startup races preserve new imports/clears, and storage failures/unreadable records are reported without losing session data. Project JSON and undo history stay separate.
 - [ ] Built-in periodic-table/Chantler asset (D-13); licence check of the Chantler/Henke data before shipping it (D-31)
-- [ ] Real layer spectra: per-energy Filldb/BeforeCalculation evaluation, element conversion and dielectric tensors behind the spectrum service (current compound views are table previews).
+- [ ] Real layer and element spectra: per-energy Filldb/BeforeCalculation evaluation, element conversion and dielectric tensors behind the spectrum service (current compound and f1/f2 views are table previews).
 - [ ] Optical-constant tables used by calculations (energy scans currently keep δ/β constant)
 
 Quality gates:
-- [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 456 ported, 29 dropped and 191 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
+- [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 458 ported, 29 dropped and 189 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
 - [ ] Run all private-corpus imports in CI using `CORPUS_DIR` with private data access; fail if the corpus is missing or empty, without publishing research data in the repository, logs or artifacts (D-17.3, D-20, AC-4). Today the Pages workflow does not supply the corpus and the suite skips.
 - [x] Playwright end-to-end tests in Chromium headless (D-36): AC-10 responsiveness/Stop, AC-11 section toggles and persistence, AC-13 static Python hosting with external requests blocked, AC-14 IndexedDB reload restoration, and AC-15 upload/download and direct file-handle Open/Save/Save As. Native picker dialogs are substituted with real browser OPFS handles in headless tests; operating-system dialog interaction is not automated. These tests verify the current UI/mock phase, not real-engine acceptance.
 

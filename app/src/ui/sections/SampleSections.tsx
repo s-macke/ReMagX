@@ -218,6 +218,11 @@ export function ElementModeSection() {
             &gt;&gt;
           </button>
         </div>
+        <ButtonRow>
+          <button type="button" onClick={() => dispatch({ type: 'setPlotView', plotView: 'scatteringFactors' })}>
+            Show Scattering Factors f1/f2
+          </button>
+        </ButtonRow>
         <NumberField label="f1" value={element.f1} onChange={(v) => edit((p) => void (p.sample.elementProfiles[current].f1 = v))} />
         <NumberField label="f2" value={element.f2} onChange={(v) => edit((p) => void (p.sample.elementProfiles[current].f2 = v))} />
         <NumberField label="f1m" value={element.f1Mag} onChange={(v) => edit((p) => void (p.sample.elementProfiles[current].f1Mag = v))} />
