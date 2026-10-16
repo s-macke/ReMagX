@@ -110,6 +110,21 @@ int remagx_quartic_roots(const double* coefficients, double* output);
 // Outputs remain unchanged on failure and must not overlap the tensor input.
 int remagx_maxwell_polynomial(const double* tensor, double angle_radians, double* coefficients);
 int remagx_maxwell_roots(const double* tensor, double angle_radians, double* roots);
+// Legacy dielectric classification (distinct from scalar tensor construction mode).
+// Strict norm threshold: zero or negative finite epsilon classifies anisotropic.
+enum RemagxMatrixKind { REMAGX_MATRIX_ISOTROPIC = 0, REMAGX_MATRIX_ANISOTROPIC = 1,
+                        REMAGX_MATRIX_TETRAGONAL = 2 };
+int remagx_classify_tensor(const double* tensor, double epsilon, int* kind);
+// Analytic mode shortcuts only; kind must be ISOTROPIC or TETRAGONAL.
+// Isotropic uses the supplied complex refractive index; tetragonal uses tensor.
+// Caller selecting isotropic after classification supplies sqrt(tensor[0,0]).
+// Angles are radians, wave number inverse Angstrom, thickness Angstrom.
+// Output: 8 root doubles, 32 boundary-matrix doubles, 32 propagation doubles;
+// matrices row-major complex real/imag. Buffers must not overlap. All outputs
+// remain untouched on error. General anisotropic mode vectors are not provided.
+int remagx_analytic_modes(int kind, const double* tensor, const double* refractive_index,
+                         double angle, double wave_number, double thickness,
+                         double* roots, double* boundary, double* propagation);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
