@@ -250,8 +250,8 @@ intensities, preserving status codes on failure and freeing buffers on every exi
 It accepts `layers`, `qz`, `energy`, `beam1`, `beam2`, `tensor`, `analyzer`, `magnetic`
 and `mode`; the latter four use the C enums/flags. Both adapters reject sparse arrays.
 There are 3,360 additional native/WASM intensity comparisons in Node and Chromium,
-for 7,680 values in total. Integrating project preparation into ComputeService remains
-separate work; the deployed app still uses the mock.
+for 7,680 values in total. The explicit real-worker ComputeService factory uses guarded project preparation;
+the deployed app still uses the mock.
 
 ### Compound project preparation stage
 
@@ -277,8 +277,8 @@ check, not a committed full-project oracle. No private source or corpus was adde
 ### Initial real Parratt request preparation
 
 `app/src/model/parrattRequest.ts` combines the compound rows with scan coordinates,
-experiment energy, complex beam amplitudes and C API flags. This remains a pure
-preparation stage awaiting ComputeService integration. It rejects unfinished physics
+experiment energy, complex beam amplitudes and C API flags. This pure preparation
+stage is used by the explicit real-worker ComputeService factory. It rejects unfinished physics
 and preprocessing rather than returning a request with those effects omitted.
 
 The generated qz grid follows the main legacy calculation action (`Unit1.cpp`
@@ -296,3 +296,29 @@ nonzero angular resolution, averaging and optional postprocessing. Experiment en
 and polarizations remain authoritative when borrowing dataset coordinates, matching
 the main legacy action. The fast-dichroic upper boundary is stricter than the non-fast
 native API, so request preparation rejects ratio `qz/(2*k0) >= 1` for that branch.
+
+### Initial real ComputeService integration
+
+`createRealComputeService` selects a separate module worker through the existing
+WorkerComputeService factory. The real handler prepares supported project requests,
+lazily loads the WASM core and buffer adapter, and returns normal protocol results.
+It supports guarded Parratt reflectivity and dichroic/asymmetry requests; unsupported
+operations and preprocessing produce explicit errors with no mock fallback.
+`parrattResult.ts` follows `CDataSet::PostModifications` for normalized/difference
+asymmetry, including a zero result when the normalized denominator is zero.
+
+The real worker expects `remagx-core.mjs`, `remagx-core.wasm` and `parratt.mjs`
+beside its built worker asset. The integration harness stages these from the pinned
+WASM build and serves only its isolated generated directory:
+
+```sh
+node app/scripts/test-real-service.mjs build/wasm
+```
+
+This builds a separate Vite entry under `build/real-service-test`, then uses Chromium
+to check the real service's zero-contrast/total-reflection results, asymmetry,
+unsupported-operation errors, project immutability and Stop/restart. A test-only marker
+immediately before the actual synchronous C API call ensures Stop is checked during
+WASM execution; the service then rejects with ComputeCancelled and creates a working
+replacement within 1 s. The test entry and assets are not deployed. The main application
+still selects the mock; this initial integration does not establish full-engine acceptance.

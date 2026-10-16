@@ -236,8 +236,8 @@ Quality gates:
 - [x] Initial cleaned native Parratt kernel: double-only C API, magnetic/tetragonal branches, complex beam weights, analyzers and Nevot-Croce; C/C++ build and precision gate in CI. Compared 4,320 synthetic prepared-stack points with the private 2.6 routine at 1e-10 relative + 1e-15 absolute. Comparison diagnostics also report log10 error for positive pairs, zero pairs and nonpositive mismatches without changing D-23. This is component verification, not corpus or WASM acceptance.
 - [ ] Extract and clean the numerical core: double only, descriptive names, data-driven C API; verify the double-only source gate (D-6, D-34, AC-2).
 - [x] Initial native fixed-energy qz orchestration for prepared Parratt stacks: legacy energy conversion, non-fast zero-resolution qz boundaries, negative-qz skipping, both beam polarizations and opposite magnetic signs; 1,440 original-routine comparisons plus API failure tests. Exposed through the WASM adapter with 3,360 additional native/WASM intensity comparisons in Node and Chromium. Project preparation, resolution and full scan acceptance remain open.
-- [x] Initial compound preparation stage in `model/compoundLayers.ts`: legacy multilayer expansion with implicit substrate/ambient, independent substrate-first C API rows, per-layer directions and unscaled optical constants. Expansion matched 257 local original-interpreter cases; unit tests cover mapping and limits. Table refresh, Lua, element preparation, segmentation and service integration remain open.
-- [x] Initial real Parratt request preparation: legacy qz grid endpoints and dataset shift threshold, compound rows, energy, complex beams, tensor/analyzer/magnetic flags and fast-dichroic boundary. Unimplemented preprocessing/physics is explicitly rejected. This pure stage is not yet connected to ComputeService; full project and corpus acceptance remain open.
+- [x] Initial compound preparation stage in `model/compoundLayers.ts`: legacy multilayer expansion with implicit substrate/ambient, independent substrate-first C API rows, per-layer directions and unscaled optical constants. Expansion matched 257 local original-interpreter cases; unit tests cover mapping and limits. Table refresh, Lua, element preparation and segmentation remain open.
+- [x] Initial real Parratt request preparation: legacy qz grid endpoints and dataset shift threshold, compound rows, energy, complex beams, tensor/analyzer/magnetic flags and fast-dichroic boundary. Unimplemented preprocessing/physics is explicitly rejected. Connected through the explicit real-worker service factory; full project and corpus acceptance remain open.
 - [ ] Port Parratt, full 4×4 matrix/Visnovsky and Zak calculations for qz and energy scans; validate each against legacy golden outputs (D-3, D-25, AC-5).
 - [ ] Port Nevot-Croce roughness and adaptive layer segmentation, including segmentation settings (D-25, spec §2).
 - [ ] Port Gaussian and spline magnetic profiles with coupling (D-25, spec §2).
@@ -255,7 +255,8 @@ Quality gates:
 - [ ] Port angular and energy resolution, including fast/exact convolution; complete dichroic/asymmetry energy scans (D-25, spec §2, AC-5)
 - [ ] Legacy error conditions (RX_QZ, RX_DB, RX_CSCRIPT, RX_ESCRIPT, RX_ML, RX_UNKNOWN) as clear UI messages (D-14)
 - [ ] Lua scripting with wasmoon and the full legacy script API (D-2, D-22; AC-7, AC-7a, AC-8)
-- [ ] Replace the mock with the WASM engine behind `ComputeService` (D-33)
+- [x] Initial real-worker ComputeService path for guarded Parratt reflectivity/dichroic/asymmetry requests, with lazy WASM loading, legacy asymmetry definitions, explicit unsupported errors and Chromium Stop/restart verification. Available through `createRealComputeService`; not selected by the deployed app.
+- [ ] Complete the real engine and replace the deployed mock behind `ComputeService` (D-33)
 - [ ] Native command-line tool like the legacy `ReMagX_Terminal`: `-refl`, `-dicrefl`, `-fit`, `-convert` (`.db` + `.m` → `.e`), `-v`; `-map` once maps exist; reads `.all` and JSON (D-35)
 
 ### Later (agreed, not scheduled)
