@@ -1,4 +1,4 @@
-import { createRealRequestHandler, type RealQzCalculator } from './realEngine'
+import { createRealRequestHandler, type RealEngine } from './realEngine'
 import type { WorkerRequest } from './protocol'
 
 // Static module/adapter/WASM siblings are staged by the real-engine build harness.
@@ -10,6 +10,7 @@ const handle = createRealRequestHandler(response => self.postMessage(response), 
     import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl),
   ])
   const instance = await core.default()
-  return ((request) => adapter.calculateParrattQz(instance, request)) satisfies RealQzCalculator
+  return { calculate: request => adapter.calculateParrattQz(instance, request),
+    lookup: (table, queries, cursor) => adapter.lookupTable(instance, table, queries, cursor) } satisfies RealEngine
 })
 self.onmessage = (event: MessageEvent<WorkerRequest>) => { void handle(event.data) }

@@ -15,7 +15,7 @@ it('unpacks both asymmetry definitions and zero sums without altering inputs', (
 it('prepares and routes requests, shares initialization, and returns the established result shape', async () => {
   const send = vi.fn()
   const calculate = vi.fn((request: Parameters<RealQzCalculator>[0]) => new Float64Array(request.qz.flatMap(() => [3, 1])))
-  const load = vi.fn(async () => calculate)
+  const load = vi.fn(async () => ({ calculate, lookup: vi.fn() }))
   const handle = createRealRequestHandler(send, load)
   const project = createDefaultProject()
   project.experiment.qzScan.points = 2
@@ -32,7 +32,7 @@ it('prepares and routes requests, shares initialization, and returns the establi
 
 it('rejects unsupported work before loading, retries failed initialization, and translates native errors', async () => {
   const messages: WorkerResponse[] = []
-  const load = vi.fn().mockRejectedValueOnce(new Error('Module load failed')).mockResolvedValue(() => { throw Object.assign(new Error(), { status: 4 }) })
+  const load = vi.fn().mockRejectedValueOnce(new Error('Module load failed')).mockResolvedValue({ calculate: () => { throw Object.assign(new Error(), { status: 4 }) }, lookup: vi.fn() })
   const handle = createRealRequestHandler(message => messages.push(message), load)
   const project = createDefaultProject()
   await handle({ id: 1, kind: 'fit', project })
@@ -45,4 +45,25 @@ it('rejects unsupported work before loading, retries failed initialization, and 
     { id: 2, type: 'error', message: 'Module load failed' },
     { id: 3, type: 'error', message: 'Qz exceeds the legacy calculation boundary.' },
   ])
+})
+
+it('refreshes only the worker snapshot, using the legacy wavelength round trip before calculation', async () => {
+  const project = createDefaultProject()
+  project.calculation.automaticOpticalConstants = true
+  project.experiment.energy = 643.123
+  project.experiment.qzScan.points = 2
+  project.sample.layers.forEach(layer => { layer.opticalTable = 'sample' })
+  const before = structuredClone(project)
+  const lookup = vi.fn(() => ({ values: new Float64Array([.01, .002]), cursor: 1 }))
+  const calculate = vi.fn((request: Parameters<RealQzCalculator>[0]) => new Float64Array(request.qz.flatMap(() => [1, 1])))
+  const send = vi.fn()
+  const handle = createRealRequestHandler(send, async () => ({ calculate, lookup }))
+  const tables = [{ name: 'sample', kind: 'db' as const, energy: [600, 700], columns: [[0, 1], [0, 1]], warnings: [] }]
+  await handle({ id: 1, kind: 'reflectivity', project, tables })
+  expect(lookup.mock.calls[0]).toEqual([tables[0], [12398.326 / (12398.326 / project.experiment.energy)], 0])
+  expect(calculate.mock.calls[0][0].layers.every(layer => layer[2] === .01 && layer[3] === .002 && layer[4] === 0 && layer[5] === 0)).toBe(true)
+  expect(project).toEqual(before)
+  await handle({ id: 2, kind: 'reflectivity', project })
+  expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ id: 2, type: 'error' })
+  expect(calculate).toHaveBeenCalledTimes(1)
 })

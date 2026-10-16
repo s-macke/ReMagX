@@ -51,7 +51,8 @@ try {
         this.addEventListener('message', event => { if (event.data.realCoreEntered) enteredResolve?.() })
       }
     }
-    const service = createRealComputeService()
+    let tables = []
+    const service = createRealComputeService(() => tables)
     const project = createDefaultProject()
     project.sample.layers = [createLayer(), createLayer()]
     project.experiment.qzScan.points = 4
@@ -90,6 +91,31 @@ try {
         resolutionProject.experiment.qzScan.qzMax = qz
         output.resolution.push((await service.calcReflectivity(resolutionProject)).reflectivity[0])
       }
+      const automatic = structuredClone(resolutionProject)
+      automatic.calculation.automaticOpticalConstants = true
+      automatic.sample.layers.forEach((layer, index) => { layer.opticalTable = index ? 'ambient' : 'film'; layer.deltaMag = 7; layer.betaMag = 8 })
+      tables = [
+        { name: 'film', kind: 'db', energy: [639, 641], columns: [[.009, .011], [.001, .003]], warnings: [] },
+        { name: 'ambient', kind: 'db', energy: [639, 641], columns: [[0, 0], [0, 0]], warnings: [] },
+        { name: 'film', kind: 'm', energy: [700, 800], columns: [[1, 2], [3, 4]], warnings: [] },
+      ]
+      const automaticSnapshot = JSON.stringify(automatic)
+      const tableSnapshot = JSON.stringify(tables)
+      output.automatic = await service.calcReflectivity(automatic)
+      output.automaticBaseline = await service.calcReflectivity(resolutionProject)
+      output.refreshUnchanged = automaticSnapshot === JSON.stringify(automatic) && tableSnapshot === JSON.stringify(tables)
+      // Replace the session table and compare both magnetic beams with explicit constants.
+      tables[2] = { ...tables[2], energy: [639, 641], columns: [[.001, .003], [.0001, .0003]] }
+      automatic.calculation.magnetization.mode = 'add'
+      const explicit = structuredClone(resolutionProject)
+      explicit.calculation.magnetization.mode = 'add'
+      explicit.sample.layers[0].deltaMag = .002
+      explicit.sample.layers[0].betaMag = .0002
+      output.automaticMagnetic = await service.calcAsymmetry(automatic)
+      output.magneticBaseline = await service.calcAsymmetry(explicit)
+      tables = tables.filter(table => table.name !== 'ambient')
+      try { await service.calcReflectivity(automatic) } catch (error) { output.missingTable = error.message }
+      tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
       busy.sample.layers = Array.from({ length: 1000 }, (_, index) => createLayer({ thickness: 10, delta: index % 2 ? .001 : .002, beta: .0001 }))
@@ -126,11 +152,18 @@ try {
   // 19-node kernel at energy 640 eV and width .002 inverse Angstrom.
   const resolutionReference = [.56005877016968919, .87413289596007782]
   results.resolution.forEach((value, index) => assert.ok(Math.abs(value - resolutionReference[index]) <= 1e-15 + 1e-10 * Math.abs(resolutionReference[index])))
+  for (const [actual, expected] of [[results.automatic, results.automaticBaseline], [results.automaticMagnetic, results.magneticBaseline]]) {
+    for (const key of Object.keys(expected)) actual[key].forEach((value, index) => {
+      assert.ok(Math.abs(value - expected[key][index]) <= 1e-15 + 1e-10 * Math.abs(expected[key][index]), `Automatic refresh ${key}[${index}]`)
+    })
+  }
+  assert.equal(results.refreshUnchanged, true)
+  assert.match(results.missingTable, /missing optical table ambient/)
   assert.equal(results.stopped, 'ComputeCancelled')
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

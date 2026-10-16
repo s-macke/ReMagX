@@ -51,10 +51,12 @@ export class WorkerComputeService implements ComputeService {
   private disposed = false
   private stopping = false
   private readonly createWorker: () => WorkerPort
+  private readonly getTables?: () => OpticalTable[]
   private stopTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(createPort: () => WorkerPort = createWorker) {
+  constructor(createPort: () => WorkerPort = createWorker, getTables?: () => OpticalTable[]) {
     this.createWorker = createPort
+    this.getTables = getTables
   }
 
   private connect(): WorkerPort {
@@ -190,7 +192,8 @@ export class WorkerComputeService implements ComputeService {
       this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress })
       try {
         this.worker ??= this.connect()
-        this.worker.postMessage({ id, kind, project, ...(spectrum ? { spectrum } : {}) } as WorkerRequest)
+        const tables = project.calculation.automaticOpticalConstants && (kind === 'reflectivity' || kind === 'asymmetry') ? this.getTables?.() : undefined
+        this.worker.postMessage({ id, kind, project, ...(tables ? { tables } : {}), ...(spectrum ? { spectrum } : {}) } as WorkerRequest)
       } catch (error) {
         this.failWorker(`Could not start the computation: ${String(error)}`)
       }
