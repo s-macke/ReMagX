@@ -1,5 +1,6 @@
 #include "remagx/core.h"
 #include "remagx/optimizer.h"
+#include "remagx/fit_error.h"
 static int quadratic(const double* parameters, size_t count, void* context, double* value) {
     (void)count; (void)context;
     *value = parameters[0] * parameters[0];
@@ -36,5 +37,11 @@ int main(void) {
     const RemagxSimplexOptions options = {1000, 1000, 1e-8, 1e-12};
     RemagxFitSummary summary;
     status = remagx_nelder_mead(simplex, 1, &options, quadratic, NULL, NULL, NULL, &result, &summary);
-    return status != REMAGX_SUCCESS || summary.termination != REMAGX_FIT_CONVERGED || summary.value > 1e-12;
+    if (status != REMAGX_SUCCESS || summary.termination != REMAGX_FIT_CONVERGED || summary.value > 1e-12) return 1;
+    const double measured = 1.0, calculated = 100.0;
+    double residual = 123;
+    size_t accepted = 123;
+    status = remagx_fit_dataset_error(REMAGX_FIT_REFLECTIVITY_LOG, &qz, NULL, &measured, &calculated,
+        NULL, NULL, 1, 0, 1, 0, 0, &result, &accepted, &residual);
+    return status != REMAGX_SUCCESS || result != 4.0 || accepted != 1 || residual != -2.0;
 }

@@ -495,3 +495,28 @@ calculation settings. Only the error-function values differ.
 
 The current tolerance is unchanged. Neither replacement has been integrated into
 the engine. The decision journal records the pending user decision under D-29.
+
+
+## Active dataset fit objectives (2026-10-16)
+
+`shared/CError.cpp::CalcErrorOfDataset` selects these prepared-data error functions:
+
+| Data | Error metric | Acceptance filters |
+|---|---|---|
+| Reflectivity, logarithmic | Mean squared log10 difference | Inclusive qz window; measured/calculated positive |
+| Reflectivity, linear | Mean squared intensity difference | Same positivity and qz filters |
+| Monochromatic energy, logarithmic/linear | Corresponding reflectivity metric | Additionally inclusive energy window |
+| Asymmetry, qz or energy | Mean squared signed difference | Inclusive qz window only |
+| Dichroic, qz or energy | Sum of both squared log10 differences, divided by accepted rows | Inclusive qz window; all four intensities positive |
+
+The optional residual vector keeps its previous values for skipped rows. Dichroic
+rows store the sum of absolute beam log differences there, although the scalar
+objective sums their squares. No accepted rows produces zero. These details are
+preserved by `remagx_fit_dataset_error`; it does not clamp intensities before logs.
+Nonfinite API inputs and numerical overflow report errors atomically.
+
+Before these functions, the legacy orchestration adapts the measured dataset,
+applies postmodifications and installs its energy, resolution and polarization.
+The serial multi-dataset path sums `errorweight * dataset_error` for active datasets
+and adds Qerror regularization. Those preparation/aggregation stages are separate
+remaining work; testing prepared residuals does not establish full fit equivalence.
