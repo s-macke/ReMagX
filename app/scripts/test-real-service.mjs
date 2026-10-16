@@ -43,7 +43,7 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
   const results = await page.evaluate(async () => {
-    const { importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
+    const { prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve
     const NativeWorker = window.Worker
     window.Worker = class extends NativeWorker {
@@ -105,6 +105,27 @@ try {
         resolutionProject.experiment.qzScan.qzMax = qz
         output.resolution.push((await service.calcReflectivity(resolutionProject)).reflectivity[0])
       }
+      const fitInput = structuredClone(resolutionProject)
+      const fitPolarization = structuredClone(fitInput.experiment.polarization)
+      fitPolarization.beam1 = { sigma: { re: 0, im: 0 }, pi: { re: 1, im: 0 } }
+      fitInput.datasets = [{ title: '', comment: '', sourceFile: '', energy: 650, energyShift: 3,
+        angularResolution: .001, intensityScale: 2, intensityOffset: .5, qzShift: -.001,
+        errorWeight: 4, polarization: fitPolarization, active: true,
+        columns: { qz: [.03, .01, .02], reflectivity: [1, 2, 3] } }]
+      const fitSnapshot = JSON.stringify(fitInput)
+      const preparedFit = prepareFitDataset(fitInput, 0)
+      output.fitPrepared = await service.calcReflectivity(preparedFit.project)
+      output.fitMeasurement = preparedFit.measurement
+      output.fitInputUnchanged = fitSnapshot === JSON.stringify(fitInput)
+      const fitBaseline = structuredClone(fitInput)
+      fitBaseline.activeDatasetIndex = 0
+      fitBaseline.experiment.energy = 650
+      fitBaseline.experiment.polarization = fitPolarization
+      fitBaseline.experiment.resolution.angularFwhm = .001
+      fitBaseline.experiment.qzScan.useDatasetPoints = true
+      fitBaseline.datasets[0].qzShift = 0
+      fitBaseline.datasets[0].columns.qz = [.03 - .001, .01 - .001, .02 - .001]
+      output.fitBaseline = await service.calcReflectivity(fitBaseline)
       const automatic = structuredClone(resolutionProject)
       automatic.calculation.automaticOpticalConstants = true
       automatic.sample.layers.forEach((layer, index) => { layer.opticalTable = index ? 'ambient' : 'film'; layer.deltaMag = 7; layer.betaMag = 8 })
@@ -289,6 +310,10 @@ try {
       return output
     } finally { service.dispose(); window.Worker = NativeWorker }
   })
+  assert.equal(results.fitInputUnchanged, true)
+  assert.deepEqual(results.fitPrepared, results.fitBaseline)
+  assert.deepEqual(results.fitPrepared.qz, results.fitMeasurement.qz)
+  assert.deepEqual(results.fitMeasurement.reflectivity, [3, 5, 7])
   assert.equal(results.precision.length, 4)
   const precisionBaseline = results.precision[0]
   assert.ok(precisionBaseline.values.length > 1)
@@ -411,7 +436,7 @@ try {
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))
