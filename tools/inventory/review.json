@@ -1,0 +1,1136 @@
+{
+  "version": 1,
+  "scope": "UI migration inventory. Ported means the described UI behavior is present, not real-engine physics acceptance. Deferred phases ui and engine are still MVP obligations; later is agreed post-MVP work; decision requires scope clarification. Groups list exact IDs, never wildcard defaults.",
+  "groups": [
+    {
+      "name": "experiment-controls",
+      "status": "ported",
+      "reason": "Energy, scan, resolution, simulation and polarization controls update the project. Physics semantics remain engine-phase work under D-33.",
+      "references": [
+        "app/src/ui/sections/ExperimentSections.tsx"
+      ],
+      "entries": [
+        "client/EScanFrame.dfm::Frame13",
+        "client/EScanFrame.dfm::Frame13/Label16",
+        "client/EScanFrame.dfm::Frame13/CheckBox5",
+        "client/EScanFrame.dfm::Frame13/GroupBox1",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Label1",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Label28",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Label26",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Label17",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Label27",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Label6",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Edit15",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Edit18",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Edit16",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/RadioButton1",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/RadioButton2",
+        "client/EScanFrame.dfm::Frame13/GroupBox1/Edit2",
+        "client/EScanFrame.dfm::Frame13/GroupBox2",
+        "client/EScanFrame.dfm::Frame13/GroupBox2/Label3",
+        "client/EScanFrame.dfm::Frame13/GroupBox2/Label4",
+        "client/EScanFrame.dfm::Frame13/GroupBox2/Label2",
+        "client/EScanFrame.dfm::Frame13/GroupBox2/Label5",
+        "client/EScanFrame.dfm::Frame13/GroupBox2/Edit4",
+        "client/EScanFrame.dfm::Frame13/GroupBox2/Edit1",
+        "client/EScanFrame.dfm::Frame13/EditNumberOfPoints",
+        "client/ExperimentFrame.dfm::Frame15",
+        "client/ExperimentFrame.dfm::Frame15/Label1",
+        "client/ExperimentFrame.dfm::Frame15/Edit1",
+        "client/MeasurementParamsFrame.dfm::Frame17",
+        "client/MeasurementParamsFrame.dfm::Frame17/epsilone",
+        "client/MeasurementParamsFrame.dfm::Frame17/EditEpsilon",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/Label8",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/CheckBox1",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/CheckBox2",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/Edit6",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/CheckBox3",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox3",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox3/Label1",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox3/MultiLayerEdit",
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox3/EnableMultilayerCheckBox",
+        "client/PolarizationFrame.dfm::Frame5",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/s",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/Label1",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/Label2",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/i",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/ray1sigmare",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/ray1pire",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/ray1sigmaim",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/ray1piim",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/Ray1ComboBox",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox1/Norm",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/Label3",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/Label4",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/Label6",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/Label7",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/Ray2ComboBox",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/ray2pire",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/ray2sigmare",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/ray2piim",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/ray2sigmaim",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox2/ray2Norm",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox3",
+        "client/PolarizationFrame.dfm::Frame5/GroupBox3/AnalyzerComboBox",
+        "client/ResolutionFrame.dfm::ResolutionFrame",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox2",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox2/Label2",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox2/numb",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox2/Edit2",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox2/Edit3",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox2/CheckBox9",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox4",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox4/Label3",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox4/Label4",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox4/Edit1",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox4/Edit4",
+        "client/ResolutionFrame.dfm::ResolutionFrame/GroupBox4/CheckBox3",
+        "client/Unit1.cpp::item:72bc47b02f9db0dc:1",
+        "client/Unit1.cpp::item:f3cd520b862c7e16:1",
+        "client/Unit1.cpp::item:852979c712ab4ab1:1",
+        "client/Unit1.cpp::item:264a8f563001cd20:1",
+        "client/Unit1.cpp::item:f44feecab9991eca:1",
+        "client/Unit1.cpp::item:14c63bd40d063cc3:1",
+        "client/Unit1.cpp::item:cf2d459c92ec26c1:1",
+        "client/Unit1.cpp::item:a66a3d394decaa72:1",
+        "client/Unit1.cpp::item:7fde667d19cb3ba3:1",
+        "client/Unit1.cpp::item:40050f5a17490a01:1",
+        "client/Unit1.cpp::item:4e17928b7d0c3928:1",
+        "client/Unit1.cpp::item:88cf4c6ac519dd83:1",
+        "client/Unit1.cpp::item:bc6025774884003d:1",
+        "client/Unit1.cpp::item:15f21d7a886d6bad:1",
+        "client/Unit1.cpp::event:9faa149ce9bcbb17:1",
+        "client/Unit1.dfm::Form1/Panel1/Button3",
+        "client/Unit1.dfm::Form1/Panel1/Button24",
+        "client/Unit1.dfm::Form1/Panel1/RadioGroup1"
+      ]
+    },
+    {
+      "name": "sample-controls",
+      "status": "ported",
+      "reason": "Segmentation settings, element navigation, optical cache and magnetization controls exist. Real-engine evaluation and persistent library remain separate checklist tasks.",
+      "references": [
+        "app/src/ui/sections/SampleSections.tsx"
+      ],
+      "entries": [
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Label20",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Label21",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Label22",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Label23",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Label24",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Label1",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Edit20",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Edit21",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Edit22",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/ShowProfileButton",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Button10",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/RadioGroup4",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Edit1",
+        "client/ElementFrame.dfm::ElementFrame",
+        "client/ElementFrame.dfm::ElementFrame/Element",
+        "client/ElementFrame.dfm::ElementFrame/Element/Label1",
+        "client/ElementFrame.dfm::ElementFrame/Element/ForwardButton",
+        "client/ElementFrame.dfm::ElementFrame/Element/BackwardButton",
+        "client/MagnetizationDirectionFrame.dfm::Frame11",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/gamma",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/Label30",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/presets",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/Edit23",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/Edit24",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/MagnetizationPreset",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/Button1",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/MagnetizationRadioGroup",
+        "client/MzFrame.dfm::Frame8",
+        "client/MzFrame.dfm::Frame8/Label4",
+        "client/MzFrame.dfm::Frame8/CheckBox13",
+        "client/MzFrame.dfm::Frame8/Button9",
+        "client/MzFrame.dfm::Frame8/Button8",
+        "client/MzFrame.dfm::Frame8/RadioGroup1",
+        "client/OpticalConstantsFrame.dfm::Frame21",
+        "client/OpticalConstantsFrame.dfm::Frame21/Label1",
+        "client/OpticalConstantsFrame.dfm::Frame21/DeleteOpticalConstantsButton",
+        "client/OpticalConstantsFrame.dfm::Frame21/RadioGroup1",
+        "client/OpticalConstantsFrame.dfm::Frame21/OCGrid",
+        "client/Unit1.cpp::item:d8191237b0d5470c:1",
+        "client/Unit1.cpp::item:8fb86b0a2ab108b8:1",
+        "client/Unit1.cpp::event:710426e333d89f04:1",
+        "client/Unit1.cpp::event:1e994fe3a05a3377:1",
+        "client/Unit1.cpp::event:d940582ce88b10fe:1",
+        "client/Unit1.cpp::item:f920787e0de13290:1",
+        "client/Unit1.cpp::item:aa06e57d0c14ce5c:1",
+        "client/Unit1.cpp::event:e931a51adf80450a:1",
+        "client/Unit1.cpp::item:653ffead04cc1426:1",
+        "client/Unit1.cpp::item:bc06ffd6f91fd75f:1",
+        "client/Unit1.cpp::item:511833b4da4ae181:1",
+        "client/Unit1.cpp::item:a131c40a16a238e1:1",
+        "client/Unit1.cpp::item:d887403dad08ea37:1",
+        "client/Unit1.cpp::item:63641618dbe11fb8:1",
+        "client/Unit1.cpp::item:b6834ecd0722ed5c:1",
+        "client/Unit1.cpp::event:ecc47dbc8d593812:1",
+        "client/Unit1.cpp::event:a59d1e72c298e6cf:1",
+        "client/Unit1.cpp::event:5a15085cbfd46b9d:1",
+        "client/Unit1.cpp::event:94f104f621238d82:1",
+        "client/Unit1.cpp::event:1314249a82a660b6:1",
+        "client/Unit1.cpp::item:54df5585d79d437a:1",
+        "client/Unit1.cpp::item:54df5585d79d437a:2",
+        "client/Unit1.cpp::item:54df5585d79d437a:3",
+        "client/Unit1.cpp::event:bc3d000ee9908e01:1",
+        "client/Unit1.cpp::event:b6cbe4490a3ed675:1"
+      ]
+    },
+    {
+      "name": "fit-controls",
+      "status": "ported",
+      "reason": "Fit settings, parameter editing, value transfer and mock fit controls exist. Additional targets, full objective semantics and multi-dataset calculations remain engine-phase work.",
+      "references": [
+        "app/src/ui/sections/FitSections.tsx",
+        "app/src/model/fitTargets.ts"
+      ],
+      "entries": [
+        "client/DebugFrame.dfm::Frame20",
+        "client/DebugFrame.dfm::Frame20/Memo1",
+        "client/FitAlgorithmFrame.dfm::TFitAllgorithmFrame",
+        "client/FitAlgorithmFrame.dfm::TFitAllgorithmFrame/GroupBox5",
+        "client/FitAlgorithmFrame.dfm::TFitAllgorithmFrame/GroupBox5/Label6",
+        "client/FitAlgorithmFrame.dfm::TFitAllgorithmFrame/GroupBox5/Label7",
+        "client/FitAlgorithmFrame.dfm::TFitAllgorithmFrame/GroupBox5/Edit7",
+        "client/FitAlgorithmFrame.dfm::TFitAllgorithmFrame/GroupBox5/Edit8",
+        "client/FitFrame1.dfm::Frame2",
+        "client/FitFrame1.dfm::Frame2/ScriptParameterList",
+        "client/FitFrame1.dfm::Frame2/CheckBox8",
+        "client/FitFrame1.dfm::Frame2/CheckBox4",
+        "client/FitFrame1.dfm::Frame2/CheckBox14",
+        "client/FitFrame1.dfm::Frame2/AddScriptParameterButton",
+        "client/FitFrame1.dfm::Frame2/DeleteScriptParameterButton",
+        "client/FitFrame1.dfm::Frame2/CheckBox1",
+        "client/FitParametersFrame.dfm::Frame12",
+        "client/FitParametersFrame.dfm::Frame12/FitVariablesInput",
+        "client/FitRangeLimitFrame.dfm::Frame16",
+        "client/FitRangeLimitFrame.dfm::Frame16/Label12",
+        "client/FitRangeLimitFrame.dfm::Frame16/Label11",
+        "client/FitRangeLimitFrame.dfm::Frame16/Label1",
+        "client/FitRangeLimitFrame.dfm::Frame16/Label2",
+        "client/FitRangeLimitFrame.dfm::Frame16/Label3",
+        "client/FitRangeLimitFrame.dfm::Frame16/Label4",
+        "client/FitRangeLimitFrame.dfm::Frame16/Edit11",
+        "client/FitRangeLimitFrame.dfm::Frame16/Edit10",
+        "client/FitRangeLimitFrame.dfm::Frame16/Edit1",
+        "client/FitRangeLimitFrame.dfm::Frame16/Edit2",
+        "client/FitStartStop.dfm::Frame19",
+        "client/FitStartStop.dfm::Frame19/GetChiSquareButton",
+        "client/FitStartStop.dfm::Frame19/Button4",
+        "client/FitTypeFrame.dfm::Frame7",
+        "client/FitTypeFrame.dfm::Frame7/Label1",
+        "client/FitTypeFrame.dfm::Frame7/RadioGroup1",
+        "client/FitTypeFrame.dfm::Frame7/ErrorfunctionRadioGroup",
+        "client/FitTypeFrame.dfm::Frame7/QEdit",
+        "client/Unit1.cpp::item:aff225e5b600c6b3:1",
+        "client/Unit1.cpp::item:e8cd92c6e3cb8275:1",
+        "client/Unit1.cpp::item:044d42b10b4f5792:1",
+        "client/Unit1.cpp::item:f724a1e2d221454c:1",
+        "client/Unit1.cpp::event:c46f9829cd7f66f4:1",
+        "client/Unit1.cpp::event:59c1f22b541e8362:1",
+        "client/Unit1.cpp::event:23be07db27546849:1",
+        "client/Unit1.cpp::event:88ea82ff58087c42:1",
+        "client/Unit1.cpp::event:c5a3f40a78662abe:1",
+        "client/Unit1.cpp::event:d5805b5857cc0dd4:1",
+        "client/Unit1.cpp::event:b4b5072236a5f7ea:1",
+        "client/Unit1.cpp::event:fbc13bd3d90d6277:1",
+        "client/Unit1.cpp::event:09d0f86e315826d1:1",
+        "client/Unit1.cpp::item:6fbebd80719f4d5d:1",
+        "client/Unit1.cpp::item:8f768518f151baa1:1",
+        "client/Unit1.cpp::item:91328d12be15f663:1"
+      ]
+    },
+    {
+      "name": "dataset-list",
+      "status": "ported",
+      "reason": "Selection, fit inclusion, ordering and deletion use model actions; incomplete property editing is classified separately.",
+      "references": [
+        "app/src/ui/sections/SampleSections.tsx",
+        "app/src/model/datasets.ts"
+      ],
+      "entries": [
+        "client/DatasetFrame.dfm::Frame9",
+        "client/DatasetFrame.dfm::Frame9/DataList",
+        "client/DatasetFrame.dfm::Frame9/Button21",
+        "client/DatasetFrame.dfm::Frame9/Button20",
+        "client/DatasetFrame.dfm::Frame9/AddFitButton",
+        "client/DatasetFrame.dfm::Frame9/PopupMenu1",
+        "client/DatasetFrame.dfm::Frame9/PopupMenu1/Up1",
+        "client/DatasetFrame.dfm::Frame9/PopupMenu1/Down1",
+        "client/Unit1.cpp::event:7b2c4958db806bb0:1",
+        "client/Unit1.cpp::event:4c6ace03f54b3244:1",
+        "client/Unit1.cpp::event:e39a775c104fb5d1:1",
+        "client/Unit1.cpp::item:2381add6dc8159d0:1",
+        "client/Unit1.cpp::item:75b28b89b157f6eb:1",
+        "client/Unit1.cpp::item:99e9531bdda9035d:1"
+      ]
+    },
+    {
+      "name": "layout",
+      "status": "ported",
+      "reason": "Modern tabs, section panels, menu structure and toolbar replace VCL containers (D-16, D-18).",
+      "references": [
+        "app/src/ui/SectionPanel.tsx",
+        "app/src/ui/SidePanel.tsx",
+        "app/src/ui/Toolbar.tsx",
+        "app/src/App.tsx"
+      ],
+      "entries": [
+        "client/BoxFrames.dfm::Frame4",
+        "client/BoxFrames.dfm::Frame4/ScrollBox1",
+        "client/Unit1.dfm::Form1/Panel1",
+        "client/Unit1.dfm::Form1/Panel1/Ref",
+        "client/Unit1.dfm::Form1/Panel1/Ref/TabSheet3",
+        "client/Unit1.dfm::Form1/Panel1/Ref/TabSheet7",
+        "client/Unit1.dfm::Form1/Panel1/Ref/TabSheet9",
+        "client/Unit1.dfm::Form1/CoolBar1",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton3",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton6",
+        "client/Unit1.dfm::Form1/MainMenu1",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei/N1",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei/N2",
+        "client/Unit1.dfm::Form1/MainMenu1/Zurck1",
+        "client/Unit1.dfm::Form1/MainMenu1/Mode1",
+        "client/Unit1.dfm::Form1/MainMenu1/Layer1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Script1",
+        "client/Unit1.dfm::Form1/MainMenu1/Preferences1",
+        "client/Unit1.dfm::Form1/MainMenu1/Help1",
+        "client/Unit1.dfm::Form1/ImageList1",
+        "client/BoxFrames.h::event:f65aa0cd17397e08:1"
+      ]
+    },
+    {
+      "name": "plot-basics",
+      "status": "ported",
+      "reason": "Hold, Clear and Scale exist in the plot panel. Other plot controls are classified separately.",
+      "references": [
+        "app/src/ui/PlotPanel.tsx"
+      ],
+      "entries": [
+        "client/Unit1.dfm::Form1/Button14",
+        "client/Unit1.dfm::Form1/Button15",
+        "client/Unit1.dfm::Form1/Button27"
+      ]
+    },
+    {
+      "name": "project-files",
+      "status": "ported",
+      "reason": "JSON open/save and legacy import, ASCII diagram/table export and browser file pickers replace VCL file dialogs (D-8, D-13).",
+      "references": [
+        "app/src/App.tsx",
+        "app/src/ui/fileActions.ts",
+        "app/src/state/usePersistence.ts"
+      ],
+      "entries": [
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton1",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton2",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei/LadeProgrammzustand1",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei/SpeicherProgrammzustand1",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei/Savestate1",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei/SpeichereDiagramm1",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei/ExportTableasASCII1",
+        "client/Unit1.dfm::Form1/SaveDialog1",
+        "client/Unit1.dfm::Form1/OpenDialog1",
+        "client/Unit1.dfm::Form1/OpenDialog2",
+        "client/Unit1.dfm::Form1/OpenDialog3",
+        "client/Unit1.dfm::Form1/SaveDialog2",
+        "client/Unit1.dfm::Form1/SaveDialog3",
+        "client/Unit1.dfm::Form1/OpenDialog4",
+        "client/Unit1.dfm::Form1/SaveDialog4",
+        "client/Unit1.dfm::Form1/SaveDialog5",
+        "client/Unit1.dfm::Form1/OpenDialog5",
+        "client/Unit1.dfm::Form1/OpenDialog6",
+        "client/Unit1.dfm::Form1/SaveDialog6"
+      ]
+    },
+    {
+      "name": "ascii-import",
+      "status": "ported",
+      "reason": "Column-role selectors, ignore roles, live preview and separator/decimal controls replace the legacy column-list buttons (D-16).",
+      "references": [
+        "app/src/ui/AsciiImportDialog.tsx",
+        "app/src/import/asciiData.ts"
+      ],
+      "entries": [
+        "client/LoadASCIIForm.cpp::item:b9c96f4f6a1919d5:1",
+        "client/LoadASCIIForm.dfm::Form3",
+        "client/LoadASCIIForm.dfm::Form3/Label1",
+        "client/LoadASCIIForm.dfm::Form3/Label2",
+        "client/LoadASCIIForm.dfm::Form3/Label3",
+        "client/LoadASCIIForm.dfm::Form3/Label4",
+        "client/LoadASCIIForm.dfm::Form3/Label5",
+        "client/LoadASCIIForm.dfm::Form3/Label6",
+        "client/LoadASCIIForm.dfm::Form3/Edit1",
+        "client/LoadASCIIForm.dfm::Form3/ListBox1",
+        "client/LoadASCIIForm.dfm::Form3/ListBox2",
+        "client/LoadASCIIForm.dfm::Form3/Edit2",
+        "client/LoadASCIIForm.dfm::Form3/Button1",
+        "client/LoadASCIIForm.dfm::Form3/Button2",
+        "client/LoadASCIIForm.dfm::Form3/Button3",
+        "client/LoadASCIIForm.dfm::Form3/Button4",
+        "client/LoadASCIIForm.dfm::Form3/Button5",
+        "client/LoadASCIIForm.dfm::Form3/Button6",
+        "client/LoadASCIIForm.dfm::Form3/StringGrid1",
+        "client/LoadASCIIForm.dfm::Form3/Button7",
+        "client/LoadASCIIForm.dfm::Form3/CheckBox1",
+        "client/Unit1.cpp::event:c0e8200d8d1bddb2:1",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei/LadeASCII1"
+      ]
+    },
+    {
+      "name": "layer-actions",
+      "status": "ported",
+      "reason": "Add/remove layers, compound/element mode and element navigation exist. Table interactions are tracked separately.",
+      "references": [
+        "app/src/ui/Toolbar.tsx",
+        "app/src/ui/LayerTable.tsx",
+        "app/src/model/layers.ts",
+        "app/src/model/elements.ts"
+      ],
+      "entries": [
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton4",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton5",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton7",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton8",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton9",
+        "client/Unit1.dfm::Form1/MainMenu1/Mode1/EasyReflectivity1",
+        "client/Unit1.dfm::Form1/MainMenu1/Mode1/AdvancedReflectivity1",
+        "client/Unit1.dfm::Form1/MainMenu1/Layer1/AddLayer1",
+        "client/Unit1.dfm::Form1/MainMenu1/Layer1/RemoveLayer1"
+      ]
+    },
+    {
+      "name": "undo-redo",
+      "status": "ported",
+      "reason": "Reducer history and keyboard/menu undo and redo replace the VCL actions.",
+      "references": [
+        "app/src/state/appState.ts",
+        "app/src/App.tsx"
+      ],
+      "entries": [
+        "client/Unit1.dfm::Form1/MainMenu1/Zurck1/Liste1",
+        "client/Unit1.dfm::Form1/MainMenu1/Zurck1/Wiederherstellen1"
+      ]
+    },
+    {
+      "name": "script-editor",
+      "status": "ported",
+      "reason": "Default/BeforeCalculation editors, line readout, snippets and editor/browser editing commands exist. Execution/output semantics remain engine-phase work.",
+      "references": [
+        "app/src/ui/ScriptWindow.tsx",
+        "app/src/ui/LuaEditor.tsx",
+        "app/src/model/scriptSnippets.ts"
+      ],
+      "entries": [
+        "client/Unit1.cpp::event:1936341fc6722b5f:1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Script1/OpenScriptWindow1",
+        "client/Unit4.dfm::ScriptWindow",
+        "client/Unit4.dfm::ScriptWindow/Label1",
+        "client/Unit4.dfm::ScriptWindow/Label2",
+        "client/Unit4.dfm::ScriptWindow/ComboBox1",
+        "client/Unit4.dfm::ScriptWindow/PageControl1",
+        "client/Unit4.dfm::ScriptWindow/PageControl1/TabSheet1",
+        "client/Unit4.dfm::ScriptWindow/PageControl1/TabSheet1/RichEdit2",
+        "client/Unit4.dfm::ScriptWindow/PageControl1/TabSheet2",
+        "client/Unit4.dfm::ScriptWindow/PageControl1/TabSheet2/RichEdit1",
+        "client/Unit4.dfm::ScriptWindow/PopupMenu1",
+        "client/Unit4.dfm::ScriptWindow/PopupMenu1/Undo1",
+        "client/Unit4.dfm::ScriptWindow/PopupMenu1/Cut1",
+        "client/Unit4.dfm::ScriptWindow/PopupMenu1/Copy1",
+        "client/Unit4.dfm::ScriptWindow/PopupMenu1/Paste1",
+        "client/Unit4.dfm::ScriptWindow/PopupMenu1/Delete1",
+        "client/Unit4.dfm::ScriptWindow/PopupMenu1/SelectAll1"
+      ]
+    },
+    {
+      "name": "preferences-controls",
+      "status": "ported",
+      "reason": "Preferences preserve project settings; selectable physics options do not establish engine support (D-33).",
+      "references": [
+        "app/src/ui/PreferencesDialog.tsx"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:e218b01e56ab9166:1",
+        "client/Unit1.cpp::item:d3b23c187112a79d:1",
+        "client/Unit1.cpp::item:15c9d16eaa380472:1",
+        "client/Unit1.cpp::item:05b809de9410a336:1",
+        "client/Unit1.cpp::item:a8a30c3fb0696c44:1",
+        "client/Unit1.cpp::item:29fc9aa7ced6b0e3:1",
+        "client/Unit1.cpp::item:653445c99ecf36bd:1",
+        "client/Unit1.cpp::item:e8ea8fc21c536753:1",
+        "client/Unit1.cpp::item:0f3794a0018d4e62:1",
+        "client/Unit1.dfm::Form1/MainMenu1/Preferences1/Preferences2",
+        "guidll/SettingsForm.dfm::Settings2Form",
+        "guidll/SettingsForm.dfm::Settings2Form/RadioGroup6",
+        "guidll/SettingsForm.dfm::Settings2Form/RadioGroup2",
+        "guidll/SettingsForm.dfm::Settings2Form/GroupBox1",
+        "guidll/SettingsForm.dfm::Settings2Form/GroupBox1/DisableScriptCheckBox",
+        "guidll/SettingsForm.dfm::Settings2Form/RadioGroup3",
+        "guidll/SettingsForm.dfm::Settings2Form/Button1",
+        "guidll/SettingsForm.dfm::Settings2Form/GroupBox3",
+        "guidll/SettingsForm.dfm::Settings2Form/GroupBox3/CheckBox1",
+        "guidll/SettingsForm.dfm::Settings2Form/RadioGroup4"
+      ]
+    },
+    {
+      "name": "about-license",
+      "status": "ported",
+      "reason": "Web About and GPL license dialogs replace the legacy notice/version presentation (D-16, D-31).",
+      "references": [
+        "app/src/App.tsx",
+        "LICENSE"
+      ],
+      "entries": [
+        "client/LicenseForm.dfm::LicenseBox",
+        "client/LicenseForm.dfm::LicenseBox/Memo1",
+        "client/Unit1.dfm::Form1/MainMenu1/Help1/License1",
+        "client/Unit1.dfm::Form1/MainMenu1/Help1/About1",
+        "client/WinkelScanMagAbout.dfm::AboutBox",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/ProgramIcon",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/ProductName",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/Version",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/Copyright",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/Comments",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/Label1",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/Label2",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/Label3",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/Label4",
+        "client/WinkelScanMagAbout.dfm::AboutBox/Panel1/Memo1",
+        "client/WinkelScanMagAbout.dfm::AboutBox/OKButton"
+      ]
+    },
+    {
+      "name": "dataset-properties",
+      "status": "deferred",
+      "reason": "Complete the selected dataset editor: title/comment, angular resolution and both beam polarizations; reconcile legacy metadata rows. Existing scale/offset/shift/weight fields are partial.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/DatasetFrame.dfm::Frame9/DataListEditor",
+        "client/Unit1.cpp::event:c25ef0424c40ab4f:1"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "angle-axis",
+      "status": "deferred",
+      "reason": "Implement theta display and conversion for the x-axis; qz display already exists.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/EScanFrame.dfm::Frame13/GroupBox2/RadioGroup2",
+        "client/Unit1.cpp::item:04011ad1f4962d1b:1"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "plot-tools",
+      "status": "deferred",
+      "reason": "Implement wheel zoom, coordinate readout, chart properties (including tick steps), clipboard and picture export.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Chart1.cpp::item:3bfdba4935382fec:1",
+        "client/Chart1.cpp::item:044c0db584147fff:1",
+        "client/Chart1.cpp::item:044c0db584147fff:2",
+        "client/Chart1.cpp::item:5b05361d28a18c91:1",
+        "client/Chart1.cpp::item:20380ac471e31ea8:1",
+        "client/Chart1.cpp::item:e611fdb4873b818a:1",
+        "client/Chart1.cpp::item:044c0db584147fff:3",
+        "client/Chart1.cpp::item:ef4c303531363d65:1",
+        "client/Chart1PropertyForm.dfm::PForm1",
+        "client/Chart1PropertyForm.dfm::PForm1/Label17",
+        "client/Chart1PropertyForm.dfm::PForm1/Label18",
+        "client/Chart1PropertyForm.dfm::PForm1/OkButton",
+        "client/Chart1PropertyForm.dfm::PForm1/CancelButton",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox1",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox1/Label1",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox1/Label2",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox1/Label3",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox1/Edit1",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox1/Edit2",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox1/ScrollBar1",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox1/CheckBox1",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox2",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox2/Label4",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox2/Label5",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox2/Label6",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox2/Edit3",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox2/Edit4",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox2/ScrollBar2",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox2/CheckBox2",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image1",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image2",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image3",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label7",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label8",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label9",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label10",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label11",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label12",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image4",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image5",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image6",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label13",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label14",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label15",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Label16",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image7",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image8",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image9",
+        "client/Chart1PropertyForm.dfm::PForm1/GroupBox3/Image10",
+        "client/Chart1PropertyForm.dfm::PForm1/sho",
+        "client/Chart1PropertyForm.dfm::PForm1/ScrollBar3",
+        "client/Chart1PropertyForm.dfm::PForm1/ScrollBar4",
+        "client/Chart1PropertyForm.dfm::PForm1/ColorDialog1",
+        "client/Unit1.dfm::Form1"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "plot-area-decision",
+      "status": "deferred",
+      "reason": "Select/Clear Area, Lorentzian+Step fitting and linked chart-area interaction await the existing plot scope decision.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Chart1.cpp::item:dd8adcda0dd7dce5:1",
+        "client/Chart1.cpp::item:c02a07f1e65563c0:1",
+        "client/Chart1.cpp::item:50ecd49ed4da6b45:1",
+        "client/Chart1.cpp::event:a5cf93c3305a047f:1",
+        "client/Chart1.cpp::event:158f588639a63a8f:1",
+        "client/Chart1.cpp::event:02712c6b7660c6d8:1",
+        "client/Chart1.cpp::event:4386716aee1f7b18:1"
+      ],
+      "phase": "decision"
+    },
+    {
+      "name": "layer-table-interactions",
+      "status": "deferred",
+      "reason": "Editable layer/slab tables exist, but context menus, per-cell fit, spectra, material properties and selection-linked value slider are incomplete.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:77b0385c504e42a1:1",
+        "client/Unit1.cpp::item:044c0db584147fff:1",
+        "client/Unit1.cpp::item:d41f4c83dbad7376:1",
+        "client/Unit1.cpp::item:700671cf80246c31:1",
+        "client/Unit1.cpp::item:044c0db584147fff:2",
+        "client/Unit1.cpp::item:61a2b426cc67354c:1",
+        "client/Unit1.cpp::item:f4745806781e8610:1",
+        "client/Unit1.cpp::item:67940c3e1072cb65:1",
+        "client/Unit1.cpp::item:044c0db584147fff:3",
+        "client/Unit1.cpp::item:58ef0caf1cc257a9:1",
+        "client/Unit1.cpp::item:535dc714f7bbdb1c:1",
+        "client/Unit1.cpp::item:77b0385c504e42a1:2",
+        "client/Unit1.cpp::item:044c0db584147fff:4",
+        "client/Unit1.cpp::item:d41f4c83dbad7376:2",
+        "client/Unit1.cpp::item:5d980d301945dcd0:1",
+        "client/Unit1.dfm::Form1/SchichtEingabe"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "value-slider",
+      "status": "deferred",
+      "reason": "Implement numeric-cell selection and the 0–4× slider for layer, magnetic-profile and script-parameter tables.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/FitFrame1.dfm::Frame2/StringGrid1",
+        "client/Unit1.cpp::event:a2e5757227878a35:1",
+        "client/Unit1.cpp::event:9213c98bd24eb709:1",
+        "client/Unit1.cpp::event:a5c5abb39e9a3f49:1",
+        "client/Unit1.cpp::event:9213c98bd24eb709:2",
+        "client/Unit1.cpp::event:a5c5abb39e9a3f49:2",
+        "client/Unit1.cpp::event:9213c98bd24eb709:3",
+        "client/Unit1.cpp::event:a5c5abb39e9a3f49:3",
+        "client/Unit1.dfm::Form1/ScrollBar2"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "segmentation-actions",
+      "status": "deferred",
+      "reason": "To layer list and Illustrate Segmentation require UI actions and the engine segmentation output.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Button13",
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/CheckBox1",
+        "client/Unit1.cpp::event:0dd769a356830cf2:1"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "element-tools",
+      "status": "deferred",
+      "reason": "Implement scattering-factor and density plots (including toolbar) and Material to Elements.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/ElementFrame.dfm::ElementFrame/Element/ShowScatteringFactorsButton",
+        "client/ElementFrame.dfm::ElementFrame/Button2",
+        "client/ElementFrame.dfm::ElementFrame/ShowDensityProfilesButton",
+        "client/Unit1.cpp::event:d5d0cdb3a74bc3df:1",
+        "client/Unit1.cpp::event:76c251acfb0eca60:1",
+        "client/Unit1.cpp::event:478587ce5cde9155:1",
+        "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton10"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "magnetic-fit-controls",
+      "status": "deferred",
+      "reason": "Implement the per-profile and magnetization Fit checkboxes and their handlers.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/CheckBox1",
+        "client/MzFrame.dfm::Frame8/CheckBox11",
+        "client/Unit1.cpp::event:da8c2ba785fe8675:1",
+        "client/Unit1.cpp::event:2eef42fbff4b8770:1",
+        "client/Unit1.cpp::event:492d3888430b559d:1",
+        "client/Unit1.cpp::event:8742cf89c1feaa03:1",
+        "client/Unit1.cpp::event:91ff2648dc48b278:1"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "magnetic-profile-editor",
+      "status": "deferred",
+      "reason": "Profile numeric/coupling fields exist; finish spline point editing, Build spline and the all-layers binding choice.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/MzFrame.dfm::Frame8/GaussEingabe",
+        "client/MzFrame.dfm::Frame8/Button7",
+        "client/Unit1.cpp::event:3ec0570cd44b2058:1",
+        "client/Unit1.cpp::event:5b9d5cdf7cadc4bc:1",
+        "client/Unit1.cpp::item:15dca08ebfe47485:1",
+        "client/Unit1.cpp::item:d963af60576946f6:1",
+        "client/Unit1.cpp::item:bfb7fad80b9fc004:1",
+        "client/Unit1.cpp::item:bd50ef17d98df5fa:1",
+        "client/Unit1.cpp::item:a723a616c1c15e66:1",
+        "client/Unit1.cpp::item:df2661a1eeca3db9:1",
+        "client/Unit1.cpp::item:768397b87187ed8b:1",
+        "client/Unit1.cpp::item:f32df6ec51bc761a:1",
+        "client/Unit1.cpp::item:ba4f370c9fad7bfd:1"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "materials",
+      "status": "deferred",
+      "reason": "Implement the Materials dialog, formula/density, tensor display/filling and fit controls; preserve legacy disabled/read-only behavior where applicable.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Unit1.cpp::event:5cd33e7c993169f9:1",
+        "guidll/MaterialsForm.dfm::MaterialForm",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/Label5",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/Label6",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/Label9",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/Label10",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/DeltamEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/BetamEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/GammaEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/PhiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/GammaCheckBox",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox2/PhiCheckBox",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox3",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox3/Label3",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox3/Label4",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox3/DeltaEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox3/BetaEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4/Label1",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4/Label2",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4/Label11",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4/RoughnessEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4/ThicknessEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4/NameEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Label7",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Label8",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExxEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExyEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExzEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyxEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyyEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyzEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzxEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzyEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzzEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Button1",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExxiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExyiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExziEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyxiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyyiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyziEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzxiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzyiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzziEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5/Label12",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5/Label13",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5/ChemicalFormulaEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5/DensityEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/OkButton",
+        "guidll/MaterialsForm.dfm::MaterialForm/CancelButton"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "summary",
+      "status": "deferred",
+      "reason": "Implement Summary, sizing, refresh, clipboard exports, axis scaling and error display; review const-qz-from-energy conversion before implementation.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Summary1",
+        "guidll/SummaryForm.dfm::SummaryForm2",
+        "guidll/SummaryForm.dfm::SummaryForm2/Label1",
+        "guidll/SummaryForm.dfm::SummaryForm2/Label2",
+        "guidll/SummaryForm.dfm::SummaryForm2/ChartWidthEdit",
+        "guidll/SummaryForm.dfm::SummaryForm2/ChartHeightEdit",
+        "guidll/SummaryForm.dfm::SummaryForm2/Update",
+        "guidll/SummaryForm.dfm::SummaryForm2/ScrollBar1",
+        "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1",
+        "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/CopyAllDataToClipboard1",
+        "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/CopyAllGraphicToClipboard1",
+        "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/Scaleyaxistominandmax1",
+        "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/Scalexaxistominandmax1",
+        "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/ShowError1"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "summary-conversion-decision",
+      "status": "deferred",
+      "reason": "Decide scope of Summary const-qz-from-energy conversion before building it.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/Buildconstqzfromconstenergy1"
+      ],
+      "phase": "decision"
+    },
+    {
+      "name": "lua-execution",
+      "status": "deferred",
+      "reason": "Execute scripts and show Lua output/errors through the worker with legacy API semantics (D-2, D-22).",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Unit1.cpp::event:e512be6c862f4d28:1",
+        "client/Unit1.cpp::event:e512be6c862f4d28:2",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Script1/ExecuteScript1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Script1/ExecuteScriptBeforeCalculation1",
+        "client/Unit4.dfm::ScriptWindow/Execute",
+        "client/Unit4.dfm::ScriptWindow/Memo1"
+      ],
+      "phase": "engine"
+    },
+    {
+      "name": "stop-deadline",
+      "status": "deferred",
+      "reason": "Stop control exists, but cancellation and worker fallback must meet 1 s for fits and standalone calculations (D-28, AC-10).",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/FitStartStop.dfm::Frame19/Button11",
+        "client/Unit1.cpp::event:916c9a917d00d23f:1"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "worker-lifecycle",
+      "status": "deferred",
+      "reason": "Finish worker failure/termination handling alongside cancellation; no VCL threads in the web architecture (D-7, D-12).",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Unit1.cpp::event:5a93eb0c0e4e8cab:1"
+      ],
+      "phase": "ui"
+    },
+    {
+      "name": "evolution",
+      "status": "deferred",
+      "reason": "Evolution fitting and its progress/settings section are later under D-11/D-25.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/FitEvolutionFrame.dfm::Frame3",
+        "client/FitEvolutionFrame.dfm::Frame3/Label33",
+        "client/FitEvolutionFrame.dfm::Frame3/Label34",
+        "client/FitEvolutionFrame.dfm::Frame3/Label36",
+        "client/FitEvolutionFrame.dfm::Frame3/Label38",
+        "client/FitEvolutionFrame.dfm::Frame3/Label43",
+        "client/FitEvolutionFrame.dfm::Frame3/ev",
+        "client/FitEvolutionFrame.dfm::Frame3/rr",
+        "client/FitEvolutionFrame.dfm::Frame3/Label42",
+        "client/FitEvolutionFrame.dfm::Frame3/Label35",
+        "client/FitEvolutionFrame.dfm::Frame3/Label37",
+        "client/FitEvolutionFrame.dfm::Frame3/Label40",
+        "client/FitEvolutionFrame.dfm::Frame3/Label44",
+        "client/FitEvolutionFrame.dfm::Frame3/Label41",
+        "client/FitEvolutionFrame.dfm::Frame3/Edit26",
+        "client/FitEvolutionFrame.dfm::Frame3/Edit27",
+        "client/FitEvolutionFrame.dfm::Frame3/Edit28",
+        "client/FitEvolutionFrame.dfm::Frame3/Edit29",
+        "client/FitEvolutionFrame.dfm::Frame3/Edit33",
+        "client/FitEvolutionFrame.dfm::Frame3/Edit31",
+        "client/FitEvolutionFrame.dfm::Frame3/Edit30",
+        "client/FitEvolutionFrame.dfm::Frame3/Ge",
+        "client/FitEvolutionFrame.dfm::Frame3/Edit32",
+        "client/FitEvolutionFrame.dfm::Frame3/CheckBox7",
+        "client/FitEvolutionFrame.dfm::Frame3/Button17",
+        "client/FitEvolutionFrame.dfm::Frame3/Button26",
+        "client/FitEvolutionFrame.dfm::Frame3/RadioGroup8",
+        "client/FitEvolutionFrame.dfm::Frame3/CheckBox1",
+        "client/Unit1.cpp::item:0d8c6cb3861e12e1:1",
+        "client/Unit1.cpp::item:43108d5d624a33b9:1",
+        "client/Unit1.cpp::item:18a54f8901f8dfc5:1",
+        "client/Unit1.cpp::event:91de13c33a381e34:1",
+        "client/Unit1.cpp::event:b6d73bbc60bb7fd7:1",
+        "client/Unit1.cpp::event:8302bd943adc2e6e:1"
+      ],
+      "phase": "later"
+    },
+    {
+      "name": "maps",
+      "status": "deferred",
+      "reason": "2D maps and map controls are later under D-25.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/MapFrame.dfm::MapFrame2",
+        "client/MapFrame.dfm::MapFrame2/EM",
+        "client/MapFrame.dfm::MapFrame2/Label1",
+        "client/MapFrame.dfm::MapFrame2/Label2",
+        "client/MapFrame.dfm::MapFrame2/Label3",
+        "client/MapFrame.dfm::MapFrame2/Label4",
+        "client/MapFrame.dfm::MapFrame2/Label5",
+        "client/MapFrame.dfm::MapFrame2/Edit1",
+        "client/MapFrame.dfm::MapFrame2/Edit2",
+        "client/MapFrame.dfm::MapFrame2/Edit3",
+        "client/MapFrame.dfm::MapFrame2/Edit4",
+        "client/MapFrame.dfm::MapFrame2/Edit5",
+        "client/MapFrame.dfm::MapFrame2/Edit6",
+        "client/MapFrame.dfm::MapFrame2/Button1",
+        "client/MapFrame.dfm::MapFrame2/CheckBox1",
+        "client/Unit1.cpp::event:0affc91580ef7ba9:1"
+      ],
+      "phase": "later"
+    },
+    {
+      "name": "electric-field",
+      "status": "deferred",
+      "reason": "Electric-field visualization and its wave/phase controls are later under D-26; the mock depth-profile view already exists.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/LayerSystemForm.dfm::LayerSystem",
+        "client/LayerSystemForm.dfm::LayerSystem/Image1",
+        "client/LayerSystemForm.dfm::LayerSystem/q",
+        "client/LayerSystemForm.dfm::LayerSystem/Label1",
+        "client/LayerSystemForm.dfm::LayerSystem/Label2",
+        "client/LayerSystemForm.dfm::LayerSystem/Label3",
+        "client/LayerSystemForm.dfm::LayerSystem/RadioGroup1",
+        "client/LayerSystemForm.dfm::LayerSystem/ScrollBar1",
+        "client/LayerSystemForm.dfm::LayerSystem/ScrollBar2",
+        "client/LayerSystemForm.dfm::LayerSystem/ScrollBar3",
+        "client/LayerSystemForm.dfm::LayerSystem/Button1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Showlayersandelectricfield1"
+      ],
+      "phase": "later"
+    },
+    {
+      "name": "scratch",
+      "status": "deferred",
+      "reason": "Scratch utilities require the existing D-25 scope decision before implementation.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1/GetdeltabetafromChantlerinMaterialmode1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1/CalculateReflectivityandsaveminimadatmaximadatandrefldat1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1/Removespikedfrommeasurement1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1/FillTensors1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1/DetermineErrorsofChemicalProfile1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1/BuildasymmetryofdatasetsifRpandRmaregiven1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1/Setallscalingfac1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1/Seterrorweightsforenergyscansbyintegration1",
+        "client/Unit1.dfm::Form1/MainMenu1/Utils1/Scratch1/Sort1"
+      ],
+      "phase": "later"
+    },
+    {
+      "name": "non-mvp-physics",
+      "status": "deferred",
+      "reason": "PHASE, TEY and transmission remain later under D-25 even where the preferences UI stores their values.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:6dbc569b824cf645:1",
+        "client/Unit1.cpp::item:e3ada5f9f6c56c8e:1",
+        "guidll/SettingsForm.dfm::Settings2Form/RadioGroup1"
+      ],
+      "phase": "later"
+    },
+    {
+      "name": "opencl",
+      "status": "deferred",
+      "reason": "Experimental hardware selection and OpenCL are later under D-25.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/Unit1.cpp::event:546a7f1040eecca2:1",
+        "client/Unit1.cpp::item:d3dc95cb2d282996:1",
+        "client/Unit1.cpp::item:480ef3e8b53570bf:1"
+      ],
+      "phase": "later"
+    },
+    {
+      "name": "hidden-tools-decision",
+      "status": "deferred",
+      "reason": "Hidden experimental/test controls require a scope review; not silently treated as ported or dropped.",
+      "references": [
+        "AGENTS.md"
+      ],
+      "entries": [
+        "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Button23",
+        "client/MeasurementParamsFrame.dfm::Frame17/Edit1",
+        "client/Unit1.cpp::event:abc5ab747d010ff7:1",
+        "client/Unit1.dfm::Form1/Button1",
+        "client/Unit1.dfm::Form1/ButtonTest",
+        "client/Unit1.dfm::Form1/ButtonAnalyze"
+      ],
+      "phase": "decision"
+    },
+    {
+      "name": "precision-parallel",
+      "status": "dropped",
+      "reason": "Precision choices and the parallel-computing switch are dropped; the web app uses double and a worker (F-3, AGENTS.md Dropped).",
+      "references": [
+        "AGENTS.md",
+        "docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:40fb34b59ce29c57:1",
+        "client/Unit1.cpp::item:8842e39b462c359e:1",
+        "client/Unit1.cpp::item:3449bd7722c63efb:1",
+        "client/Unit1.cpp::item:1fdb235314b62f5e:1",
+        "guidll/SettingsForm.dfm::Settings2Form/GroupBox2",
+        "guidll/SettingsForm.dfm::Settings2Form/GroupBox2/ActivateParallelizationCheckBox",
+        "guidll/SettingsForm.dfm::Settings2Form/RadioGroup7"
+      ]
+    },
+    {
+      "name": "webserver",
+      "status": "dropped",
+      "reason": "Webserver is explicitly dropped by D-35.",
+      "references": [
+        "AGENTS.md",
+        "docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md"
+      ],
+      "entries": [
+        "client/Unit1.cpp::event:4b4d94aaae847885:1",
+        "guidll/SettingsForm.dfm::Settings2Form/StartWebserver"
+      ]
+    },
+    {
+      "name": "lm",
+      "status": "dropped",
+      "reason": "Levenberg-Marquardt is dropped by D-11; imports fall back to Simplex under D-27.",
+      "references": [
+        "AGENTS.md",
+        "docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:bcbde0808b446fca:1"
+      ]
+    },
+    {
+      "name": "desktop-windows",
+      "status": "dropped",
+      "reason": "Exit, splash, unused EnergyInput/empty frames and Stay on Top are explicitly dropped in AGENTS.md; the app is browser-local (D-19).",
+      "references": [
+        "AGENTS.md",
+        "docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md"
+      ],
+      "entries": [
+        "client/EnergyInput.dfm::Form2",
+        "client/EnergyInput.dfm::Form2/Label1",
+        "client/EnergyInput.dfm::Form2/Label2",
+        "client/EnergyInput.dfm::Form2/Label3",
+        "client/EnergyInput.dfm::Form2/Edit1",
+        "client/EnergyInput.dfm::Form2/Button1",
+        "client/EnergyInput.dfm::Form2/Button2",
+        "client/ScanFrame.dfm::Frame18",
+        "client/SettingsFrame.dfm::Frame14",
+        "client/SplashFormUnit.dfm::SplashForm",
+        "client/SplashFormUnit.dfm::SplashForm/Image1",
+        "client/SplashFormUnit.dfm::SplashForm/Timer2",
+        "client/SplashFormUnit.dfm::SplashForm/Timer1",
+        "client/Unit1.dfm::Form1/MainMenu1/Datei/Beenden1",
+        "client/Unit4.dfm::ScriptWindow/CheckBox1"
+      ]
+    },
+    {
+      "name": "unused-database-frame",
+      "status": "dropped",
+      "reason": "The unused GetFromDatabaseFrame is dropped in AGENTS.md; its useful database action remains in the deferred layer-table menu.",
+      "references": [
+        "AGENTS.md",
+        "docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md"
+      ],
+      "entries": [
+        "client/GetFromDatabaseFrame.dfm::Frame10",
+        "client/GetFromDatabaseFrame.dfm::Frame10/Button2",
+        "client/GetFromDatabaseFrame.dfm::Frame10/Button19",
+        "client/Unit1.cpp::event:0ddcd579e9adab64:1"
+      ]
+    }
+  ],
+  "inventoryDigest": "92cf7195735df897384bf6c7726c1dbcdb522e9780dd0e46893496f3d47a5323"
+}

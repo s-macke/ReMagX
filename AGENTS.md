@@ -84,6 +84,18 @@ The **test corpus** is the set of legacy projects in `old/reMagX3` (mainly `exam
 `CORPUS_DIR=../old/reMagX3`; all 99 files must import. Further legacy files from the user go
 there or into another private folder (D-20); never into git.
 
+Inventory commands (from the repository root; Python 3.10+, no Wine or dependencies):
+
+```sh
+tools/inventory/check                            # committed inventory, also checked in CI
+tools/inventory/check --legacy-root old/reMagX3    # additionally verify local source freshness
+python3 -m unittest discover -s tools/inventory -p 'test_*.py'
+python3 tools/inventory/inventory.py report
+```
+
+See `tools/inventory/README.md` for regeneration and classification rules. The inventory
+contains only GUI metadata; the legacy tree and research data remain private.
+
 ## Working with the user
 
 - Work in small steps and get the user's OK before starting the next step; report what was done,
@@ -127,8 +139,10 @@ there or into another private folder (D-20); never into git.
 
 Status reviewed against the repository, spec and decisions on 2026-10-16. "(partial)" means
 an item works but has known gaps, listed under "still to do". Checked UI and mock-engine items
-do not establish real-engine acceptance. The missing-controls list is provisional until the
-settings/handler inventory accounts for every legacy entry (AC-12).
+do not establish real-engine acceptance. The source inventory in `tools/inventory/` accounts
+for every extracted entry (AC-12); its classifications distinguish remaining UI/engine work
+from agreed later features and pending scope decisions. Passing the inventory gate does not
+establish full runtime parity.
 
 The implementation plan referenced by D-33 is outside the repository and was unavailable at
 its recorded path during this audit. Use the repository spec and decision journal for scope,
@@ -159,18 +173,21 @@ and this checklist for implementation status; the external Steps 0–8 have not 
 ### UI phase: still to do
 
 Runtime behavior:
+- [ ] Handle worker failure/termination without leaving pending requests or losing project state (D-7, D-12, D-13; inventory group `worker-lifecycle`)
 - [ ] Cancel both fits and standalone calculations within 1 s, including an unresponsive worker; verify progress and UI response within 200 ms during a fit (D-28, AC-10). The current fallback waits 2 s and the service exposes only `stopFit()`.
 
-Fixes found in the audit (provisional until the inventory is complete):
+Remaining work reconciled with the source inventory (2026-10-16):
 
 Missing legacy controls and windows:
-- [ ] Plot (legacy `Chart1`): mouse-wheel zoom and "Zoom Out", cursor coordinate readout, Properties dialog (axis ranges, log toggles, colours, line width, font size, points), copy data/graphic to the clipboard, save picture; decide on "Select Area" and "Fit Lorentzian+Step"
+- [ ] Plot (legacy `Chart1`): mouse-wheel zoom and "Zoom Out", cursor coordinate readout, Properties dialog (axis ranges and tick steps, log toggles, colours, line width, font size, points), copy data/graphic to the clipboard, save picture; decide on "Select Area" and "Fit Lorentzian+Step"
 - [ ] Layer table right-click menu: Fit on/off per cell, show δ/β and δm/βm spectrum, dielectric-tensor parts, "Get optical constants from database" / "Get f1/f2 from database", Properties → Materials dialog (name, formula, density, magneto-optics, dielectric tensor, "Fill Dielectric Tensor")
 - [ ] Value slider: the horizontal bar directly below the layer table (legacy ScrollBar2, `Unit1.cpp` SchichtEingabeSelectCell / ScrollBar2Change). Disabled until a numeric cell is selected; on selection the thumb is set to 250 of 0–1000, which stands for the cell's value; dragging sets value = position / 250 × original value (0 to 4×) and recalculates the current view live. Works for the layer table (not the db and coupling columns, the vacuum's thickness and σ, or the substrate thickness), the magnetization-profile table and the script-parameter list. Not to be confused with the browser scrollbar of the wide table.
 - [ ] Adaptive Layer Segmentation: "To layer list" and "Illustrate Segmentation"
 - [ ] Element Mode: "Show Scattering Factors f1/f2", "Show Density Profiles" (also a toolbar button in legacy), "Material to Elements"
-- [ ] Magneto-Optics and magnetization profile: "Fit" checkboxes; profile spline "Build spline" and point editing
-- [ ] Summary window (legacy `guidll/SummaryForm`)
+- [ ] Magneto-Optics and magnetization profile: "Fit" checkboxes; profile spline "Build spline" and point editing; restore the legacy all-layers binding choice
+- [ ] Summary window (legacy `guidll/SummaryForm`): chart sizing, refresh, clipboard exports, axis scaling and error display; decide on its const-qz-from-energy conversion before implementation
+- [ ] Dataset property editor: title/comment, angular resolution and both beam polarizations; reconcile the legacy metadata rows (`DataListEditorValidate`)
+- [ ] Review hidden experimental/test controls for scope (inventory group `hidden-tools-decision`); no implicit decision to port or drop them
 - [ ] Angle (θ) x-axis option
 - [ ] Decide on the legacy layer-table "coupl." column (no `.all` key)
 
@@ -179,7 +196,7 @@ Data:
 - [ ] Optical-constant tables used by calculations (energy scans currently keep δ/β constant)
 
 Quality gates:
-- [ ] Settings/handler inventory: `tools/inventory/` parser of the legacy `.dfm` files and `Items->Add` calls; reconcile every entry with the UI and this checklist as ported, dropped (with reason), or deferred. Make `tools/inventory/check` a release gate that fails on unclassified entries (D-16, D-17.1, AC-12).
+- [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 364 ported, 29 dropped and 283 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
 - [ ] Run all private-corpus imports in CI using `CORPUS_DIR` with private data access; fail if the corpus is missing or empty, without publishing research data in the repository, logs or artifacts (D-17.3, D-20, AC-4). Today the Pages workflow does not supply the corpus and the suite skips.
 - [ ] Playwright end-to-end tests in Chromium and Firefox (AC-10, AC-11, AC-13, AC-14, AC-15)
 

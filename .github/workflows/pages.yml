@@ -32,6 +32,11 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
 
+      - name: Check legacy UI inventory
+        run: |
+          python3 -m unittest discover -s ../tools/inventory -p 'test_*.py'
+          ../tools/inventory/check
+
       - run: npm ci
       - run: npm run lint
       - run: npm test
