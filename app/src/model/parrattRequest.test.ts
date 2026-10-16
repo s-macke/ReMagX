@@ -63,8 +63,6 @@ it('rejects unfinished physics and preprocessing instead of silently calculating
     p => { p.scripts.beforeCalculation = 'SetEnergy(100)' },
     p => { p.experiment.resolution.angularFwhm = .001 },
     p => { p.calculation.roughnessModel = 'segmentation' },
-    p => { p.calculation.averaging = 2 }, p => { p.calculation.postProcessing.multiplyByQz4 = true },
-    p => { p.calculation.postProcessing.divideByCos2ThetaSquared = true },
     p => { p.calculation.postProcessing.fourierTransform = true },
   ]
   for (const change of changes) {

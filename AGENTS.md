@@ -256,6 +256,7 @@ Quality gates:
 - [ ] Legacy error conditions (RX_QZ, RX_DB, RX_CSCRIPT, RX_ESCRIPT, RX_ML, RX_UNKNOWN) as clear UI messages (D-14)
 - [ ] Lua scripting with wasmoon and the full legacy script API (D-2, D-22; AC-7, AC-7a, AC-8)
 - [x] Initial real-worker ComputeService path for guarded Parratt reflectivity/dichroic/asymmetry requests, with lazy WASM loading, legacy asymmetry definitions, explicit unsupported errors and Chromium Stop/restart verification. Available through `createRealComputeService`; not selected by the deployed app.
+- [x] Real-worker qz⁴ scaling, exact pure-π correction and legacy moving averages, preserving preprocessing order and leading-zero averaging behavior. Four domain tests, Chromium service coverage and 960 local original-method output comparisons pass; Fourier postprocessing remains open.
 - [ ] Complete the real engine and replace the deployed mock behind `ComputeService` (D-33)
 - [ ] Native command-line tool like the legacy `ReMagX_Terminal`: `-refl`, `-dicrefl`, `-fit`, `-convert` (`.db` + `.m` → `.e`), `-v`; `-map` once maps exist; reads `.all` and JSON (D-35)
 

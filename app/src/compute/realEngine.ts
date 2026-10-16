@@ -1,5 +1,5 @@
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from '../model/parrattRequest'
-import { unpackParrattResult } from '../model/parrattResult'
+import { postprocessParrattResult } from '../model/parrattResult'
 import type { WorkerRequest, WorkerResponse } from './protocol'
 
 export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Array
@@ -16,7 +16,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       const request = prepareParrattQzRequest(message.project, message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic')
       calculator ??= load().catch(error => { calculator = null; throw error })
       const calculate = await calculator
-      const result = unpackParrattResult(request.qz, calculate(request), message.project.calculation.asymmetryDefinition)
+      const result = postprocessParrattResult(message.project, request.qz, calculate(request), message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic')
       send({ id: message.id, type: 'result', result: message.kind === 'reflectivity'
         ? { qz: result.qz, reflectivity: result.reflectivityPlus } : result })
     } catch (error) {

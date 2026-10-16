@@ -50,8 +50,8 @@ export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' 
   if (calculation.automaticOpticalConstants) throw new Error('Automatic optical-table refresh is not implemented in real-engine preparation yet.')
   if (project.scripts.enabled && project.scripts.beforeCalculation.trim()) throw new Error('BeforeCalculation Lua execution is not implemented in real-engine preparation yet.')
   if (project.experiment.resolution.angularFwhm !== 0) throw new Error('Angular resolution is not implemented in real-engine preparation yet.')
-  if (calculation.averaging !== 0 || Object.values(calculation.postProcessing).some(Boolean)) {
-    throw new Error('Reflectivity postprocessing is not implemented in this real-engine path yet.')
+  if (calculation.postProcessing.fourierTransform) {
+    throw new Error('Fourier postprocessing is not implemented in this real-engine path yet.')
   }
   const layers = prepareCompoundLayers(project)
   const qz = prepareQzCoordinates(project)

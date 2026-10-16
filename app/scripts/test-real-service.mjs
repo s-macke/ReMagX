@@ -67,6 +67,16 @@ try {
       project.experiment.qzScan.qzMin = 0
       project.experiment.qzScan.qzMax = 0
       output.totalReflection = await service.calcReflectivity(project)
+      const postProject = structuredClone(project)
+      postProject.experiment.qzScan.points = 2
+      postProject.experiment.qzScan.qzMax = .02
+      postProject.experiment.polarization.beam1 = { sigma: { re: 0, im: 0 }, pi: { re: 1, im: 0 } }
+      output.postBaseline = await service.calcReflectivity(postProject)
+      output.postEnergy = postProject.experiment.energy
+      postProject.calculation.postProcessing.multiplyByQz4 = true
+      postProject.calculation.postProcessing.divideByCos2ThetaSquared = true
+      postProject.calculation.averaging = 1
+      output.postprocessed = await service.calcReflectivity(postProject)
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
       busy.sample.layers = Array.from({ length: 1000 }, (_, index) => createLayer({ thickness: 10, delta: index % 2 ? .001 : .002, beta: .0001 }))
@@ -91,11 +101,19 @@ try {
   assert.deepEqual(results.asymmetry.asymmetry, [0, 0, 0, 0])
   assert.match(results.unsupported, /does not support energyScan/)
   for (const value of results.totalReflection.reflectivity) assert.ok(Math.abs(value - 1) <= 1e-10 + 1e-15)
+  const corrected = results.postBaseline.qz.map((qz, index) => {
+    const wave = 2 * Math.PI / (12398.326 / results.postEnergy)
+    const angle = Math.asin(qz / (2 * wave))
+    return results.postBaseline.reflectivity[index] * (qz * qz * qz * qz) / (Math.cos(2 * angle) * Math.cos(2 * angle))
+  })
+  const mean = (corrected[0] + corrected[1]) / 2
+  assert.equal(results.postprocessed.reflectivity[0], 0) // legacy unsigned leading-window behavior
+  assert.ok(Math.abs(results.postprocessed.reflectivity[1] - mean) <= 1e-15 + 1e-10 * Math.abs(mean))
   assert.equal(results.stopped, 'ComputeCancelled')
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

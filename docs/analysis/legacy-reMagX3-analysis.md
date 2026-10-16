@@ -292,7 +292,7 @@ to 1,000,000 points to avoid unbounded allocation.
 
 The initial zero-resolution path rejects non-Parratt algorithms, transmission,
 automatic optical refresh, enabled BeforeCalculation source, element mode, segmentation,
-nonzero angular resolution, averaging and optional postprocessing. Experiment energy
+nonzero angular resolution and Fourier postprocessing. Experiment energy
 and polarizations remain authoritative when borrowing dataset coordinates, matching
 the main legacy action. The fast-dichroic upper boundary is stricter than the non-fast
 native API, so request preparation rejects ratio `qz/(2*k0) >= 1` for that branch.
@@ -322,3 +322,25 @@ immediately before the actual synchronous C API call ensures Stop is checked dur
 WASM execution; the service then rejects with ComputeCancelled and creates a working
 replacement within 1 s. The test entry and assets are not deployed. The main application
 still selects the mock; this initial integration does not establish full-engine acceptance.
+
+### Real-worker postprocessing
+
+`postprocessParrattResult` follows `CDataSet::PostModifications` in order: qz-fourth
+scaling, exact-pure-pi correction, asymmetry, then independent moving averages of the
+intensities and asymmetry. It preserves `IsPi1/IsPi2` exact amplitudes (sigma zero,
+pi real one and imaginary zero), including no correction for a phase-rotated or scaled
+pi amplitude. Correction uses shifted per-point dataset energies when present and
+retains `ToTheta` returning -1 at absolute qz ratio >=1. An absent monochromatic second
+beam receives no correction.
+
+The original averaging loop compares signed j to unsigned i+width: for i<width the
+loop does not execute and the result becomes zero. This leading-zero behavior is
+preserved under D-29; the trailing window clips to available points, and each window
+is summed left to right without running-sum reassociation. The model rejects nonfinite
+results. Fourier transformation is still unsupported.
+
+A temporary local harness compiled the original PostModifications, MovingAverage and
+ToTheta methods with minimal scaffolding (FFT disabled). All 960 output values across
+64 scaling/correction/asymmetry/averaging cases matched exactly. This focused manual
+comparison supplements unit tests and the actual Chromium ComputeService check; it
+is not full-project corpus acceptance and no private source was committed.
