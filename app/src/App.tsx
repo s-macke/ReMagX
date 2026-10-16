@@ -25,6 +25,7 @@ import { LayerTable } from './ui/LayerTable'
 import { MenuBar, type Menu } from './ui/MenuBar'
 import { ModePanel } from './ui/ModePanel'
 import { PlotPanel } from './ui/PlotPanel'
+import { MaterialSettingsDialog } from './ui/MaterialSettingsDialog'
 import { PreferencesDialog } from './ui/PreferencesDialog'
 import { SidePanel } from './ui/SidePanel'
 import { Toolbar } from './ui/Toolbar'
@@ -54,6 +55,7 @@ const examples = [
 
 function Workspace() {
   const state = useAppState()
+  const [materialDialog, setMaterialDialog] = useState<{ index: number; invalidations: number } | null>(null)
   const dispatch = useDispatch()
   const { project, scanKind, displayMode, plotView, fitStatus } = state
   // While a fit runs, the plot follows its current best parameters (legacy live redraw).
@@ -258,7 +260,7 @@ function Workspace() {
         }}
       />
       <main className="workspace">
-        <div className="layer-stack"><LayerTable /><ValueSlider /></div>
+        <div className="layer-stack"><LayerTable onProperties={index => setMaterialDialog({ index, invalidations: state.fitInvalidations })} /><ValueSlider /></div>
         <PlotPanel curve={plot.curve} measured={plot.measured} />
         <aside className="workspace__side">
           <SidePanel />
@@ -278,6 +280,7 @@ function Workspace() {
         </span>
         <span className="status-bar__mock">Mock calculation, not the real ReMagX engine</span>
       </footer>
+      {materialDialog && materialDialog.invalidations === state.fitInvalidations && project.sample.mode === 'compound' && project.sample.layers[materialDialog.index] && <MaterialSettingsDialog index={materialDialog.index} onClose={() => setMaterialDialog(null)} />}
       {state.importReport && (
         <ImportReportDialog report={state.importReport} fileName={state.fileName.replace('.json', '.all')} onClose={() => dispatch({ type: 'dismissImportReport' })} />
       )}

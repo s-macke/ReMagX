@@ -1097,3 +1097,6 @@ button.primary {
 .value-slider { display: flex; flex-direction: column; padding: 2px 8px; background: var(--panel); border: 1px solid var(--border); }
 .value-slider input { width: 100%; margin: 2px 0; }
 .value-slider span { font-size: 11px; color: var(--text-muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+.material-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+@media (max-width: 600px) { .material-settings-grid { grid-template-columns: 1fr; } }

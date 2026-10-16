@@ -641,7 +641,6 @@
         "client/Unit1.cpp::item:67940c3e1072cb65:1",
         "client/Unit1.cpp::item:044c0db584147fff:3",
         "client/Unit1.cpp::item:58ef0caf1cc257a9:1",
-        "client/Unit1.cpp::item:535dc714f7bbdb1c:1",
         "client/Unit1.cpp::item:044c0db584147fff:4",
         "client/Unit1.cpp::item:d41f4c83dbad7376:2",
         "client/Unit1.cpp::item:5d980d301945dcd0:1",
@@ -741,10 +740,12 @@
     },
     {
       "name": "materials",
-      "status": "deferred",
-      "reason": "Implement the Materials dialog, formula/density, read-only tensor display and per-layer gamma/phi fit controls. Fill Dielectric Tensor is hidden with no handler and is classified under the pending hidden-controls decision.",
+      "status": "ported",
+      "reason": "Properties opens the Material Settings dialog: read-only structural/optical values, draft formula/density/gamma/phi and per-layer Fit flags, atomic OK/undo, Cancel/Escape, and preservation of concurrent changes to unedited fields. Tensor display remains separate and explicitly unavailable; hidden Fill Dielectric Tensor stays pending scope.",
       "references": [
-        "AGENTS.md"
+        "app/src/ui/MaterialSettingsDialog.tsx",
+        "app/src/model/materialSettings.ts",
+        "app/e2e/materialSettings.spec.ts"
       ],
       "entries": [
         "client/Unit1.cpp::event:5cd33e7c993169f9:1",
@@ -772,36 +773,15 @@
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4/RoughnessEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4/ThicknessEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox4/NameEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Label7",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Label8",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExxEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExyEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExzEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyxEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyyEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyzEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzxEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzyEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzzEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExxiEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExyiEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExziEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyxiEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyyiEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyziEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzxiEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzyiEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzziEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5/Label12",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5/Label13",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5/ChemicalFormulaEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox5/DensityEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/OkButton",
-        "guidll/MaterialsForm.dfm::MaterialForm/CancelButton"
-      ],
-      "phase": "ui"
+        "guidll/MaterialsForm.dfm::MaterialForm/CancelButton",
+        "client/Unit1.cpp::item:535dc714f7bbdb1c:1"
+      ]
     },
     {
       "name": "summary",
@@ -1244,6 +1224,39 @@
         "client/ElementFrame.dfm::ElementFrame/ShowDensityProfilesButton",
         "client/Unit1.cpp::event:d5d0cdb3a74bc3df:1",
         "client/Unit1.dfm::Form1/CoolBar1/ToolBar1/ToolButton10"
+      ]
+    },
+    {
+      "name": "materials-tensor-display",
+      "status": "deferred",
+      "phase": "ui",
+      "reason": "Materials dialog currently identifies unavailable tensor data. Add the read-only real/imaginary 3×3 tensor values through ComputeService when the engine supplies them; no tensor values are fabricated or stored in project JSON.",
+      "references": [
+        "AGENTS.md",
+        "app/src/ui/MaterialSettingsDialog.tsx"
+      ],
+      "entries": [
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Label7",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Label8",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExxEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExyEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExzEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyxEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyyEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyzEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzxEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzyEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzzEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExxiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExyiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExziEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyxiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyyiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EyziEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzxiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzyiEdit",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzziEdit"
       ]
     }
   ],

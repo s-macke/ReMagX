@@ -33,17 +33,17 @@ function rowLabel(index: number, count: number): string {
 // The layer stack, shown top-down like the legacy program: "air" (ambient) first, "bulk"
 // (substrate) last, numbered layers in between. In element mode it shows the slabs of the
 // selected element instead (legacy SchichtEingabe in element mode).
-export function LayerTable() {
+export function LayerTable({ onProperties }: { onProperties: (index: number) => void }) {
   const { project } = useAppState()
   const dispatch = useDispatch()
   return <div className="layer-stack__table" onFocusCapture={event => {
     if (!(event.target instanceof HTMLInputElement) || !event.target.classList.contains('number-cell')) dispatch({ type: 'clearValueCell' })
   }} onPointerDownCapture={event => {
     if (!(event.target as HTMLElement).closest('input.number-cell')) dispatch({ type: 'clearValueCell' })
-  }}>{project.sample.mode === 'element' ? <ElementLayerTable /> : <CompoundLayerTable />}</div>
+  }}>{project.sample.mode === 'element' ? <ElementLayerTable /> : <CompoundLayerTable onProperties={onProperties} />}</div>
 }
 
-function CompoundLayerTable() {
+function CompoundLayerTable({ onProperties }: { onProperties: (index: number) => void }) {
   const { project, selectedLayer } = useAppState()
   const dispatch = useDispatch()
   const layers = project.sample.layers
@@ -119,7 +119,7 @@ function CompoundLayerTable() {
                   {outer ? (
                     <span className="layer-table__none">--</span>
                   ) : (
-                    <FittableNumberCell extraActions={<LayerSpectrumActions index={index} />} sliderTarget={{ kind: 'layer', field: 'thickness', index }} fitTarget={{ target: 'thickness', index, elementIndex: null }} label={`thickness of layer ${index}`} value={layer.thickness} min={0} onCommit={(thickness) => update(index, { thickness })} />
+                    <FittableNumberCell extraActions={<LayerSpectrumActions index={index} onProperties={onProperties} />} sliderTarget={{ kind: 'layer', field: 'thickness', index }} fitTarget={{ target: 'thickness', index, elementIndex: null }} label={`thickness of layer ${index}`} value={layer.thickness} min={0} onCommit={(thickness) => update(index, { thickness })} />
                   )}
                 </td>
                 <td>
@@ -143,7 +143,7 @@ function CompoundLayerTable() {
                 </td>
                 {opticalColumns.map((c) => (
                   <td key={c.field}>
-                    <FittableNumberCell extraActions={<LayerSpectrumActions index={index} />} sliderTarget={{ kind: 'layer', field: c.field, index }} fitTarget={{ target: c.field, index, elementIndex: null }} label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
+                    <FittableNumberCell extraActions={<LayerSpectrumActions index={index} onProperties={onProperties} />} sliderTarget={{ kind: 'layer', field: c.field, index }} fitTarget={{ target: c.field, index, elementIndex: null }} label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
                   </td>
                 ))}
                 {showMagnetization && (
@@ -171,7 +171,7 @@ function CompoundLayerTable() {
           })}
         </tbody>
       </table>
-      {menu && <LayerSpectrumMenu position={menu} close={closeMenu} />}
+      {menu && <LayerSpectrumMenu position={menu} close={closeMenu} onProperties={onProperties} />}
     </div>
   )
 }
