@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateParratt, calculateParrattQz } from '../wasm/parratt.mjs'
+import { calculateParratt, calculateParrattQz, lookupTable } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -29,6 +29,34 @@ for (const [caseIndex, prepared] of cases.entries()) {
   })
 }
 assert.equal(count, 14880)
+let tableValues = 0
+for (const table of input.tables) {
+  const snapshot = JSON.stringify(table)
+  const result = lookupTable(module, table, table.queries, table.cursor)
+  assert.equal(JSON.stringify(table), snapshot)
+  assert.equal(result.cursor, table.expectedCursor)
+  assert.equal(result.values.length, table.expected.length)
+  result.values.forEach((value, index) => {
+    assert.ok(Math.abs(value - table.expected[index]) <= 1e-15 + 1e-10 * Math.abs(table.expected[index]))
+    tableValues++
+  })
+}
+assert.equal(tableValues, 14760)
+const duplicateTable = { energy: [1, 2, 2, 3], columns: [[10, 20, 30, 40]] }
+const firstLookup = lookupTable(module, duplicateTable, [2])
+assert.deepEqual(Array.from(firstLookup.values), [20])
+const secondLookup = lookupTable(module, duplicateTable, [2, 2], firstLookup.cursor)
+assert.deepEqual(Array.from(secondLookup.values), [20, 30])
+assert.equal(secondLookup.cursor, 3)
+assert.deepEqual(Array.from(lookupTable(module, { energy: [], columns: [[], []] }, [1, 2]).values), [0, 0, 0, 0])
+assert.throws(() => lookupTable(module, { energy: [2, 1], columns: [[1, 2]] }, [1.5]), { status: 1 })
+assert.throws(() => lookupTable(module, { energy: [1, 2, 3], columns: [[1, 1e308, -1e308]] }, [1, 2.5]), { status: 2 })
+assert.throws(() => lookupTable(module, duplicateTable, [2], -1), TypeError)
+assert.throws(() => lookupTable(module, duplicateTable, [2], 0x100000000), TypeError)
+assert.equal(lookupTable(module, duplicateTable, [0], 0xffffffff).cursor, 0xffffffff)
+assert.throws(() => lookupTable(module, { energy: [1], columns: new Array(2) }, [1]), TypeError)
+assert.throws(() => lookupTable(module, { energy: [1], columns: [[1, 2]] }, [1]), TypeError)
+assert.throws(() => lookupTable(module, duplicateTable, []), TypeError)
 const prepared = cases[0]
 const before = calculateParratt(module, prepared)
 const qzPrepared = input.qz[1]
@@ -41,6 +69,7 @@ assert.ok(largeAllocation)
 assert.notEqual(module.HEAPF64.buffer, oldBuffer)
 module._free(largeAllocation)
 assert.deepEqual(calculateParratt(module, prepared), before)
+assert.deepEqual(lookupTable(module, duplicateTable, [2, 2], firstLookup.cursor), secondLookup)
 assert.throws(() => calculateParratt(module, { ...prepared, beam: [NaN, 0, 0, 0] }), TypeError)
 assert.throws(() => calculateParratt(module, { ...prepared, points: [[.1, 0, 0]] }), { status: 1 })
 assert.throws(() => calculateParratt(module, { ...prepared,
@@ -91,6 +120,12 @@ assert.equal(outstanding.size, 0)
 allocations = 0
 assert.throws(() => calculateParrattQz(failingAllocator, resolvedPrepared), /allocation failed/)
 assert.equal(outstanding.size, 0)
+allocations = 0
+assert.throws(() => lookupTable(failingAllocator, duplicateTable, [2]), /allocation failed/)
+assert.equal(outstanding.size, 0)
+assert.deepEqual(lookupTable(module, duplicateTable, [2, 2], firstLookup.cursor), secondLookup)
 assert.deepEqual(calculateParrattQz(module, qzPrepared), qzBefore)
 assert.deepEqual(calculateParratt(module, prepared), before)
 console.log(`WASM/native: ${count} comparisons; max log10 error ${maxLogError} decades; ${zeros} zero pairs; ${nonpositiveMismatches} nonpositive mismatches; memory growth and error recovery passed`)
+
+console.log(`WASM/native tables: ${tableValues} values and ${input.tables.length} cursors passed, including cursor continuation and cleanup.`)

@@ -413,4 +413,20 @@ required optical table is usable.
 reviewed `CTable::Get` method, validates its SHA-256 and compiles it temporarily with
 minimal single-thread scaffolding. 14,760 outputs and 80 cursor histories across
 1/2/18/20 columns match the original. No private implementation or research data is
-committed. WASM export, material-table selection and automatic refresh remain open.
+committed. WASM export is verified; material-table selection and automatic refresh remain open.
+
+### WASM table adapter
+
+`lookupTable(module, table, queries, cursor=0)` accepts the existing optical-table
+shape (`energy` and column-oriented `columns`). It returns independent row-major
+`Float64Array` values and the final cursor. Pass that cursor to the next lookup batch
+to preserve duplicate-energy history. Buffers are freed after every call; cursor
+marshalling uses an explicitly little-endian unsigned 32-bit value and refreshed heap
+views after possible growth. Empty tables require at least one empty column.
+
+The shared generated fixtures cover 1/2/18/20 columns, duplicate energies, varying
+query direction and out-of-range queries. Both Node and Chromium match 14,760 native
+values and 80 final cursors, while the optional private native test compares those
+same cases with the hash-gated original method. Adapter tests additionally exercise
+cursor continuation/bounds, memory growth, invalid input and allocation cleanup.
+This exposes the numerical primitive only; automatic material refresh is not yet wired.

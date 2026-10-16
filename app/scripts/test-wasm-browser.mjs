@@ -31,7 +31,7 @@ try {
   browser = await chromium.launch()
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
-  const result = await page.evaluate(async cases => {
+  const result = await page.evaluate(async ({ cases, tables }) => {
     const next = (worker, kind) => new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { cleanup(); reject(new Error(`Worker timeout: ${kind}`)) }, 10000)
       const cleanup = () => {
@@ -51,8 +51,8 @@ try {
     try {
       await next(worker, 'ready')
       const response = next(worker, 'results')
-      worker.postMessage({ cases })
-      const { values } = await response
+      worker.postMessage({ cases, tables })
+      const { values, tables: tableResults } = await response
       const entered = next(worker, 'entered')
       let finished = false
       worker.addEventListener('message', event => { if (event.data.kind === 'finished') finished = true })
@@ -69,11 +69,11 @@ try {
       const replacementResponse = next(worker, 'results')
       worker.postMessage({ cases: [cases[0]] })
       const replacement = (await replacementResponse).values[0]
-      return { values, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
+      return { values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
     } finally {
       worker.terminate()
     }
-  }, cases)
+  }, { cases, tables: input.tables })
   let count = 0, maxLogError = 0
   for (const [caseIndex, prepared] of cases.entries()) {
     assert.equal(result.values[caseIndex].length, prepared.expected.length)
@@ -90,6 +90,19 @@ try {
     })
   }
   assert.equal(count, 14880)
+  let tableCount = 0
+  assert.equal(result.tableResults.length, input.tables.length)
+  input.tables.forEach((table, index) => {
+    const actual = result.tableResults[index]
+    assert.equal(actual.cursor, table.expectedCursor)
+    assert.equal(actual.values.length, table.expected.length)
+    actual.values.forEach((value, column) => {
+      assert.ok(Math.abs(value - table.expected[column]) <= 1e-15 + 1e-10 * Math.abs(table.expected[column]))
+      tableCount++
+    })
+  })
+  assert.equal(tableCount, 14760)
+  console.log(`Chromium table lookup: ${tableCount} values and ${input.tables.length} cursor sequences matched native.`)
   assert.equal(result.finished, false, 'busy calculation must still be running at termination')
   assert.ok(result.tickMilliseconds < 200, `browser event loop took ${result.tickMilliseconds} ms`)
   assert.ok(result.recoveryMilliseconds < 1000, `replacement took ${result.recoveryMilliseconds} ms`)

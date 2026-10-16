@@ -2,7 +2,6 @@ import ctypes
 import hashlib
 import os
 from pathlib import Path
-import random
 import subprocess
 import tempfile
 import math
@@ -10,23 +9,9 @@ import sys
 import unittest
 
 library = ctypes.CDLL(sys.argv.pop(1))
-library.remagx_table_lookup.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double),
-    ctypes.c_size_t, ctypes.c_size_t, ctypes.POINTER(ctypes.c_double), ctypes.c_size_t,
-    ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_double)]
-library.remagx_table_lookup.restype = ctypes.c_int
-
-
-def lookup(energies, rows, queries, cursor=0, columns=2):
-    array = lambda values: (ctypes.c_double * len(values))(*values)
-    energy_array, values, inputs = array(energies), array([value for row in rows for value in row]), array(queries)
-    position = ctypes.c_size_t(cursor)
-    output = array([-123.] * (len(queries) * columns))
-    before = bytes(energy_array), bytes(values), bytes(inputs)
-    status = library.remagx_table_lookup(energy_array, values, len(energies), columns, inputs, len(queries), ctypes.byref(position), output)
-    if before != (bytes(energy_array), bytes(values), bytes(inputs)):
-        raise AssertionError('Table lookup mutated input')
-    return status, list(output), position.value
-
+from table_binding import NativeTable
+from table_cases import synthetic_table_cases
+lookup = NativeTable(library).lookup
 
 class TableLookupTest(unittest.TestCase):
     def test_linear_columns_endpoints_and_zero_outside(self):
@@ -77,14 +62,9 @@ int main() { int rows,columns,queries,cursor; while(std::cin>>rows>>columns>>que
  std::cout<<table.index<<std::setprecision(17);for(double value:values)std::cout<<' '<<value;std::cout<<'\n';
 }}
 """
-        generator = random.Random(26019)
         payload, expected = [], []
-        for case in range(80):
-            columns = [1, 2, 18, 20][case % 4]
-            energies = sorted(generator.randint(1, 10) for _ in range(case % 21))
-            rows = [[generator.uniform(-1e3, 1e3) for _ in range(columns)] for _ in energies]
-            queries = [generator.uniform(0, 11) for _ in range(10)] + [2, 2, 2, 5, 5, 5, 1, 10]
-            cursor = generator.choice([0, len(energies) + 20])
+        for case in synthetic_table_cases():
+            energies, columns, rows, queries, cursor = case['energy'], len(case['columns']), list(zip(*case['columns'])), case['queries'], case['cursor']
             status, values, end = lookup(energies, rows, queries, cursor, columns)
             self.assertEqual(status, 0)
             expected.append((end, values))

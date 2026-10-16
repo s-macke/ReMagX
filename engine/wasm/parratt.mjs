@@ -21,9 +21,9 @@ export function calculateParratt(module, { layers, points, beam, tensor = 0, ana
   })
 }
 
-function checkStatus(status) {
+function checkStatus(status, operation = 'Parratt calculation') {
   if (status !== 0) {
-    const error = new Error(`Parratt calculation failed (status ${status})`)
+    const error = new Error(`${operation} failed (status ${status})`)
     error.status = status
     throw error
   }
@@ -79,8 +79,8 @@ export function calculateParrattQz(module, {
   })
 }
 
-function validVector(values, length) {
-  if (!Array.isArray(values) || values.length === 0 || (length !== undefined && values.length !== length)) return false
+function validVector(values, length, allowEmpty = false) {
+  if (!Array.isArray(values) || (!allowEmpty && values.length === 0) || (length !== undefined && values.length !== length)) return false
   // for-of visits holes as undefined; Array.every would silently skip them.
   for (const value of values) if (!Number.isFinite(value)) return false
   return true
@@ -90,4 +90,37 @@ function validRows(rows, width) {
   if (!Array.isArray(rows) || rows.length === 0) return false
   for (const row of rows) if (!validVector(row, width)) return false
   return true
+}
+
+// OpticalTable-shaped input (column-oriented), native row-major output. Cursor
+// is returned explicitly, so repeated batches retain legacy duplicate-energy history.
+export function lookupTable(module, table, queries, cursor = 0) {
+  if (!table || !validVector(table.energy, undefined, true) ||
+      !Array.isArray(table.columns) || table.columns.length < 1 || table.columns.length > 20 ||
+      !Array.from(table.columns).every(column => validVector(column, table.energy.length, true)) ||
+      !validVector(queries) || !Number.isSafeInteger(cursor) || cursor < 0 || cursor > 0xffffffff) {
+    throw new TypeError('Invalid optical-table lookup input')
+  }
+  return withBuffers(module, allocate => {
+    const rows = table.energy.length
+    const columns = table.columns.length
+    const energyPointer = rows ? allocate(rows) : 0
+    const valuePointer = rows ? allocate(rows * columns) : 0
+    const queryPointer = allocate(queries.length)
+    const cursorPointer = allocate(1)
+    const outputPointer = allocate(queries.length * columns)
+    if (rows) module.HEAPF64.set(table.energy, energyPointer / 8)
+    for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+      module.HEAPF64[valuePointer / 8 + row * columns + column] = table.columns[column][row]
+    }
+    module.HEAPF64.set(queries, queryPointer / 8)
+    // wasm32 size_t is four bytes; the allocation remains aligned to eight bytes.
+    new DataView(module.HEAPF64.buffer).setUint32(cursorPointer, cursor, true)
+    checkStatus(module._remagx_table_lookup(energyPointer, valuePointer, rows, columns,
+      queryPointer, queries.length, cursorPointer, outputPointer), 'Optical-table lookup')
+    return {
+      values: module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + queries.length * columns),
+      cursor: new DataView(module.HEAPF64.buffer).getUint32(cursorPointer, true),
+    }
+  })
 }

@@ -4,6 +4,8 @@ import math
 import os
 from pathlib import Path
 import json
+from table_binding import NativeTable
+from table_cases import synthetic_table_cases
 from parratt_cases import synthetic_cases, synthetic_qz_cases, synthetic_resolution_cases
 import subprocess
 import sys
@@ -178,7 +180,13 @@ class NativeParrattTest(unittest.TestCase):
             self.assertEqual(status, 0)
             width, fast = prepared['resolution']
             qz_cases.append(dict(prepared, resolution=dict(width=width, fast=bool(fast)), expected=[value for pair in values for value in pair]))
-        payload = json.dumps(dict(angular=cases, qz=qz_cases))
+        table_cases = []
+        table_lookup = NativeTable(library).lookup
+        for table in synthetic_table_cases():
+            status, values, cursor = table_lookup(table['energy'], list(zip(*table['columns'])), table['queries'], table['cursor'], len(table['columns']))
+            self.assertEqual(status, 0)
+            table_cases.append(dict(table, expected=values, expectedCursor=cursor))
+        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
                        input=payload, text=True, check=True)
