@@ -19,6 +19,7 @@ it('prepares and routes requests, shares initialization, and returns the establi
   const handle = createRealRequestHandler(send, load)
   const project = createDefaultProject()
   project.experiment.qzScan.points = 2
+  project.experiment.resolution.fastConvolution = false
   await Promise.all([handle({ id: 1, kind: 'reflectivity', project }), handle({ id: 2, kind: 'asymmetry', project })])
   expect(load).toHaveBeenCalledTimes(1)
   expect(send.mock.calls[0][0]).toMatchObject({ id: 1, type: 'result', result: { reflectivity: [3, 3] } })

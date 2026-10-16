@@ -252,6 +252,7 @@ Quality gates:
 - [ ] Multi-dataset fits over all datasets flagged for fitting; asymmetry, dichroic and energy-scan fits; honour the additional fit parameters (F-5, D-3)
 - [ ] Legacy-exact element density profiles and sampling (including BeforeCalculation); replace the bounded mock behind the existing density view.
 - [ ] Element mode and element→material conversion; optical-constant interpolation with the periodic-table data (D-25, spec §2)
+- [x] Initial real-worker angular resolution: fixed legacy 19-point kernel, non-fast shifted WASM samples and fast legacy interpolation, including negative-qz handling and small-width behavior. Domain tests, 448 local original-interpolation output comparisons and two original-Parratt browser references pass. Full native/C++ and energy-resolution acceptance remain open.
 - [ ] Port angular and energy resolution, including fast/exact convolution; complete dichroic/asymmetry energy scans (D-25, spec §2, AC-5)
 - [ ] Legacy error conditions (RX_QZ, RX_DB, RX_CSCRIPT, RX_ESCRIPT, RX_ML, RX_UNKNOWN) as clear UI messages (D-14)
 - [ ] Lua scripting with wasmoon and the full legacy script API (D-2, D-22; AC-7, AC-7a, AC-8)

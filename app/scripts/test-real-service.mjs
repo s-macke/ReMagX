@@ -77,6 +77,19 @@ try {
       postProject.calculation.postProcessing.divideByCos2ThetaSquared = true
       postProject.calculation.averaging = 1
       output.postprocessed = await service.calcReflectivity(postProject)
+      const resolutionProject = createDefaultProject()
+      resolutionProject.sample.layers = [createLayer({ delta: .01, beta: .002 }), createLayer()]
+      resolutionProject.experiment.energy = 640
+      resolutionProject.experiment.polarization.beam1 = { sigma: { re: 1, im: 0 }, pi: { re: 0, im: 0 } }
+      resolutionProject.experiment.resolution.angularFwhm = .002
+      resolutionProject.experiment.resolution.fastConvolution = false
+      resolutionProject.experiment.qzScan.points = 2
+      output.resolution = []
+      for (const qz of [0, .03]) {
+        resolutionProject.experiment.qzScan.qzMin = qz
+        resolutionProject.experiment.qzScan.qzMax = qz
+        output.resolution.push((await service.calcReflectivity(resolutionProject)).reflectivity[0])
+      }
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
       busy.sample.layers = Array.from({ length: 1000 }, (_, index) => createLayer({ thickness: 10, delta: index % 2 ? .001 : .002, beta: .0001 }))
@@ -109,11 +122,15 @@ try {
   const mean = (corrected[0] + corrected[1]) / 2
   assert.equal(results.postprocessed.reflectivity[0], 0) // legacy unsigned leading-window behavior
   assert.ok(Math.abs(results.postprocessed.reflectivity[1] - mean) <= 1e-15 + 1e-10 * Math.abs(mean))
+  // Synthetic original CParratt<double> values, weighted with the active legacy
+  // 19-node kernel at energy 640 eV and width .002 inverse Angstrom.
+  const resolutionReference = [.56005877016968919, .87413289596007782]
+  results.resolution.forEach((value, index) => assert.ok(Math.abs(value - resolutionReference[index]) <= 1e-15 + 1e-10 * Math.abs(resolutionReference[index])))
   assert.equal(results.stopped, 'ComputeCancelled')
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

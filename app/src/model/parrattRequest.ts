@@ -42,14 +42,13 @@ function packBeam(beam: Polarization['beam1']): [number, number, number, number]
 }
 
 // Invoked by the real worker pipeline once integrated. This initial stage supports
-// prepared scalar constants and zero resolution; it must never silently ignore settings.
+// prepared scalar constants and angular resolution; it must never silently ignore settings.
 export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' | 'dichroic'): PreparedParrattQzRequest {
   const calculation = project.calculation
   if (calculation.algorithm !== 'parratt') throw new Error('This real-engine path currently supports Parratt only.')
   if (project.experiment.scattering !== 'reflection') throw new Error('Transmission is not available in this real-engine path.')
   if (calculation.automaticOpticalConstants) throw new Error('Automatic optical-table refresh is not implemented in real-engine preparation yet.')
   if (project.scripts.enabled && project.scripts.beforeCalculation.trim()) throw new Error('BeforeCalculation Lua execution is not implemented in real-engine preparation yet.')
-  if (project.experiment.resolution.angularFwhm !== 0) throw new Error('Angular resolution is not implemented in real-engine preparation yet.')
   if (calculation.postProcessing.fourierTransform) {
     throw new Error('Fourier postprocessing is not implemented in this real-engine path yet.')
   }

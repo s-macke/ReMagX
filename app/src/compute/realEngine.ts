@@ -1,3 +1,4 @@
+import { angularResolutionCoordinates, combineAngularResolution } from '../model/angularResolution'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from '../model/parrattRequest'
 import { postprocessParrattResult } from '../model/parrattResult'
 import type { WorkerRequest, WorkerResponse } from './protocol'
@@ -16,7 +17,11 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       const request = prepareParrattQzRequest(message.project, message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic')
       calculator ??= load().catch(error => { calculator = null; throw error })
       const calculate = await calculator
-      const result = postprocessParrattResult(message.project, request.qz, calculate(request), message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic')
+      const resolution = message.project.experiment.resolution
+      const coordinates = angularResolutionCoordinates(request.qz, resolution.angularFwhm, resolution.fastConvolution)
+      const values = calculate({ ...request, qz: coordinates })
+      const resolved = combineAngularResolution(request.qz, values, resolution.angularFwhm, resolution.fastConvolution, request.mode === 1)
+      const result = postprocessParrattResult(message.project, request.qz, resolved, message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic')
       send({ id: message.id, type: 'result', result: message.kind === 'reflectivity'
         ? { qz: result.qz, reflectivity: result.reflectivityPlus } : result })
     } catch (error) {

@@ -61,7 +61,6 @@ it('rejects unfinished physics and preprocessing instead of silently calculating
     p => { p.calculation.algorithm = 'zak' }, p => { p.sample.mode = 'element' },
     p => { p.experiment.scattering = 'transmission' }, p => { p.calculation.automaticOpticalConstants = true },
     p => { p.scripts.beforeCalculation = 'SetEnergy(100)' },
-    p => { p.experiment.resolution.angularFwhm = .001 },
     p => { p.calculation.roughnessModel = 'segmentation' },
     p => { p.calculation.postProcessing.fourierTransform = true },
   ]

@@ -292,7 +292,7 @@ to 1,000,000 points to avoid unbounded allocation.
 
 The initial zero-resolution path rejects non-Parratt algorithms, transmission,
 automatic optical refresh, enabled BeforeCalculation source, element mode, segmentation,
-nonzero angular resolution and Fourier postprocessing. Experiment energy
+Fourier postprocessing. Angular resolution is now handled by the real worker. Experiment energy
 and polarizations remain authoritative when borrowing dataset coordinates, matching
 the main legacy action. The fast-dichroic upper boundary is stricter than the non-fast
 native API, so request preparation rejects ratio `qz/(2*k0) >= 1` for that branch.
@@ -344,3 +344,24 @@ ToTheta methods with minimal scaffolding (FFT disabled). All 960 output values a
 64 scaling/correction/asymmetry/averaging cases matched exactly. This focused manual
 comparison supplements unit tests and the actual Chromium ComputeService check; it
 is not full-project corpus acceptance and no private source was committed.
+
+### Real-worker angular resolution
+
+`model/angularResolution.ts` preserves the active 19-point offset/weight arrays from
+`shared/RechenHilfe.h`. Non-fast requests expand qz into shifted coordinates, calculate
+them through the WASM batch API and accumulate in legacy order. Width below `1e-10`
+uses one sample with weight one at offset -2*width, including the small nonzero shift.
+Negative-qz samples contribute zero without renormalization. The stored angularPoints
+setting does not change the active legacy kernel.
+
+Fast resolution calculates the original grid once, then follows `GetLinY` from
+`RechenHilfe.cpp`: forward searches omit the last interval; an unsuccessful search
+returns the original point instead of clamping/extrapolating. Skipped negative-qz
+raw points retain the legacy initial intensity one. No width-zero normalization or
+weight adjustment is introduced. Resolution precedes postprocessing and asymmetry.
+
+Three domain tests cover sampling and edge rules. A temporary local reference using
+the original constants/GetLinY matched 448 outputs across 64 generated grid/width/mode
+cases exactly. Chromium additionally checks two synthetic exact-resolution results
+against original CParratt<double> outputs with the same 19 weights. This is initial
+worker orchestration; full native/C++ resolution and energy convolution remain open.
