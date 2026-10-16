@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky } from '../wasm/parratt.mjs'
+import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -79,9 +79,9 @@ assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, qz: [0
 let matrixCount = 0
 for (const [caseIndex, prepared] of input.matrices.entries()) {
   const snapshot = JSON.stringify(prepared)
-  const actual = calculateVisnovsky(module, prepared)
+  const actual = prepared.kind === 'qz' ? calculateVisnovskyQz(module, prepared) : calculateVisnovsky(module, prepared)
   assert.equal(JSON.stringify(prepared), snapshot)
-  assert.equal(actual.length, 2)
+  assert.equal(actual.length, prepared.expected.length)
   actual.forEach((value, index) => {
     const target = prepared.expected[index]
     assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
@@ -89,7 +89,7 @@ for (const [caseIndex, prepared] of input.matrices.entries()) {
     matrixCount++
   })
 }
-assert.equal(matrixCount, 2880)
+assert.equal(matrixCount, 11280)
 const matrixPrepared = input.matrices[0]
 const matrixBefore = calculateVisnovsky(module, matrixPrepared)
 for (const change of [{ layers: new Array(2) }, { layers: [] }, { angle: NaN }, { analyzer: 3 }, { beam2: new Array(4) }]) {
@@ -102,6 +102,14 @@ invalidMatrix.layers[0].anisotropic = 0
 invalidMatrix.layers[0].values[2] = 0
 invalidMatrix.layers[0].values[3] = 0
 assert.throws(() => calculateVisnovsky(module, invalidMatrix), { status: 2 })
+const matrixQzPrepared = input.matrices.find(item => item.kind === 'qz' && item.mode === 1 && item.resolution?.width > 1e-10)
+const matrixQzBefore = calculateVisnovskyQz(module, matrixQzPrepared)
+for (const change of [{ qz: [] }, { qz: new Array(2) }, { energy: 0 }, { epsilon: NaN },
+    { beam2: null }, { mode: 2 }, { resolution: { width: 0, fast: 1 } }, { resolution: { width: -1, fast: false } }]) {
+  assert.throws(() => calculateVisnovskyQz(module, { ...matrixQzPrepared, ...change }), TypeError)
+}
+assert.throws(() => calculateVisnovskyQz(module, { ...matrixQzPrepared, qz: [0, 1e10] }), { status: 4 })
+assert.equal(calculateVisnovskyQz(module, { ...matrixQzPrepared, mode: 0, beam2: null })[1], 0)
 let tensorValues = 0
 for (const item of input.tensors) {
   const snapshot = JSON.stringify(item)
@@ -146,6 +154,7 @@ const oldBuffer = module.HEAPF64.buffer
 const largeAllocation = module._malloc(oldBuffer.byteLength + 1024)
 assert.ok(largeAllocation)
 assert.notEqual(module.HEAPF64.buffer, oldBuffer)
+assert.deepEqual(calculateVisnovskyQz(module, matrixQzPrepared), matrixQzBefore)
 assert.deepEqual(calculateVisnovsky(module, matrixPrepared), matrixBefore)
 assert.deepEqual(calculateDielectricTensor(module, tensorPrepared), tensorBefore)
 assert.deepEqual(calculateParrattEnergyScan(module, scanPrepared), scanBefore)
@@ -236,3 +245,9 @@ assert.throws(() => calculateVisnovsky(failingAllocator, matrixPrepared), /alloc
 assert.equal(outstanding.size, 0)
 assert.deepEqual(calculateVisnovsky(module, matrixPrepared), matrixBefore)
 console.log(`WASM/native Visnovsky: ${matrixCount} intensities, validation, memory growth and cleanup passed.`)
+
+allocations = 0
+assert.throws(() => calculateVisnovskyQz(failingAllocator, matrixQzPrepared), /allocation failed/)
+assert.equal(outstanding.size, 0)
+assert.deepEqual(calculateVisnovskyQz(module, matrixQzPrepared), matrixQzBefore)
+console.log('Visnovsky qz validation, memory growth and allocation cleanup passed.')

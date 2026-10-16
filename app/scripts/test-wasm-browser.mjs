@@ -92,7 +92,7 @@ try {
   assert.equal(count, 14880)
   let matrixCount = 0
   input.matrices.forEach((item, index) => {
-    assert.equal(result.matrixResults[index].length, 2)
+    assert.equal(result.matrixResults[index].length, item.expected.length)
     result.matrixResults[index].forEach((value, beam) => {
       const target = item.expected[beam]
       assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
@@ -100,7 +100,7 @@ try {
       matrixCount++
     })
   })
-  assert.equal(matrixCount, 2880)
+  assert.equal(matrixCount, 11280)
   console.log(`Chromium Visnovsky: ${matrixCount} intensities matched native.`)
   let tensorCount = 0
   input.tensors.forEach((item, index) => {

@@ -1,5 +1,5 @@
 import createCore from './remagx-core.mjs'
-import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky } from './parratt.mjs'
+import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz } from './parratt.mjs'
 
 const core = await createCore()
 self.onmessage = ({ data }) => {
@@ -20,7 +20,7 @@ self.onmessage = ({ data }) => {
       calculateParratt(core, prepared)
       self.postMessage({ kind: 'finished' })
     } else {
-      self.postMessage({ kind: 'results', matrices: (data.matrices ?? []).map(item => Array.from(calculateVisnovsky(core, item))), tensors: (data.tensors ?? []).map(item => { const result = calculateDielectricTensor(core, item); return { values: Array.from(result.values), anisotropic: result.anisotropic } }), scans: (data.scans ?? []).map(item => Array.from(calculateParrattEnergyScan(core, item))), energy: (data.energy ?? []).map(item => Array.from(convolveEnergy(core, item.energy, new Float64Array(item.raw), item.width))), tables: (data.tables ?? []).map(table => { const result = lookupTable(core, table, table.queries, table.cursor); return { values: Array.from(result.values), cursor: result.cursor } }), values: data.cases.map(prepared =>
+      self.postMessage({ kind: 'results', matrices: (data.matrices ?? []).map(item => Array.from(item.kind === 'qz' ? calculateVisnovskyQz(core, item) : calculateVisnovsky(core, item))), tensors: (data.tensors ?? []).map(item => { const result = calculateDielectricTensor(core, item); return { values: Array.from(result.values), anisotropic: result.anisotropic } }), scans: (data.scans ?? []).map(item => Array.from(calculateParrattEnergyScan(core, item))), energy: (data.energy ?? []).map(item => Array.from(convolveEnergy(core, item.energy, new Float64Array(item.raw), item.width))), tables: (data.tables ?? []).map(table => { const result = lookupTable(core, table, table.queries, table.cursor); return { values: Array.from(result.values), cursor: result.cursor } }), values: data.cases.map(prepared =>
         Array.from(prepared.kind === 'qz' ? calculateParrattQz(core, prepared) : calculateParratt(core, prepared))) })
     }
   } catch (error) {

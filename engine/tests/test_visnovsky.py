@@ -235,6 +235,20 @@ if __name__ == '__main__':
             payload.append(dict(layers=[dict(values=[entry.thickness, entry.roughness, entry.index_real,
                 entry.index_imaginary, *entry.dielectric], anisotropic=entry.anisotropic) for entry in layers],
                 angle=angle, waveNumber=wave, epsilon=epsilon, analyzer=analyzer, beam1=first, beam2=second, expected=expected))
+        for number, arguments in enumerate(list(cases())[::12]):
+            layers, _, _, epsilon, _, first, second = arguments
+            energy = [100, 640, 8000][number % 3]
+            wave = 2 * math.pi / (12398.326 / energy)
+            qz = [ratio * 2 * wave for ratio in [-.02, 0, .05, .2, .4]]
+            if number % 4 == 0: qz.reverse()
+            options = dict(energy=energy, epsilon=epsilon, analyzer=number % 3,
+                           mode=(number//3)%2, beam1=first, beam2=second)
+            for resolution in [None, (0, 0), (0, 1), (1e-11, 0), (1e-11, 1), (wave*.01, 0), (wave*.01, 1)]:
+                status, expected = evaluate_qz(layers, qz, resolution=resolution, **options)
+                assert status == 0
+                prepared = dict(kind='qz', layers=payload[number*12]['layers'], qz=qz, expected=expected, **options)
+                if resolution is not None: prepared['resolution'] = dict(width=resolution[0], fast=bool(resolution[1]))
+                payload.append(prepared)
         print(json.dumps(payload))
     else:
         unittest.main()

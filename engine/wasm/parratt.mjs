@@ -197,8 +197,7 @@ export function calculateDielectricTensor(module, { layer, tensor = 0, magnetic 
 // One angle for a prepared substrate-first tensor stack. Both beams see the
 // supplied tensors; the caller prepares any magnetization-reversed stack.
 export function calculateVisnovsky(module, { layers, angle, waveNumber, epsilon, beam1, beam2, analyzer = 0 }) {
-  if (!Array.isArray(layers) || layers.length < 2 || !Array.from(layers).every(layer =>
-      layer && validVector(layer.values, 22) && [0, 1].includes(layer.anisotropic)) ||
+  if (!validMatrixLayers(layers) ||
       !Number.isFinite(angle) || !Number.isFinite(waveNumber) || !Number.isFinite(epsilon) ||
       !validVector(beam1, 4) || !validVector(beam2, 4) || ![0, 1, 2].includes(analyzer)) {
     throw new TypeError('Invalid prepared Visnovsky input')
@@ -208,17 +207,56 @@ export function calculateVisnovsky(module, { layers, angle, waveNumber, epsilon,
     const firstPointer = allocate(4)
     const secondPointer = allocate(4)
     const outputPointer = allocate(2)
-    const view = new DataView(module.HEAPF64.buffer)
-    layers.forEach((layer, index) => {
-      const offset = layerPointer + index * 184
-      module.HEAPF64.set(layer.values, offset / 8)
-      view.setInt32(offset + 176, layer.anisotropic, true)
-      view.setInt32(offset + 180, 0, true) // trailing ABI padding
-    })
+    packMatrixLayers(module, layerPointer, layers)
     module.HEAPF64.set(beam1, firstPointer / 8)
     module.HEAPF64.set(beam2, secondPointer / 8)
     checkStatus(module._remagx_visnovsky(layerPointer, layers.length, angle, waveNumber, epsilon,
       firstPointer, secondPointer, analyzer, outputPointer), 'Visnovsky reflection')
     return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + 2)
+  })
+}
+
+function validMatrixLayers(layers) {
+  return Array.isArray(layers) && layers.length >= 2 && Array.from(layers).every(layer =>
+    layer && validVector(layer.values, 22) && [0, 1].includes(layer.anisotropic))
+}
+
+function packMatrixLayers(module, pointer, layers) {
+  const view = new DataView(module.HEAPF64.buffer)
+  layers.forEach((layer, index) => {
+    const offset = pointer + index * 184
+    module.HEAPF64.set(layer.values, offset / 8)
+    view.setInt32(offset + 176, layer.anisotropic, true)
+    view.setInt32(offset + 180, 0, true) // trailing ABI padding
+  })
+}
+
+// Fixed-energy scan of prepared tensors. Both beams use the same tensor stack.
+export function calculateVisnovskyQz(module, { layers, qz, energy, epsilon, beam1, beam2,
+  analyzer = 0, mode = 1, resolution }) {
+  if (!validMatrixLayers(layers) || !validVector(qz) || !Number.isFinite(energy) || energy <= 0 ||
+      !Number.isFinite(epsilon) || !validVector(beam1, 4) || (mode === 1 && !validVector(beam2, 4)) ||
+      ![0, 1].includes(mode) || ![0, 1, 2].includes(analyzer)) {
+    throw new TypeError('Invalid prepared Visnovsky qz input')
+  }
+  if (resolution !== undefined && (!resolution || !Number.isFinite(resolution.width) || resolution.width < 0 || typeof resolution.fast !== 'boolean')) {
+    throw new TypeError('Invalid angular-resolution settings')
+  }
+  return withBuffers(module, allocate => {
+    const layerPointer = allocate(layers.length * 23)
+    const qzPointer = allocate(qz.length)
+    const firstPointer = allocate(4)
+    const secondPointer = mode === 1 ? allocate(4) : 0
+    const outputPointer = allocate(qz.length * 2)
+    packMatrixLayers(module, layerPointer, layers)
+    module.HEAPF64.set(qz, qzPointer / 8)
+    module.HEAPF64.set(beam1, firstPointer / 8)
+    if (secondPointer) module.HEAPF64.set(beam2, secondPointer / 8)
+    const args = [layerPointer, layers.length, qzPointer, qz.length, energy, epsilon,
+      firstPointer, secondPointer, analyzer, mode]
+    checkStatus(resolution
+      ? module._remagx_visnovsky_qz_resolution(...args, resolution.width, Number(resolution.fast), outputPointer)
+      : module._remagx_visnovsky_qz(...args, outputPointer), 'Visnovsky qz scan')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + qz.length * 2)
   })
 }
