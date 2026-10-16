@@ -125,23 +125,29 @@ there or into another private folder (D-20); never into git.
 
 ## Checklist
 
-Status of the UI-first phase as of the last audit (2026-10-15). "(partial)" means the item works
-but has known gaps, listed under "still to do".
+Status reviewed against the repository, spec and decisions on 2026-10-16. "(partial)" means
+an item works but has known gaps, listed under "still to do". Checked UI and mock-engine items
+do not establish real-engine acceptance. The missing-controls list is provisional until the
+settings/handler inventory accounts for every legacy entry (AC-12).
+
+The implementation plan referenced by D-33 is outside the repository and was unavailable at
+its recorded path during this audit. Use the repository spec and decision journal for scope,
+and this checklist for implementation status; the external Steps 0–8 have not been verified.
 
 ### Done
 - [x] Analysis of the legacy code; brainstorm, spec and decision journal (`docs/`)
 - [x] git repository, GPL-3.0 licence, public GitHub repo, GitHub Pages deployment on push
 - [x] App scaffold: Vite, React, TypeScript (strict), vitest, oxlint
-- [x] Project model: versioned JSON schema covering everything legacy `.all` files store
+- [x] Project model: versioned JSON schema for imported legacy project settings, layers, datasets and scripts; ignored or unsupported fields are reported by the importer
 - [x] Compute interface and Web Worker; mock engine: Parratt σ/π, Nevot-Croce, angular resolution, depth profile, Nelder-Mead fit with stop flag
 - [x] Legacy `.all` importer with import report; all 99 legacy example files import
 - [x] Optical-constant table readers (`.db`, `.m`, `.e`, `.ff`, `.ffm`), tables held in memory for the session
 - [x] Main window in the legacy layout: layer table, log plot (Hold/Clear/Scale, drag zoom), tabs with collapsible sections, Mode panel (Monochromatic/Dichroic/Asymmetry), menus as in 2.6 (Tools ▸ Script, Scratch shown as later; Help ▸ License)
 - [x] Context-dependent sections: Algorithm Parameters only for Simplex with annealing (AC-11; Evolution follows with the evolution fit)
 - [x] Side-panel sections Experiment, Sample, Fit with the main legacy fields (partial: missing controls listed below; Map Calculations is a placeholder)
-- [x] Preferences dialog; optical and magneto-optical depth-profile views
+- [x] Preferences dialog; optical and magneto-optical depth-profile views backed by the mock (actual engine profiles remain below, D-26)
 - [x] Fit from the UI: parameter table, Start/Stop/χ², live curve during the fit, only fitted values written back (edits made meanwhile are kept), Debug Window with fit messages
-- [x] Stop fallback: a worker that ignores Stop for 2 s is terminated and restarted (D-12)
+- [x] Stop fallback implemented: a worker that ignores Stop for 2 s is terminated and restarted (D-12); this does not meet the 1 s requirement in D-28/AC-10
 - [x] Script window: Lua editor (CodeMirror), Default/BeforeCalculation, code generator (execution comes with the engine)
 - [x] Autosave in IndexedDB; Open/Save/Save As with file handles; unsaved marker; Ctrl+O/S
 - [x] Undo/Redo (Edit menu, Ctrl+Z/Y) with coalesced typing
@@ -152,7 +158,10 @@ but has known gaps, listed under "still to do".
 
 ### UI phase: still to do
 
-Fixes found in the audit:
+Runtime behavior:
+- [ ] Cancel both fits and standalone calculations within 1 s, including an unresponsive worker; verify progress and UI response within 200 ms during a fit (D-28, AC-10). The current fallback waits 2 s and the service exposes only `stopFit()`.
+
+Fixes found in the audit (provisional until the inventory is complete):
 
 Missing legacy controls and windows:
 - [ ] Plot (legacy `Chart1`): mouse-wheel zoom and "Zoom Out", cursor coordinate readout, Properties dialog (axis ranges, log toggles, colours, line width, font size, points), copy data/graphic to the clipboard, save picture; decide on "Select Area" and "Fit Lorentzian+Step"
@@ -170,22 +179,30 @@ Data:
 - [ ] Optical-constant tables used by calculations (energy scans currently keep δ/β constant)
 
 Quality gates:
-- [ ] Settings/handler inventory: `tools/inventory/` parser of the legacy `.dfm` files and `Items->Add` calls, and `tools/inventory/check`, which fails on entries not marked ported/dropped/deferred (AC-12)
+- [ ] Settings/handler inventory: `tools/inventory/` parser of the legacy `.dfm` files and `Items->Add` calls; reconcile every entry with the UI and this checklist as ported, dropped (with reason), or deferred. Make `tools/inventory/check` a release gate that fails on unclassified entries (D-16, D-17.1, AC-12).
+- [ ] Run all private-corpus imports in CI using `CORPUS_DIR` with private data access; fail if the corpus is missing or empty, without publishing research data in the repository, logs or artifacts (D-17.3, D-20, AC-4). Today the Pages workflow does not supply the corpus and the suite skips.
 - [ ] Playwright end-to-end tests in Chromium and Firefox (AC-10, AC-11, AC-13, AC-14, AC-15)
 
 ### Engine phase: still to do
 - [ ] Docker build (optional, pinned emsdk + g++ + Node) producing the static site (D-19)
-- [ ] Golden outputs for the test corpus (the corpus itself exists: `old/reMagX3/examples`, `Tutorial/`, `bin/`; add further user files there or in a separate private folder) (D-20)
+- [ ] Simulation golden outputs from the native legacy 2.6 rebuild for the private corpus (`old/reMagX3/examples`, `Tutorial/`, `bin/`; add further user files privately), separate from original-optimizer fit references (D-5, D-20, D-32).
+- [ ] Generate reference fit outputs once on the user's machine with an original legacy build and its original optimizer; keep that build uncommitted and store only its outputs in the private corpus (D-20, D-32).
 - [ ] Native rebuild of the legacy 2.6 core for golden data, `%.17g` output, no NR code in the repo (D-5, D-32)
 - [ ] Cross-check the rebuild against the Wine 2.3.1 binary within 1e-6 (AC-6)
-- [ ] Extract and clean the numerical core: double only, descriptive names, data-driven C API (D-6, D-34)
+- [ ] Extract and clean the numerical core: double only, descriptive names, data-driven C API; verify the double-only source gate (D-6, D-34, AC-2).
+- [ ] Port Parratt, full 4×4 matrix/Visnovsky and Zak calculations for qz and energy scans; validate each against legacy golden outputs (D-3, D-25, AC-5).
+- [ ] Port Nevot-Croce roughness and adaptive layer segmentation, including segmentation settings (D-25, spec §2).
+- [ ] Port Gaussian and spline magnetic profiles with coupling (D-25, spec §2).
+- [ ] Honor arbitrary complex polarization for both beams and the polarization analyzer; support dichroic reflectivity and both asymmetry definitions (D-25, spec §2).
+- [ ] Expose and display δ(z), β(z), δm(z), βm(z) from the actual engine after roughness/slicing (D-26); replace the mock profile data behind the existing views.
 - [ ] Emscripten build; golden tests native and WASM within 1e-10 rel + 1e-15 abs (AC-5, D-23)
 - [ ] Golden and WASM tests in CI (today `pages.yml` runs only lint, test and build)
 - [ ] AC-3 with the real engine: a `precision = 3` project computes bit-identically to `precision = 1`
-- [ ] Clean-room Nelder-Mead and annealing in C++ (D-32); fit golden tests (AC-9)
+- [ ] Clean-room Nelder-Mead and annealing in C++ behind the optimizer interface in `engine/src/optim/`, also used by the public legacy rebuild (D-10, D-32).
+- [ ] Fit golden tests on at least 3 corpus projects, using the same project and seed: final χ²(new) ≤ χ²(original) × (1 + 1e-6), compared with the private original-optimizer references (D-28, D-32, AC-9).
 - [ ] Multi-dataset fits over all datasets flagged for fitting; asymmetry, dichroic and energy-scan fits; honour the additional fit parameters (F-5, D-3)
 - [ ] Element mode and element→material conversion; optical-constant interpolation with the periodic-table data (D-25, spec §2)
-- [ ] Energy resolution and dichroic/asymmetry energy scans
+- [ ] Port angular and energy resolution, including fast/exact convolution; complete dichroic/asymmetry energy scans (D-25, spec §2, AC-5)
 - [ ] Legacy error conditions (RX_QZ, RX_DB, RX_CSCRIPT, RX_ESCRIPT, RX_ML, RX_UNKNOWN) as clear UI messages (D-14)
 - [ ] Lua scripting with wasmoon and the full legacy script API (D-2, D-22; AC-7, AC-7a, AC-8)
 - [ ] Replace the mock with the WASM engine behind `ComputeService` (D-33)
