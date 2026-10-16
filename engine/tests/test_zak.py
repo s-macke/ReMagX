@@ -324,5 +324,53 @@ double first,second;engine.MatrixFormalism(angle,wave,magnetic,second,first,beam
                 finite_count += 1
         print(f'Original Zak: {finite_count} finite intensities matched; {error_count} original nonfinite cases rejected atomically.')
 
+def wasm_payload():
+    def pack(layers):
+        return [[getattr(entry, name) for name, _ in Layer._fields_] for entry in layers]
+    payload = []
+    for arguments in cases():
+        layers, angle, wave, magnetic, analyzer, first, second = arguments
+        status, expected = evaluate(*arguments)
+        if status == 2: continue  # Explicit numerical-error checks live in the JS harness.
+        assert status == 0
+        payload.append(dict(layers=pack(layers), angle=angle, waveNumber=wave, magnetic=magnetic,
+            analyzer=analyzer, beam1=first, beam2=second, expected=expected))
+    for number, arguments in enumerate(list(cases())[::24]):
+        layers, _, _, _, _, first, second = arguments
+        for entry in layers[1:-1]:
+            if entry.thickness == 0: entry.thickness = 15
+        energy = [100, 640, 8000][number % 3]
+        wave = 2 * math.pi / (12398.326 / energy)
+        qz = [ratio * 2 * wave for ratio in [-.02, 0, .05, .2, .4]]
+        if number % 4 == 0: qz.reverse()
+        options = dict(energy=energy, magnetic=number%2, analyzer=number%3, mode=(number//3)%2,
+                       beam1=first, beam2=second)
+        for resolution in [None, (0, 0), (0, 1), (1e-11, 0), (1e-11, 1), (wave*.01, 0), (wave*.01, 1)]:
+            status, expected = evaluate_qz(layers, qz, resolution=resolution, **options)
+            assert status == 0
+            item = dict(kind='qz', layers=pack(layers), qz=qz, expected=expected, **options)
+            if resolution is not None: item['resolution'] = dict(width=resolution[0], fast=bool(resolution[1]))
+            payload.append(item)
+        stacks = []
+        for point in range(4):
+            stack = [Layer.from_buffer_copy(entry) for entry in layers]
+            for entry in stack[:-1]:
+                entry.delta += .0001 * point
+                entry.delta_magnetic += .00001 * point
+            stacks.append(stack)
+        energies, points, enabled = [640, 645, 642, 650], [-.001, .001, .03, .08], [1, number%2, 1, 1]
+        angular, width = [0, 1e-11, .002][number%3], [0, 1e-11, 1e-10, .5][number%4]
+        for mode in [0, 1]:
+            status, expected = evaluate_energy(stacks, energies, points, enabled, number%2,
+                number%3, mode, first, second, angular, width)
+            assert status == 0
+            payload.append(dict(kind='energy', stacks=[pack(stack) for stack in stacks], energy=energies,
+                qz=points, enabled=enabled, magnetic=number%2, analyzer=number%3, mode=mode,
+                beam1=first, beam2=second, angularWidth=angular, energyWidth=width, expected=expected))
+    return payload
+
 if __name__ == '__main__':
-    unittest.main()
+    if '--wasm-payload' in sys.argv:
+        print(json.dumps(wasm_payload()))
+    else:
+        unittest.main()

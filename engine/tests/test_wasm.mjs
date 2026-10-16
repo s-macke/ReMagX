@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan } from '../wasm/parratt.mjs'
+import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -76,6 +76,45 @@ for (const change of [{ stacks: [] }, { stacks: new Array(3) }, { enabled: [1, 2
   assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, ...change }), TypeError)
 }
 assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, qz: [0, 0, 1e10] }), { status: 4 })
+let zakCount = 0
+for (const [caseIndex, prepared] of input.zak.entries()) {
+  const snapshot = JSON.stringify(prepared)
+  const actual = prepared.kind === 'energy' ? calculateZakEnergyScan(module, prepared) : prepared.kind === 'qz' ? calculateZakQz(module, prepared) : calculateZak(module, prepared)
+  assert.equal(JSON.stringify(prepared), snapshot)
+  assert.equal(actual.length, prepared.expected.length)
+  actual.forEach((value, index) => {
+    const target = prepared.expected[index]
+    assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
+      `Zak case ${caseIndex}, beam ${index}: ${value} vs ${target}`)
+    zakCount++
+  })
+}
+assert.equal(zakCount, 15408)
+const zakSingle = input.zak[0]
+const zakQz = input.zak.find(item => item.kind === 'qz' && item.mode === 1 && item.resolution?.width > 1e-10)
+const zakEnergy = input.zak.find(item => item.kind === 'energy' && item.mode === 1 && item.energyWidth > 1e-10)
+const zakOperations = [[calculateZak, zakSingle], [calculateZakQz, zakQz], [calculateZakEnergyScan, zakEnergy]]
+const zakBefore = zakOperations.map(([calculate, request]) => calculate(module, request))
+for (const [calculate, request] of zakOperations) {
+  for (const change of [{ magnetic: 2 }, { beam1: new Array(4) }, { analyzer: 3 }])
+    assert.throws(() => calculate(module, { ...request, ...change }), TypeError)
+}
+for (const change of [{ layers: new Array(2) }, { layers: [[0]] }, { angle: NaN }, { waveNumber: Infinity }])
+  assert.throws(() => calculateZak(module, { ...zakSingle, ...change }), TypeError)
+const zeroFilm = [[0, 0, .01, .002, 0, 0, 0, 0], [0, 0, .006, .001, 0, 0, 0, 0], Array(8).fill(0)]
+assert.throws(() => calculateZak(module, { ...zakSingle, layers: zeroFilm }), { status: 2 })
+for (const change of [{ layers: new Array(2) }, { qz: new Array(2) }, { energy: 0 }, { mode: 2 }, { resolution: { width: -1, fast: false } }])
+  assert.throws(() => calculateZakQz(module, { ...zakQz, ...change }), TypeError)
+assert.throws(() => calculateZakQz(module, { ...zakQz, qz: [0, 1e10] }), { status: 4 })
+assert.equal(calculateZakQz(module, { ...zakQz, mode: 0, beam2: null })[1], 0)
+for (const change of [{ stacks: new Array(4) }, { enabled: [1, 1, 1, 2] }, { energy: [640] }, { energyWidth: -1 }, { angularWidth: NaN }])
+  assert.throws(() => calculateZakEnergyScan(module, { ...zakEnergy, ...change }), TypeError)
+const unequalZakStacks = structuredClone(zakEnergy)
+unequalZakStacks.stacks[1].pop()
+assert.throws(() => calculateZakEnergyScan(module, unequalZakStacks), TypeError)
+assert.throws(() => calculateZakEnergyScan(module, { ...zakEnergy, qz: [0, 0, 0, 1e10] }), { status: 4 })
+assert.deepEqual(Array.from(calculateZakEnergyScan(module, { ...zakEnergy, mode: 0, beam2: null,
+  enabled: [0, 0, 0, 0], energyWidth: 0 })), [1, 0, 1, 0, 1, 0, 1, 0])
 let matrixCount = 0
 for (const [caseIndex, prepared] of input.matrices.entries()) {
   const snapshot = JSON.stringify(prepared)
@@ -166,6 +205,7 @@ const oldBuffer = module.HEAPF64.buffer
 const largeAllocation = module._malloc(oldBuffer.byteLength + 1024)
 assert.ok(largeAllocation)
 assert.notEqual(module.HEAPF64.buffer, oldBuffer)
+zakOperations.forEach(([calculate, request], index) => assert.deepEqual(calculate(module, request), zakBefore[index]))
 assert.deepEqual(calculateVisnovskyEnergyScan(module, matrixEnergyPrepared), matrixEnergyBefore)
 assert.deepEqual(calculateVisnovskyQz(module, matrixQzPrepared), matrixQzBefore)
 assert.deepEqual(calculateVisnovsky(module, matrixPrepared), matrixBefore)
@@ -270,3 +310,11 @@ assert.throws(() => calculateVisnovskyEnergyScan(failingAllocator, matrixEnergyP
 assert.equal(outstanding.size, 0)
 assert.deepEqual(calculateVisnovskyEnergyScan(module, matrixEnergyPrepared), matrixEnergyBefore)
 console.log('Visnovsky energy-scan validation, memory growth and allocation cleanup passed.')
+
+for (const [index, [calculate, request]] of zakOperations.entries()) {
+  allocations = 0
+  assert.throws(() => calculate(failingAllocator, request), /allocation failed/)
+  assert.equal(outstanding.size, 0)
+  assert.deepEqual(calculate(module, request), zakBefore[index])
+}
+console.log(`WASM/native Zak: ${zakCount} intensities, validation, memory growth and cleanup passed.`)
