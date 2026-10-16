@@ -2,7 +2,11 @@
 // ComputeService; today it is backed by a Web Worker running the TypeScript mock engine, later
 // by the same worker running the WebAssembly engine.
 
+import type { OpticalTable } from '../import/tables'
 import type { Project } from '../model/project'
+
+export interface LayerSpectrumQuery { layerIndex: number; magnetic: boolean; tables: OpticalTable[] }
+export interface LayerSpectrum { energy: number[]; first: number[]; second: number[] }
 
 export interface ReflectivityCurve {
   qz: number[]
@@ -47,6 +51,7 @@ export interface FitResult {
 }
 
 export interface ComputeService {
+  layerSpectrum(project: Project, query: LayerSpectrumQuery): Promise<LayerSpectrum>
   calcReflectivity(project: Project): Promise<ReflectivityCurve>
   calcEnergyScan(project: Project): Promise<EnergyScanCurve>
   calcAsymmetry(project: Project): Promise<AsymmetryCurve>

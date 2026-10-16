@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type ComponentProps } from 'react'
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { cellIsFitted, toggleCellFit, type CellFitTarget } from '../model/cellFit'
 import { useAppState, useDispatch } from '../state/context'
 import { NumberCell } from './NumberCell'
 
-export function FittableNumberCell({ fitTarget, ...props }: ComponentProps<typeof NumberCell> & { fitTarget: CellFitTarget }) {
+export function FittableNumberCell({ fitTarget, extraActions, ...props }: ComponentProps<typeof NumberCell> & { fitTarget: CellFitTarget; extraActions?: ReactNode }) {
   const { project } = useAppState()
   const dispatch = useDispatch()
   const fitted = cellIsFitted(project, fitTarget)
@@ -19,7 +19,7 @@ export function FittableNumberCell({ fitTarget, ...props }: ComponentProps<typeo
     document.addEventListener('focusin', dismiss)
     return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('focusin', dismiss) }
   }, [position])
-  const open = (left: number, top: number) => setPosition({ left: Math.max(0, Math.min(left, window.innerWidth - 160)), top: Math.max(0, Math.min(top, window.innerHeight - 50)) })
+  const open = (left: number, top: number) => setPosition({ left: Math.max(0, Math.min(left, window.innerWidth - 250)), top: Math.max(0, Math.min(top, window.innerHeight - (extraActions ? 120 : 50))) })
   return <div ref={root} className={fitted ? 'fit-cell fit-cell--active' : 'fit-cell'} title={fitted ? 'Included in fit. Right-click or Shift+F10 to turn off.' : 'Right-click or Shift+F10 to include in fit.'}
     onContextMenu={event => { event.preventDefault(); open(event.clientX, event.clientY) }}
     onKeyDown={event => {
@@ -31,8 +31,9 @@ export function FittableNumberCell({ fitTarget, ...props }: ComponentProps<typeo
       }
     }}>
     <NumberCell {...props} />
-    {position && <div role="menu" aria-label={`Fit for ${props.label}`} className="cell-fit-menu" style={{ position: 'fixed', ...position }}>
+    {position && <div onClick={event => { if ((event.target as HTMLElement).getAttribute('role') === 'menuitem') close() }} role="menu" aria-label={`Fit for ${props.label}`} className="cell-fit-menu" style={{ position: 'fixed', ...position }}>
       <button ref={item} role="menuitemcheckbox" aria-checked={fitted} type="button" onClick={() => { dispatch({ type: 'updateProject', update: current => toggleCellFit(current, fitTarget) }); close() }}>Fit (On/Off)</button>
+      {extraActions}
     </div>}
   </div>
 }

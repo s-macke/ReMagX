@@ -1,6 +1,7 @@
 // Worker-side request handling for the mock engine. Kept free of worker globals so it can be
 // tested directly; worker.ts only wires it to postMessage.
 
+import { mockLayerSpectrum } from './mockSpectrum'
 import type { Project } from '../model/project'
 import { ComputeError, type FitResult } from './ComputeService'
 import { checkFitSetup, fitError, seededRandom, withParameters } from './fitting'
@@ -62,6 +63,9 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
     try {
       let result
       switch (request.kind) {
+        case 'layerSpectrum':
+          result = mockLayerSpectrum(project, request.spectrum)
+          break
         case 'reflectivity':
           result = calcReflectivity(project)
           break

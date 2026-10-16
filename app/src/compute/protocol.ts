@@ -1,9 +1,10 @@
 // Messages between WorkerComputeService (UI thread) and the compute worker.
 
 import type { Project } from '../model/project'
-import type { AsymmetryCurve, DepthProfile, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
+import type { AsymmetryCurve, DepthProfile, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
+  layerSpectrum: LayerSpectrum
   reflectivity: ReflectivityCurve
   energyScan: EnergyScanCurve
   asymmetry: AsymmetryCurve
@@ -12,9 +13,10 @@ export interface CalculationResults {
   fit: FitResult
 }
 
-export type CalculationKind = Exclude<keyof CalculationResults, 'fit'>
+export type CalculationKind = Exclude<keyof CalculationResults, 'fit' | 'layerSpectrum'>
 
 export type WorkerRequest =
+  | { id: number; kind: 'layerSpectrum'; project: Project; spectrum: LayerSpectrumQuery }
   | { id: number; kind: CalculationKind; project: Project }
   | { id: number; kind: 'fit'; project: Project }
   | { kind: 'stopFit' }

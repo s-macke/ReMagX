@@ -626,14 +626,12 @@
     {
       "name": "layer-table-interactions",
       "status": "deferred",
-      "reason": "Editable layer/slab tables and per-cell Fit menu exist. Spectra, material properties, database actions and selection-linked value slider remain incomplete.",
+      "reason": "Layer/slab editing, Fit menus, value slider and compound spectrum previews exist. Element spectra, dielectric tensor views, material properties and database actions remain.",
       "references": [
         "AGENTS.md"
       ],
       "entries": [
         "client/Unit1.cpp::item:044c0db584147fff:1",
-        "client/Unit1.cpp::item:d41f4c83dbad7376:1",
-        "client/Unit1.cpp::item:700671cf80246c31:1",
         "client/Unit1.cpp::item:044c0db584147fff:2",
         "client/Unit1.cpp::item:61a2b426cc67354c:1",
         "client/Unit1.cpp::item:f4745806781e8610:1",
@@ -1201,6 +1199,21 @@
       "entries": [
         "client/MzFrame.dfm::Frame8/Button7",
         "client/Unit1.cpp::event:3ec0570cd44b2058:1"
+      ]
+    },
+    {
+      "name": "compound-spectrum-menu",
+      "status": "ported",
+      "reason": "Compound delta/beta and magnetic spectrum menu actions use ComputeService and the worker. Mock-phase previews use loaded .db/.m samples; true per-energy optical refresh, tensor conversion and Lua execution remain engine obligations.",
+      "references": [
+        "app/src/ui/LayerSpectrumMenu.tsx",
+        "app/src/compute/mockSpectrum.ts",
+        "app/src/state/useCalculation.ts",
+        "app/e2e/layerSpectrum.spec.ts"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:d41f4c83dbad7376:1",
+        "client/Unit1.cpp::item:700671cf80246c31:1"
       ]
     }
   ],

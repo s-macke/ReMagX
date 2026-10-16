@@ -72,7 +72,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
   const zoomRef = useRef<((factor: number) => void) | null>(null)
   const [propertiesByView, setPropertiesByView] = useState<Record<string, PlotProperties>>({})
   const [propertiesDraft, setPropertiesDraft] = useState<PlotProperties | null>(null)
-  const viewKey = `${curve?.axis}:${curve?.logScale}`
+  const viewKey = `${curve?.axis}:${curve?.logScale}:${curve?.yLabel}`
   const properties = propertiesByView[viewKey]
   const logY = properties?.y.logarithmic ?? curve?.logScale ?? false
   const logX = properties?.x.logarithmic ?? false

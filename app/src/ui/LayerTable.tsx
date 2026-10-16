@@ -1,3 +1,5 @@
+import { useCallback, useState } from 'react'
+import { LayerSpectrumActions, LayerSpectrumMenu, type LayerMenuPosition } from './LayerSpectrumMenu'
 import { canRemoveSlab, updateElement, updateSlab } from '../model/elements'
 import { isAmbient, isSubstrate } from '../model/layers'
 import type { Layer } from '../model/project'
@@ -46,6 +48,8 @@ function CompoundLayerTable() {
   const dispatch = useDispatch()
   const layers = project.sample.layers
   const rows = layers.map((layer, index) => ({ layer, index })).reverse()
+  const [menu, setMenu] = useState<LayerMenuPosition | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
   const showMagnetization = project.calculation.magnetization.mode !== 'none'
 
   const update = (index: number, patch: Partial<Layer>) => dispatch({ type: 'updateLayer', index, patch })
@@ -93,6 +97,20 @@ function CompoundLayerTable() {
               <tr
                 key={index}
                 className={index === selectedLayer ? 'is-selected' : undefined}
+                onContextMenu={event => {
+                  if (event.defaultPrevented) return
+                  event.preventDefault()
+                  setMenu({ index, left: event.clientX, top: event.clientY, anchor: event.target as HTMLElement })
+                }}
+                onKeyDown={event => {
+                  if (event.defaultPrevented) return
+                  if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                    event.preventDefault()
+                    const anchor = event.target as HTMLElement
+                    const bounds = anchor.getBoundingClientRect()
+                    setMenu({ index, left: bounds.left, top: bounds.bottom, anchor })
+                  }
+                }}
                 onFocusCapture={() => dispatch({ type: 'selectLayer', index })}
                 onClick={() => dispatch({ type: 'selectLayer', index })}
               >
@@ -101,7 +119,7 @@ function CompoundLayerTable() {
                   {outer ? (
                     <span className="layer-table__none">--</span>
                   ) : (
-                    <FittableNumberCell sliderTarget={{ kind: 'layer', field: 'thickness', index }} fitTarget={{ target: 'thickness', index, elementIndex: null }} label={`thickness of layer ${index}`} value={layer.thickness} min={0} onCommit={(thickness) => update(index, { thickness })} />
+                    <FittableNumberCell extraActions={<LayerSpectrumActions index={index} />} sliderTarget={{ kind: 'layer', field: 'thickness', index }} fitTarget={{ target: 'thickness', index, elementIndex: null }} label={`thickness of layer ${index}`} value={layer.thickness} min={0} onCommit={(thickness) => update(index, { thickness })} />
                   )}
                 </td>
                 <td>
@@ -125,7 +143,7 @@ function CompoundLayerTable() {
                 </td>
                 {opticalColumns.map((c) => (
                   <td key={c.field}>
-                    <FittableNumberCell sliderTarget={{ kind: 'layer', field: c.field, index }} fitTarget={{ target: c.field, index, elementIndex: null }} label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
+                    <FittableNumberCell extraActions={<LayerSpectrumActions index={index} />} sliderTarget={{ kind: 'layer', field: c.field, index }} fitTarget={{ target: c.field, index, elementIndex: null }} label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
                   </td>
                 ))}
                 {showMagnetization && (
@@ -153,6 +171,7 @@ function CompoundLayerTable() {
           })}
         </tbody>
       </table>
+      {menu && <LayerSpectrumMenu position={menu} close={closeMenu} />}
     </div>
   )
 }

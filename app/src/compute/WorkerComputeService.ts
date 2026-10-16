@@ -10,6 +10,8 @@ import {
   type EnergyScanCurve,
   type FitProgress,
   type FitResult,
+  type LayerSpectrum,
+  type LayerSpectrumQuery,
   type ReflectivityCurve,
 } from './ComputeService'
 import type { CalculationResults, WorkerRequest, WorkerResponse } from './protocol'
@@ -62,6 +64,10 @@ export class WorkerComputeService implements ComputeService {
       if (this.worker === worker) this.failWorker('The compute worker returned an unreadable message.')
     }
     return worker
+  }
+
+  layerSpectrum(project: Project, spectrum: LayerSpectrumQuery): Promise<LayerSpectrum> {
+    return this.request('layerSpectrum', project, undefined, spectrum)
   }
 
   calcReflectivity(project: Project): Promise<ReflectivityCurve> {
@@ -144,6 +150,7 @@ export class WorkerComputeService implements ComputeService {
     kind: K,
     project: Project,
     onProgress?: (progress: FitProgress) => void,
+    spectrum?: LayerSpectrumQuery,
   ): Promise<CalculationResults[K]> {
     if (this.disposed) return Promise.reject(new ComputeError('Compute service was shut down.'))
     if (this.stopping) return Promise.reject(new ComputeCancelled())
@@ -152,7 +159,7 @@ export class WorkerComputeService implements ComputeService {
       this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress })
       try {
         this.worker ??= this.connect()
-        this.worker.postMessage({ id, kind, project } as WorkerRequest)
+        this.worker.postMessage({ id, kind, project, ...(spectrum ? { spectrum } : {}) } as WorkerRequest)
       } catch (error) {
         this.failWorker(`Could not start the computation: ${String(error)}`)
       }

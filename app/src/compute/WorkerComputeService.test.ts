@@ -365,3 +365,30 @@ describe('cancellation deadline', () => {
   })
 
 })
+
+describe('mock layer spectrum service', () => {
+  it('passes loaded tables to the worker and returns the selected spectrum without changing the project', async () => {
+    const service = new WorkerComputeService(inProcessWorker)
+    const project = createDefaultProject()
+    project.sample.layers[1].opticalTable = 'folder\\Co.db'
+    const before = structuredClone(project)
+    const tables = [
+      { name: 'Co', kind: 'db' as const, energy: [700, 800], columns: [[0.1, 0.2], [0.03, 0.04]], warnings: [] },
+      { name: 'Co', kind: 'm' as const, energy: [710, 810], columns: [[-0.01, 0.02], [0, -0.03]], warnings: [] },
+    ]
+    expect(await service.layerSpectrum(project, { layerIndex: 1, magnetic: false, tables })).toEqual({ energy: [700, 800], first: [0.1, 0.2], second: [0.03, 0.04] })
+    expect(await service.layerSpectrum(project, { layerIndex: 1, magnetic: true, tables })).toEqual({ energy: [710, 810], first: [-0.01, 0.02], second: [0, -0.03] })
+    expect(project).toEqual(before)
+    service.dispose()
+  })
+
+  it('reports missing/empty tables and unavailable element conversion without returning invented data', async () => {
+    const service = new WorkerComputeService(inProcessWorker)
+    const project = createDefaultProject()
+    await expect(service.layerSpectrum(project, { layerIndex: 1, magnetic: false, tables: [] })).rejects.toThrow('Load Co.db')
+    await expect(service.layerSpectrum(project, { layerIndex: 1, magnetic: true, tables: [{ name: 'Co', kind: 'm', energy: [], columns: [[], []], warnings: [] }] })).rejects.toThrow('Load Co.m')
+    project.sample.mode = 'element'
+    await expect(service.layerSpectrum(project, { layerIndex: 1, magnetic: false, tables: [] })).rejects.toThrow('Element optical spectra')
+    service.dispose()
+  })
+})

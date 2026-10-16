@@ -60,7 +60,7 @@ function Workspace() {
     () => (fitStatus.running && fitStatus.parameters && fitStatus.values ? applyFitValues(project, fitStatus.parameters, fitStatus.values) : project),
     [project, fitStatus.running, fitStatus.parameters, fitStatus.values],
   )
-  const calculation = useCalculation(displayedProject, { scanKind, displayMode, plotView }, state.calculationPaused, state.valueSlider !== null)
+  const calculation = useCalculation(displayedProject, { scanKind, displayMode, plotView, layerIndex: state.selectedLayer, tables: state.opticalTables }, state.calculationPaused, state.valueSlider !== null)
   usePersistence()
   const unsaved = project !== state.savedProject
   const [error, setError] = useState<string | null>(null)

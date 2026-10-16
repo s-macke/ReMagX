@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ComputeCancelled, WorkerComputeService, type ComputeService } from '../compute'
+import type { OpticalTable } from '../import/tables'
 import type { Project } from '../model/project'
 import type { DisplayMode, PlotView, ScanKind } from './appState'
 
@@ -13,6 +14,8 @@ export interface CalculationRequest {
   scanKind: ScanKind
   displayMode: DisplayMode
   plotView: PlotView
+  layerIndex?: number
+  tables?: OpticalTable[]
 }
 
 export interface CalculationState {
@@ -39,6 +42,13 @@ export function discardComputeService(): void {
 
 async function calculate(service: ComputeService, project: Project, request: CalculationRequest): Promise<CalculatedCurve> {
   const { scanKind, displayMode: mode, plotView } = request
+  if (plotView === 'opticalSpectrum' || plotView === 'magneticSpectrum') {
+    const magnetic = plotView === 'magneticSpectrum'
+    const spectrum = await service.layerSpectrum(project, { layerIndex: request.layerIndex ?? 0, magnetic, tables: request.tables ?? [] })
+    return { axis: 'energy', x: spectrum.energy, series: [
+      { label: magnetic ? 'δm' : 'δ', y: spectrum.first }, { label: magnetic ? 'βm' : 'β', y: spectrum.second },
+    ], logScale: false, yLabel: magnetic ? 'δm / βm (table preview)' : 'δ / β (table preview)' }
+  }
   if (plotView !== 'scan') {
     const profile = await service.depthProfile(project)
     const magnetic = plotView === 'magneticProfile'
@@ -84,7 +94,7 @@ async function calculate(service: ComputeService, project: Project, request: Cal
 }
 
 export function useCalculation(project: Project, request: CalculationRequest, paused = false, live = false) {
-  const { scanKind, displayMode, plotView } = request
+  const { scanKind, displayMode, plotView, layerIndex, tables } = request
   const [state, setState] = useState<CalculationState>({ curve: null, error: null, busy: true, stopped: false })
   const requestId = useRef(0)
   const lastCalculation = useRef(-Infinity)
@@ -107,7 +117,7 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
       debounceTimer.current = null
       lastCalculation.current = performance.now()
       setState((s) => ({ ...s, busy: true, stopped: false, error: null }))
-      calculate(computeService(), project, { scanKind, displayMode, plotView })
+      calculate(computeService(), project, { scanKind, displayMode, plotView, layerIndex, tables })
         .then((curve) => {
           if (active && id === requestId.current) setState({ curve, error: null, busy: false, stopped: false })
         })
@@ -121,7 +131,7 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
       debounceTimer.current = null
       active = false
     }
-  }, [project, scanKind, displayMode, plotView, revision, paused, live])
+  }, [project, scanKind, displayMode, plotView, layerIndex, tables, revision, paused, live])
 
   return { ...(paused ? { ...state, busy: false, stopped: true, error: null } : state), stop, recalculate }
 }
