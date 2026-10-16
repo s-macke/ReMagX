@@ -74,6 +74,19 @@ int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t layer_count,
 // Output has point_count records, must not overlap inputs and is unchanged on error.
 int remagx_energy_resolution(const double* energies, const RemagxReflectivity* input,
                             size_t point_count, double width, RemagxReflectivity* output);
+// Prepared energy scan: point_count consecutive stacks of layer_count layers,
+// already refreshed for each energy, substrate first. Coordinates retain order.
+// enabled may be NULL (all points enabled), otherwise contains one 0/1 per point.
+// Disabled points retain legacy intensity one (beam2 zero for monochromatic);
+// their layers are not read. All points participate in final energy convolution.
+// Exact angular convolution is used regardless of the UI fast setting, as in
+// CalcEScan/CalcDicEScan. No table lookup, scripting or postprocessing occurs here.
+// Output must not overlap any inputs and remains unchanged on every failure.
+int remagx_parratt_energy_scan(const RemagxLayer* layers, size_t layer_count,
+                      const double* energies, const double* qz, const int* enabled, size_t point_count,
+                      const RemagxBeam* beam1, const RemagxBeam* beam2,
+                      int tensor, int analyzer, int magnetization_enabled, int scan_mode,
+                      double angular_width, double energy_width, RemagxReflectivity* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
