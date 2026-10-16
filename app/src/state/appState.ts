@@ -1,6 +1,7 @@
 // Application state: the current project plus UI-only view settings. Components dispatch
 // actions; project changes go through the pure helpers in model/.
 
+import { mergeOpticalTables } from '../model/materialLibrary'
 import { applyValueSlider, readValueCell, valueCellKey, type ValueCell, type ValueSliderSelection } from '../model/valueSlider'
 import { fitStructureChanged } from '../model/fitStructure'
 import { createDefaultProject } from '../model/defaults'
@@ -42,8 +43,9 @@ export interface AppState {
   energyUnit: EnergyUnit
   calculationPaused: boolean // Stop pauses automatic redraw until an edit or explicit calculation
   importReport: ImportReport | null // shown after opening a legacy file
-  // Optical-constant tables loaded in this browser session, by file name (Co.db, Co.m, ...).
+  // Per-browser optical-constant library, addressed by material name and table kind.
   opticalTables: OpticalTable[]
+  materialLibrary: { ready: boolean; revision: number; savedRevision: number; resetVersion: number; error: string | null; warning: string | null }
   fitStatus: FitStatus
   savedProject: Project // the project as last opened or saved; differs from project when unsaved
   notice: string | null // short message in the status bar (saved, restored, …)
@@ -87,6 +89,9 @@ export type Action =
   | { type: 'dismissImportReport' }
   | { type: 'setPlotView'; plotView: PlotView }
   | { type: 'setEnergyUnit'; energyUnit: EnergyUnit }
+  | { type: 'restoreOpticalTables'; tables: OpticalTable[]; error: string | null; warning?: string | null }
+  | { type: 'materialLibrarySaved'; revision: number }
+  | { type: 'materialLibraryFailed'; revision: number; error: string }
   | { type: 'addOpticalTables'; tables: OpticalTable[] }
   | { type: 'clearOpticalTables' }
   | { type: 'setCalculationPaused'; paused: boolean }
@@ -114,6 +119,7 @@ export function initialState(): AppState {
     calculationPaused: false,
     importReport: null,
     opticalTables: [],
+    materialLibrary: { ready: false, revision: 0, savedRevision: 0, resetVersion: 0, error: null, warning: null },
     fitStatus: { evaluating: false, running: false, iteration: 0, chi2: null, message: null, parameters: null, values: null },
     debugLog: [],
   }
@@ -229,13 +235,21 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
       return { ...state, plotView: action.plotView, calculationPaused: false }
     case 'setEnergyUnit':
       return { ...state, energyUnit: action.energyUnit }
-    case 'addOpticalTables': {
-      const key = (t: OpticalTable) => `${t.name}.${t.kind}`
-      const replaced = new Set(action.tables.map(key))
-      return { ...state, opticalTables: [...state.opticalTables.filter((t) => !replaced.has(key(t))), ...action.tables] }
-    }
+    case 'restoreOpticalTables':
+      return { ...state, opticalTables: state.materialLibrary.resetVersion > 0 ? state.opticalTables : mergeOpticalTables(action.tables, state.opticalTables),
+        materialLibrary: { ...state.materialLibrary, ready: true, error: action.error, warning: action.warning ?? null } }
+    case 'materialLibrarySaved':
+      return { ...state, materialLibrary: { ...state.materialLibrary, savedRevision: action.revision,
+        warning: action.revision === state.materialLibrary.revision && state.materialLibrary.resetVersion > 0 ? null : state.materialLibrary.warning,
+        error: action.revision === state.materialLibrary.revision ? null : state.materialLibrary.error } }
+    case 'materialLibraryFailed':
+      return action.revision === state.materialLibrary.revision ? { ...state, materialLibrary: { ...state.materialLibrary, error: action.error } } : state
+    case 'addOpticalTables':
+      return { ...state, opticalTables: mergeOpticalTables(state.opticalTables, action.tables),
+        materialLibrary: { ...state.materialLibrary, revision: state.materialLibrary.revision + 1 } }
     case 'clearOpticalTables':
-      return { ...state, opticalTables: [] }
+      return { ...state, opticalTables: [], materialLibrary: { ...state.materialLibrary,
+        revision: state.materialLibrary.revision + 1, resetVersion: state.materialLibrary.resetVersion + 1 } }
     case 'setCalculationPaused':
       return { ...state, calculationPaused: action.paused }
     case 'setFitStatus':

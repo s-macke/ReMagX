@@ -133,7 +133,7 @@ contains only GUI metadata; the legacy tree and research data remain private.
 | `model/` | Project schema (`project.ts`, zod), defaults, layer/slab/dataset editing, fit targets, presets, units, script snippets |
 | `import/` | Legacy `.all` importer with report, optical-constant tables, ASCII data import/export |
 | `compute/` | `ComputeService` interface, Web Worker client and protocol, **mock** engine (TS Parratt, Nelder-Mead) |
-| `state/` | App state reducer with undo history, contexts, hooks (`useCalculation`, `useFitRunner`, `usePersistence`, `useEditProject`), IndexedDB autosave |
+| `state/` | App state reducer with undo history, contexts, hooks (`useCalculation`, `useFitRunner`, `usePersistence`, `useEditProject`), IndexedDB autosave and material library |
 | `ui/` | Components: menu bar, toolbar, layer table, plot (uPlot), mode panel, side panel with sections, dialogs, script window |
 | `../test/` | Legacy fixtures (`default.all`, Tutorials) and the corpus test |
 
@@ -157,7 +157,7 @@ and this checklist for implementation status; the external Steps 0–8 have not 
 - [x] Project model: versioned JSON schema for imported legacy project settings, layers, datasets and scripts; ignored or unsupported fields are reported by the importer
 - [x] Compute interface and Web Worker; mock engine: Parratt σ/π, Nevot-Croce, angular resolution, depth profile, Nelder-Mead fit with stop flag
 - [x] Legacy `.all` importer with import report; all 99 legacy example files import
-- [x] Optical-constant table readers (`.db`, `.m`, `.e`, `.ff`, `.ffm`), tables held in memory for the session
+- [x] Optical-constant table readers (`.db`, `.m`, `.e`, `.ff`, `.ffm`), tables persisted in the per-browser IndexedDB material library
 - [x] Main window in the legacy layout: layer table, log plot (Hold/Clear/Scale, drag zoom), tabs with collapsible sections, Mode panel (Monochromatic/Dichroic/Asymmetry), menus as in 2.6 (Tools ▸ Script, Scratch shown as later; Help ▸ License)
 - [x] Context-dependent sections: Algorithm Parameters only for Simplex with annealing (AC-11; Evolution follows with the evolution fit)
 - [x] Side-panel sections Experiment, Sample, Fit with the main legacy fields (partial: missing controls listed below; Map Calculations is a placeholder)
@@ -203,7 +203,8 @@ Missing legacy controls and windows:
 - [ ] Decide on the legacy layer-table "coupl." column (no `.all` key)
 
 Data:
-- [ ] Material library persisted in IndexedDB, plus a built-in periodic-table/Chantler asset (D-13); licence check of the Chantler/Henke data before shipping it (D-31)
+- [x] Per-browser IndexedDB material library (D-13): all five table kinds restore, same-name/kind imports replace prior copies, explicit cache deletion persists, startup races preserve new imports/clears, and storage failures/unreadable records are reported without losing session data. Project JSON and undo history stay separate.
+- [ ] Built-in periodic-table/Chantler asset (D-13); licence check of the Chantler/Henke data before shipping it (D-31)
 - [ ] Real layer spectra: per-energy Filldb/BeforeCalculation evaluation, element conversion and dielectric tensors behind the spectrum service (current compound views are table previews).
 - [ ] Optical-constant tables used by calculations (energy scans currently keep δ/β constant)
 

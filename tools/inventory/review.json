@@ -111,9 +111,12 @@
     {
       "name": "sample-controls",
       "status": "ported",
-      "reason": "Segmentation settings, element navigation, optical cache and magnetization controls exist. Real-engine evaluation and persistent library remain separate checklist tasks.",
+      "reason": "Segmentation settings, element navigation, optical cache and magnetization controls exist. Imported optical tables now persist in the per-browser material library; real-engine evaluation and built-in data/licensing remain separate checklist tasks.",
       "references": [
-        "app/src/ui/sections/SampleSections.tsx"
+        "app/src/ui/sections/SampleSections.tsx",
+        "app/src/state/useMaterialLibrary.ts",
+        "app/src/state/materialLibraryStorage.ts",
+        "app/e2e/materialLibrary.spec.ts"
       ],
       "entries": [
         "client/AdaptiveLayerSegmentationForm.dfm::Frame6",

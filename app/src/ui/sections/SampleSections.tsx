@@ -123,7 +123,7 @@ export function SegmentationSection() {
 }
 
 export function OpticalConstantsSection() {
-  const { project, opticalTables } = useAppState()
+  const { project, opticalTables, materialLibrary } = useAppState()
   const dispatch = useDispatch()
   const edit = useEditProject()
   const [warnings, setWarnings] = useState<string[]>([])
@@ -147,6 +147,9 @@ export function OpticalConstantsSection() {
         onChange={(v) => edit((p) => void (p.calculation.automaticOpticalConstants = v === 'automatic'))}
       />
       <Group title="Loaded tables">
+        <p className="material-library-status" aria-live="polite">{!materialLibrary.ready ? 'Loading material library…' : materialLibrary.error ? 'Material library storage needs attention.' : materialLibrary.savedRevision < materialLibrary.revision ? 'Saving material library…' : 'Material library saved in this browser.'}</p>
+        {materialLibrary.error && <p role="alert">{materialLibrary.error}</p>}
+        {materialLibrary.warning && <p role="alert">{materialLibrary.warning}</p>}
         {opticalTables.length === 0 ? (
           <Note>No tables loaded. Load .db, .m, .e, .ff or .ffm files; layers refer to them by name (db column).</Note>
         ) : (
@@ -173,7 +176,7 @@ export function OpticalConstantsSection() {
           <button type="button" onClick={() => void load()}>
             Load tables…
           </button>
-          <button type="button" onClick={() => dispatch({ type: 'clearOpticalTables' })} disabled={opticalTables.length === 0}>
+          <button type="button" onClick={() => dispatch({ type: 'clearOpticalTables' })} disabled={opticalTables.length === 0 && materialLibrary.ready && !materialLibrary.error && !materialLibrary.warning}>
             Delete optical constants cache
           </button>
         </ButtonRow>

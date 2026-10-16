@@ -1,3 +1,4 @@
+import { useMaterialLibrary } from './state/useMaterialLibrary'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import defaultExample from '../test/fixtures/default.all?raw'
 import tutorial1 from '../test/fixtures/Tut1.all?raw'
@@ -62,6 +63,7 @@ function Workspace() {
   )
   const calculation = useCalculation(displayedProject, { scanKind, displayMode, plotView, layerIndex: state.selectedLayer, tables: state.opticalTables }, state.calculationPaused, state.valueSlider !== null)
   usePersistence()
+  useMaterialLibrary()
   const unsaved = project !== state.savedProject
   const [error, setError] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
