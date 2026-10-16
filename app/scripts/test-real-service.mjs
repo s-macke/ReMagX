@@ -178,6 +178,15 @@ try {
       }
       matrix.calculation.tensorContribution = 'magnetic'
       matrix.calculation.magnetization.mode = 'add'
+      const zakManual = structuredClone(matrix)
+      zakManual.calculation.algorithm = 'zak'
+      output.zakManual = []
+      output.zakMono = []
+      for (const mode of ['add', 'none']) {
+        zakManual.calculation.magnetization.mode = mode
+        output.zakManual.push(await service.calcAsymmetry(zakManual))
+        output.zakMono.push(await service.calcReflectivity(zakManual))
+      }
       matrix.calculation.automaticOpticalConstants = true
       matrix.sample.layers.forEach((layer, index) => {
         layer.opticalTable = `matrix-${index}`
@@ -228,6 +237,21 @@ try {
       output.importedTensorUnchanged = tensorSnapshot === JSON.stringify(matrix)
       for (const table of tables) if (table.kind === 'e') table.energy = [700, 710]
       try { await service.calcReflectivity(matrix) } catch (error) { output.tensorOutsideRange = error.message }
+      const zak = structuredClone(matrix)
+      zak.calculation.algorithm = 'zak'
+      zak.calculation.magnetization.mode = 'add'
+      const zakSnapshot = JSON.stringify(zak)
+      // Nonempty out-of-range .e tables are read, but Zak uses scalar .db/.m fields.
+      output.zakAutomatic = await service.calcAsymmetry(zak)
+      zak.experiment.resolution.fastConvolution = true // energy path remains exact
+      output.zakEnergy = await service.calcEnergyAsymmetry(zak)
+      output.zakEnergyMono = await service.calcEnergyScan(zak)
+      zak.experiment.resolution.fastConvolution = false
+      output.zakUnchanged = zakSnapshot === JSON.stringify(zak)
+      zak.calculation.asymmetryDefinition = 'difference'
+      output.zakDifference = await service.calcEnergyAsymmetry(zak)
+      zak.calculation.magnetization.mode = 'profile'
+      try { await service.calcReflectivity(zak) } catch (error) { output.zakProfileError = error.message }
       tables = tables.filter(table => table.kind !== 'e')
       matrix.calculation.magnetization.mode = 'profile'
       try { await service.calcReflectivity(matrix) } catch (error) { output.matrixProfileError = error.message }
@@ -332,6 +356,28 @@ try {
   }
   assert.equal(results.importedTensorUnchanged, true)
   assert.match(results.tensorOutsideRange, /nonfinite numerical result/)
+  const zakReferences = JSON.parse(execFileSync('python3', [resolve(root, 'engine/tests/test_zak.py'),
+    resolve(root, 'build/engine/libremagx_core.so'), '--worker-reference'], { encoding: 'utf8' }))
+  results.zakManual.forEach((curve, variant) => curve.qz.forEach((_, index) => {
+    const plus = zakReferences.manual[variant][2 * index], minus = zakReferences.manual[variant][2 * index + 1]
+    near(curve.reflectivityPlus[index], plus)
+    near(curve.reflectivityMinus[index], minus)
+    near(results.zakMono[variant].reflectivity[index], plus)
+  }))
+  results.zakAutomatic.qz.forEach((_, index) => {
+    near(results.zakAutomatic.reflectivityPlus[index], zakReferences.automatic[2 * index])
+    near(results.zakAutomatic.reflectivityMinus[index], zakReferences.automatic[2 * index + 1])
+  })
+  results.zakEnergy.energy.forEach((_, index) => {
+    const plus = zakReferences.energy[2 * index], minus = zakReferences.energy[2 * index + 1]
+    near(results.zakEnergy.reflectivityPlus[index], plus)
+    near(results.zakEnergy.reflectivityMinus[index], minus)
+    near(results.zakEnergy.asymmetry[index], (plus - minus) / (plus + minus))
+    near(results.zakDifference.asymmetry[index], plus - minus)
+    near(results.zakEnergyMono.reflectivity[index], plus)
+  })
+  assert.equal(results.zakUnchanged, true)
+  assert.match(results.zakProfileError, /profile/)
   assert.equal(results.matrixUnchanged, true)
   assert.match(results.matrixProfileError, /profile/)
   assert.equal(results.refreshUnchanged, true)
@@ -340,7 +386,7 @@ try {
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

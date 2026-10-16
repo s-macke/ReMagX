@@ -369,8 +369,34 @@ def wasm_payload():
                 beam1=first, beam2=second, angularWidth=angular, energyWidth=width, expected=expected))
     return payload
 
+def worker_reference():
+    original = [Layer(0, 2, .01, .002, .001, .0001, 30, 60),
+                Layer(20, 1, .006, .001, .0004, .00004, 45, 70), Layer()]
+    def stack(energy=None):
+        layers = [Layer.from_buffer_copy(entry) for entry in original]
+        if energy is not None:
+            energy = 12398.326 / (12398.326 / energy)
+            for entry in layers:
+                for field in ['delta', 'beta', 'delta_magnetic', 'beta_magnetic']:
+                    value = getattr(entry, field)
+                    setattr(entry, field, value - (639-energy)/(639-641)*(value-value*1.1))
+        return [layers[0], layers[1], layers[1], layers[2]]
+    first, second = (1, .2, .3, -.1), (.2, -.3, .4, .1)
+    def qz(layers, magnetic):
+        status, values = evaluate_qz(layers, [.01, .02, .03, .04], magnetic=magnetic,
+            beam1=first, beam2=second, resolution=(.001, 0))
+        assert status == 0
+        return values
+    energies = [639.25, 639.625, 640, 640.375, 640.75]
+    status, energy = evaluate_energy([stack(value) for value in energies], energies, [.03]*5,
+        magnetic=1, beam1=first, beam2=second, angular=.001, width=.4)
+    assert status == 0
+    return dict(manual=[qz(stack(), 1), qz(stack(), 0)], automatic=qz(stack(640), 1), energy=energy)
+
 if __name__ == '__main__':
-    if '--wasm-payload' in sys.argv:
+    if '--worker-reference' in sys.argv:
+        print(json.dumps(worker_reference()))
+    elif '--wasm-payload' in sys.argv:
         print(json.dumps(wasm_payload()))
     else:
         unittest.main()

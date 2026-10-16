@@ -1,3 +1,4 @@
+import { prepareZakQzRequest, calculateZakEnergyScan, type PreparedZakQzRequest, type ZakEnergyCalculator } from '../model/zakRequest'
 import { calculateVisnovskyEnergyScan, type VisnovskyEnergyCalculator } from '../model/visnovskyEnergyScan'
 import { prepareVisnovskyQzRequest, type PreparedVisnovskyQzRequest, type DielectricTensorCalculator } from '../model/visnovskyRequest'
 import { calculateParrattEnergyScan, type EnergyScanCalculator } from '../model/parrattEnergyScan'
@@ -13,6 +14,8 @@ export interface RealEngine {
   calculate: RealQzCalculator
   lookup: RealTableLookup
   energyScan: EnergyScanCalculator
+  zakQz: (request: PreparedZakQzRequest) => Float64Array
+  zakEnergy: ZakEnergyCalculator
   matrixEnergy: VisnovskyEnergyCalculator
   dielectricTensor: DielectricTensorCalculator
   matrixQz: (request: PreparedVisnovskyQzRequest) => Float64Array
@@ -33,7 +36,9 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         const mode = message.kind === 'energyAsymmetry' ? 'dichroic' : 'monochromatic'
         const scan = message.project.calculation.algorithm === 'matrix'
           ? calculateVisnovskyEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode)
-          : calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.energyScan, mode)
+          : message.project.calculation.algorithm === 'zak'
+            ? calculateZakEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.zakEnergy, mode)
+            : calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.energyScan, mode)
         send({ id: message.id, type: 'result', result: message.kind === 'energyScan'
           ? { energy: scan.energy, reflectivity: scan.reflectivity }
           : { energy: scan.energy, reflectivityPlus: scan.reflectivityPlus, reflectivityMinus: scan.reflectivityMinus, asymmetry: scan.asymmetry } })
@@ -55,6 +60,10 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         const request = prepareVisnovskyQzRequest(project, mode, engine.dielectricTensor, dielectricTensors)
         qz = request.qz
         values = engine.matrixQz(request)
+      } else if (project.calculation.algorithm === 'zak') {
+        const request = prepareZakQzRequest(project, mode)
+        qz = request.qz
+        values = engine.zakQz(request)
       } else {
         const request = prepareParrattQzRequest(project, mode)
         qz = request.qz
