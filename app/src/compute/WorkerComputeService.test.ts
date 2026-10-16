@@ -281,7 +281,7 @@ describe('WorkerComputeService failure recovery', () => {
 })
 
 describe('cancellation deadline', () => {
-  it.each(['calcReflectivity', 'calcEnergyScan', 'calcAsymmetry', 'depthProfile', 'calcChi2'] as const)(
+  it.each(['calcReflectivity', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcAsymmetry', 'depthProfile', 'calcChi2'] as const)(
     'immediately stops %s and queued work without changing the project', async (method) => {
       const first = controlledWorker()
       const second = controlledWorker()

@@ -130,6 +130,25 @@ try {
       }
       energyProject.experiment.resolution.energyFwhm = .4
       output.energyResolved = await service.calcEnergyScan(energyProject)
+      energyProject.calculation.magnetization.mode = 'add'
+      energyProject.experiment.polarization.beam2 = { sigma: { re: .8, im: .2 }, pi: { re: .3, im: .1 } }
+      output.dichroicEnergy = await service.calcEnergyAsymmetry(energyProject)
+      output.dichroicRawReference = []
+      for (const energy of output.dichroicEnergy.energy) {
+        const reference = structuredClone(resolutionProject)
+        reference.calculation.magnetization.mode = 'add'
+        reference.experiment.polarization = energyProject.experiment.polarization
+        reference.experiment.energy = energy
+        const fraction = (12398.326 / (12398.326 / energy) - 639) / 2
+        Object.assign(reference.sample.layers[0], {
+          delta: .009 + (.011 - .009) * fraction, beta: .001 + (.003 - .001) * fraction,
+          deltaMag: .001 + (.003 - .001) * fraction, betaMag: .0001 + (.0003 - .0001) * fraction,
+        })
+        const curve = await service.calcAsymmetry(reference)
+        output.dichroicRawReference.push(curve.reflectivityPlus[0], curve.reflectivityMinus[0])
+      }
+      energyProject.calculation.asymmetryDefinition = 'difference'
+      output.differenceEnergy = await service.calcEnergyAsymmetry(energyProject)
       tables = tables.filter(table => table.name !== 'ambient')
       try { await service.calcReflectivity(automatic) } catch (error) { output.missingTable = error.message }
       tables = []
@@ -180,13 +199,24 @@ try {
     input: JSON.stringify([{ qz: results.energyScan.energy, raw: results.energyScan.reflectivity.flatMap(value => [value, 0]), width: .4, fast: true, dichroic: false }]), encoding: 'utf8',
   }))[0].values
   results.energyResolved.reflectivity.forEach((value, index) => assert.ok(Math.abs(value - convolutionReference[index * 2]) <= 1e-15 + 1e-10 * Math.abs(convolutionReference[index * 2])))
+  const dichroicReference = JSON.parse(execFileSync('node', ['--experimental-strip-types', resolve(root, 'engine/tests/compare_resolution.mjs')], {
+    input: JSON.stringify([{ qz: results.dichroicEnergy.energy, raw: results.dichroicRawReference, width: .4, fast: true, dichroic: true }]), encoding: 'utf8',
+  }))[0].values
+  const near = (actual, expected) => assert.ok(Math.abs(actual - expected) <= 1e-15 + 1e-10 * Math.abs(expected))
+  results.dichroicEnergy.energy.forEach((_, index) => {
+    const plus = dichroicReference[index * 2], minus = dichroicReference[index * 2 + 1]
+    near(results.dichroicEnergy.reflectivityPlus[index], plus)
+    near(results.dichroicEnergy.reflectivityMinus[index], minus)
+    near(results.dichroicEnergy.asymmetry[index], (plus - minus) / (plus + minus))
+    near(results.differenceEnergy.asymmetry[index], plus - minus)
+  })
   assert.equal(results.refreshUnchanged, true)
   assert.match(results.missingTable, /missing optical table ambient/)
   assert.equal(results.stopped, 'ComputeCancelled')
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, energy scans, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

@@ -14,6 +14,7 @@ import {
   type DepthProfile,
   type DensityProfiles,
   type EnergyScanCurve,
+  type EnergyAsymmetryCurve,
   type FitProgress,
   type FitResult,
   type LayerSpectrum,
@@ -89,6 +90,10 @@ export class WorkerComputeService implements ComputeService {
 
   calcEnergyScan(project: Project): Promise<EnergyScanCurve> {
     return this.request('energyScan', project)
+  }
+
+  calcEnergyAsymmetry(project: Project): Promise<EnergyAsymmetryCurve> {
+    return this.request('energyAsymmetry', project)
   }
 
   calcAsymmetry(project: Project): Promise<AsymmetryCurve> {
@@ -192,7 +197,7 @@ export class WorkerComputeService implements ComputeService {
       this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress })
       try {
         this.worker ??= this.connect()
-        const tables = (kind === 'energyScan' || project.calculation.automaticOpticalConstants && (kind === 'reflectivity' || kind === 'asymmetry')) ? this.getTables?.() : undefined
+        const tables = (kind === 'energyScan' || kind === 'energyAsymmetry' || project.calculation.automaticOpticalConstants && (kind === 'reflectivity' || kind === 'asymmetry')) ? this.getTables?.() : undefined
         this.worker.postMessage({ id, kind, project, ...(tables ? { tables } : {}), ...(spectrum ? { spectrum } : {}) } as WorkerRequest)
       } catch (error) {
         this.failWorker(`Could not start the computation: ${String(error)}`)

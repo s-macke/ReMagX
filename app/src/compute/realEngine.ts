@@ -15,13 +15,16 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
   return async (message: WorkerRequest): Promise<void> => {
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     try {
-      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan') {
+      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
-      if (message.kind === 'energyScan') {
-        send({ id: message.id, type: 'result', result: calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.calculate, engine.convolve) })
+      if (message.kind === 'energyScan' || message.kind === 'energyAsymmetry') {
+        const scan = calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.calculate, engine.convolve, message.kind === 'energyAsymmetry' ? 'dichroic' : 'monochromatic')
+        send({ id: message.id, type: 'result', result: message.kind === 'energyScan'
+          ? { energy: scan.energy, reflectivity: scan.reflectivity }
+          : { energy: scan.energy, reflectivityPlus: scan.reflectivityPlus, reflectivityMinus: scan.reflectivityMinus, asymmetry: scan.asymmetry } })
         return
       }
       let project = message.project

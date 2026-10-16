@@ -28,6 +28,13 @@ export interface EnergyScanCurve {
   reflectivity: number[]
 }
 
+export interface EnergyAsymmetryCurve {
+  energy: number[]
+  reflectivityPlus: number[]
+  reflectivityMinus: number[]
+  asymmetry: number[]
+}
+
 // Reflectivity for the two beams (legacy "dichroic" mode) and their asymmetry.
 export interface AsymmetryCurve {
   qz: number[]
@@ -74,6 +81,7 @@ export interface ComputeService {
   layerSpectrum(project: Project, query: LayerSpectrumQuery): Promise<LayerSpectrum>
   calcReflectivity(project: Project): Promise<ReflectivityCurve>
   calcEnergyScan(project: Project): Promise<EnergyScanCurve>
+  calcEnergyAsymmetry(project: Project): Promise<EnergyAsymmetryCurve>
   calcAsymmetry(project: Project): Promise<AsymmetryCurve>
   materialToElements(project: Project): Promise<ElementConversion>
   segmentLayers(project: Project): Promise<Layer[]>

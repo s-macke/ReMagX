@@ -77,6 +77,8 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
         case 'reflectivity':
           result = calcReflectivity(project)
           break
+        case 'energyAsymmetry':
+          throw new Error('Dichroic and asymmetry energy scans are not available in the mock engine yet.')
         case 'energyScan':
           result = calcEnergyScan(project)
           break

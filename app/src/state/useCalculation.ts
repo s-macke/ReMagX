@@ -75,7 +75,13 @@ async function calculate(service: ComputeService, project: Project, request: Cal
     return profilePlot(profile, plotView === 'magneticProfile', request.illustrateSegmentation ?? true)
   }
   if (scanKind === 'energyScan') {
-    if (mode !== 'monochromatic') throw new Error('Dichroic and asymmetry energy scans are not available in the mock engine yet.')
+    if (mode !== 'monochromatic') {
+      const scan = await service.calcEnergyAsymmetry(project)
+      return mode === 'dichroic'
+        ? { axis: 'energy', x: scan.energy, series: [{ label: 'simulated R+', y: scan.reflectivityPlus },
+          { label: 'simulated R−', y: scan.reflectivityMinus }], logScale: true, yLabel: 'R' }
+        : { axis: 'energy', x: scan.energy, series: [{ label: 'simulated asymmetry', y: scan.asymmetry }], logScale: false, yLabel: 'asymmetry' }
+    }
     const scan = await service.calcEnergyScan(project)
     return { axis: 'energy', x: scan.energy, series: [{ label: 'simulated R', y: scan.reflectivity }], logScale: true, yLabel: 'R' }
   }

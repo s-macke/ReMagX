@@ -5,7 +5,7 @@ import type { OpticalTable } from '../import/tables'
 import type { DatabaseValues } from '../model/databaseValues'
 import type { TensorPreview } from '../model/tensorView'
 import type { Layer, Project } from '../model/project'
-import type { TensorQuery, AsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
+import type { TensorQuery, AsymmetryCurve, EnergyAsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
   materialToElements: ElementConversion
@@ -17,6 +17,7 @@ export interface CalculationResults {
   layerSpectrum: LayerSpectrum
   reflectivity: ReflectivityCurve
   energyScan: EnergyScanCurve
+  energyAsymmetry: EnergyAsymmetryCurve
   asymmetry: AsymmetryCurve
   depthProfile: DepthProfile
   chi2: number
