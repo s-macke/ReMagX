@@ -79,8 +79,10 @@ npm run build             # static site in app/dist
 CORPUS_DIR=/path/to/corpus npx vitest run test/corpus.test.ts   # import every legacy .all file
 ```
 
-The legacy example files in `old/reMagX3` can serve as a local corpus
-(`CORPUS_DIR=../old/reMagX3`); all 99 must import.
+The **test corpus** is the set of legacy projects in `old/reMagX3` (mainly `examples/`, plus
+`Tutorial/` and `bin/`): private, git-ignored, copied along with the folder. Use
+`CORPUS_DIR=../old/reMagX3`; all 99 files must import. Further legacy files from the user go
+there or into another private folder (D-20); never into git.
 
 ## Working with the user
 
@@ -173,7 +175,7 @@ Quality gates:
 
 ### Engine phase: still to do
 - [ ] Docker build (optional, pinned emsdk + g++ + Node) producing the static site (D-19)
-- [ ] Private corpus repo/folder seeded with legacy examples; golden outputs (D-20)
+- [ ] Golden outputs for the test corpus (the corpus itself exists: `old/reMagX3/examples`, `Tutorial/`, `bin/`; add further user files there or in a separate private folder) (D-20)
 - [ ] Native rebuild of the legacy 2.6 core for golden data, `%.17g` output, no NR code in the repo (D-5, D-32)
 - [ ] Cross-check the rebuild against the Wine 2.3.1 binary within 1e-6 (AC-6)
 - [ ] Extract and clean the numerical core: double only, descriptive names, data-driven C API (D-6, D-34)
