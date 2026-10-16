@@ -16,11 +16,12 @@ export function useFitRunner() {
     const parameters = project.fit.parameters
     const epoch = fitEpoch + 1
     const report = (event: FitEvent) => dispatch({ type: 'fitEvent', epoch, event })
-    dispatch({ type: 'beginFit', parameters })
+    const service = computeService()
+    dispatch({ type: 'beginFit', parameters, workerPreviews: service.providesFitPreviews })
     dispatch({ type: 'appendDebug', lines: [`Fit started: ${project.fit.algorithm}, ${parameters.length} parameter(s)`] })
-    computeService()
+    service
       .startFit(project, (progress) => {
-        report({ type: 'setFitStatus', fitStatus: { iteration: progress.iteration, chi2: progress.chi2, values: progress.values } })
+        report({ type: 'setFitStatus', fitStatus: { iteration: progress.iteration, chi2: progress.chi2, values: progress.values, datasetPreview: progress.datasetPreview } })
         report({ type: 'appendDebug', lines: [`Iteration: ${progress.iteration} Chi^2: ${progress.chi2.toPrecision(6)}`] })
       })
       .then((result) => {
@@ -29,12 +30,12 @@ export function useFitRunner() {
         const message = result.stopped ? `Stopped after ${result.iterations} iterations.` : `Finished after ${result.iterations} iterations.`
         report({
           type: 'setFitStatus',
-          fitStatus: { running: false, chi2: result.chi2, iteration: result.iterations, message, parameters: null, values: null },
+          fitStatus: { running: false, datasetPreview: undefined, workerPreviews: false, chi2: result.chi2, iteration: result.iterations, message, parameters: null, values: null },
         })
         report({ type: 'appendDebug', lines: [`${message} Chi^2: ${result.chi2.toPrecision(6)}`] })
       })
       .catch((error: Error) => {
-        report({ type: 'setFitStatus', fitStatus: { running: false, message: error.message, parameters: null, values: null } })
+        report({ type: 'setFitStatus', fitStatus: { running: false, datasetPreview: undefined, workerPreviews: false, message: error.message, parameters: null, values: null } })
         report({ type: 'appendDebug', lines: [error instanceof ComputeCancelled ? error.message : `Fit error: ${error.message}`] })
       })
   }, [project, fitEpoch, dispatch])

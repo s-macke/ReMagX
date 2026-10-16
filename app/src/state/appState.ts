@@ -1,3 +1,4 @@
+import type { FitDatasetPreview } from '../compute/ComputeService'
 // Application state: the current project plus UI-only view settings. Components dispatch
 // actions; project changes go through the pure helpers in model/.
 
@@ -20,6 +21,8 @@ export type PlotView = 'tensorDiagonal' | 'tensorUpper' | 'tensorLower' | 'densi
 export type EnergyUnit = 'eV' | 'angstrom'
 
 export interface FitStatus {
+  workerPreviews?: boolean
+  datasetPreview?: FitDatasetPreview
   evaluating: boolean
   running: boolean
   iteration: number
@@ -81,7 +84,7 @@ export type Action =
   | { type: 'selectValueCell'; target: ValueCell; label: string }
   | { type: 'clearValueCell'; key?: string }
   | { type: 'slideValue'; position: number; coalesce: string }
-  | { type: 'beginFit'; parameters: FitParameter[] | null }
+  | { type: 'beginFit'; parameters: FitParameter[] | null; workerPreviews?: boolean }
   | { type: 'fitEvent'; epoch: number; event: FitEvent }
   | { type: 'loadProject'; project: Project; fileName: string; report?: ImportReport; notice?: string; unsaved?: boolean }
   | { type: 'markSaved'; fileName: string }
@@ -146,7 +149,7 @@ const emptyHistory = (): History => ({ past: [], future: [], lastKey: null, last
 function invalidateFit(state: AppState, message: string): AppState {
   const active = state.fitStatus.running || state.fitStatus.evaluating
   return { ...state, fitEpoch: state.fitEpoch + 1, fitInvalidations: state.fitInvalidations + Number(active),
-    fitStatus: { ...state.fitStatus, running: false, evaluating: false, parameters: null, values: null, chi2: null,
+    fitStatus: { ...state.fitStatus, datasetPreview: undefined, workerPreviews: false, running: false, evaluating: false, parameters: null, values: null, chi2: null,
       message: active ? message : state.fitStatus.message } }
 }
 
@@ -216,7 +219,7 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
     }
     case 'fitEvent': return state // handled by the reducer wrapper
     case 'beginFit':
-      return { ...state, fitEpoch: state.fitEpoch + 1, fitStatus: { running: action.parameters !== null, evaluating: action.parameters === null, iteration: 0, chi2: null, parameters: action.parameters, values: null, message: action.parameters === null ? 'Calculating χ²…' : 'Fitting…' } }
+      return { ...state, fitEpoch: state.fitEpoch + 1, fitStatus: { workerPreviews: action.workerPreviews ?? false, datasetPreview: undefined, running: action.parameters !== null, evaluating: action.parameters === null, iteration: 0, chi2: null, parameters: action.parameters, values: null, message: action.parameters === null ? 'Calculating χ²…' : 'Fitting…' } }
     case 'loadProject':
       return {
         ...state,

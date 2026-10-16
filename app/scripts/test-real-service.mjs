@@ -44,10 +44,12 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
   const results = await page.evaluate(async () => {
-    const { mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
+    const { mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve
+    const workerRequests = []
     const NativeWorker = window.Worker
     window.Worker = class extends NativeWorker {
+      postMessage(message, ...rest) { workerRequests.push(message.kind); return super.postMessage(message, ...rest) }
       constructor(url, options) {
         super(url, options)
         this.addEventListener('message', event => { if (event.data.realCoreEntered) enteredResolve?.() })
@@ -382,12 +384,18 @@ try {
         fit.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null, value: 30, step: 0, lowerBound: 20, upperBound: 50 }]
         const before = JSON.stringify(fit), iterations = []
         let preview
+        const plot = mountFitPreview(fit)
+        const requestStart = workerRequests.length
         const result = await service.startFit(fit, progress => {
           iterations.push(progress.iteration)
-          if (progress.datasetPreview) preview = progress.datasetPreview
+          if (progress.datasetPreview) { preview = progress.datasetPreview; plot.update(preview) }
         })
+        await new Promise(resolve => setTimeout(resolve, 150)) // longer than the automatic redraw debounce
+        const previewRequests = workerRequests.slice(requestStart)
+        const rendered = plot.rendered()
+        plot.dispose()
         const completedCurve = await service.calcReflectivity(result.project)
-        output.realFits.push({ algorithm, value: result.values[0], chi2: result.chi2, iterations, preview, completedCurve,
+        output.realFits.push({ algorithm, value: result.values[0], chi2: result.chi2, iterations, preview, completedCurve, rendered, previewRequests, capability: service.providesFitPreviews,
           unchanged: before === JSON.stringify(fit) })
       }
       // Exercise recovery separately for each stored data kind, then a weighted mixed fit.
@@ -515,6 +523,10 @@ try {
     assert.ok(Math.abs(result.value - 35) < 1e-6, `${result.algorithm} fitted thickness ${result.value}`)
     assert.ok(result.chi2 < 1e-16)
     assert.ok(new Set(result.iterations).size >= 3)
+    assert.equal(result.capability, true)
+    assert.deepEqual(result.previewRequests, ['fit'])
+    assert.ok(result.rendered.canvases > 0)
+    assert.ok(result.rendered.text.includes('fitted R'))
     assert.equal(result.preview.datasetIndex, 0)
     assert.equal(result.preview.scan, 'qz')
     assert.equal(result.preview.beams, 'monochromatic')

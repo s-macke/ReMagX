@@ -1,3 +1,4 @@
+import { fitPreviewCurve } from './model/fitPreview'
 import { useMaterialLibrary } from './state/useMaterialLibrary'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import defaultExample from '../test/fixtures/default.all?raw'
@@ -59,12 +60,17 @@ function Workspace() {
   const [materialDialog, setMaterialDialog] = useState<{ index: number; epoch: number } | null>(null)
   const dispatch = useDispatch()
   const { project, scanKind, displayMode, plotView, fitStatus } = state
+  const workerFit = fitStatus.running && fitStatus.workerPreviews === true
   // While a fit runs, the plot follows its current best parameters (legacy live redraw).
   const displayedProject = useMemo(
-    () => (fitStatus.running && fitStatus.parameters && fitStatus.values ? applyFitValues(project, fitStatus.parameters, fitStatus.values) : project),
-    [project, fitStatus.running, fitStatus.parameters, fitStatus.values],
+    () => (!workerFit && fitStatus.running && fitStatus.parameters && fitStatus.values ? applyFitValues(project, fitStatus.parameters, fitStatus.values) : project),
+    [project, workerFit, fitStatus.running, fitStatus.parameters, fitStatus.values],
   )
-  const calculation = useCalculation(displayedProject, { scanKind, displayMode, plotView, illustrateSegmentation: state.illustrateSegmentation, layerIndex: state.selectedLayer, elementIndex: state.selectedElement, tables: state.opticalTables }, state.calculationPaused, state.valueSlider !== null)
+  const backgroundCalculation = useCalculation(displayedProject, { scanKind, displayMode, plotView, illustrateSegmentation: state.illustrateSegmentation, layerIndex: state.selectedLayer, elementIndex: state.selectedElement, tables: state.opticalTables }, state.calculationPaused || workerFit, state.valueSlider !== null)
+  const liveCurve = useMemo(() => plotView === 'scan'
+    ? fitPreviewCurve(fitStatus.datasetPreview, project.activeDatasetIndex, scanKind === 'energyScan' ? 'energy' : 'qz', displayMode)
+    : null, [fitStatus.datasetPreview, project.activeDatasetIndex, scanKind, displayMode, plotView])
+  const calculation = workerFit ? { ...backgroundCalculation, curve: liveCurve, busy: true, stopped: false, error: null } : backgroundCalculation
   usePersistence()
   useMaterialLibrary()
   const unsaved = project !== state.savedProject

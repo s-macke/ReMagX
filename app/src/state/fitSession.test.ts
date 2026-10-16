@@ -107,3 +107,21 @@ it('merges real dataset fit updates as one undoable change while preserving conc
   expect(undone.project.datasets.map(data => data.intensityScale)).toEqual([1, 1])
   expect(undone.project.datasets.every(data => data.comment === 'concurrent edit')).toBe(true)
 })
+
+it('clears worker previews on invalidation and ignores previews from old fit sessions', () => {
+  let state = fitting()
+  state = reducer(state, { type: 'beginFit', parameters: state.project.fit.parameters, workerPreviews: true })
+  const epoch = state.fitEpoch
+  const preview = { datasetIndex: 0, scan: 'qz' as const, beams: 'monochromatic' as const,
+    qz: [.1], reflectivityPlus: [.01], reflectivityMinus: [0], asymmetry: [0] }
+  state = reducer(state, { type: 'fitEvent', epoch, event: { type: 'setFitStatus', fitStatus: { datasetPreview: preview } } })
+  expect(state.fitStatus.workerPreviews).toBe(true)
+  expect(state.fitStatus.datasetPreview).toEqual(preview)
+  state = reducer(state, { type: 'insertLayer' })
+  expect(state.fitStatus.datasetPreview).toBeUndefined()
+  expect(state.fitStatus.workerPreviews).toBe(false)
+  expect(reducer(state, { type: 'fitEvent', epoch, event: { type: 'setFitStatus', fitStatus: { datasetPreview: preview } } })).toBe(state)
+  const next = reducer(state, { type: 'beginFit', parameters: null })
+  expect(next.fitStatus.datasetPreview).toBeUndefined()
+  expect(next.fitStatus.workerPreviews).toBe(false)
+})

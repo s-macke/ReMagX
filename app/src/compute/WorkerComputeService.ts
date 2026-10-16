@@ -46,6 +46,7 @@ export const STOP_TIMEOUT_MS = 250
 const createWorker = (): WorkerPort => new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerPort
 
 export class WorkerComputeService implements ComputeService {
+  readonly providesFitPreviews: boolean
   private nextId = 1
   private readonly pending = new Map<number, Pending>()
   private worker: WorkerPort | null = null
@@ -55,7 +56,8 @@ export class WorkerComputeService implements ComputeService {
   private readonly getTables?: () => OpticalTable[]
   private stopTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(createPort: () => WorkerPort = createWorker, getTables?: () => OpticalTable[]) {
+  constructor(createPort: () => WorkerPort = createWorker, getTables?: () => OpticalTable[], providesFitPreviews = false) {
+    this.providesFitPreviews = providesFitPreviews
     this.createWorker = createPort
     this.getTables = getTables
   }
