@@ -742,7 +742,7 @@
     {
       "name": "materials",
       "status": "deferred",
-      "reason": "Implement the Materials dialog, formula/density, tensor display/filling and fit controls; preserve legacy disabled/read-only behavior where applicable.",
+      "reason": "Implement the Materials dialog, formula/density, read-only tensor display and per-layer gamma/phi fit controls. Fill Dielectric Tensor is hidden with no handler and is classified under the pending hidden-controls decision.",
       "references": [
         "AGENTS.md"
       ],
@@ -784,7 +784,6 @@
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzxEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzyEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/EzzEdit",
-        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Button1",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExxiEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExyiEdit",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/ExziEdit",
@@ -1053,7 +1052,8 @@
         "client/Unit1.dfm::Form1/ButtonAnalyze",
         "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/CheckBox1",
         "client/MzFrame.dfm::Frame8/CheckBox11",
-        "client/Unit1.cpp::event:da8c2ba785fe8675:1"
+        "client/Unit1.cpp::event:da8c2ba785fe8675:1",
+        "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Button1"
       ],
       "phase": "decision"
     },

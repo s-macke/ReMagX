@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { insertLayerAbove, removeLayer } from './layers'
 import { createDefaultProject } from './defaults'
 import {
   applyFitValues,
@@ -78,5 +79,47 @@ describe('fit table helpers', () => {
     expect(options[0]).toEqual({ value: 13, label: 'air' })
     expect(options.at(-1)).toEqual({ value: 0, label: 'bulk' })
     expect(targetIndexOptions(createDefaultProject(), 'intensityScale', 0)).toEqual([])
+  })
+})
+
+
+describe('layer magnetization fit targets', () => {
+  it('reads/writes the indexed layer, preserves global direction and rejects absent indices', () => {
+    const project = createDefaultProject()
+    project.sample.layers[2].magnetization = { gamma: 31, phi: 47 }
+    const global = structuredClone(project.calculation.magnetization.direction)
+    const gamma = createFitParameter(project, 'magnetizationGamma', 2, null)
+    const phi = createFitParameter(project, 'magnetizationPhi', 2, null)
+    expect(gamma.value).toBe(31)
+    expect(phi.value).toBe(47)
+    expect(fitParameterName(project, gamma)).toBe('magnetization γ (layer 2)')
+    expect(targetIndexOptions(project, 'magnetizationPhi', 0)).toContainEqual({ value: 2, label: 'layer 2' })
+    const changed = applyFitValues(project, [gamma, phi], [22, 33])
+    expect(changed.sample.layers[2].magnetization).toEqual({ gamma: 22, phi: 33 })
+    expect(changed.sample.layers[1].magnetization).toEqual(project.sample.layers[1].magnetization)
+    expect(changed.calculation.magnetization.direction).toEqual(global)
+    for (const index of [null, 99]) {
+      expect(readFitTarget(project, { ...gamma, index })).toBeUndefined()
+      expect(writeFitTarget(project, { ...phi, index }, 5)).toBe(false)
+    }
+    expect(project.sample.layers[2].magnetization).toEqual({ gamma: 31, phi: 47 })
+  })
+
+  it('retains layer identity and parameter settings through stack edits and value transfers', () => {
+    const project = createDefaultProject()
+    project.fit.parameters = [
+      { ...createFitParameter(project, 'magnetizationGamma', 2, null), value: 24, lowerBound: -180, upperBound: 180, step: 2 },
+      { ...createFitParameter(project, 'magnetizationPhi', 3, null), value: 35 },
+    ]
+    const inserted = insertLayerAbove(project, 1).project
+    expect(inserted.fit.parameters.map(parameter => parameter.index)).toEqual([3, 4])
+    expect(inserted.fit.parameters[0]).toMatchObject({ value: 24, lowerBound: -180, upperBound: 180, step: 2 })
+    const transferred = transferStartValuesToProject(inserted)
+    expect(transferred.sample.layers[3].magnetization.gamma).toBe(24)
+    expect(transferred.sample.layers[4].magnetization.phi).toBe(35)
+    const removed = removeLayer(inserted, 3)
+    expect(removed.fit.parameters).toHaveLength(1)
+    expect(removed.fit.parameters[0].index).toBe(3)
+    expect(removed.fit.parameters[0].target).toBe('magnetizationPhi')
   })
 })

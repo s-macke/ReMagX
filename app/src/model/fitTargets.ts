@@ -37,8 +37,8 @@ export const fitTargetInfo: Record<FitTargetKind, TargetInfo> = {
   electronEscapeDepth: { label: 'electron escape depth', index: 'layer' },
   electronGain: { label: 'electron gain', index: 'layer' },
   energyShift: { label: 'energy shift', index: 'none' },
-  magnetizationGamma: { label: 'magnetization γ', index: 'none' },
-  magnetizationPhi: { label: 'magnetization φ', index: 'none' },
+  magnetizationGamma: { label: 'magnetization γ', index: 'layer' },
+  magnetizationPhi: { label: 'magnetization φ', index: 'layer' },
 }
 
 export function layerName(project: Project, index: number): string {
@@ -97,9 +97,12 @@ function locate(project: Project, p: FitParameter): { get: () => number; set: (v
     case 'energyShift':
       return dataset && { get: () => dataset.energyShift, set: (v) => void (dataset.energyShift = v) }
     case 'magnetizationGamma':
-      return { get: () => project.calculation.magnetization.direction.gamma, set: (v) => void (project.calculation.magnetization.direction.gamma = v) }
-    case 'magnetizationPhi':
-      return { get: () => project.calculation.magnetization.direction.phi, set: (v) => void (project.calculation.magnetization.direction.phi = v) }
+    case 'magnetizationPhi': {
+      // Legacy MAGGAMMA/MAGPHI use additional_id to select a compound layer.
+      const layer = project.sample.layers[i]
+      const field = target === 'magnetizationGamma' ? 'gamma' : 'phi'
+      return layer && { get: () => layer.magnetization[field], set: (v) => void (layer.magnetization[field] = v) }
+    }
     case 'scriptParameter':
       return i >= 0 && i < project.scripts.parameters.length
         ? { get: () => project.scripts.parameters[i], set: (v) => void (project.scripts.parameters[i] = v) }
