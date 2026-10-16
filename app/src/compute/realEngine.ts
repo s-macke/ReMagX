@@ -1,3 +1,4 @@
+import { calculateVisnovskyEnergyScan, type VisnovskyEnergyCalculator } from '../model/visnovskyEnergyScan'
 import { prepareVisnovskyQzRequest, type PreparedVisnovskyQzRequest, type DielectricTensorCalculator } from '../model/visnovskyRequest'
 import { calculateParrattEnergyScan, type EnergyScanCalculator } from '../model/parrattEnergyScan'
 import { refreshCompoundConstants, type RealTableLookup } from '../model/refreshOpticalConstants'
@@ -12,6 +13,7 @@ export interface RealEngine {
   calculate: RealQzCalculator
   lookup: RealTableLookup
   energyScan: EnergyScanCalculator
+  matrixEnergy: VisnovskyEnergyCalculator
   dielectricTensor: DielectricTensorCalculator
   matrixQz: (request: PreparedVisnovskyQzRequest) => Float64Array
 }
@@ -28,7 +30,10 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
       if (message.kind === 'energyScan' || message.kind === 'energyAsymmetry') {
-        const scan = calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.energyScan, message.kind === 'energyAsymmetry' ? 'dichroic' : 'monochromatic')
+        const mode = message.kind === 'energyAsymmetry' ? 'dichroic' : 'monochromatic'
+        const scan = message.project.calculation.algorithm === 'matrix'
+          ? calculateVisnovskyEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode)
+          : calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.energyScan, mode)
         send({ id: message.id, type: 'result', result: message.kind === 'energyScan'
           ? { energy: scan.energy, reflectivity: scan.reflectivity }
           : { energy: scan.energy, reflectivityPlus: scan.reflectivityPlus, reflectivityMinus: scan.reflectivityMinus, asymmetry: scan.asymmetry } })

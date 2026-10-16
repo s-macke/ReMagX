@@ -19,8 +19,9 @@ export type EnergyScanCalculator = (request: PreparedEnergyScan) => Float64Array
 
 // CalcEScan refreshes constants even when automaticOpticalConstants is off, and
 // calls CalculateResolution (exact angular convolution, independent of fast flag).
-export function calculateParrattEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
-  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic') {
+export function calculateCompoundEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
+  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic',
+  prepareTemplate: typeof prepareParrattQzRequest) {
   const width = project.experiment.resolution.energyFwhm
   if (!Number.isFinite(width) || width < 0) throw new Error('Energy resolution must be finite and nonnegative.')
   const coordinates = prepareEnergyCoordinates(project, tables)
@@ -29,7 +30,7 @@ export function calculateParrattEnergyScan(project: Project, tables: OpticalTabl
     qzScan: { ...project.experiment.qzScan, useDatasetPoints: false, points: 2, qzMin: 0, qzMax: 0 },
     resolution: { ...project.experiment.resolution, fastConvolution: false } } }
   // Validate unsupported settings even when every dataset point lies outside the tables.
-  const template = prepareParrattQzRequest(local, mode)
+  const template = prepareTemplate(local, mode)
   for (const layer of project.sample.layers) {
     if (!tables.some(table => layer.opticalTable && table.name === layer.opticalTable && table.kind === 'db' && table.energy.length)) {
       throw new Error(`Missing optical table ${layer.opticalTable || '(unnamed)'}.db for energy scan.`)
@@ -59,4 +60,9 @@ export function calculateParrattEnergyScan(project: Project, tables: OpticalTabl
   const result = postprocessParrattResult(project, coordinates.qz, resolved, mode, coordinates.energy)
   return { energy: coordinates.energy, reflectivity: result.reflectivityPlus,
     reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry }
+}
+
+export function calculateParrattEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
+  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic') {
+  return calculateCompoundEnergyScan(project, tables, lookup, calculate, mode, prepareParrattQzRequest)
 }

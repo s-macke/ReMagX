@@ -190,6 +190,28 @@ try {
       output.matrixUnchanged = matrixSnapshot === JSON.stringify(matrix)
       matrix.calculation.postProcessing.multiplyByQz4 = true
       output.matrixPostprocessed = await service.calcReflectivity(matrix)
+      matrix.calculation.postProcessing.multiplyByQz4 = false
+      matrix.experiment.energyScan = { ...matrix.experiment.energyScan,
+        energyMin: 639.25, energyMax: 640.75, fixed: 'qz', qz: .03 }
+      matrix.experiment.resolution.fastConvolution = true // energy scans still use exact angular convolution
+      for (const table of tables) for (const column of table.columns) column[1] *= 1.1
+      output.matrixEnergyRaw = await service.calcEnergyAsymmetry(matrix)
+      output.matrixEnergyReference = []
+      for (const energy of output.matrixEnergyRaw.energy) {
+        const reference = structuredClone(matrix)
+        reference.experiment.energy = energy
+        reference.experiment.resolution.fastConvolution = false
+        reference.experiment.qzScan.qzMin = reference.experiment.qzScan.qzMax = .03
+        const curve = await service.calcAsymmetry(reference)
+        output.matrixEnergyReference.push(curve.reflectivityPlus[0], curve.reflectivityMinus[0])
+      }
+      matrix.experiment.resolution.energyFwhm = .4
+      const energySnapshot = JSON.stringify(matrix)
+      output.matrixEnergyResolved = await service.calcEnergyAsymmetry(matrix)
+      output.matrixEnergyMono = await service.calcEnergyScan(matrix)
+      output.matrixEnergyUnchanged = energySnapshot === JSON.stringify(matrix)
+      matrix.calculation.asymmetryDefinition = 'difference'
+      output.matrixEnergyDifference = await service.calcEnergyAsymmetry(matrix)
       matrix.calculation.magnetization.mode = 'profile'
       try { await service.calcReflectivity(matrix) } catch (error) { output.matrixProfileError = error.message }
       tables = []
@@ -265,6 +287,23 @@ try {
       near(results.matrixPostprocessed.reflectivity[index], plus * (qz * qz * qz * qz))
     }
   }))
+  results.matrixEnergyRaw.energy.forEach((_, index) => {
+    near(results.matrixEnergyRaw.reflectivityPlus[index], results.matrixEnergyReference[index * 2])
+    near(results.matrixEnergyRaw.reflectivityMinus[index], results.matrixEnergyReference[index * 2 + 1])
+  })
+  const matrixEnergyReference = JSON.parse(execFileSync('node', ['--experimental-strip-types', resolve(root, 'engine/tests/compare_resolution.mjs')], {
+    input: JSON.stringify([{ qz: results.matrixEnergyRaw.energy, raw: results.matrixEnergyReference,
+      width: .4, fast: true, dichroic: true }]), encoding: 'utf8',
+  }))[0].values
+  results.matrixEnergyResolved.energy.forEach((_, index) => {
+    const plus = matrixEnergyReference[index * 2], minus = matrixEnergyReference[index * 2 + 1]
+    near(results.matrixEnergyResolved.reflectivityPlus[index], plus)
+    near(results.matrixEnergyResolved.reflectivityMinus[index], minus)
+    near(results.matrixEnergyResolved.asymmetry[index], (plus - minus) / (plus + minus))
+    near(results.matrixEnergyMono.reflectivity[index], plus)
+    near(results.matrixEnergyDifference.asymmetry[index], plus - minus)
+  })
+  assert.equal(results.matrixEnergyUnchanged, true)
   assert.equal(results.matrixUnchanged, true)
   assert.match(results.matrixProfileError, /profile/)
   assert.equal(results.refreshUnchanged, true)
@@ -273,7 +312,7 @@ try {
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/tensors/multilayers/automatic tables/postprocessing, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/tensors/multilayers/automatic tables/postprocessing, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

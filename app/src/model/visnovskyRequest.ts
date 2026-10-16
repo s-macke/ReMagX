@@ -14,16 +14,25 @@ export interface PreparedVisnovskyQzRequest extends Omit<PreparedParrattQzReques
 // FillTensors uses per-layer directions and applies no second-beam reversal.
 export function prepareVisnovskyQzRequest(project: Project, mode: 'monochromatic' | 'dichroic',
   constructTensor: DielectricTensorCalculator): PreparedVisnovskyQzRequest {
+  validateVisnovskyProject(project)
+  const { layers, tensor, magnetic, ...scan } = prepareCompoundQzRequest(project, mode)
+  return { ...scan, epsilon: project.calculation.epsilon, layers: prepareVisnovskyLayers(layers, tensor, magnetic, constructTensor) }
+}
+
+export function validateVisnovskyProject(project: Project) {
   if (project.calculation.algorithm !== 'matrix') throw new Error('This real-engine path requires the matrix algorithm.')
   if (project.calculation.magnetization.mode === 'profile') throw new Error('Magnetization-profile preparation is not implemented in the matrix path yet.')
   if (!Number.isFinite(project.calculation.epsilon)) throw new Error('Matrix epsilon must be finite.')
-  const { layers, tensor, magnetic, ...scan } = prepareCompoundQzRequest(project, mode)
-  return { ...scan, epsilon: project.calculation.epsilon, layers: layers.map(layer => {
+}
+
+export function prepareVisnovskyLayers(layers: PreparedCompoundLayer[], tensor: 0 | 1, magnetic: 0 | 1,
+  constructTensor: DielectricTensorCalculator): PreparedVisnovskyQzRequest['layers'] {
+  return layers.map(layer => {
     const dielectric = constructTensor({ layer, tensor, magnetic })
     if (dielectric.values.length !== 18 || !dielectric.values.every(Number.isFinite) || typeof dielectric.anisotropic !== 'boolean') {
       throw new Error('The real engine returned an invalid dielectric tensor.')
     }
     return { values: [layer[0], layer[1], 1 - layer[2], layer[3], ...dielectric.values],
       anisotropic: dielectric.anisotropic ? 1 : 0 }
-  }) }
+  })
 }
