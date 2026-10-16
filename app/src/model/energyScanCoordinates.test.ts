@@ -36,23 +36,26 @@ it('limits by magnetic tables only with magnetization enabled and retains fixed-
   expect(result.qz).toEqual(result.energy.map(energy => 2 * (2 * Math.PI / (12398.326 / energy)) * Math.sin(2 / 180 * Math.PI)))
 })
 
-it('uses explicit energy dataset selection, preserves order and shifts without mutating measurements', () => {
+it('uses the shared dataset selection, preserves order and shifts without mutating measurements', () => {
   const { project, tables } = setup()
-  project.experiment.qzScan.useDatasetPoints = true
   expect(prepareEnergyCoordinates(project, tables).energy).toHaveLength(5)
-  expect(() => prepareEnergyCoordinates(project, tables, true)).toThrow('matching')
+  project.experiment.qzScan.useDatasetPoints = true
+  expect(() => prepareEnergyCoordinates(project, tables)).toThrow('matching')
   project.datasets = [{ title: '', comment: '', sourceFile: '', energy: 100, energyShift: 2, qzShift: .01,
     angularResolution: 0, intensityScale: 1, intensityOffset: 0, errorWeight: 1,
     polarization: project.experiment.polarization, active: true,
     columns: { energy: [150, 130, 150], qz: [.1, .2, .1], reflectivity: [1, 2, 3] } }]
   project.activeDatasetIndex = 0
   const before = structuredClone(project)
-  expect(prepareEnergyCoordinates(project, [], true)).toEqual({ energy: [152, 132, 152], qz: [.1 + .01, .2 + .01, .1 + .01] })
+  expect(prepareEnergyCoordinates(project, [])).toEqual({ energy: [152, 132, 152], qz: [.1 + .01, .2 + .01, .1 + .01] })
   expect(project).toEqual(before)
+  project.experiment.qzScan.useDatasetPoints = false
+  expect(prepareEnergyCoordinates(project, tables).energy).toHaveLength(5)
+  project.experiment.qzScan.useDatasetPoints = true
   project.datasets[0].energyShift = 1e-10
-  expect(prepareEnergyCoordinates(project, [], true).energy).toEqual([150, 130, 150])
+  expect(prepareEnergyCoordinates(project, []).energy).toEqual([150, 130, 150])
   project.datasets[0].columns.energy = [150]
-  expect(() => prepareEnergyCoordinates(project, [], true)).toThrow('matching')
+  expect(() => prepareEnergyCoordinates(project, [])).toThrow('matching')
 })
 
 it('rejects missing tables, disjoint or stalled ranges and excessive allocations', () => {

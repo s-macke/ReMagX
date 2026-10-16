@@ -3,9 +3,9 @@ import type { Project } from './project'
 import { HC_EV_ANGSTROM } from './units'
 
 // Unit1.cpp Button24Click and MaterialConstantsHelper.cpp GetMaximumEnergyRange.
-// Energy dataset selection is a separate legacy control, not qzScan.useDatasetPoints.
-export function prepareEnergyCoordinates(project: Project, tables: OpticalTable[], useDatasetPoints = false): { energy: number[]; qz: number[] } {
-  if (useDatasetPoints) {
+// Button3Click and Button24Click both read EScanFrame CheckBox5 (usemeasurementqz).
+export function prepareEnergyCoordinates(project: Project, tables: OpticalTable[]): { energy: number[]; qz: number[] } {
+  if (project.experiment.qzScan.useDatasetPoints) {
     const dataset = project.activeDatasetIndex === null ? undefined : project.datasets[project.activeDatasetIndex]
     if (!dataset?.columns.energy?.length || dataset.columns.energy.length !== dataset.columns.qz.length) {
       throw new Error('Energy dataset calculation needs matching nonempty energy and qz columns.')
