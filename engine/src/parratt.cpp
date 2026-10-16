@@ -70,6 +70,13 @@ double calculate_point(const RemagxLayer* layers, size_t layer_count, const Rema
     return pi_intensity + sigma;
 }
 
+bool valid_beam(const RemagxBeam& beam) {
+    return std::isfinite(beam.sigma_real) && std::isfinite(beam.sigma_imaginary) &&
+        std::isfinite(beam.pi_real) && std::isfinite(beam.pi_imaginary) &&
+        std::isfinite(beam.sigma_real * beam.sigma_real + beam.sigma_imaginary * beam.sigma_imaginary) &&
+        std::isfinite(beam.pi_real * beam.pi_real + beam.pi_imaginary * beam.pi_imaginary);
+}
+
 bool valid_layer(const RemagxLayer& layer) {
     return std::isfinite(layer.thickness) && layer.thickness >= 0.0 &&
         std::isfinite(layer.roughness) && layer.roughness >= 0.0 &&
@@ -85,11 +92,9 @@ extern "C" int remagx_parratt(const RemagxLayer* layers, size_t layer_count,
     if (!layers || layer_count < 2 || !points || point_count == 0 || !beam || !output ||
         tensor < REMAGX_ISOTROPIC || tensor > REMAGX_TETRAGONAL || analyzer < REMAGX_BOTH || analyzer > REMAGX_PI)
         return REMAGX_INVALID_ARGUMENT;
-    if (!std::isfinite(beam->sigma_real) || !std::isfinite(beam->sigma_imaginary) ||
-        !std::isfinite(beam->pi_real) || !std::isfinite(beam->pi_imaginary)) return REMAGX_INVALID_ARGUMENT;
+    if (!valid_beam(*beam)) return REMAGX_INVALID_ARGUMENT;
     const double sigma_weight = beam->sigma_real * beam->sigma_real + beam->sigma_imaginary * beam->sigma_imaginary;
     const double pi_weight = beam->pi_real * beam->pi_real + beam->pi_imaginary * beam->pi_imaginary;
-    if (!std::isfinite(sigma_weight) || !std::isfinite(pi_weight)) return REMAGX_INVALID_ARGUMENT;
     for (size_t index = 0; index < layer_count; ++index) if (!valid_layer(layers[index])) return REMAGX_INVALID_ARGUMENT;
     for (size_t index = 0; index < point_count; ++index) {
         if (!std::isfinite(points[index].angle_radians) || !std::isfinite(points[index].vacuum_wave_number) ||
@@ -101,6 +106,58 @@ extern "C" int remagx_parratt(const RemagxLayer* layers, size_t layer_count,
         for (size_t index = 0; index < point_count; ++index) {
             results[index] = calculate_point(layers, layer_count, points[index], sigma_weight, pi_weight, tensor, analyzer, indices, waves);
             if (!std::isfinite(results[index])) return REMAGX_NUMERICAL_ERROR;
+        }
+        std::copy(results.begin(), results.end(), output);
+        return REMAGX_SUCCESS;
+    } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
+      catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
+}
+
+extern "C" int remagx_parratt_qz(const RemagxLayer* layers, size_t layer_count,
+                                  const double* qz, size_t point_count, double energy_ev,
+                                  const RemagxBeam* beam1, const RemagxBeam* beam2,
+                                  int tensor, int analyzer, int magnetization_enabled,
+                                  int scan_mode, RemagxReflectivity* output) {
+    if (!layers || layer_count < 2 || !qz || !point_count || !beam1 || !output ||
+        !std::isfinite(energy_ev) || energy_ev <= 0.0 || !valid_beam(*beam1) ||
+        tensor < REMAGX_ISOTROPIC || tensor > REMAGX_TETRAGONAL ||
+        analyzer < REMAGX_BOTH || analyzer > REMAGX_PI ||
+        magnetization_enabled < 0 || magnetization_enabled > 1 ||
+        scan_mode < REMAGX_MONOCHROMATIC || scan_mode > REMAGX_DICHROIC ||
+        (scan_mode == REMAGX_DICHROIC && (!beam2 || !valid_beam(*beam2)))) return REMAGX_INVALID_ARGUMENT;
+    for (size_t index = 0; index < layer_count; ++index) if (!valid_layer(layers[index])) return REMAGX_INVALID_ARGUMENT;
+    for (size_t index = 0; index < point_count; ++index) if (!std::isfinite(qz[index])) return REMAGX_INVALID_ARGUMENT;
+    // Variablen::EnergyToLambda/k0: retain the legacy constant and operation order.
+    const double wave_number = 2.0 * pi / (12398.326 / energy_ev);
+    if (!std::isfinite(wave_number) || wave_number <= 0.0 || !std::isfinite(2.0 * wave_number))
+        return REMAGX_NUMERICAL_ERROR;
+    try {
+        std::vector<RemagxParrattPoint> points;
+        std::vector<size_t> positions;
+        points.reserve(point_count);
+        positions.reserve(point_count);
+        std::vector<RemagxReflectivity> results(point_count, {0.0, 0.0});
+        for (size_t index = 0; index < point_count; ++index) {
+            const double ratio = qz[index] / (2.0 * wave_number);
+            // RechenHilfe.h CalculateResolution / CalculateResolutionDic (zero resolution).
+            // The legacy monochromatic path rejects |ratio| >= 1; dichroic rejects ratio > 1.
+            if ((scan_mode == REMAGX_MONOCHROMATIC && std::abs(ratio) >= 1.0) ||
+                (scan_mode == REMAGX_DICHROIC && ratio > 1.0)) return REMAGX_QZ_ERROR;
+            if (ratio < 0.0) continue;
+            points.push_back({std::asin(ratio), wave_number, static_cast<double>(magnetization_enabled)});
+            positions.push_back(index);
+        }
+        if (!points.empty()) {
+            std::vector<double> intensities(points.size());
+            int status = remagx_parratt(layers, layer_count, points.data(), points.size(), beam1, tensor, analyzer, intensities.data());
+            if (status != REMAGX_SUCCESS) return status;
+            for (size_t index = 0; index < points.size(); ++index) results[positions[index]].beam1 = intensities[index];
+            if (scan_mode == REMAGX_DICHROIC) {
+                for (auto& point : points) point.magnetization = -point.magnetization;
+                status = remagx_parratt(layers, layer_count, points.data(), points.size(), beam2, tensor, analyzer, intensities.data());
+                if (status != REMAGX_SUCCESS) return status;
+                for (size_t index = 0; index < points.size(); ++index) results[positions[index]].beam2 = intensities[index];
+            }
         }
         std::copy(results.begin(), results.end(), output);
         return REMAGX_SUCCESS;

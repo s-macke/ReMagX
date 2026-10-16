@@ -228,3 +228,22 @@ and test worker on an ephemeral loopback port. It also enters a long synchronous
 to the actual core, checks browser event-loop response below 200 ms, terminates the
 busy worker and requires a replacement worker's calculation within 1 s. The harness
 is not deployed and does not substitute for app-level real-engine integration tests.
+
+### Prepared native qz scans
+
+`remagx_parratt_qz` accepts a prepared layer stack, explicit qz coordinates in inverse
+Angstrom, fixed energy in eV and one or two complex beams. It computes both dichroic
+intensities using opposite magnetization signs (or both zero signs with magnetism off).
+The monochromatic result uses beam1 and returns zero in beam2. Inputs are immutable,
+outputs commit atomically and status `REMAGX_QZ_ERROR` identifies the legacy qz boundary.
+
+Traceability: `shared/Variablen.cpp` supplies energy conversion;
+`shared/RechenHilfe.h` `CalculateResolution` and `CalculateResolutionDic` supply
+zero-resolution coordinate conversion and beam selection. The latter permits ratio
+`qz/(2*k0) == 1`, whereas the former rejects `abs(ratio) >= 1`. Negative ratios are
+skipped after that check. These differences are preserved, not silently unified.
+
+This API does not refresh optical tables, construct layers, generate a scan grid, execute
+scripts, convolve resolution or apply postprocessing/asymmetry. It currently has native
+coverage, including 1,440 original-routine comparisons; exposing it through the WASM
+adapter and integrating project preparation into ComputeService remain separate work.

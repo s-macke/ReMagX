@@ -42,6 +42,72 @@ def calculate(layers, points, beam=(1, 0, 0, 0), tensor=0, analyzer=0):
     return status, list(output)
 
 
+class Reflectivity(ctypes.Structure):
+    _fields_ = [('beam1', ctypes.c_double), ('beam2', ctypes.c_double)]
+
+
+library.remagx_parratt_qz.argtypes = [ctypes.POINTER(Layer), ctypes.c_size_t, ctypes.POINTER(ctypes.c_double),
+    ctypes.c_size_t, ctypes.c_double, ctypes.POINTER(Beam), ctypes.POINTER(Beam), ctypes.c_int,
+    ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.POINTER(Reflectivity)]
+library.remagx_parratt_qz.restype = ctypes.c_int
+
+
+def calculate_qz(layers, qz, energy=640, beam1=(1, 0, 0, 0), beam2=(0, 0, 1, 0), tensor=0,
+                 analyzer=0, magnetic=1, mode=1):
+    layer_array = (Layer * len(layers))(*(Layer(*layer) for layer in layers))
+    coordinates = (ctypes.c_double * len(qz))(*qz)
+    first, second = Beam(*beam1), Beam(*beam2) if beam2 is not None else None
+    output = (Reflectivity * len(qz))(*(Reflectivity(-123, -456) for _ in qz))
+    before = bytes(layer_array), bytes(coordinates), bytes(first), bytes(second) if second else None
+    status = library.remagx_parratt_qz(layer_array, len(layers), coordinates, len(qz), energy,
+        ctypes.byref(first), ctypes.byref(second) if second else None, tensor, analyzer, magnetic, mode, output)
+    if before != (bytes(layer_array), bytes(coordinates), bytes(first), bytes(second) if second else None):
+        raise AssertionError('qz API mutated its input')
+    return status, [(value.beam1, value.beam2) for value in output]
+
+
+class QzScanTest(unittest.TestCase):
+    layers = [(0, 0, .01, .002, .0001, .00002, 90, 90), (0, 0, 0, 0, 0, 0, 90, 90)]
+
+    def test_legacy_qz_boundaries(self):
+        maximum = 2 * (2 * math.pi / (12398.326 / 640))
+        self.assertEqual(calculate_qz(self.layers, [maximum], mode=0), (4, [(-123, -456)]))
+        self.assertEqual(calculate_qz(self.layers, [maximum], mode=1)[0], 0)
+        self.assertEqual(calculate_qz(self.layers, [math.nextafter(maximum, math.inf)])[0], 4)
+        self.assertEqual(calculate_qz(self.layers, [-maximum], mode=0)[0], 4)
+        self.assertEqual(calculate_qz(self.layers, [-maximum], mode=1), (0, [(0, 0)]))
+        self.assertEqual(calculate_qz(self.layers, [-.01], mode=0), (0, [(0, 0)]))
+        self.assertEqual(calculate_qz(self.layers, [0], mode=0)[0], 0)
+
+    def test_beam_selection_and_magnetic_sign(self):
+        for magnetic in [0, 1]:
+            for tensor in [0, 1]:
+                for analyzer in [0, 1, 2]:
+                    wave = 2 * math.pi / (12398.326 / 640)
+                    qz = .05
+                    angle = math.asin(qz / (2 * wave))
+                    beams = [(.3, .4, .6, .8), (0, 0, .2, .7)]
+                    expected = [calculate(self.layers, [(angle, wave, sign * magnetic)], beam, tensor, analyzer)[1][0]
+                                for beam, sign in zip(beams, [1, -1])]
+                    status, values = calculate_qz(self.layers, [qz], beam1=beams[0], beam2=beams[1],
+                                                  tensor=tensor, analyzer=analyzer, magnetic=magnetic)
+                    self.assertEqual(status, 0)
+                    self.assertEqual(values, [tuple(expected)])
+        self.assertEqual(calculate_qz(self.layers, [.05], mode=0, beam2=None)[0], 0)
+        self.assertEqual(calculate_qz(self.layers, [.05], mode=0)[1][0][1], 0)
+
+    def test_atomic_failure_and_invalid_inputs(self):
+        for options in [dict(energy=0), dict(energy=math.nan), dict(beam2=None), dict(mode=2),
+                        dict(magnetic=2), dict(tensor=2), dict(analyzer=3), dict(beam1=(math.inf, 0, 0, 0))]:
+            self.assertEqual(calculate_qz(self.layers, [.01, .1], **options), (1, [(-123, -456)] * 2))
+        self.assertEqual(calculate_qz(self.layers, [.01, 100]), (4, [(-123, -456)] * 2))
+        self.assertEqual(calculate_qz(self.layers, [.01, math.nan]), (1, [(-123, -456)] * 2))
+        explosive = [(0, 0, 1e308, 1e308, 0, 0, 90, 90), self.layers[1]]
+        self.assertEqual(calculate_qz(explosive, [-.01, .1]), (2, [(-123, -456)] * 2))
+        self.assertEqual(calculate_qz(explosive, [-.01]), (0, [(0, 0)]))
+        self.assertEqual(library.remagx_parratt_qz(None, 2, None, 1, 640, None, None, 0, 0, 0, 0, None), 1)
+
+
 class NativeParrattTest(unittest.TestCase):
     @unittest.skipUnless(os.environ.get('WASM_MODULE'), 'WASM comparison not requested')
     def test_wasm_matches_native(self):
@@ -104,6 +170,40 @@ class LegacyComparisonTest(unittest.TestCase):
         cls.directory = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.directory.cleanup)
         cls.reference = build(os.environ['LEGACY_ROOT'], Path(cls.directory.name) / 'reference')
+
+    def test_qz_scan_matches_original_beams(self):
+        comparisons = 0
+        max_log_error = 0.0
+        for case, prepared in enumerate(synthetic_cases()):
+            energy = [100, 640, 8000][case % 3]
+            wave = 2 * math.pi / (12398.326 / energy)
+            qz = [ratio * 2 * wave for ratio in [-.1, 0, 1e-8, .005, .1, .7, .999]]
+            beams = [prepared['beam'], (.3, .4, .6, .8)]
+            magnetic = (case // 2) % 2
+            status, actual = calculate_qz(prepared['layers'], qz, energy, *beams,
+                tensor=prepared['tensor'], analyzer=prepared['analyzer'], magnetic=magnetic)
+            self.assertEqual(status, 0)
+            self.assertEqual(actual[0], (0, 0))
+            for beam_index, (beam, sign) in enumerate(zip(beams, [1, -1])):
+                points = [(math.asin(value / (2 * wave)), wave, sign * magnetic) for value in qz[1:]]
+                payload = f"{len(prepared['layers'])} {len(points)} {prepared['tensor']} {prepared['analyzer']}\n"
+                payload += ' '.join(map(str, beam)) + '\n'
+                payload += '\n'.join(' '.join(map(str, row)) for row in [*prepared['layers'], *points]) + '\n'
+                reference = subprocess.run([self.reference], input=payload, text=True, capture_output=True, check=True)
+                expected = list(map(float, reference.stdout.splitlines()))
+                self.assertEqual(len(expected), len(points))
+                for index, target in enumerate(expected, 1):
+                    value = actual[index][beam_index]
+                    self.assertTrue(math.isfinite(value))
+                    self.assertLessEqual(abs(value - target), 1e-15 + 1e-10 * abs(target))
+                    if value > 0 and target > 0:
+                        relative = (value - target) / target
+                        error = (abs(math.log1p(relative) / math.log(10)) if abs(relative) < .5
+                                 else abs(math.log10(value) - math.log10(target)))
+                        max_log_error = max(max_log_error, error)
+                    comparisons += 1
+        self.assertEqual(comparisons, 1440)
+        print(f'Prepared qz scan: {comparisons} original-routine comparisons; maximum log10 error {max_log_error} decades', flush=True)
 
     def test_prepared_stacks_match_original_all_parratt_branches(self):
         comparisons = 0

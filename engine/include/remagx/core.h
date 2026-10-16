@@ -33,7 +33,8 @@ enum RemagxStatus {
     REMAGX_SUCCESS = 0,
     REMAGX_INVALID_ARGUMENT = 1,
     REMAGX_NUMERICAL_ERROR = 2,
-    REMAGX_ALLOCATION_ERROR = 3
+    REMAGX_ALLOCATION_ERROR = 3,
+    REMAGX_QZ_ERROR = 4
 };
 enum RemagxTensor { REMAGX_ISOTROPIC = 0, REMAGX_TETRAGONAL = 1 };
 enum RemagxAnalyzer { REMAGX_BOTH = 0, REMAGX_SIGMA = 1, REMAGX_PI = 2 };
@@ -46,6 +47,19 @@ enum RemagxAnalyzer { REMAGX_BOTH = 0, REMAGX_SIGMA = 1, REMAGX_PI = 2 };
 int remagx_parratt(const RemagxLayer* layers, size_t layer_count,
                    const RemagxParrattPoint* points, size_t point_count,
                    const RemagxBeam* beam, int tensor, int analyzer, double* output);
+// Fixed-energy qz scan of an already prepared stack, with zero resolution.
+// Preserves the non-fast legacy qz boundary rules and skips negative qz samples.
+// No grid generation, table refresh, slicing, scripts or postprocessing occurs here.
+// beam2 is required only for dichroic scans. Beam amplitudes are not normalized.
+// magnetization_enabled must be 0 or 1; dichroic beams use opposite signs.
+// Output has point_count records, does not overlap inputs and is unchanged on failure.
+enum RemagxScanMode { REMAGX_MONOCHROMATIC = 0, REMAGX_DICHROIC = 1 };
+typedef struct RemagxReflectivity { double beam1; double beam2; } RemagxReflectivity;
+int remagx_parratt_qz(const RemagxLayer* layers, size_t layer_count,
+                      const double* qz, size_t point_count, double energy_ev,
+                      const RemagxBeam* beam1, const RemagxBeam* beam2,
+                      int tensor, int analyzer, int magnetization_enabled,
+                      int scan_mode, RemagxReflectivity* output);
 #ifdef __cplusplus
 }
 #endif
