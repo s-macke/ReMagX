@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 import { diagramClipboardText, diagramSeries } from '../import/asciiData'
+import { plotTicks, type PlotProperties } from '../model/plotProperties'
+import { PlotPropertiesDialog } from './PlotPropertiesDialog'
 import { plotImage } from './plotImage'
 import { zoomPlotRange } from '../model/plotZoom'
 import type { MeasuredCurve } from '../model/datasets'
@@ -68,6 +70,12 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
   const plotRef = useRef<uPlot | null>(null)
   const coordinatesRef = useRef<HTMLSpanElement>(null)
   const zoomRef = useRef<((factor: number) => void) | null>(null)
+  const [propertiesByView, setPropertiesByView] = useState<Record<string, PlotProperties>>({})
+  const [propertiesDraft, setPropertiesDraft] = useState<PlotProperties | null>(null)
+  const viewKey = `${curve?.axis}:${curve?.logScale}`
+  const properties = propertiesByView[viewKey]
+  const logY = properties?.y.logarithmic ?? curve?.logScale ?? false
+  const logX = properties?.x.logarithmic ?? false
   const [exportMessage, setExportMessage] = useState('')
   const [held, setHeld] = useState<HeldCurve | null>(null)
 
@@ -81,13 +89,17 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       ...(heldVisible ? ['held'] : []),
     ]
     const tables: uPlot.AlignedData[] = [
-      [curve.x, ...curve.series.map((s) => forScale(s.y, curve.logScale))] as uPlot.AlignedData,
-      ...measured.map((m) => [m.curve.x, forScale(m.curve.y, curve.logScale)] as uPlot.AlignedData),
-      ...(heldVisible ? [[heldVisible.x, forScale(heldVisible.y, curve.logScale)] as uPlot.AlignedData] : []),
+      [curve.x, ...curve.series.map((s) => forScale(s.y, logY))] as uPlot.AlignedData,
+      ...measured.map((m) => [m.curve.x, forScale(m.curve.y, logY)] as uPlot.AlignedData),
+      ...(heldVisible ? [[heldVisible.x, forScale(heldVisible.y, logY)] as uPlot.AlignedData] : []),
     ]
-    const data = tables.length === 1 ? tables[0] : uPlot.join(tables)
+    let data = tables.length === 1 ? tables[0] : uPlot.join(tables)
+    if (logX) {
+      const indices = Array.from(data[0]).flatMap((value, i) => value > 0 ? [i] : [])
+      data = data.map(column => indices.map(i => column[i])) as uPlot.AlignedData
+    }
     return { labels, data, signature: `${curve.axis}|${curve.logScale}|${labels.join(',')}` }
-  }, [curve, measured, heldVisible])
+  }, [curve, measured, heldVisible, logY, logX])
 
   // (Re)create the plot when the set of series changes; otherwise only replace the data.
   const signature = series?.signature
@@ -111,20 +123,20 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
     const options: uPlot.Options = {
       width: container.clientWidth,
       height: Math.max(120, container.clientHeight),
-      scales: { x: { time: false }, y: curve.logScale ? { distr: 3, log: 10 } : { auto: true } },
+      scales: { x: { time: false, distr: logX ? 3 : 1 }, y: logY ? { distr: 3, log: 10 } : { auto: true } },
       legend: { show: false },
       hooks: { setCursor: [showCoordinates], draw: [showCoordinates] },
       cursor: { drag: { x: true, y: true, uni: 20 } },
       axes: [
         { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'angle' ? 'theta (°)' : curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (Å), 0 = substrate surface' },
-        curve.logScale
+        logY
           ? {
               stroke: text,
               // Only decades get grid lines, ticks and labels.
               grid: { stroke: grid, filter: decadesOnly },
               ticks: { stroke: grid, filter: decadesOnly },
               size: 60,
-              label: 'R',
+              label: curve.yLabel,
               filter: decadesOnly,
               values: (u, splits) => decadesOnly(u, splits).map((v) => (v === null ? '' : formatDecade(v))),
             }
@@ -139,14 +151,44 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
         }),
       ],
     }
+    if (properties) {
+      options.scales!.x.range = (_plot, min, max) => [min, max]
+      options.scales!.y.range = (_plot, min, max) => [min, max]
+      options.axes!.forEach((axis, index) => {
+        const settings = index === 0 ? properties.x : properties.y
+        axis.font = `${properties.fontSize}px sans-serif`
+        axis.labelFont = `${properties.fontSize}px sans-serif`
+        axis.size = index === 0 ? Math.max(50, properties.fontSize * 3) : Math.max(70, properties.fontSize * 5)
+        axis.splits = (_plot, _index, min, max) => plotTicks(min, max, settings.steps, settings.logarithmic)
+        axis.filter = (_plot, splits) => splits
+        axis.grid = { stroke: grid }
+        axis.ticks = { stroke: grid }
+        axis.values = (_plot, splits) => splits.map(value => Number(value.toPrecision(5)).toString())
+      })
+      options.series!.slice(1).forEach((entry, index) => {
+        entry.stroke = properties.colors[index % properties.colors.length]
+        entry.width = properties.lineWidth
+        entry.points = { show: properties.points }
+      })
+      options.hooks!.drawClear = [plot => {
+        const { ctx, bbox } = plot
+        ctx.save()
+        ctx.fillStyle = properties.border
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+        ctx.fillStyle = properties.background
+        ctx.fillRect(bbox.left, bbox.top, bbox.width, bbox.height)
+        ctx.restore()
+      }]
+    }
     const plot = new uPlot(options, series.data, container)
+    if (properties) plot.batch(() => { plot.setScale('x', properties.x); plot.setScale('y', properties.y) })
     plotRef.current = plot
     const zoom = (factor: number, left = plot.over.clientWidth / 2, top = plot.over.clientHeight / 2) => {
       const x = plot.scales.x
       const y = plot.scales.y
       if (x.min == null || x.max == null || y.min == null || y.max == null) return
-      const nextX = zoomPlotRange({ min: x.min, max: x.max }, plot.posToVal(left, 'x'), factor)
-      const nextY = zoomPlotRange({ min: y.min, max: y.max }, plot.posToVal(top, 'y'), factor, curve.logScale)
+      const nextX = zoomPlotRange({ min: x.min, max: x.max }, plot.posToVal(left, 'x'), factor, logX)
+      const nextY = zoomPlotRange({ min: y.min, max: y.max }, plot.posToVal(top, 'y'), factor, logY)
       if (nextX && nextY) plot.batch(() => { plot.setScale('x', nextX); plot.setScale('y', nextY) })
     }
     zoomRef.current = zoom
@@ -168,7 +210,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       plotRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recreated only when the series layout changes
-  }, [signature])
+  }, [signature, properties])
 
   useEffect(() => {
     if (series) plotRef.current?.setData(series.data, false)
@@ -183,19 +225,36 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
     plot.batch(() => {
       plot.setData(series.data, true)
       const xs = series.data[0]
-      if (xs.length > 1 && xs[0] < xs[xs.length - 1]) plot.setScale('x', { min: xs[0], max: xs[xs.length - 1] })
+      const lower = logX ? xs.find(value => value > 0) : xs[0]
+      if (lower !== undefined && xs.length > 1 && lower < xs[xs.length - 1]) plot.setScale('x', { min: lower, max: xs[xs.length - 1] })
     })
   }
 
   const legend = series?.labels.map((label, i) => ({
     label,
-    color:
+    color: properties?.colors[i % properties.colors.length] ?? (
       curve && i < curve.series.length
         ? SIMULATED_COLORS[i % SIMULATED_COLORS.length]
         : label === 'held'
           ? HELD_COLOR
-          : MEASURED_COLOR,
+          : MEASURED_COLOR),
   }))
+
+  const openProperties = () => {
+    const plot = plotRef.current
+    if (!plot) return
+    const x = plot.scales.x
+    const y = plot.scales.y
+    if (x.min == null || x.max == null || y.min == null || y.max == null) return
+    setPropertiesDraft({
+      x: { min: x.min, max: x.max, steps: properties?.x.steps ?? 5, logarithmic: logX },
+      y: { min: y.min, max: y.max, steps: properties?.y.steps ?? 5, logarithmic: logY },
+      background: properties?.background ?? cssColor('--panel', '#ffffff'),
+      border: properties?.border ?? cssColor('--panel', '#ffffff'),
+      colors: properties?.colors ?? Array.from({ length: 8 }, (_, i) => legend?.[i]?.color ?? SIMULATED_COLORS[i % 2]),
+      fontSize: properties?.fontSize ?? 12, lineWidth: properties?.lineWidth ?? 1.5, points: properties?.points ?? false,
+    })
+  }
 
   const exportPlot = async (action: 'data' | 'graphic' | 'picture') => {
     if (!curve || !plotRef.current) return
@@ -210,7 +269,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       } else {
         if (action === 'graphic' && (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined')) throw new Error('Graphic clipboard access is unavailable. Use Save Picture.')
         const mimeType = action === 'graphic' ? 'image/png' : 'image/jpeg'
-        const encoded = plotImage(plotRef.current.ctx.canvas, legend ?? [], mimeType, cssColor('--panel', '#ffffff'), cssColor('--text', '#222222'))
+        const encoded = plotImage(plotRef.current.ctx.canvas, legend ?? [], mimeType, properties?.border ?? cssColor('--panel', '#ffffff'), cssColor('--text', '#222222'), properties?.fontSize)
         if (action === 'graphic') {
           await navigator.clipboard.write([new ClipboardItem({ [mimeType]: encoded })])
           setExportMessage('Graphic copied.')
@@ -233,7 +292,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
     <section className="plot-panel" aria-label="Plot">
       <div className="plot-panel__canvas" ref={containerRef} aria-label={curve ? `Plot axis: ${curve.axis}` : 'No calculated curve'} />
       {legend && (
-        <ul className="plot-panel__legend">
+        <ul className="plot-panel__legend" style={properties ? { fontSize: properties.fontSize } : undefined}>
           {legend.map((entry) => (
             <li key={entry.label}>
               <span className="plot-panel__swatch" style={{ background: entry.color }} />
@@ -244,7 +303,9 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       )}
       <span className="plot-panel__coordinates" ref={coordinatesRef} aria-label="Cursor coordinates" aria-live="off">X: —  Y: —</span>
       {exportMessage && <p className="plot-panel__export-message" aria-live="polite">{exportMessage}</p>}
+      {propertiesDraft && <PlotPropertiesDialog initial={propertiesDraft} onApply={value => setPropertiesByView(current => ({ ...current, [viewKey]: value }))} onClose={() => setPropertiesDraft(null)} />}
       <div className="plot-panel__buttons">
+        <button type="button" disabled={!curve} onClick={openProperties}>Properties</button>
         <details className="plot-panel__export">
           <summary>Export</summary>
           <div>

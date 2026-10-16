@@ -1,8 +1,8 @@
 // Export the rendered plot (axes and current zoom) with an opaque background and legend.
 // Clipboard images use PNG; Save Picture keeps the legacy JPEG format.
-export function plotImage(canvas: HTMLCanvasElement, legend: { label: string; color: string }[], mimeType: 'image/png' | 'image/jpeg', background: string, text: string): Promise<Blob> {
+export function plotImage(canvas: HTMLCanvasElement, legend: { label: string; color: string }[], mimeType: 'image/png' | 'image/jpeg', background: string, text: string, fontSize = 12): Promise<Blob> {
   const scale = window.devicePixelRatio || 1
-  const rowHeight = 20 * scale
+  const rowHeight = (fontSize + 8) * scale
   const output = document.createElement('canvas')
   output.width = canvas.width
   output.height = canvas.height + Math.ceil(rowHeight * legend.length)
@@ -11,7 +11,7 @@ export function plotImage(canvas: HTMLCanvasElement, legend: { label: string; co
   context.fillStyle = background
   context.fillRect(0, 0, output.width, output.height)
   context.drawImage(canvas, 0, 0)
-  context.font = `${12 * scale}px sans-serif`
+  context.font = `${fontSize * scale}px sans-serif`
   context.textBaseline = 'middle'
   legend.forEach((entry, index) => {
     const y = canvas.height + rowHeight * (index + 0.5)

@@ -543,10 +543,13 @@
     },
     {
       "name": "plot-tools",
-      "status": "deferred",
-      "reason": "Remaining plot tools: chart properties (including tick steps). Navigation and clipboard/picture exports are implemented separately.",
+      "status": "ported",
+      "reason": "Plot Properties supports exact axis ranges, interval counts (linear/log interpolation), log toggles, background/border and eight pen colors, font size, line width and points. Apply validates ranges; Cancel leaves the plot unchanged. Navigation and exports are tracked separately.",
       "references": [
-        "AGENTS.md"
+        "app/src/model/plotProperties.ts",
+        "app/src/ui/PlotPropertiesDialog.tsx",
+        "app/src/ui/PlotPanel.tsx",
+        "app/e2e/plotProperties.spec.ts"
       ],
       "entries": [
         "client/Chart1.cpp::item:044c0db584147fff:1",
@@ -600,8 +603,7 @@
         "client/Chart1PropertyForm.dfm::PForm1/ScrollBar4",
         "client/Chart1PropertyForm.dfm::PForm1/ColorDialog1",
         "client/Unit1.dfm::Form1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "plot-area-decision",
