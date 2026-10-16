@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { createDefaultProject, createLayer } from './defaults'
 import type { Dataset } from './project'
-import { calculateProjectDatasetError, type FitErrorRequest } from './projectDatasetError'
+import { calculateProjectDatasetError, evaluateProjectDatasetError, type FitErrorRequest } from './projectDatasetError'
 import type { RealEngine } from '../compute/realEngine'
 
 function fixture() {
@@ -78,4 +78,49 @@ it('does not silently drop invalid active datasets, failed calculations or overf
   expect(() => calculateProjectDatasetError(project, [], engine)).toThrow('invalid dataset error')
   vi.mocked(engine.calculate).mockImplementation(() => { throw new Error('calculation failed') })
   expect(() => calculateProjectDatasetError(project, [], engine)).toThrow('calculation failed')
+})
+
+
+it('carries partial optical refreshes and dataset context from energy scans into later qz calculations', () => {
+  for (const algorithm of ['parratt', 'matrix', 'zak'] as const) {
+    const { project, dataset, engine } = fixture()
+    project.calculation.algorithm = algorithm
+    project.sample.layers[1].opticalTable = 'other'
+    project.datasets = [{ ...structuredClone(dataset), errorWeight: 0, energyShift: 0,
+      columns: { qz: [.02, .03], energy: [625, 825], reflectivity: [1, 1] } }, dataset]
+    project.activeDatasetIndex = 0
+    const before = structuredClone(project)
+    const tables = [
+      { name: 'sample', kind: 'db' as const, energy: [600, 700], columns: [[0, 0], [0, 0]], warnings: [] },
+      { name: 'other', kind: 'db' as const, energy: [800, 900], columns: [[0, 0], [0, 0]], warnings: [] },
+      { name: 'sample', kind: 'e' as const, energy: [600, 700], columns: Array.from({ length: 18 }, () => [0, 0]), warnings: [] },
+    ]
+    vi.mocked(engine.lookup).mockImplementation((table, [energy], cursor) => ({
+      values: new Float64Array(table.kind === 'e' ? 18 : 2).fill(energy / 100000), cursor: cursor + 1,
+    }))
+    const result = evaluateProjectDatasetError(project, tables, engine)
+    expect(result.project.activeDatasetIndex).toBe(1)
+    expect(result.project.experiment.energy).toBe(dataset.energy)
+    expect(result.project.sample.layers.map(layer => layer.delta)).toEqual([.00625, .00825])
+    expect(result.opticalState?.cursors.size).toBe(3)
+    const energyCall = vi.mocked(algorithm === 'matrix' ? engine.matrixEnergy : algorithm === 'zak' ? engine.zakEnergy : engine.energyScan).mock.calls[0][0]
+    expect(energyCall.enabled).toEqual([0, 0])
+    if (algorithm === 'matrix') {
+      const layers = vi.mocked(engine.matrixQz).mock.calls[0][0].layers
+      expect(layers[0].values.slice(4)).toEqual(Array(18).fill(.00625))
+      expect(layers[0].anisotropic).toBe(1)
+      expect(layers[1].values[2]).toBe(1 - .00825)
+    } else {
+      const layers = vi.mocked(algorithm === 'zak' ? engine.zakQz : engine.calculate).mock.calls[0][0].layers
+      expect(layers.map(layer => layer[2])).toEqual([.00625, .00825])
+    }
+    expect(project).toEqual(before)
+    const continued = evaluateProjectDatasetError(result.project, tables, engine, result.opticalState)
+    expect(continued.opticalState?.cursors.get(tables[0])).toBe(2)
+    expect(result.opticalState?.cursors.get(tables[0])).toBe(1)
+    project.datasets.reverse()
+    const reversed = evaluateProjectDatasetError(project, tables, engine)
+    expect(reversed.project.experiment.energy).toBe(825)
+    expect(reversed.project.activeDatasetIndex).toBe(1)
+  }
 })

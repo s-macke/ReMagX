@@ -8,6 +8,10 @@ export type RealTableLookup = (table: OpticalTable, queries: number[], cursor: n
 
 export class OpticalTableRangeError extends Error {}
 
+export interface SerialOpticalState extends CompoundOpticalState {
+  cursors: Map<OpticalTable, number>
+}
+
 export interface CompoundOpticalState {
   layers: Project['sample']['layers']
   dielectricTensors: (Float64Array | null)[]

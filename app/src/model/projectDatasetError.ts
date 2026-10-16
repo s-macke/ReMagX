@@ -1,4 +1,5 @@
 import type { OpticalTable } from '../import/tables'
+import type { SerialOpticalState } from './refreshOpticalConstants'
 import type { Project } from './project'
 import { prepareFitDataset, type FitErrorMode } from './fitDataset'
 import { calculateRealCurve, type RealCalculationEngine } from './realCalculation'
@@ -22,11 +23,22 @@ export type FitErrorCalculator = (request: FitErrorRequest) => { error: number; 
 // Zero-weight active datasets are still evaluated, as in legacy; inactive ones are untouched.
 export function calculateProjectDatasetError(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }): number {
+  return evaluateProjectDatasetError(project, tables, engine).error
+}
+
+// Return the serial state as well as the objective for the optimizer's next candidate.
+export function evaluateProjectDatasetError(project: Project, tables: OpticalTable[],
+  engine: RealCalculationEngine & { fitError: FitErrorCalculator }, previous?: SerialOpticalState) {
+  let current = project
+  let opticalState = previous
   let total = 0
   for (let index = 0; index < project.datasets.length; index++) {
     if (!project.datasets[index].active) continue
-    const prepared = prepareFitDataset(project, index)
-    const curve = calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams)
+    const prepared = prepareFitDataset(current, index)
+    const curve = calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, opticalState)
+    opticalState = curve.opticalState
+    current = { ...prepared.project, sample: { ...prepared.project.sample, layers: opticalState.layers },
+      experiment: { ...prepared.project.experiment, energy: curve.finalEnergy } }
     const columns = prepared.measurement
     const asymmetry = prepared.errorMode === 2 || prepared.errorMode === 6
     const dichroic = prepared.errorMode === 3 || prepared.errorMode === 7
@@ -48,5 +60,5 @@ export function calculateProjectDatasetError(project: Project, tables: OpticalTa
     total += prepared.weight * result.error
     if (!Number.isFinite(total)) throw new Error('Weighted dataset error exceeds the supported numerical range.')
   }
-  return total
+  return { error: total, project: current, opticalState }
 }

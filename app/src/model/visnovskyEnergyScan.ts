@@ -1,6 +1,6 @@
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
-import type { RealTableLookup } from './refreshOpticalConstants'
+import type { RealTableLookup, SerialOpticalState } from './refreshOpticalConstants'
 import { calculateCompoundEnergyScan, type PreparedEnergyScan } from './parrattEnergyScan'
 import { prepareCompoundQzRequest } from './parrattRequest'
 import { prepareVisnovskyLayers, validateVisnovskyProject, type DielectricTensorCalculator,
@@ -14,7 +14,7 @@ export type VisnovskyEnergyCalculator = (request: PreparedVisnovskyEnergyScan) =
 
 export function calculateVisnovskyEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
   constructTensor: DielectricTensorCalculator, calculate: VisnovskyEnergyCalculator,
-  mode: 'monochromatic' | 'dichroic' = 'monochromatic') {
+  mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState) {
   validateVisnovskyProject(project)
   return calculateCompoundEnergyScan(project, tables, lookup, prepared => {
     const { stacks, tensor, magnetic, dielectricTensors, ...scan } = prepared
@@ -25,5 +25,5 @@ export function calculateVisnovskyEnergyScan(project: Project, tables: OpticalTa
       return stack.map(() => ({ values: [0, 0, 1, ...Array<number>(19).fill(0)], anisotropic: 0 as const }))
     })
     return calculate({ ...scan, stacks: matrixStacks, epsilon: project.calculation.epsilon })
-  }, mode, prepareCompoundQzRequest)
+  }, mode, prepareCompoundQzRequest, previous)
 }

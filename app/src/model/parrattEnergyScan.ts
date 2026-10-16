@@ -4,7 +4,7 @@ import type { Project } from './project'
 import { prepareEnergyCoordinates } from './energyScanCoordinates'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from './parrattRequest'
 import { postprocessParrattResult } from './parrattResult'
-import { OpticalTableRangeError, refreshCompoundOptics, type RealTableLookup } from './refreshOpticalConstants'
+import { refreshCompoundOpticsState, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 
 export interface PreparedEnergyScan extends Pick<PreparedParrattQzRequest, 'beam1' | 'beam2' | 'tensor' | 'analyzer' | 'magnetic' | 'mode'> {
@@ -22,7 +22,7 @@ export type EnergyScanCalculator = (request: PreparedEnergyScan) => Float64Array
 // calls CalculateResolution (exact angular convolution, independent of fast flag).
 export function calculateCompoundEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
   calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic',
-  prepareTemplate: typeof prepareParrattQzRequest) {
+  prepareTemplate: typeof prepareParrattQzRequest, previous?: SerialOpticalState) {
   const width = project.experiment.resolution.energyFwhm
   if (!Number.isFinite(width) || width < 0) throw new Error('Energy resolution must be finite and nonnegative.')
   const coordinates = prepareEnergyCoordinates(project, tables)
@@ -37,22 +37,21 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
       throw new Error(`Missing optical table ${layer.opticalTable || '(unnamed)'}.db for energy scan.`)
     }
   }
-  const cursors = new Map<OpticalTable, number>()
+  const cursors = new Map(previous?.cursors)
+  let opticalState: SerialOpticalState = { layers: project.sample.layers,
+    dielectricTensors: previous?.dielectricTensors ?? project.sample.layers.map(() => null), cursors }
   const stacks: PreparedCompoundLayer[][] = []
   const enabled: number[] = []
   const dielectricTensors: (Float64Array | null)[][] = []
   coordinates.energy.forEach(energy => {
-    let refreshed: ReturnType<typeof refreshCompoundOptics>
-    try {
-      refreshed = refreshCompoundOptics(project, tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors)
-    } catch (error) {
-      if (error instanceof OpticalTableRangeError) {
-        stacks.push(template.layers)
-        dielectricTensors.push(template.layers.map(() => null))
-        enabled.push(0)
-        return
-      }
-      throw error
+    const refreshed = refreshCompoundOpticsState({ ...project, sample: { ...project.sample, layers: opticalState.layers } },
+      tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors, opticalState.dielectricTensors)
+    opticalState = { layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors, cursors }
+    if (refreshed.rangeError) {
+      stacks.push(template.layers)
+      dielectricTensors.push(template.layers.map(() => null))
+      enabled.push(0)
+      return
     }
     stacks.push(prepareCompoundLayers({ ...local, sample: { ...project.sample, layers: refreshed.layers } }))
     dielectricTensors.push(prepareCompoundLayerIndices(local).map(index => refreshed.dielectricTensors[index]))
@@ -62,11 +61,11 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
     beam1: template.beam1, beam2: template.beam2, tensor: template.tensor, analyzer: template.analyzer,
     magnetic: template.magnetic, mode: template.mode, angularWidth: template.resolution.width, energyWidth: width })
   const result = postprocessParrattResult(project, coordinates.qz, resolved, mode, coordinates.energy)
-  return { qz: coordinates.qz, energy: coordinates.energy, reflectivity: result.reflectivityPlus,
+  return { opticalState, finalEnergy: coordinates.energy.at(-1)!, qz: coordinates.qz, energy: coordinates.energy, reflectivity: result.reflectivityPlus,
     reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry }
 }
 
 export function calculateParrattEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
-  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic') {
-  return calculateCompoundEnergyScan(project, tables, lookup, calculate, mode, prepareParrattQzRequest)
+  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState) {
+  return calculateCompoundEnergyScan(project, tables, lookup, calculate, mode, prepareParrattQzRequest, previous)
 }

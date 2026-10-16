@@ -341,6 +341,25 @@ try {
         const candidate = applyRealFitParameters(aggregate, [4])
         output.datasetErrors.at(-1).candidate = await service.calcChi2(candidate.project)
         output.datasetErrors.at(-1).mappingUnchanged = parameterSnapshot === JSON.stringify(aggregate)
+        const ordered = structuredClone(aggregate)
+        ordered.fit.parameters = []
+        ordered.sample.layers[0].delta *= 1.7
+        ordered.sample.layers[1].delta *= 1.7
+        ordered.datasets = [{ ...structuredClone(datasets[3]), errorWeight: 0 },
+          { ...structuredClone(datasets[0]), errorWeight: 1 }]
+        ordered.activeDatasetIndex = 1
+        const orderedSnapshot = JSON.stringify(ordered)
+        output.datasetErrors.at(-1).energyThenQz = await service.calcChi2(ordered)
+        output.datasetErrors.at(-1).orderedUnchanged = orderedSnapshot === JSON.stringify(ordered)
+        const independent = structuredClone(ordered)
+        independent.experiment.polarization = polarization
+        independent.experiment.resolution.angularFwhm = ordered.datasets[1].angularResolution
+        const altered = await service.calcReflectivity(independent)
+        const measured = ordered.datasets[1].columns.reflectivity.map(value => value * 2)
+        output.datasetErrors.at(-1).reverseExpected = altered.reflectivity.reduce((sum, value, index) =>
+          sum + (Math.log10(measured[index]) - Math.log10(value)) ** 2, 0) / measured.length
+        ordered.datasets.reverse()
+        output.datasetErrors.at(-1).qzThenEnergy = await service.calcChi2(ordered)
         aggregate.datasets.forEach(data => { data.active = false })
         output.datasetErrors.at(-1).empty = await service.calcChi2(aggregate)
       }
@@ -375,6 +394,10 @@ try {
   })
   assert.equal(results.datasetErrors.length, 3)
   for (const result of results.datasetErrors) {
+    assert.ok(result.orderedUnchanged)
+    assert.ok(Math.abs(result.energyThenQz - 1) <= 1e-15 + 1e-10, `${result.algorithm} optical carry-over`)
+    assert.ok(Math.abs(result.qzThenEnergy - result.reverseExpected) <= 1e-15 + 1e-10 * Math.abs(result.reverseExpected))
+    assert.ok(Math.abs(result.qzThenEnergy - result.energyThenQz) > 1e-3, 'dataset ordering must exercise changed constants')
     const expected = 50.4375
     assert.ok(Math.abs(result.chi2 - expected) <= 1e-15 + 1e-10 * Math.abs(expected), `${result.algorithm} dataset error: ${result.chi2}`)
     assert.equal(result.unchanged, true)

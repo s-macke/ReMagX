@@ -2,7 +2,7 @@ import { prepareZakQzRequest, calculateZakEnergyScan, type PreparedZakQzRequest,
 import { calculateVisnovskyEnergyScan, type VisnovskyEnergyCalculator } from './visnovskyEnergyScan'
 import { prepareVisnovskyQzRequest, type PreparedVisnovskyQzRequest, type DielectricTensorCalculator } from './visnovskyRequest'
 import { calculateParrattEnergyScan, type EnergyScanCalculator } from './parrattEnergyScan'
-import { refreshCompoundOptics, type RealTableLookup } from './refreshOpticalConstants'
+import { refreshCompoundOptics, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from './parrattRequest'
 import { postprocessParrattResult } from './parrattResult'
@@ -22,24 +22,25 @@ export interface RealCalculationEngine {
   matrixQz: (request: PreparedVisnovskyQzRequest) => Float64Array
 }
 
-export type RealCurve = ReturnType<typeof postprocessParrattResult> & { energy?: number[] }
+export type RealCurve = ReturnType<typeof postprocessParrattResult> & { energy?: number[]; opticalState: SerialOpticalState; finalEnergy: number }
 
 // Shared calculation preparation for plots and dataset objectives.
 export function calculateRealCurve(original: Project, tables: OpticalTable[], engine: RealCalculationEngine,
-  scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic'): RealCurve {
+  scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous?: SerialOpticalState): RealCurve {
   if (scan === 'energy') {
     return original.calculation.algorithm === 'matrix'
-      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode)
+      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous)
       : original.calculation.algorithm === 'zak'
-        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode)
-        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode)
+        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous)
+        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous)
   }
   let project = original
-  let dielectricTensors: (Float64Array | null)[] | undefined
+  const cursors = new Map(previous?.cursors)
+  let dielectricTensors = previous?.dielectricTensors ?? project.sample.layers.map(() => null)
   if (project.calculation.automaticOpticalConstants) {
     // Filldb reads LambdaToEnergy after the GUI has stored EnergyToLambda.
     const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / project.experiment.energy)
-    const refreshed = refreshCompoundOptics(project, tables, energy, engine.lookup)
+    const refreshed = refreshCompoundOptics(project, tables, energy, engine.lookup, cursors)
     dielectricTensors = refreshed.dielectricTensors
     project = { ...project, sample: { ...project.sample, layers: refreshed.layers },
       calculation: { ...project.calculation, automaticOpticalConstants: false } }
@@ -59,5 +60,6 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     values = engine.calculate(request)
   }
   const result = postprocessParrattResult(original, qz, values, mode)
-  return result
+  return { ...result, opticalState: { layers: project.sample.layers, dielectricTensors, cursors },
+    finalEnergy: original.experiment.energy }
 }
