@@ -152,6 +152,47 @@ try {
       tables = tables.filter(table => table.name !== 'ambient')
       try { await service.calcReflectivity(automatic) } catch (error) { output.missingTable = error.message }
       tables = []
+      const matrix = createDefaultProject()
+      matrix.calculation.algorithm = 'matrix'
+      matrix.calculation.epsilon = 1e-8
+      matrix.sample.layers = [
+        createLayer({ thickness: 0, roughness: 2, delta: .01, beta: .002, deltaMag: .001, betaMag: .0001, magnetization: { gamma: 30, phi: 60 } }),
+        createLayer({ thickness: 20, roughness: 1, delta: .006, beta: .001, deltaMag: .0004, betaMag: .00004, magnetization: { gamma: 45, phi: 70 } }),
+        createLayer(),
+      ]
+      matrix.sample.multilayer = { enabled: true, pattern: '2*(1)' }
+      matrix.experiment.energy = 640
+      matrix.experiment.qzScan = { ...matrix.experiment.qzScan, qzMin: 0, qzMax: .04, points: 4 }
+      matrix.experiment.resolution.angularFwhm = .001
+      matrix.experiment.resolution.fastConvolution = false
+      matrix.experiment.polarization = { analyzer: 'none',
+        beam1: { sigma: { re: 1, im: .2 }, pi: { re: .3, im: -.1 } },
+        beam2: { sigma: { re: .2, im: -.3 }, pi: { re: .4, im: .1 } } }
+      output.matrix = []
+      output.matrixMono = []
+      for (const [tensor, magnetic] of [['magnetic', 'add'], ['tetragonal', 'none']]) {
+        matrix.calculation.tensorContribution = tensor
+        matrix.calculation.magnetization.mode = magnetic
+        output.matrix.push(await service.calcAsymmetry(matrix))
+        output.matrixMono.push(await service.calcReflectivity(matrix))
+      }
+      matrix.calculation.tensorContribution = 'magnetic'
+      matrix.calculation.magnetization.mode = 'add'
+      matrix.calculation.automaticOpticalConstants = true
+      matrix.sample.layers.forEach((layer, index) => {
+        layer.opticalTable = `matrix-${index}`
+        tables.push({ name: layer.opticalTable, kind: 'db', energy: [639, 641], columns: [[layer.delta, layer.delta], [layer.beta, layer.beta]], warnings: [] })
+        tables.push({ name: layer.opticalTable, kind: 'm', energy: [639, 641], columns: [[layer.deltaMag, layer.deltaMag], [layer.betaMag, layer.betaMag]], warnings: [] })
+        layer.delta = layer.beta = layer.deltaMag = layer.betaMag = 0
+      })
+      const matrixSnapshot = JSON.stringify(matrix)
+      output.matrixAutomatic = await service.calcAsymmetry(matrix)
+      output.matrixUnchanged = matrixSnapshot === JSON.stringify(matrix)
+      matrix.calculation.postProcessing.multiplyByQz4 = true
+      output.matrixPostprocessed = await service.calcReflectivity(matrix)
+      matrix.calculation.magnetization.mode = 'profile'
+      try { await service.calcReflectivity(matrix) } catch (error) { output.matrixProfileError = error.message }
+      tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
       busy.sample.layers = Array.from({ length: 1000 }, (_, index) => createLayer({ thickness: 10, delta: index % 2 ? .001 : .002, beta: .0001 }))
@@ -210,13 +251,29 @@ try {
     near(results.dichroicEnergy.asymmetry[index], (plus - minus) / (plus + minus))
     near(results.differenceEnergy.asymmetry[index], plus - minus)
   })
+  const matrixReferences = JSON.parse(execFileSync('python3', [resolve(root, 'engine/tests/test_visnovsky.py'),
+    resolve(root, 'build/engine/libremagx_core.so'), '--worker-reference'], { encoding: 'utf8' }))
+  results.matrix.forEach((curve, variant) => curve.qz.forEach((qz, index) => {
+    const plus = matrixReferences[variant][index * 2], minus = matrixReferences[variant][index * 2 + 1]
+    near(curve.reflectivityPlus[index], plus)
+    near(curve.reflectivityMinus[index], minus)
+    near(curve.asymmetry[index], (plus - minus) / (plus + minus))
+    near(results.matrixMono[variant].reflectivity[index], plus)
+    if (variant === 0) {
+      near(results.matrixAutomatic.reflectivityPlus[index], plus)
+      near(results.matrixAutomatic.reflectivityMinus[index], minus)
+      near(results.matrixPostprocessed.reflectivity[index], plus * (qz * qz * qz * qz))
+    }
+  }))
+  assert.equal(results.matrixUnchanged, true)
+  assert.match(results.matrixProfileError, /profile/)
   assert.equal(results.refreshUnchanged, true)
   assert.match(results.missingTable, /missing optical table ambient/)
   assert.equal(results.stopped, 'ComputeCancelled')
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/tensors/multilayers/automatic tables/postprocessing, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

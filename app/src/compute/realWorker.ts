@@ -10,7 +10,9 @@ const handle = createRealRequestHandler(response => self.postMessage(response), 
     import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl),
   ])
   const instance = await core.default()
-  return { energyScan: request => adapter.calculateParrattEnergyScan(instance, request),
+  return { dielectricTensor: request => adapter.calculateDielectricTensor(instance, request),
+    matrixQz: request => adapter.calculateVisnovskyQz(instance, request),
+    energyScan: request => adapter.calculateParrattEnergyScan(instance, request),
     calculate: request => adapter.calculateParrattQz(instance, request),
     lookup: (table, queries, cursor) => adapter.lookupTable(instance, table, queries, cursor) } satisfies RealEngine
 })

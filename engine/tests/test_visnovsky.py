@@ -226,7 +226,28 @@ double first,second;engine.MatrixFormalism(angle,wave,false,second,first,beam,ep
         print(f'Original Visnovsky stacks: {len(inputs)*2} intensities matched.', flush=True)
 
 if __name__ == '__main__':
-    if '--wasm-payload' in sys.argv:
+    if '--worker-reference' in sys.argv:
+        class ScalarLayer(ctypes.Structure):
+            _fields_ = [('values', ctypes.c_double * 8)]
+        library.remagx_dielectric_tensor.argtypes = [ctypes.POINTER(ScalarLayer), ctypes.c_int, ctypes.c_int,
+                                                   ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_int)]
+        scalar_layers = [[0, 2, .01, .002, .001, .0001, 30, 60],
+                         [20, 1, .006, .001, .0004, .00004, 45, 70], [0, 0, 0, 0, 0, 0, 90, 90]]
+        references = []
+        for tensor, magnetic in [(0, 1), (1, 0)]:
+            prepared = []
+            for row in scalar_layers:
+                dielectric = (ctypes.c_double * 18)()
+                kind = ctypes.c_int()
+                scalar = ScalarLayer((ctypes.c_double * 8)(*row))
+                assert library.remagx_dielectric_tensor(ctypes.byref(scalar), tensor, magnetic, dielectric, ctypes.byref(kind)) == 0
+                prepared.append(Layer(row[0], row[1], 1-row[2], row[3], dielectric, kind.value))
+            status, values = evaluate_qz([prepared[0], prepared[1], prepared[1], prepared[2]], [.01, .02, .03, .04],
+                beam1=(1, .2, .3, -.1), beam2=(.2, -.3, .4, .1), resolution=(.001, 0))
+            assert status == 0
+            references.append(values)
+        print(json.dumps(references))
+    elif '--wasm-payload' in sys.argv:
         payload = []
         for arguments in cases():
             layers, angle, wave, epsilon, analyzer, first, second = arguments

@@ -1,3 +1,4 @@
+import { prepareVisnovskyQzRequest, type PreparedVisnovskyQzRequest, type DielectricTensorCalculator } from '../model/visnovskyRequest'
 import { calculateParrattEnergyScan, type EnergyScanCalculator } from '../model/parrattEnergyScan'
 import { refreshCompoundConstants, type RealTableLookup } from '../model/refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from '../model/units'
@@ -7,7 +8,13 @@ import type { WorkerRequest, WorkerResponse } from './protocol'
 
 export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Array
 
-export interface RealEngine { calculate: RealQzCalculator; lookup: RealTableLookup; energyScan: EnergyScanCalculator }
+export interface RealEngine {
+  calculate: RealQzCalculator
+  lookup: RealTableLookup
+  energyScan: EnergyScanCalculator
+  dielectricTensor: DielectricTensorCalculator
+  matrixQz: (request: PreparedVisnovskyQzRequest) => Float64Array
+}
 
 // Uses the existing worker protocol. Unported operations never fall back to the mock.
 export function createRealRequestHandler(send: (response: WorkerResponse) => void, load: () => Promise<RealEngine>) {
@@ -35,8 +42,18 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         project = { ...project, sample: { ...project.sample, layers },
           calculation: { ...project.calculation, automaticOpticalConstants: false } }
       }
-      const request = prepareParrattQzRequest(project, message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic')
-      const result = postprocessParrattResult(message.project, request.qz, engine.calculate(request), message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic')
+      const mode = message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic'
+      let qz: number[], values: Float64Array
+      if (project.calculation.algorithm === 'matrix') {
+        const request = prepareVisnovskyQzRequest(project, mode, engine.dielectricTensor)
+        qz = request.qz
+        values = engine.matrixQz(request)
+      } else {
+        const request = prepareParrattQzRequest(project, mode)
+        qz = request.qz
+        values = engine.calculate(request)
+      }
+      const result = postprocessParrattResult(message.project, qz, values, mode)
       send({ id: message.id, type: 'result', result: message.kind === 'reflectivity'
         ? { qz: result.qz, reflectivity: result.reflectivityPlus } : result })
     } catch (error) {

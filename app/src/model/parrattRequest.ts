@@ -42,11 +42,10 @@ function packBeam(beam: Polarization['beam1']): [number, number, number, number]
   return [beam.sigma.re, beam.sigma.im, beam.pi.re, beam.pi.im]
 }
 
-// Invoked by the real worker pipeline once integrated. This initial stage supports
-// prepared scalar constants and angular resolution; it must never silently ignore settings.
-export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' | 'dichroic'): PreparedParrattQzRequest {
+// Shared real-worker compound scan preparation before algorithm-specific packing.
+// Requires refreshed scalar constants and rejects unimplemented preprocessing.
+export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic' | 'dichroic'): PreparedParrattQzRequest {
   const calculation = project.calculation
-  if (calculation.algorithm !== 'parratt') throw new Error('This real-engine path currently supports Parratt only.')
   if (project.experiment.scattering !== 'reflection') throw new Error('Transmission is not available in this real-engine path.')
   if (calculation.automaticOpticalConstants) throw new Error('Automatic optical-table refresh is not implemented in real-engine preparation yet.')
   if (project.scripts.enabled && project.scripts.beforeCalculation.trim()) throw new Error('BeforeCalculation Lua execution is not implemented in real-engine preparation yet.')
@@ -73,4 +72,9 @@ export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' 
     magnetic: calculation.magnetization.mode === 'none' ? 0 : 1,
     mode: mode === 'monochromatic' ? 0 : 1,
     resolution: { width: experimentResolution.angularFwhm, fast: experimentResolution.fastConvolution } }
+}
+
+export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' | 'dichroic'): PreparedParrattQzRequest {
+  if (project.calculation.algorithm !== 'parratt') throw new Error('This real-engine path currently supports Parratt only.')
+  return prepareCompoundQzRequest(project, mode)
 }
