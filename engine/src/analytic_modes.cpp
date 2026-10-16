@@ -92,3 +92,60 @@ extern "C" int remagx_analytic_modes(int kind, const double* tensor, const doubl
     std::copy(packed_propagation, packed_propagation + 32, propagation);
     return REMAGX_SUCCESS;
 }
+
+// SetMatrix/SetMatrixAnisotropic dispatch and normalized cofactor eigenvectors.
+extern "C" int remagx_matrix_modes(int anisotropic, const double* tensor, const double* refractive_index,
+                                   double epsilon, double angle, double wave_number, double thickness,
+                                   double* roots, double* boundary, double* propagation) {
+    if ((anisotropic != 0 && anisotropic != 1) || !roots || !boundary || !propagation ||
+        !std::isfinite(epsilon) || !std::isfinite(angle) || !std::isfinite(wave_number) ||
+        !std::isfinite(thickness)) return REMAGX_INVALID_ARGUMENT;
+    if (!anisotropic) return remagx_analytic_modes(REMAGX_MATRIX_ISOTROPIC, tensor, refractive_index,
+                                                 angle, wave_number, thickness, roots, boundary, propagation);
+    int kind;
+    int status = remagx_classify_tensor(tensor, epsilon, &kind);
+    if (status != REMAGX_SUCCESS) return status;
+    if (kind != REMAGX_MATRIX_ANISOTROPIC) {
+        const Complex index = std::sqrt(Complex(tensor[0], tensor[1]));
+        const double packed_index[2] = {index.real(), index.imag()};
+        return remagx_analytic_modes(kind, tensor, packed_index, angle, wave_number, thickness,
+                                    roots, boundary, propagation);
+    }
+    double packed_roots[8];
+    status = remagx_maxwell_roots(tensor, angle, packed_roots);
+    if (status != REMAGX_SUCCESS) return status;
+    Complex entries[9], interface_matrix[16] = {}, propagation_matrix[16] = {};
+    for (int entry = 0; entry < 9; ++entry) entries[entry] = {tensor[2 * entry], tensor[2 * entry + 1]};
+    const double tangential = std::cos(angle);
+    const Complex imaginary(0.0, 1.0);
+    for (int mode = 0; mode < 4; ++mode) {
+        const Complex root(packed_roots[2 * mode], packed_roots[2 * mode + 1]);
+        Complex electric_x = -entries[1] * (entries[8] - tangential * tangential) +
+                             entries[2] * (entries[7] + tangential * root);
+        Complex electric_y = (entries[8] - tangential * tangential) *
+                             (entries[0] - tangential * tangential - root * root) - entries[2] * entries[6];
+        Complex electric_z = -(entries[0] - tangential * tangential - root * root) *
+                             (entries[7] + tangential * root) + entries[6] * entries[1];
+        double squared_length = 0.0;
+        squared_length += electric_x.real() * electric_x.real();
+        squared_length += electric_x.imag() * electric_x.imag();
+        squared_length += electric_y.real() * electric_y.real();
+        squared_length += electric_y.imag() * electric_y.imag();
+        squared_length += electric_z.real() * electric_z.real();
+        squared_length += electric_z.imag() * electric_z.imag();
+        const double normalization = 1.0 / std::sqrt(squared_length);
+        electric_x *= normalization; electric_y *= normalization; electric_z *= normalization;
+        interface_matrix[mode] = electric_x;
+        interface_matrix[4 + mode] = electric_y;
+        interface_matrix[8 + mode] = tangential * electric_z - electric_y * root;
+        interface_matrix[12 + mode] = root * electric_x;
+        propagation_matrix[mode * 5] = std::exp(-imaginary * wave_number * root * thickness);
+    }
+    double packed_boundary[32], packed_propagation[32];
+    if (!pack(interface_matrix, 16, packed_boundary) || !pack(propagation_matrix, 16, packed_propagation))
+        return REMAGX_NUMERICAL_ERROR;
+    std::copy(packed_roots, packed_roots + 8, roots);
+    std::copy(packed_boundary, packed_boundary + 32, boundary);
+    std::copy(packed_propagation, packed_propagation + 32, propagation);
+    return REMAGX_SUCCESS;
+}

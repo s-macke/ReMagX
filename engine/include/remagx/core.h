@@ -125,6 +125,15 @@ int remagx_classify_tensor(const double* tensor, double epsilon, int* kind);
 int remagx_analytic_modes(int kind, const double* tensor, const double* refractive_index,
                          double angle, double wave_number, double thickness,
                          double* roots, double* boundary, double* propagation);
+// Complete single-layer Visnovsky mode dispatch. anisotropic is a 0/1 flag:
+// zero uses the supplied refractive index; one classifies the supplied tensor
+// using epsilon, derives sqrt(epsilon_xx) for its isotropic shortcut, or forms
+// general normalized cofactor eigenvectors from the legacy quartic roots.
+// Same output layout and non-overlap/atomic-error contract as analytic_modes.
+// Degenerate eigenvectors report numerical error; no alternative physics is used.
+int remagx_matrix_modes(int anisotropic, const double* tensor, const double* refractive_index,
+                        double epsilon, double angle, double wave_number, double thickness,
+                        double* roots, double* boundary, double* propagation);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
