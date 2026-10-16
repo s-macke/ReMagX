@@ -1,3 +1,4 @@
+import type { ElementConversion } from '../model/materialElements'
 // Messages between WorkerComputeService (UI thread) and the compute worker.
 
 import type { OpticalTable } from '../import/tables'
@@ -7,6 +8,7 @@ import type { Layer, Project } from '../model/project'
 import type { TensorQuery, AsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
+  materialToElements: ElementConversion
   segmentLayers: Layer[]
   dielectricTensor: TensorPreview
   databaseValues: DatabaseValues

@@ -1,3 +1,4 @@
+import type { ElementConversion } from '../model/materialElements'
 // The interface between the UI and the numerics (D-7, D-12, D-33). The UI depends only on
 // ComputeService; today it is backed by a Web Worker running the TypeScript mock engine, later
 // by the same worker running the WebAssembly engine.
@@ -74,6 +75,7 @@ export interface ComputeService {
   calcReflectivity(project: Project): Promise<ReflectivityCurve>
   calcEnergyScan(project: Project): Promise<EnergyScanCurve>
   calcAsymmetry(project: Project): Promise<AsymmetryCurve>
+  materialToElements(project: Project): Promise<ElementConversion>
   segmentLayers(project: Project): Promise<Layer[]>
   depthProfile(project: Project): Promise<DepthProfile>
   // Error between simulation and the active dataset (the value a fit minimizes).

@@ -677,16 +677,17 @@
     },
     {
       "name": "element-tools",
-      "status": "deferred",
-      "reason": "Material to Elements remains to implement; scattering-factor and density-profile UI have separate groups. Real numerical evaluation remains engine work.",
+      "status": "ported",
+      "reason": "Material to Elements uses the worker, preserves retained material layers, previews overwritten element data and removed element-specific fit references, reports skipped formulas, and applies atomically with undo. Empty results cannot replace data. Stop and stale snapshot guards protect pending requests. Legacy mass lookup and parser quirks are retained; multilayer/Lua expansion remains engine work.",
       "references": [
-        "AGENTS.md"
+        "app/src/model/materialElements.ts",
+        "app/src/ui/MaterialElementsAction.tsx",
+        "app/e2e/materialElements.spec.ts"
       ],
       "entries": [
         "client/ElementFrame.dfm::ElementFrame/Button2",
         "client/Unit1.cpp::event:478587ce5cde9155:1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "magnetic-fit-controls",

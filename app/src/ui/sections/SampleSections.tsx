@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { tableKinds } from '../../import/tables'
 import { datasetMetadata, deleteDataset, moveDataset, updateDataset } from '../../model/datasets'
 import { buildProfileSpline, profileBindingOptions, removeMagneticProfile } from '../../model/magneticProfiles'
+import { MaterialElementsAction } from '../MaterialElementsAction'
 import { LayerConversionDialog } from '../LayerConversionDialog'
 import { FitCheckbox } from '../FitCheckbox'
 import { createDepthProfileFunction } from '../../model/defaults'
@@ -207,11 +208,12 @@ export function ElementModeSection() {
   const index = selectedElement
   const setIndex = (i: number) => dispatch({ type: 'selectElement', index: i })
   const elements = project.sample.elementProfiles
-  if (elements.length === 0) return <Note>No elements defined in this project.</Note>
+  if (elements.length === 0) return <><MaterialElementsAction /><Note>No elements defined in this project.</Note></>
   const current = Math.min(index, elements.length - 1)
   const element = elements[current]
   return (
     <>
+      <MaterialElementsAction />
       <Group title="Element">
         <div className="pager">
           <button type="button" onClick={() => setIndex(Math.max(0, current - 1))} disabled={current === 0} aria-label="previous element">

@@ -2,6 +2,7 @@
 // tested directly; worker.ts only wires it to postMessage.
 
 import { mockLayerConversion } from './mockLayerConversion'
+import { convertMaterialElements } from '../model/materialElements'
 import { mockTensor } from './mockTensor'
 import { mockDatabaseValues } from './mockDatabaseValues'
 import { mockDensityProfiles } from './mockDensityProfiles'
@@ -90,6 +91,9 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
           break
         case 'densityProfiles':
           result = mockDensityProfiles(project)
+          break
+        case 'materialToElements':
+          result = convertMaterialElements(project)
           break
         case 'segmentLayers':
           result = mockLayerConversion(project)

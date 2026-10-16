@@ -1,3 +1,4 @@
+import type { ElementConversion } from '../model/materialElements'
 // ComputeService implementation that forwards requests to the compute worker.
 
 import type { OpticalTable } from '../import/tables'
@@ -102,6 +103,10 @@ export class WorkerComputeService implements ComputeService {
 
   densityProfiles(project: Project): Promise<DensityProfiles> {
     return this.request('densityProfiles', project)
+  }
+
+  materialToElements(project: Project): Promise<ElementConversion> {
+    return this.request('materialToElements', project)
   }
 
   segmentLayers(project: Project): Promise<Layer[]> {

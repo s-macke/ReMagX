@@ -573,3 +573,15 @@ it('returns a bounded mock layer conversion without modifying source data', asyn
   await expect(service.segmentLayers(project)).rejects.toThrow('Switch to compound mode')
   service.dispose()
 })
+
+it('converts materials through the worker and reports unsupported formulas without changing the project', async () => {
+  const service = new WorkerComputeService(inProcessWorker)
+  const project = createDefaultProject()
+  project.sample.layers[1].material = 'Invalid!'
+  const before = structuredClone(project)
+  const result = await service.materialToElements(project)
+  expect(result.elements.length).toBeGreaterThan(0)
+  expect(result.warnings.join(' ')).toContain('Layer 1 skipped')
+  expect(project).toEqual(before)
+  service.dispose()
+})
