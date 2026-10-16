@@ -876,15 +876,17 @@
     },
     {
       "name": "worker-lifecycle",
-      "status": "deferred",
-      "reason": "Finish worker failure/termination handling alongside cancellation; no VCL threads in the web architecture (D-7, D-12).",
+      "status": "ported",
+      "reason": "Worker error/messageerror and startup/send failures reject all pending requests without changing project state. Failed workers are detached and terminated, the next request creates a replacement, and disposal rejects further work. The separate Stop deadline remains incomplete.",
       "references": [
-        "AGENTS.md"
+        "app/src/compute/WorkerComputeService.ts",
+        "app/src/compute/WorkerComputeService.test.ts",
+        "app/src/state/useCalculation.ts",
+        "app/src/state/useFitRunner.ts"
       ],
       "entries": [
         "client/Unit1.cpp::event:5a93eb0c0e4e8cab:1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "evolution",

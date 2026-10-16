@@ -91,3 +91,6 @@ or stored project field exists.
 
 These findings are reconciled into AGENTS.md. The full per-entry mapping is in `review.json`;
 `report` prints a compact group summary.
+
+Worker lifecycle recovery was completed after the initial review; `review.json` now marks
+that group ported. The 1-second Stop requirement remains deferred.

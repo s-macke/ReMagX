@@ -161,7 +161,8 @@ and this checklist for implementation status; the external Steps 0–8 have not 
 - [x] Side-panel sections Experiment, Sample, Fit with the main legacy fields (partial: missing controls listed below; Map Calculations is a placeholder)
 - [x] Preferences dialog; optical and magneto-optical depth-profile views backed by the mock (actual engine profiles remain below, D-26)
 - [x] Fit from the UI: parameter table, Start/Stop/χ², live curve during the fit, only fitted values written back (edits made meanwhile are kept), Debug Window with fit messages
-- [x] Stop fallback implemented: a worker that ignores Stop for 2 s is terminated and restarted (D-12); this does not meet the 1 s requirement in D-28/AC-10
+- [x] Worker lifecycle: error/messageerror, startup/send failures and service shutdown reject pending work without changing the project; stale callbacks are ignored and a replacement worker is created on the next request (D-7, D-12, D-13; inventory group `worker-lifecycle`)
+- [x] Stop fallback implemented: a worker that ignores Stop for 2 s is terminated and replaced on the next request (D-12); this does not meet the 1 s requirement in D-28/AC-10
 - [x] Script window: Lua editor (CodeMirror), Default/BeforeCalculation, code generator (execution comes with the engine)
 - [x] Autosave in IndexedDB; Open/Save/Save As with file handles; unsaved marker; Ctrl+O/S
 - [x] Undo/Redo (Edit menu, Ctrl+Z/Y) with coalesced typing
@@ -173,7 +174,6 @@ and this checklist for implementation status; the external Steps 0–8 have not 
 ### UI phase: still to do
 
 Runtime behavior:
-- [ ] Handle worker failure/termination without leaving pending requests or losing project state (D-7, D-12, D-13; inventory group `worker-lifecycle`)
 - [ ] Cancel both fits and standalone calculations within 1 s, including an unresponsive worker; verify progress and UI response within 200 ms during a fit (D-28, AC-10). The current fallback waits 2 s and the service exposes only `stopFit()`.
 
 Remaining work reconciled with the source inventory (2026-10-16):
@@ -196,7 +196,7 @@ Data:
 - [ ] Optical-constant tables used by calculations (energy scans currently keep δ/β constant)
 
 Quality gates:
-- [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 364 ported, 29 dropped and 283 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
+- [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 365 ported, 29 dropped and 282 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
 - [ ] Run all private-corpus imports in CI using `CORPUS_DIR` with private data access; fail if the corpus is missing or empty, without publishing research data in the repository, logs or artifacts (D-17.3, D-20, AC-4). Today the Pages workflow does not supply the corpus and the suite skips.
 - [ ] Playwright end-to-end tests in Chromium and Firefox (AC-10, AC-11, AC-13, AC-14, AC-15)
 
