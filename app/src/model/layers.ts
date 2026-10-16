@@ -38,3 +38,11 @@ export function removeLayer(project: Project, index: number): Project {
     project.sample.layers.filter((_, i) => i !== index),
   )
 }
+
+// Legacy "Apply to all layers" of the Magneto-Optics frame.
+export function applyMagnetizationToAllLayers(project: Project, direction: Layer['magnetization']): Project {
+  return withLayers(
+    project,
+    project.sample.layers.map((layer) => ({ ...layer, magnetization: { ...direction } })),
+  )
+}

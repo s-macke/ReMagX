@@ -4,7 +4,7 @@ import tutorial1 from '../test/fixtures/Tut1.all?raw'
 import tutorial2 from '../test/fixtures/Tut2.all?raw'
 import tutorial3 from '../test/fixtures/Tut3.all?raw'
 import { importAllFile } from './import/allFile'
-import { activeDataset, adaptedMeasurement, type MeasuredQuantity } from './model/datasets'
+import { measuredSeries } from './model/datasets'
 import { createDefaultProject } from './model/defaults'
 import { canRemoveSlab } from './model/elements'
 import { applyFitValues } from './model/fitTargets'
@@ -16,7 +16,7 @@ import { usePersistence } from './state/usePersistence'
 import { Dialog } from './ui/Dialog'
 import { chooseFile, downloadText, forgetCurrentFile, openProjectInteractive, saveProjectToFile } from './ui/fileActions'
 import { AsciiImportDialog } from './ui/AsciiImportDialog'
-import { layerTableToText, seriesToText } from './import/asciiData'
+import { diagramSeries, layerTableToText, seriesToText } from './import/asciiData'
 import { ImportReportDialog } from './ui/ImportReportDialog'
 import { LayerTable } from './ui/LayerTable'
 import { MenuBar, type Menu } from './ui/MenuBar'
@@ -74,28 +74,17 @@ function Workspace() {
   }
 
 
-  const measured = useMemo(() => {
-    const dataset = activeDataset(project)
-    if (!dataset || plotView !== 'scan') return []
-    const axis = scanKind === 'energyScan' ? 'energy' : 'qz'
-    const quantities: MeasuredQuantity[] =
-      displayMode === 'asymmetry' ? ['asymmetry'] : displayMode === 'dichroic' ? ['reflectivityPlus', 'reflectivityMinus'] : ['reflectivity']
-    return quantities.flatMap((quantity) => {
-      const curve = adaptedMeasurement(dataset, quantity, axis)
-      return curve ? [{ label: `measured ${quantity === 'reflectivity' ? 'R' : quantity}`, curve }] : []
-    })
-  }, [project, scanKind, displayMode, plotView])
+  const measured = useMemo(
+    () => (plotView === 'scan' ? measuredSeries(project, displayMode, scanKind === 'energyScan' ? 'energy' : 'qz') : []),
+    [project, scanKind, displayMode, plotView],
+  )
 
   const baseName = state.fileName.replace(/\.json$/i, '')
   const saveDiagramData = () => {
     const curve = calculation.curve
     if (!curve) return
     const xLabel = curve.axis === 'qz' ? 'qz (1/A)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (A)'
-    const series = [
-      ...curve.series.map((s) => ({ label: s.label, x: curve.x, y: s.y })),
-      ...measured.map((m) => ({ label: m.label, x: m.curve.x, y: m.curve.y })),
-    ]
-    downloadText(`${baseName}-diagram.txt`, seriesToText(xLabel, series))
+    downloadText(`${baseName}-diagram.txt`, seriesToText(xLabel, diagramSeries(curve, measured)))
   }
 
   const open = async () => {

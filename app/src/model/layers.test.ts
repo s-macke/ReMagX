@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultProject } from './defaults'
-import { canRemoveLayer, insertLayerAbove, removeLayer, updateLayer } from './layers'
+import { applyMagnetizationToAllLayers, canRemoveLayer, insertLayerAbove, removeLayer, updateLayer } from './layers'
 
 describe('layer editing', () => {
   it('updates one layer without touching the input project', () => {
@@ -32,5 +32,12 @@ describe('layer editing', () => {
     expect(canRemoveLayer(project, 13)).toBe(false)
     expect(removeLayer(project, 0)).toBe(project)
     expect(removeLayer(project, 5).sample.layers).toHaveLength(13)
+  })
+})
+
+describe('magnetization', () => {
+  it('applies one direction to all layers', () => {
+    const project = applyMagnetizationToAllLayers(createDefaultProject(), { gamma: 0, phi: 0 })
+    expect(project.sample.layers.every((l) => l.magnetization.gamma === 0 && l.magnetization.phi === 0)).toBe(true)
   })
 })

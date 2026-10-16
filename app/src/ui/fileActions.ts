@@ -1,6 +1,7 @@
 // Opening and saving project files in the browser.
 
 import { ImportError, importAllFile, type ImportReport } from '../import/allFile'
+import { parseOpticalTable, type OpticalTable } from '../import/tables'
 import { validateProject, type Project } from '../model/project'
 
 export interface OpenedProject {
@@ -128,4 +129,22 @@ export function downloadText(fileName: string, text: string): void {
   link.download = fileName
   link.click()
   setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+// Reads optical-constant table files; problems (unknown type, skipped rows) are collected per file.
+export async function readOpticalTableFiles(files: File[]): Promise<{ tables: OpticalTable[]; problems: string[] }> {
+  const results = await Promise.all(
+    files.map(async (file) => {
+      try {
+        const table = parseOpticalTable(await file.text(), file.name)
+        return { table, problems: table.warnings.map((w) => `${file.name}: ${w}`) }
+      } catch (e) {
+        return { table: null, problems: [(e as Error).message] }
+      }
+    }),
+  )
+  return {
+    tables: results.flatMap((r) => (r.table ? [r.table] : [])),
+    problems: results.flatMap((r) => r.problems),
+  }
 }

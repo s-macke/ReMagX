@@ -4,6 +4,7 @@
 import {
   PROJECT_FORMAT,
   PROJECT_VERSION,
+  type DepthProfileFunction,
   type Layer,
   type Polarization,
   type Project,
@@ -26,6 +27,20 @@ export function createLayer(overrides: Partial<Layer> = {}): Layer {
     magnetization: { ...IN_PLANE_Y },
     electronEscapeDepth: 0,
     ...overrides,
+  }
+}
+
+// A new depth-profile function (legacy CGaussFunc defaults: zero amplitudes, width 1).
+export function createDepthProfileFunction(): DepthProfileFunction {
+  return {
+    deltaAmplitude: 0,
+    betaAmplitude: 0,
+    center: 0,
+    width: 1,
+    spline: { enabled: false, points: [] },
+    amplitudeCoupledTo: null,
+    widthCoupledTo: null,
+    boundToLayer: null,
   }
 }
 

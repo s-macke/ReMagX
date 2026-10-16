@@ -2,13 +2,14 @@
 // OpticalConstantsFrame, ElementFrame, MagnetizationDirectionFrame, MzFrame.
 
 import { useState } from 'react'
-import { parseOpticalTable, tableKinds } from '../../import/tables'
+import { tableKinds } from '../../import/tables'
 import { deleteDataset, moveDataset, updateDataset } from '../../model/datasets'
+import { createDepthProfileFunction } from '../../model/defaults'
+import { applyMagnetizationToAllLayers } from '../../model/layers'
 import { magnetizationPresets, type MagnetizationPreset } from '../../model/presets'
-import type { DepthProfileFunction } from '../../model/project'
 import { useAppState, useDispatch } from '../../state/context'
 import { useEditProject } from '../../state/useEditProject'
-import { chooseFiles } from '../fileActions'
+import { chooseFiles, readOpticalTableFiles } from '../fileActions'
 import { ButtonRow, CheckboxField, Field, Group, Note, NumberField, RadioGroupField } from '../form'
 import { NumberCell } from '../NumberCell'
 
@@ -112,17 +113,7 @@ export function OpticalConstantsSection() {
 
   const load = async () => {
     const files = await chooseFiles(Object.keys(tableKinds).map((k) => `.${k}`).join(','))
-    const problems: string[] = []
-    const tables = []
-    for (const file of files) {
-      try {
-        const table = parseOpticalTable(await file.text(), file.name)
-        tables.push(table)
-        problems.push(...table.warnings.map((w) => `${file.name}: ${w}`))
-      } catch (e) {
-        problems.push((e as Error).message)
-      }
-    }
+    const { tables, problems } = await readOpticalTableFiles(files)
     if (tables.length > 0) dispatch({ type: 'addOpticalTables', tables })
     setWarnings(problems)
   }
@@ -245,6 +236,7 @@ export function ElementModeSection() {
 
 export function MagnetoOpticsSection() {
   const { project } = useAppState()
+  const dispatch = useDispatch()
   const edit = useEditProject()
   const { mode, direction } = project.calculation.magnetization
   return (
@@ -283,9 +275,7 @@ export function MagnetoOpticsSection() {
           <button
             type="button"
             onClick={() =>
-              edit((p) => {
-                for (const layer of p.sample.layers) layer.magnetization = { ...p.calculation.magnetization.direction }
-              })
+              dispatch({ type: 'updateProject', update: (p) => applyMagnetizationToAllLayers(p, p.calculation.magnetization.direction) })
             }
           >
             Apply to all layers
@@ -295,17 +285,6 @@ export function MagnetoOpticsSection() {
     </>
   )
 }
-
-const newProfileFunction = (): DepthProfileFunction => ({
-  deltaAmplitude: 0,
-  betaAmplitude: 0,
-  center: 0,
-  width: 1,
-  spline: { enabled: false, points: [] },
-  amplitudeCoupledTo: null,
-  widthCoupledTo: null,
-  boundToLayer: null,
-})
 
 export function MagnetizationProfileSection() {
   const { project } = useAppState()
@@ -353,7 +332,7 @@ export function MagnetizationProfileSection() {
         <button
           type="button"
           onClick={() => {
-            edit((p) => void p.sample.depthProfileFunctions.push(newProfileFunction()))
+            edit((p) => void p.sample.depthProfileFunctions.push(createDepthProfileFunction()))
             setIndex(functions.length)
           }}
         >

@@ -185,3 +185,19 @@ export function transferProjectValuesToStart(project: Project): Project {
   }
   return result
 }
+
+// Choices for the index of a new fit parameter (layer, profile function, slab, script parameter).
+export function targetIndexOptions(project: Project, target: FitTargetKind, elementIndex: number): { value: number; label: string }[] {
+  switch (fitTargetInfo[target].index) {
+    case 'layer':
+      return project.sample.layers.map((_, i) => ({ value: i, label: layerName(project, i) })).reverse()
+    case 'profileFunction':
+      return project.sample.depthProfileFunctions.map((_, i) => ({ value: i, label: `M${i + 1}` }))
+    case 'scriptParameter':
+      return project.scripts.parameters.map((_, i) => ({ value: i, label: `par[${i}]` }))
+    case 'elementSlab':
+      return (project.sample.elementProfiles[elementIndex]?.slabs ?? []).map((_, i) => ({ value: i, label: `slab ${i}` }))
+    default:
+      return []
+  }
+}

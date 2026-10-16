@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultProject } from './defaults'
-import { applyFitValues, createFitParameter, fitParameterName, readFitTarget, writeFitTarget } from './fitTargets'
+import {
+  applyFitValues,
+  createFitParameter,
+  fitParameterName,
+  readFitTarget,
+  targetIndexOptions,
+  transferProjectValuesToStart,
+  transferStartValuesToProject,
+  writeFitTarget,
+} from './fitTargets'
 import { normalizeBeam, presetOfBeam } from './presets'
 
 describe('fit targets', () => {
@@ -50,5 +59,24 @@ describe('applying fit results', () => {
     expect(result.fit.parameters[0].value).toBe(57)
     expect(result.sample.layers[5].roughness).toBe(9)
     expect(edited.sample.layers[2].thickness).toBe(60)
+  })
+})
+
+describe('fit table helpers', () => {
+  it('transfers start values to the project and back', () => {
+    const project = createDefaultProject()
+    project.fit.parameters = [{ ...createFitParameter(project, 'thickness', 2, null), value: 61 }]
+    const toProject = transferStartValuesToProject(project)
+    expect(toProject.sample.layers[2].thickness).toBe(61)
+    const edited = structuredClone(toProject)
+    edited.sample.layers[2].thickness = 64
+    expect(transferProjectValuesToStart(edited).fit.parameters[0].value).toBe(64)
+  })
+
+  it('offers layers top-down as index options', () => {
+    const options = targetIndexOptions(createDefaultProject(), 'roughness', 0)
+    expect(options[0]).toEqual({ value: 13, label: 'air' })
+    expect(options.at(-1)).toEqual({ value: 0, label: 'bulk' })
+    expect(targetIndexOptions(createDefaultProject(), 'intensityScale', 0)).toEqual([])
   })
 })

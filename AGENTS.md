@@ -123,7 +123,6 @@ but has known gaps, listed under "still to do".
 ### UI phase: still to do
 
 Fixes found in the audit:
-- [ ] Move remaining domain logic out of components into `model/`: "Apply to all layers" (Magneto-Optics), value transfer in the fit parameter table, measured-series selection and diagram export (`App.tsx`)
 
 Missing legacy controls and windows:
 - [ ] Plot (legacy `Chart1`): mouse-wheel zoom and "Zoom Out", cursor coordinate readout, Properties dialog (axis ranges, log toggles, colours, line width, font size, points), copy data/graphic to the clipboard, save picture; decide on "Select Area" and "Fit Lorentzian+Step"

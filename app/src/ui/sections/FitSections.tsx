@@ -2,7 +2,15 @@
 // FitAlgorithmFrame, FitParametersFrame, FitStartStop.
 
 import { useState } from 'react'
-import { createFitParameter, fitParameterName, fitTargetInfo, layerName, readFitTarget, writeFitTarget } from '../../model/fitTargets'
+import {
+  createFitParameter,
+  fitParameterName,
+  fitTargetInfo,
+  readFitTarget,
+  targetIndexOptions,
+  transferProjectValuesToStart,
+  transferStartValuesToProject,
+} from '../../model/fitTargets'
 import { fitTargetKinds, type FitTargetKind, type Project } from '../../model/project'
 import { useAppState, useDispatch } from '../../state/context'
 import { useEditProject } from '../../state/useEditProject'
@@ -117,21 +125,6 @@ export function FitAlgorithmParametersSection() {
   )
 }
 
-function indexOptions(project: Project, target: FitTargetKind, elementIndex: number): { value: number; label: string }[] {
-  switch (fitTargetInfo[target].index) {
-    case 'layer':
-      return project.sample.layers.map((_, i) => ({ value: i, label: layerName(project, i) })).reverse()
-    case 'profileFunction':
-      return project.sample.depthProfileFunctions.map((_, i) => ({ value: i, label: `M${i + 1}` }))
-    case 'scriptParameter':
-      return project.scripts.parameters.map((_, i) => ({ value: i, label: `par[${i}]` }))
-    case 'elementSlab':
-      return (project.sample.elementProfiles[elementIndex]?.slabs ?? []).map((_, i) => ({ value: i, label: `slab ${i}` }))
-    default:
-      return []
-  }
-}
-
 function AddFitParameter() {
   const { project } = useAppState()
   const edit = useEditProject()
@@ -139,7 +132,7 @@ function AddFitParameter() {
   const [index, setIndex] = useState(1)
   const [elementIndex, setElementIndex] = useState(0)
   const kind = fitTargetInfo[target].index
-  const options = indexOptions(project, target, elementIndex)
+  const options = targetIndexOptions(project, target, elementIndex)
   const usesElement = kind === 'element' || kind === 'elementSlab'
   const selectedIndex = options.some((o) => o.value === index) ? index : options[0]?.value
   const missing = (kind !== 'none' && kind !== 'element' && selectedIndex === undefined) || (usesElement && project.sample.elementProfiles.length === 0)
@@ -198,6 +191,7 @@ function AddFitParameter() {
 
 export function FitParametersSection() {
   const { project } = useAppState()
+  const dispatch = useDispatch()
   const edit = useEditProject()
   const parameters = project.fit.parameters
   return (
@@ -248,21 +242,14 @@ export function FitParametersSection() {
           <button
             type="button"
             title="Transfer all initial values to the layer table"
-            onClick={() => edit((p) => p.fit.parameters.forEach((parameter) => writeFitTarget(p, parameter, parameter.value)))}
+            onClick={() => dispatch({ type: 'updateProject', update: transferStartValuesToProject })}
           >
             Values → table
           </button>
           <button
             type="button"
             title="Transfer all values from the layer table"
-            onClick={() =>
-              edit((p) =>
-                p.fit.parameters.forEach((parameter) => {
-                  const v = readFitTarget(p, parameter)
-                  if (v !== undefined) parameter.value = v
-                }),
-              )
-            }
+            onClick={() => dispatch({ type: 'updateProject', update: transferProjectValuesToStart })}
           >
             Table → values
           </button>

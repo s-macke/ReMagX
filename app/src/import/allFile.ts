@@ -6,7 +6,7 @@
 //   - missing keys keep the legacy defaults, not the web app's defaults
 // Everything that cannot be represented is listed in the import report (spec AC-3, AC-4, D-14).
 
-import { createLayer } from '../model/defaults'
+import { createDepthProfileFunction, createLayer } from '../model/defaults'
 import {
   PROJECT_FORMAT,
   PROJECT_VERSION,
@@ -131,19 +131,6 @@ function newDataset(intensityScale: number, qzShift: number): Dataset {
     polarization: legacyPolarization(),
     active: false,
     columns: { qz: [] },
-  }
-}
-
-function newProfileFunction(): DepthProfileFunction {
-  return {
-    deltaAmplitude: 0,
-    betaAmplitude: 0,
-    center: 0,
-    width: 1,
-    spline: { enabled: false, points: [] },
-    amplitudeCoupledTo: null,
-    widthCoupledTo: null,
-    boundToLayer: null,
   }
 }
 
@@ -489,7 +476,7 @@ export function importAllFile(input: string | ArrayBuffer | Uint8Array, fileName
       // --- depth-profile (Gauss) functions --------------------------------------------------
       case 'gauss_function':
         finishProfile()
-        currentProfile = newProfileFunction()
+        currentProfile = createDepthProfileFunction()
         break
       case 'gauss_delta': {
         const p = profile()

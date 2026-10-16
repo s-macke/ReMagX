@@ -120,6 +120,17 @@ export function seriesToText(xLabel: string, series: ExportSeries[]): string {
     .concat('\n')
 }
 
+// All curves of a plot (simulation on a shared x grid, measurements with their own x) as series.
+export function diagramSeries(
+  simulated: { x: number[]; series: { label: string; y: number[] }[] },
+  measured: { label: string; curve: { x: number[]; y: number[] } }[],
+): ExportSeries[] {
+  return [
+    ...simulated.series.map((s) => ({ label: s.label, x: simulated.x, y: s.y })),
+    ...measured.map((m) => ({ label: m.label, x: m.curve.x, y: m.curve.y })),
+  ]
+}
+
 export function layerTableToText(project: Project): string {
   const header = ['layer', 'thickness/A', 'db', 'material', 'density', 'delta', 'beta', 'sigma/A', 'deltam', 'betam', 'mag_gamma', 'mag_phi']
   const layers = project.sample.layers

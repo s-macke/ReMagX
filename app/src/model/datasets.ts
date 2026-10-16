@@ -58,3 +58,27 @@ export function deleteDataset(project: Project, index: number): Project {
 export function updateDataset(project: Project, index: number, patch: Partial<Dataset>): Project {
   return { ...project, datasets: project.datasets.map((d, i) => (i === index ? { ...d, ...patch } : d)) }
 }
+
+// Which measured columns belong to a display mode of the Mode panel.
+export function measuredQuantities(mode: 'monochromatic' | 'dichroic' | 'asymmetry'): MeasuredQuantity[] {
+  if (mode === 'asymmetry') return ['asymmetry']
+  if (mode === 'dichroic') return ['reflectivityPlus', 'reflectivityMinus']
+  return ['reflectivity']
+}
+
+const quantityLabels: Record<MeasuredQuantity, string> = {
+  reflectivity: 'measured R',
+  reflectivityPlus: 'measured R+',
+  reflectivityMinus: 'measured R−',
+  asymmetry: 'measured asymmetry',
+}
+
+// The active dataset's curves for a mode and axis, with the dataset corrections applied.
+export function measuredSeries(project: Project, mode: 'monochromatic' | 'dichroic' | 'asymmetry', axis: 'qz' | 'energy'): { label: string; curve: MeasuredCurve }[] {
+  const dataset = activeDataset(project)
+  if (!dataset) return []
+  return measuredQuantities(mode).flatMap((quantity) => {
+    const curve = adaptedMeasurement(dataset, quantity, axis)
+    return curve ? [{ label: quantityLabels[quantity], curve }] : []
+  })
+}
