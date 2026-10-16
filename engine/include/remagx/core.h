@@ -95,6 +95,13 @@ int remagx_parratt_energy_scan(const RemagxLayer* layers, size_t layer_count,
 // failure and must not overlap each other or the input.
 int remagx_dielectric_tensor(const RemagxLayer* layer, int tensor,
                             int magnetization_enabled, double* output, int* anisotropic);
+// Visnovsky quartic primitive. Five complex coefficients (degree four to zero)
+// and four complex roots, each packed real/imag. Retains analytic branches,
+// guarded Newton refinement and legacy mode order (not a general sorted order).
+// Reproduces legacy behavior; general complex quartics can retain large residuals.
+// Leading coefficient must be nonzero. Output is untouched on any error and
+// must not overlap the coefficients. Degenerate nonfinite roots report error 2.
+int remagx_quartic_roots(const double* coefficients, double* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.

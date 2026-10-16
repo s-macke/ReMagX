@@ -441,3 +441,15 @@ Native/WASM agreement covers 1,680 values in Node and Chromium; a real-service s
 also checks the combined path against the reviewed interpolation reference. This
 supersedes the earlier energy-convolution implementation gaps above, but does not
 establish dichroic energy, full native orchestration or private-corpus acceptance.
+
+### Visnovsky quartic prerequisite and limitation (2026-10-16)
+
+The native `remagx_quartic_roots` port follows `CVisnovsky.h` SolvePolynomial,
+including principal complex powers, special branches, ten guarded Newton steps
+and the subsequent mode ordering. All 244 synthetic cases match the private
+original function (1,952 real/imaginary components). General polynomial accuracy
+is a separate concern: 125 cases exceed 1e-10 for
+`abs(p(root)) / (1 + sum(abs(coefficient) * abs(root)**power))`, with a maximum
+about .8773. Thus this routine must not be advertised as a reliable general
+quartic solver. The port preserves this legacy behavior; physical Maxwell-matrix
+coverage is still needed before drawing conclusions about reflectivity accuracy.
