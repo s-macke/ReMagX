@@ -76,6 +76,8 @@ npm test                  # unit tests (vitest)
 npx tsc -b                # type check only (also part of the build)
 npm run lint              # oxlint
 npm run build             # static site in app/dist
+npx playwright install --with-deps --only-shell chromium  # browser-test setup
+npm run test:e2e           # Chromium headless against app/dist (build first)
 CORPUS_DIR=/path/to/corpus npx vitest run test/corpus.test.ts   # import every legacy .all file
 ```
 
@@ -162,7 +164,7 @@ and this checklist for implementation status; the external Steps 0–8 have not 
 - [x] Preferences dialog; optical and magneto-optical depth-profile views backed by the mock (actual engine profiles remain below, D-26)
 - [x] Fit from the UI: parameter table, Start/Stop/χ², live curve during the fit, only fitted values written back (edits made meanwhile are kept), Debug Window with fit messages
 - [x] Worker lifecycle: error/messageerror, startup/send failures and service shutdown reject pending work without changing the project; stale callbacks are ignored and a replacement worker is created on the next request (D-7, D-12, D-13; inventory group `worker-lifecycle`)
-- [x] Stop controls for fits, χ² and standalone calculations: immediate standalone termination, cooperative fit stop with a 250 ms fallback, no deadline extension on repeated clicks, paused redraw until edit/recalculate; real blocked-worker tests verify cancellation within 1 s (D-12, D-28). Browser AC-10 verification remains below.
+- [x] Stop controls for fits, χ² and standalone calculations: immediate standalone termination, cooperative fit stop with a 250 ms fallback, no deadline extension on repeated clicks, paused redraw until edit/recalculate; real blocked-worker tests verify cancellation within 1 s (D-12, D-28). Chromium headless AC-10 verification passes (see below).
 - [x] Script window: Lua editor (CodeMirror), Default/BeforeCalculation, code generator (execution comes with the engine)
 - [x] Autosave in IndexedDB; Open/Save/Save As with file handles; unsaved marker; Ctrl+O/S
 - [x] Undo/Redo (Edit menu, Ctrl+Z/Y) with coalesced typing
@@ -174,7 +176,7 @@ and this checklist for implementation status; the external Steps 0–8 have not 
 ### UI phase: still to do
 
 Runtime behavior:
-- [ ] Verify AC-10 in the browser: iteration counter advances at least twice, tab interaction responds within 200 ms during fitting, and Stop settles fit/calculation status within 1 s, including an unresponsive worker (D-28). Service-level cancellation and blocked-worker timing tests pass; browser timing is not yet verified.
+- [x] AC-10 verified in Chromium headless against the production build: iteration counter advances at least twice, tab interaction responds within 200 ms during fitting, and Stop settles within 1 s, including blocked fit, reflectivity and χ² workers. Tests verify calculation recovery after termination and run in Pages CI (D-28, D-36).
 
 Remaining work reconciled with the source inventory (2026-10-16):
 
@@ -198,7 +200,7 @@ Data:
 Quality gates:
 - [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 367 ported, 29 dropped and 280 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
 - [ ] Run all private-corpus imports in CI using `CORPUS_DIR` with private data access; fail if the corpus is missing or empty, without publishing research data in the repository, logs or artifacts (D-17.3, D-20, AC-4). Today the Pages workflow does not supply the corpus and the suite skips.
-- [ ] Playwright end-to-end tests in Chromium and Firefox (AC-10, AC-11, AC-13, AC-14, AC-15)
+- [ ] Complete Playwright end-to-end tests in Chromium headless (D-36): AC-10 passes; AC-11, AC-13, AC-14 and AC-15 remain. Exercise the upload/download fallback in Chromium with the File System Access API unavailable.
 
 ### Engine phase: still to do
 - [ ] Docker build (optional, pinned emsdk + g++ + Node) producing the static site (D-19)

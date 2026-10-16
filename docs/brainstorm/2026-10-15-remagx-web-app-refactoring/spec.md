@@ -208,7 +208,8 @@ Native build of the same C++ core → golden-data generator + CI regression test
 - AC-15: While running in a browser that supports the File System Access API, the system SHALL load
   and save project files directly through it; while running in a browser without it, the system
   SHALL offer upload/download instead (D-13).
-  DoD: Playwright tests in Chromium (direct save) and Firefox (download) pass.
+  DoD: Playwright tests in Chromium headless cover direct save and upload/download with the
+  File System Access API unavailable (D-36 supersedes the original Firefox test requirement).
 
 ## Boundaries
 
