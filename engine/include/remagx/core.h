@@ -102,6 +102,14 @@ int remagx_dielectric_tensor(const RemagxLayer* layer, int tensor,
 // Leading coefficient must be nonzero. Output is untouched on any error and
 // must not overlap the coefficients. Degenerate nonfinite roots report error 2.
 int remagx_quartic_roots(const double* coefficients, double* output);
+// Anisotropic Maxwell polynomial from a row-major complex dielectric tensor
+// (18 doubles) and angle in radians. Coefficients are 10 real/imag doubles in
+// descending degree order; roots are 8 doubles in legacy quartic mode order.
+// These primitives do not apply isotropic/tetragonal shortcuts or form mode
+// vectors. They retain the quartic routine's documented residual limitations.
+// Outputs remain unchanged on failure and must not overlap the tensor input.
+int remagx_maxwell_polynomial(const double* tensor, double angle_radians, double* coefficients);
+int remagx_maxwell_roots(const double* tensor, double angle_radians, double* roots);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.

@@ -453,3 +453,14 @@ is a separate concern: 125 cases exceed 1e-10 for
 about .8773. Thus this routine must not be advertised as a reliable general
 quartic solver. The port preserves this legacy behavior; physical Maxwell-matrix
 coverage is still needed before drawing conclusions about reflectivity accuracy.
+
+### Generated optical-tensor Maxwell polynomials (2026-10-16)
+
+The native `remagx_maxwell_polynomial` and `remagx_maxwell_roots` primitives now
+connect scalar dielectric construction to the anisotropic quartic branch. The
+private original expression/function agrees on 4,800 coefficient and 3,840 root
+components for 120 generated magnetic tensors at four angles. Of these 480 cases,
+124 exceed 1e-10 in the scaled polynomial residual defined above; the maximum is
+about 1.0568e-6. This extends the residual observation to generated optical inputs,
+but it is not a full-solver accuracy result: tensor classification, analytic
+shortcuts, mode vectors, propagation and corpus reflectivity remain unverified.
