@@ -380,3 +380,35 @@ export function calculateZakEnergyScan(module, { stacks, energy, qz, enabled, ma
     return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + energy.length * 2)
   })
 }
+
+// Profile layout: center, width, delta amplitude, beta amplitude. Output is
+// interleaved delta/beta; binding/coupling and segmentation belong to preparation.
+export function calculateGaussianProfile(module, { profile, positions }) {
+  if (!validVector(profile, 4) || !validVector(positions)) throw new TypeError('Invalid Gaussian profile input')
+  return withBuffers(module, allocate => {
+    const profilePointer = allocate(4)
+    const positionsPointer = allocate(positions.length)
+    const outputPointer = allocate(positions.length * 2)
+    module.HEAPF64.set(profile, profilePointer / 8)
+    module.HEAPF64.set(positions, positionsPointer / 8)
+    checkStatus(module._remagx_gaussian_profile(profilePointer, positionsPointer, positions.length, outputPointer), 'Gaussian profile')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + positions.length * 2)
+  })
+}
+
+export function generateGaussianSplineKnots(module, { profile, intervals = 4 }) {
+  if (!validVector(profile, 4) || !Number.isSafeInteger(intervals) || intervals < 0 || intervals > 2147483642)
+    throw new TypeError('Invalid Gaussian spline input')
+  const count = intervals + 5
+  return withBuffers(module, allocate => {
+    const profilePointer = allocate(4)
+    const positionsPointer = allocate(count)
+    const valuesPointer = allocate(count)
+    module.HEAPF64.set(profile, profilePointer / 8)
+    checkStatus(module._remagx_gaussian_spline_knots(profilePointer, intervals, positionsPointer, valuesPointer), 'Gaussian spline knots')
+    return {
+      positions: module.HEAPF64.slice(positionsPointer / 8, positionsPointer / 8 + count),
+      values: module.HEAPF64.slice(valuesPointer / 8, valuesPointer / 8 + count),
+    }
+  })
+}

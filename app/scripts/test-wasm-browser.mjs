@@ -31,7 +31,7 @@ try {
   browser = await chromium.launch()
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
-  const result = await page.evaluate(async ({ cases, tables, energy, scans, tensors, matrices, zak }) => {
+  const result = await page.evaluate(async ({ cases, tables, energy, scans, tensors, matrices, zak, profiles }) => {
     const next = (worker, kind) => new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { cleanup(); reject(new Error(`Worker timeout: ${kind}`)) }, 10000)
       const cleanup = () => {
@@ -51,8 +51,8 @@ try {
     try {
       await next(worker, 'ready')
       const response = next(worker, 'results')
-      worker.postMessage({ cases, tables, energy, scans, tensors, matrices, zak })
-      const { values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults, matrices: matrixResults, zak: zakResults } = await response
+      worker.postMessage({ cases, tables, energy, scans, tensors, matrices, zak, profiles })
+      const { values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults, matrices: matrixResults, zak: zakResults, profiles: profileResults } = await response
       const entered = next(worker, 'entered')
       let finished = false
       worker.addEventListener('message', event => { if (event.data.kind === 'finished') finished = true })
@@ -69,11 +69,11 @@ try {
       const replacementResponse = next(worker, 'results')
       worker.postMessage({ cases: [cases[0]] })
       const replacement = (await replacementResponse).values[0]
-      return { zakResults, matrixResults, tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
+      return { profileResults, zakResults, matrixResults, tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
     } finally {
       worker.terminate()
     }
-  }, { cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors, matrices: input.matrices, zak: input.zak })
+  }, { cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors, matrices: input.matrices, zak: input.zak, profiles: input.profiles })
   let count = 0, maxLogError = 0
   for (const [caseIndex, prepared] of cases.entries()) {
     assert.equal(result.values[caseIndex].length, prepared.expected.length)
@@ -114,6 +114,18 @@ try {
   })
   assert.equal(zakCount, 15408)
   console.log(`Chromium Zak: ${zakCount} intensities matched native.`)
+  let profileCount = 0
+  input.profiles.forEach((item, index) => {
+    assert.equal(result.profileResults[index].length, item.expected.length)
+    result.profileResults[index].forEach((value, beam) => {
+      const target = item.expected[beam]
+      assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
+        `Gaussian profiles/knots case ${index}, value ${beam}: ${value} vs ${target}`)
+      profileCount++
+    })
+  })
+  assert.equal(profileCount, 9240)
+  console.log(`Chromium Gaussian profiles/knots: ${profileCount} values matched native.`)
   let tensorCount = 0
   input.tensors.forEach((item, index) => {
     assert.equal(result.tensorResults[index].anisotropic, item.anisotropic)

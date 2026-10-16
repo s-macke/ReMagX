@@ -9,3 +9,5 @@ static_assert(sizeof(RemagxReflectivity) == 2 * sizeof(double));
 
 static_assert(offsetof(RemagxMatrixLayer, anisotropic) == 22 * sizeof(double));
 static_assert(sizeof(RemagxMatrixLayer) == 23 * sizeof(double));
+
+static_assert(sizeof(RemagxGaussianProfile) == 4 * sizeof(double));

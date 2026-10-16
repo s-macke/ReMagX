@@ -1,5 +1,6 @@
 import ctypes
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -31,6 +32,18 @@ def knots(profile, intervals=4):
     status = library.remagx_gaussian_spline_knots(ctypes.byref(profile), intervals, positions, values)
     assert before == bytes(profile)
     return status, list(positions), list(values)
+
+def profile_cases():
+    generator = random.Random(26033)
+    cases = []
+    for number in range(240):
+        center = generator.uniform(-100, 100)
+        width = 0 if number % 11 == 0 else generator.uniform(-20, 20)
+        delta = 0 if number % 7 == 0 else generator.uniform(-.1, .1)
+        profile = Profile(center, width, delta, generator.uniform(-.1, .1))
+        positions = [center + offset * width for offset in [-10, -6, -2, -.5, 0, .5, 2, 6, 10]]
+        cases.append((profile, positions, [0, 1, 4, 16][number % 4]))
+    return cases
 
 class GaussianProfileTest(unittest.TestCase):
     def test_gaussian_shape_and_signed_width(self):
@@ -91,15 +104,7 @@ while(std::cin>>center>>width>>delta>>beta>>n>>count){CGaussFunc profile;profile
 for(int i=0;i<count;++i){double position;std::cin>>position;std::cout<<profile.DeltaGauss(position)<<' '<<profile.BetaGauss(position)<<' ';}
 profile.BuildSpline(n);for(double x:profile.sf.x)std::cout<<x<<' ';for(double y:profile.sf.y)std::cout<<y<<' ';std::cout<<'\\n';}}
 '''
-        generator = random.Random(26033)
-        cases = []
-        for number in range(240):
-            center = generator.uniform(-100, 100)
-            width = 0 if number % 11 == 0 else generator.uniform(-20, 20)
-            delta = 0 if number % 7 == 0 else generator.uniform(-.1, .1)
-            profile = Profile(center, width, delta, generator.uniform(-.1, .1))
-            positions = [center + offset * width for offset in [-10, -6, -2, -.5, 0, .5, 2, 6, 10]]
-            cases.append((profile, positions, [0, 1, 4, 16][number % 4]))
+        cases = profile_cases()
         payload = '\n'.join(' '.join(map(str, [profile.center, profile.width, profile.delta_amplitude,
             profile.beta_amplitude, intervals, len(positions), *positions])) for profile, positions, intervals in cases)
         with tempfile.TemporaryDirectory(prefix='remagx-gaussian-') as temporary:
@@ -121,4 +126,16 @@ profile.BuildSpline(n);for(double x:profile.sf.x)std::cout<<x<<' ';for(double y:
         print(f'Original Gaussian profiles and spline knots: {comparisons} values matched.')
 
 if __name__ == '__main__':
-    unittest.main()
+    if '--wasm-payload' in sys.argv:
+        payload = []
+        for profile, positions, intervals in profile_cases():
+            packed = [getattr(profile, name) for name, _ in Profile._fields_]
+            status, values = evaluate(profile, positions)
+            assert status == 0
+            payload.append(dict(kind='gaussian', profile=packed, positions=positions, expected=values))
+            status, coordinates, values = knots(profile, intervals)
+            assert status == 0
+            payload.append(dict(kind='knots', profile=packed, intervals=intervals, expected=coordinates + values))
+        print(json.dumps(payload))
+    else:
+        unittest.main()

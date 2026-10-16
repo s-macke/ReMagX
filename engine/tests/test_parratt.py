@@ -237,7 +237,9 @@ class NativeParrattTest(unittest.TestCase):
             library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
         zak_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_zak.py')),
             library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
-        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases, zak=zak_cases))
+        profile_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_gaussian_profile.py')),
+            library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
+        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases, zak=zak_cases, profiles=profile_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
                        input=payload, text=True, check=True)
