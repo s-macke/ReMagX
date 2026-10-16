@@ -136,6 +136,27 @@ int remagx_analytic_modes(int kind, const double* tensor, const double* refracti
 int remagx_matrix_modes(int anisotropic, const double* tensor, const double* refractive_index,
                         double epsilon, double angle, double wave_number, double thickness,
                         double* roots, double* boundary, double* propagation);
+// Prepared substrate-first matrix stack, including ambient as the last layer.
+// Tensor entries are packed row-major complex real/imag; anisotropic is 0/1.
+// Scalars supply the isotropic index directly. Tensors are already constructed
+// or imported for the current energy and magnetization; no preparation occurs.
+typedef struct RemagxMatrixLayer {
+    double thickness;
+    double roughness;
+    double index_real;
+    double index_imaginary;
+    double dielectric[18];
+    int anisotropic;
+} RemagxMatrixLayer;
+// Single-angle full-stack Visnovsky reflection (no transmission). Returns both
+// supplied beams without changing magnetization between them. Angle is radians,
+// wave number inverse Angstrom. No scan convolution or postprocessing is applied.
+// Substrate/ambient thickness is ignored. Finite values and at least two layers
+// are required. Output must not overlap inputs and remains untouched on failure.
+int remagx_visnovsky(const RemagxMatrixLayer* layers, size_t layer_count,
+                     double angle, double wave_number, double epsilon,
+                     const RemagxBeam* beam1, const RemagxBeam* beam2,
+                     int analyzer, RemagxReflectivity* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
