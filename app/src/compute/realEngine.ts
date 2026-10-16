@@ -1,3 +1,4 @@
+import { calculateParrattEnergyScan } from '../model/parrattEnergyScan'
 import { refreshCompoundConstants, type RealTableLookup } from '../model/refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from '../model/units'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from '../model/parrattRequest'
@@ -14,11 +15,15 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
   return async (message: WorkerRequest): Promise<void> => {
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     try {
-      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry') {
+      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
+      if (message.kind === 'energyScan') {
+        send({ id: message.id, type: 'result', result: calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.calculate) })
+        return
+      }
       let project = message.project
       if (project.calculation.automaticOpticalConstants) {
         // Filldb reads LambdaToEnergy after the GUI has stored EnergyToLambda.

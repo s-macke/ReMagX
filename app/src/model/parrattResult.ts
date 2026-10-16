@@ -16,16 +16,16 @@ export function unpackParrattResult(qz: number[], values: Float64Array, definiti
 
 // Preserve CDataSet::PostModifications ordering: qz^4, pure-pi correction,
 // asymmetry, then independent moving averages of both beams and asymmetry.
-export function postprocessParrattResult(project: Project, qz: number[], values: Float64Array, mode: 'monochromatic' | 'dichroic' = 'dichroic') {
+export function postprocessParrattResult(project: Project, qz: number[], values: Float64Array, mode: 'monochromatic' | 'dichroic' = 'dichroic', scanEnergies?: number[]) {
   const { calculation, experiment } = project
   if (calculation.postProcessing.fourierTransform) throw new Error('Fourier postprocessing is not implemented in the real engine yet.')
   if (values.length !== qz.length * 2 || !values.every(Number.isFinite)) throw new Error('The real engine returned invalid reflectivity values.')
   const adjusted = values.slice()
   const dataset = experiment.qzScan.useDatasetPoints && project.activeDatasetIndex !== null
     ? project.datasets[project.activeDatasetIndex] : undefined
-  const energies = dataset?.columns.energy
+  const energies = scanEnergies ?? dataset?.columns.energy
   if (energies?.length && energies.length !== qz.length) throw new Error('Dataset energy and qz columns have different lengths.')
-  const shift = dataset && Math.abs(dataset.energyShift) > 1e-10 ? dataset.energyShift : 0
+  const shift = !scanEnergies && dataset && Math.abs(dataset.energyShift) > 1e-10 ? dataset.energyShift : 0
   const isPurePi = (beam: Project['experiment']['polarization']['beam1']) =>
     beam.sigma.re === 0 && beam.sigma.im === 0 && beam.pi.re === 1 && beam.pi.im === 0
   const correct = [isPurePi(experiment.polarization.beam1), mode === 'dichroic' && isPurePi(experiment.polarization.beam2)]

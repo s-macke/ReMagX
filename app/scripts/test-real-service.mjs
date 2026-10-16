@@ -61,7 +61,7 @@ try {
     try {
       output.zero = await service.calcReflectivity(project)
       output.asymmetry = await service.calcAsymmetry(project)
-      try { await service.calcEnergyScan(project) } catch (error) { output.unsupported = error.message }
+      try { await service.depthProfile(project) } catch (error) { output.unsupported = error.message }
       output.originalUnchanged = snapshot === JSON.stringify(project)
       project.sample.layers[0].delta = .01
       project.sample.layers[0].beta = .002
@@ -113,6 +113,20 @@ try {
       explicit.sample.layers[0].betaMag = .0002
       output.automaticMagnetic = await service.calcAsymmetry(automatic)
       output.magneticBaseline = await service.calcAsymmetry(explicit)
+      const energyProject = structuredClone(resolutionProject)
+      energyProject.sample.layers.forEach((layer, index) => { layer.opticalTable = index ? 'ambient' : 'film' })
+      energyProject.experiment.energyScan = { energyMin: 639.25, energyMax: 640.75, fixed: 'qz', qz: .03, angle: 2 }
+      energyProject.experiment.qzScan.points = 4
+      output.energyScan = await service.calcEnergyScan(energyProject)
+      output.energyReference = []
+      for (const energy of output.energyScan.energy) {
+        const reference = structuredClone(resolutionProject)
+        reference.experiment.energy = energy
+        const fraction = (12398.326 / (12398.326 / energy) - 639) / 2
+        reference.sample.layers[0].delta = .009 + (.011 - .009) * fraction
+        reference.sample.layers[0].beta = .001 + (.003 - .001) * fraction
+        output.energyReference.push((await service.calcReflectivity(reference)).reflectivity[0])
+      }
       tables = tables.filter(table => table.name !== 'ambient')
       try { await service.calcReflectivity(automatic) } catch (error) { output.missingTable = error.message }
       tables = []
@@ -138,7 +152,7 @@ try {
   })
   assert.deepEqual(results.zero.reflectivity, [0, 0, 0, 0])
   assert.deepEqual(results.asymmetry.asymmetry, [0, 0, 0, 0])
-  assert.match(results.unsupported, /does not support energyScan/)
+  assert.match(results.unsupported, /does not support depthProfile/)
   for (const value of results.totalReflection.reflectivity) assert.ok(Math.abs(value - 1) <= 1e-10 + 1e-15)
   const corrected = results.postBaseline.qz.map((qz, index) => {
     const wave = 2 * Math.PI / (12398.326 / results.postEnergy)
@@ -157,13 +171,15 @@ try {
       assert.ok(Math.abs(value - expected[key][index]) <= 1e-15 + 1e-10 * Math.abs(expected[key][index]), `Automatic refresh ${key}[${index}]`)
     })
   }
+  assert.equal(results.energyScan.energy.length, 5)
+  results.energyScan.reflectivity.forEach((value, index) => assert.ok(Math.abs(value - results.energyReference[index]) <= 1e-15 + 1e-10 * Math.abs(results.energyReference[index])))
   assert.equal(results.refreshUnchanged, true)
   assert.match(results.missingTable, /missing optical table ambient/)
   assert.equal(results.stopped, 'ComputeCancelled')
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, energy scans, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))
