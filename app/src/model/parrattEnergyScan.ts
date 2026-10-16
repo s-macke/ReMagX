@@ -62,7 +62,7 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
     beam1: template.beam1, beam2: template.beam2, tensor: template.tensor, analyzer: template.analyzer,
     magnetic: template.magnetic, mode: template.mode, angularWidth: template.resolution.width, energyWidth: width })
   const result = postprocessParrattResult(project, coordinates.qz, resolved, mode, coordinates.energy)
-  return { energy: coordinates.energy, reflectivity: result.reflectivityPlus,
+  return { qz: coordinates.qz, energy: coordinates.energy, reflectivity: result.reflectivityPlus,
     reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry }
 }
 

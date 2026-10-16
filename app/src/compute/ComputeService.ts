@@ -86,7 +86,7 @@ export interface ComputeService {
   materialToElements(project: Project): Promise<ElementConversion>
   segmentLayers(project: Project): Promise<Layer[]>
   depthProfile(project: Project): Promise<DepthProfile>
-  // Error between simulation and the active dataset (the value a fit minimizes).
+  // Dataset-error statistic. The real engine sums all fit-enabled datasets, as the legacy χ² action does.
   calcChi2(project: Project): Promise<number>
   startFit(project: Project, onProgress: (progress: FitProgress) => void): Promise<FitResult>
   // Stop all current work in the shared worker, including standalone calculations.

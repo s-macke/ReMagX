@@ -14,6 +14,7 @@ await build({ configFile: false, root: resolve(root, 'app'), base: './', worker:
   build: { outDir: destination, emptyOutDir: true,
     rollupOptions: { input: resolve(root, 'app/test/real-service/entry.ts'), output: { entryFileNames: 'entry.js' } } } })
 await mkdir(resolve(destination, 'assets'), { recursive: true })
+await copyFile(resolve(root, 'engine/wasm/fit_error.mjs'), resolve(destination, 'assets/fit_error.mjs'))
 for (const file of ['remagx-core.mjs', 'remagx-core.wasm']) await copyFile(resolve(wasmDirectory, file), resolve(destination, 'assets', file))
 const adapter = await readFile(resolve(root, 'engine/wasm/parratt.mjs'), 'utf8')
 const entryCall = '    const status = resolution'
@@ -289,27 +290,90 @@ try {
       tables = tables.filter(table => table.kind !== 'e')
       matrix.calculation.magnetization.mode = 'profile'
       try { await service.calcReflectivity(matrix) } catch (error) { output.matrixProfileError = error.message }
+      output.datasetErrors = []
+      tables = [
+        { name: 'fit-bulk', kind: 'db', energy: [600, 800], columns: [[.01, .01], [.002, .002]], warnings: [] },
+        { name: 'fit-film', kind: 'db', energy: [600, 800], columns: [[.006, .006], [.001, .001]], warnings: [] },
+        { name: 'fit-air', kind: 'db', energy: [600, 800], columns: [[0, 0], [0, 0]], warnings: [] },
+      ]
+      for (const algorithm of ['parratt', 'matrix', 'zak']) {
+        const aggregate = createDefaultProject()
+        aggregate.calculation.algorithm = algorithm
+        aggregate.sample.layers = [createLayer({ opticalTable: 'fit-bulk', delta: .01, beta: .002 }),
+          createLayer({ opticalTable: 'fit-film', thickness: 20, delta: .006, beta: .001 }), createLayer({ opticalTable: 'fit-air' })]
+        aggregate.experiment.energy = 640
+        aggregate.experiment.qzScan.useDatasetPoints = true
+        aggregate.fit.window = { qzMin: 0, qzMax: 1, energyMin: 620, energyMax: 680 }
+        aggregate.fit.occamQ = 100 // Standalone Chi² excludes the optimizer penalty.
+        const polarization = { beam1: { sigma: { re: 1, im: 0 }, pi: { re: 0, im: 0 } },
+          beam2: { sigma: { re: 0, im: 0 }, pi: { re: 1, im: 0 } }, analyzer: 'none' }
+        const datasets = []
+        for (const energyScan of [false, true]) {
+          for (const kind of ['reflectivity', 'asymmetry', 'dichroic']) {
+            const data = { title: '', comment: '', sourceFile: '', energy: 640, energyShift: 2,
+              angularResolution: .0001, intensityScale: 2, intensityOffset: 0, qzShift: -.001,
+              errorWeight: datasets.length + 1, polarization, active: true,
+              columns: { qz: [.02, .04, .03], ...(energyScan ? { energy: [640, 650, 660] } : {}) } }
+            const baseline = structuredClone(aggregate)
+            baseline.datasets = [data]; baseline.activeDatasetIndex = 0
+            baseline.experiment.polarization = polarization
+            baseline.experiment.resolution.angularFwhm = data.angularResolution
+            const curve = kind === 'reflectivity'
+              ? await (energyScan ? service.calcEnergyScan(baseline) : service.calcReflectivity(baseline))
+              : await (energyScan ? service.calcEnergyAsymmetry(baseline) : service.calcAsymmetry(baseline))
+            if (kind === 'reflectivity') data.columns.reflectivity = curve.reflectivity.map(value => value * 10 / 2)
+            else if (kind === 'asymmetry') data.columns.asymmetry = curve.asymmetry.map(value => value + .25)
+            else {
+              data.columns.reflectivityPlus = curve.reflectivityPlus.map(value => value * 10 / 2)
+              data.columns.reflectivityMinus = curve.reflectivityMinus.map(value => value * 100 / 2)
+            }
+            datasets.push(data)
+          }
+        }
+        aggregate.datasets = [...datasets, { ...structuredClone(datasets[0]), active: false, columns: { qz: [] } }]
+        aggregate.activeDatasetIndex = 6
+        const snapshot = JSON.stringify(aggregate)
+        const chi2 = await service.calcChi2(aggregate)
+        output.datasetErrors.push({ algorithm, chi2, unchanged: snapshot === JSON.stringify(aggregate) })
+        aggregate.datasets.forEach(data => { data.active = false })
+        output.datasetErrors.at(-1).empty = await service.calcChi2(aggregate)
+      }
       tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
       busy.sample.layers = Array.from({ length: 1000 }, (_, index) => createLayer({ thickness: 10, delta: index % 2 ? .001 : .002, beta: .0001 }))
       busy.experiment.qzScan.points = 100000
       busy.experiment.qzScan.qzMax = .1
-      let entryTimeout
-      const entered = new Promise((resolve, reject) => {
-        enteredResolve = resolve
-        entryTimeout = setTimeout(() => reject(new Error('Real core did not start')), 10000)
-      })
-      const pending = service.calcReflectivity(busy).then(() => 'finished', error => error.name)
-      try { await entered } finally { clearTimeout(entryTimeout) }
-      const start = performance.now()
-      service.stop()
-      output.stopped = await pending
-      output.restarted = await service.calcReflectivity(project)
-      output.recoveryMilliseconds = performance.now() - start
+      busy.datasets = [{ title: '', comment: '', sourceFile: '', energy: busy.experiment.energy, energyShift: 0,
+        angularResolution: 0, intensityScale: 1, intensityOffset: 0, qzShift: 0, errorWeight: 1,
+        polarization: busy.experiment.polarization, active: true,
+        columns: { qz: Array.from({ length: 100000 }, (_, index) => .1 * (index + 1) / 100000), reflectivity: Array(100000).fill(1) } }]
+      output.cancellations = []
+      for (const method of ['calcReflectivity', 'calcChi2']) {
+        let entryTimeout
+        const entered = new Promise((resolve, reject) => {
+          enteredResolve = resolve
+          entryTimeout = setTimeout(() => reject(new Error('Real core did not start')), 10000)
+        })
+        const pending = service[method](busy).then(() => 'finished', error => error.name)
+        try { await entered } finally { clearTimeout(entryTimeout) }
+        const start = performance.now()
+        service.stop()
+        const stopped = await pending
+        output.restarted = await service.calcReflectivity(project)
+        output.cancellations.push({ method, stopped, recoveryMilliseconds: performance.now() - start })
+      }
+      output.recoveryMilliseconds = Math.max(...output.cancellations.map(result => result.recoveryMilliseconds))
       return output
     } finally { service.dispose(); window.Worker = NativeWorker }
   })
+  assert.equal(results.datasetErrors.length, 3)
+  for (const result of results.datasetErrors) {
+    const expected = 50.4375
+    assert.ok(Math.abs(result.chi2 - expected) <= 1e-15 + 1e-10 * Math.abs(expected), `${result.algorithm} dataset error: ${result.chi2}`)
+    assert.equal(result.unchanged, true)
+    assert.equal(result.empty, 0)
+  }
   assert.equal(results.fitInputUnchanged, true)
   assert.deepEqual(results.fitPrepared, results.fitBaseline)
   assert.deepEqual(results.fitPrepared.qz, results.fitMeasurement.qz)
@@ -432,11 +496,11 @@ try {
   assert.match(results.matrixProfileError, /profile/)
   assert.equal(results.refreshUnchanged, true)
   assert.match(results.missingTable, /missing optical table ambient/)
-  assert.equal(results.stopped, 'ComputeCancelled')
+  assert.deepEqual(results.cancellations.map(result => [result.method, result.stopped]), [['calcReflectivity', 'ComputeCancelled'], ['calcChi2', 'ComputeCancelled']])
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: weighted multi-dataset Chi² for Parratt/matrix/Zak, prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

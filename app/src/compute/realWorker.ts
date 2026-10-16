@@ -6,11 +6,13 @@ import type { WorkerRequest } from './protocol'
 const handle = createRealRequestHandler(response => self.postMessage(response), async () => {
   const coreUrl = new URL('./remagx-core.mjs', self.location.href).href
   const adapterUrl = new URL('./parratt.mjs', self.location.href).href
-  const [core, adapter] = await Promise.all([
-    import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl),
+  const fitErrorUrl = new URL('./fit_error.mjs', self.location.href).href
+  const [core, adapter, fitErrorAdapter] = await Promise.all([
+    import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl), import(/* @vite-ignore */ fitErrorUrl),
   ])
   const instance = await core.default()
-  return { dielectricTensor: request => adapter.calculateDielectricTensor(instance, request),
+  return { fitError: request => fitErrorAdapter.calculateFitError(instance, request),
+    dielectricTensor: request => adapter.calculateDielectricTensor(instance, request),
     zakQz: request => adapter.calculateZakQz(instance, request),
     zakEnergy: request => adapter.calculateZakEnergyScan(instance, request),
     matrixQz: request => adapter.calculateVisnovskyQz(instance, request),

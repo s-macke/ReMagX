@@ -197,7 +197,7 @@ export class WorkerComputeService implements ComputeService {
       this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress })
       try {
         this.worker ??= this.connect()
-        const tables = (kind === 'energyScan' || kind === 'energyAsymmetry' || project.calculation.automaticOpticalConstants && (kind === 'reflectivity' || kind === 'asymmetry')) ? this.getTables?.() : undefined
+        const tables = (kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || project.calculation.automaticOpticalConstants && (kind === 'reflectivity' || kind === 'asymmetry')) ? this.getTables?.() : undefined
         this.worker.postMessage({ id, kind, project, ...(tables ? { tables } : {}), ...(spectrum ? { spectrum } : {}) } as WorkerRequest)
       } catch (error) {
         this.failWorker(`Could not start the computation: ${String(error)}`)

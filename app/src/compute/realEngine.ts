@@ -1,25 +1,8 @@
-import { prepareZakQzRequest, calculateZakEnergyScan, type PreparedZakQzRequest, type ZakEnergyCalculator } from '../model/zakRequest'
-import { calculateVisnovskyEnergyScan, type VisnovskyEnergyCalculator } from '../model/visnovskyEnergyScan'
-import { prepareVisnovskyQzRequest, type PreparedVisnovskyQzRequest, type DielectricTensorCalculator } from '../model/visnovskyRequest'
-import { calculateParrattEnergyScan, type EnergyScanCalculator } from '../model/parrattEnergyScan'
-import { refreshCompoundOptics, type RealTableLookup } from '../model/refreshOpticalConstants'
-import { HC_EV_ANGSTROM } from '../model/units'
-import { prepareParrattQzRequest, type PreparedParrattQzRequest } from '../model/parrattRequest'
-import { postprocessParrattResult } from '../model/parrattResult'
+import { calculateRealCurve, type RealCalculationEngine } from '../model/realCalculation'
+import { calculateProjectDatasetError, type FitErrorCalculator } from '../model/projectDatasetError'
 import type { WorkerRequest, WorkerResponse } from './protocol'
-
-export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Array
-
-export interface RealEngine {
-  calculate: RealQzCalculator
-  lookup: RealTableLookup
-  energyScan: EnergyScanCalculator
-  zakQz: (request: PreparedZakQzRequest) => Float64Array
-  zakEnergy: ZakEnergyCalculator
-  matrixEnergy: VisnovskyEnergyCalculator
-  dielectricTensor: DielectricTensorCalculator
-  matrixQz: (request: PreparedVisnovskyQzRequest) => Float64Array
-}
+export type { RealQzCalculator } from '../model/realCalculation'
+export interface RealEngine extends RealCalculationEngine { fitError: FitErrorCalculator }
 
 // Uses the existing worker protocol. Unported operations never fall back to the mock.
 export function createRealRequestHandler(send: (response: WorkerResponse) => void, load: () => Promise<RealEngine>) {
@@ -27,51 +10,28 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
   return async (message: WorkerRequest): Promise<void> => {
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     try {
-      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry') {
+      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
-      if (message.kind === 'energyScan' || message.kind === 'energyAsymmetry') {
-        const mode = message.kind === 'energyAsymmetry' ? 'dichroic' : 'monochromatic'
-        const scan = message.project.calculation.algorithm === 'matrix'
-          ? calculateVisnovskyEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode)
-          : message.project.calculation.algorithm === 'zak'
-            ? calculateZakEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.zakEnergy, mode)
-            : calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.energyScan, mode)
-        send({ id: message.id, type: 'result', result: message.kind === 'energyScan'
-          ? { energy: scan.energy, reflectivity: scan.reflectivity }
-          : { energy: scan.energy, reflectivityPlus: scan.reflectivityPlus, reflectivityMinus: scan.reflectivityMinus, asymmetry: scan.asymmetry } })
+      if (message.kind === 'chi2') {
+        send({ id: message.id, type: 'result', result: calculateProjectDatasetError(message.project, message.tables ?? [], engine) })
         return
       }
-      let project = message.project
-      let dielectricTensors: (Float64Array | null)[] | undefined
-      if (project.calculation.automaticOpticalConstants) {
-        // Filldb reads LambdaToEnergy after the GUI has stored EnergyToLambda.
-        const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / project.experiment.energy)
-        const refreshed = refreshCompoundOptics(project, message.tables ?? [], energy, engine.lookup)
-        dielectricTensors = refreshed.dielectricTensors
-        project = { ...project, sample: { ...project.sample, layers: refreshed.layers },
-          calculation: { ...project.calculation, automaticOpticalConstants: false } }
-      }
-      const mode = message.kind === 'reflectivity' ? 'monochromatic' : 'dichroic'
-      let qz: number[], values: Float64Array
-      if (project.calculation.algorithm === 'matrix') {
-        const request = prepareVisnovskyQzRequest(project, mode, engine.dielectricTensor, dielectricTensors)
-        qz = request.qz
-        values = engine.matrixQz(request)
-      } else if (project.calculation.algorithm === 'zak') {
-        const request = prepareZakQzRequest(project, mode)
-        qz = request.qz
-        values = engine.zakQz(request)
+      const energy = message.kind === 'energyScan' || message.kind === 'energyAsymmetry'
+      const mode = message.kind === 'reflectivity' || message.kind === 'energyScan' ? 'monochromatic' : 'dichroic'
+      const result = calculateRealCurve(message.project, message.tables ?? [], engine, energy ? 'energy' : 'qz', mode)
+      if (energy) {
+        if (!result.energy) throw new Error('Missing energy-scan coordinates.')
+        send({ id: message.id, type: 'result', result: message.kind === 'energyScan'
+          ? { energy: result.energy, reflectivity: result.reflectivityPlus }
+          : { energy: result.energy, reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry } })
       } else {
-        const request = prepareParrattQzRequest(project, mode)
-        qz = request.qz
-        values = engine.calculate(request)
+        send({ id: message.id, type: 'result', result: message.kind === 'reflectivity'
+          ? { qz: result.qz, reflectivity: result.reflectivityPlus }
+          : { qz: result.qz, reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry } })
       }
-      const result = postprocessParrattResult(message.project, qz, values, mode)
-      send({ id: message.id, type: 'result', result: message.kind === 'reflectivity'
-        ? { qz: result.qz, reflectivity: result.reflectivityPlus } : result })
     } catch (error) {
       const status = (error as { status?: number })?.status
       const text = status === 4 ? 'Qz exceeds the legacy calculation boundary.'
