@@ -66,7 +66,7 @@ export interface FitProgress {
 }
 
 export interface FitResult {
-  project: Project // the project as sent to the fit, with the best parameter values applied
+  project: Project // evaluated best snapshot; may include calculation context changed during a real fit
   values: number[] // best value of each fit parameter, same order as project.fit.parameters
   chi2: number
   iterations: number

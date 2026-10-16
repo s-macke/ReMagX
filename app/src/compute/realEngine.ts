@@ -1,8 +1,9 @@
+import { runRealFit, type RealMinimizer } from '../model/realFit'
 import { calculateRealCurve, type RealCalculationEngine } from '../model/realCalculation'
 import { calculateProjectDatasetError, type FitErrorCalculator } from '../model/projectDatasetError'
 import type { WorkerRequest, WorkerResponse } from './protocol'
 export type { RealQzCalculator } from '../model/realCalculation'
-export interface RealEngine extends RealCalculationEngine { fitError: FitErrorCalculator }
+export interface RealEngine extends RealCalculationEngine { fitError: FitErrorCalculator; minimize?: RealMinimizer }
 
 // Uses the existing worker protocol. Unported operations never fall back to the mock.
 export function createRealRequestHandler(send: (response: WorkerResponse) => void, load: () => Promise<RealEngine>) {
@@ -10,11 +11,18 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
   return async (message: WorkerRequest): Promise<void> => {
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     try {
-      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2') {
+      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
+      if (message.kind === 'fit') {
+        if (!engine.minimize) throw new Error('The real optimizer is unavailable.')
+        const result = runRealFit(message.project, message.tables ?? [], engine, engine.minimize,
+          progress => send({ id: message.id, type: 'fitProgress', progress }))
+        send({ id: message.id, type: 'result', result })
+        return
+      }
       if (message.kind === 'chi2') {
         send({ id: message.id, type: 'result', result: calculateProjectDatasetError(message.project, message.tables ?? [], engine) })
         return

@@ -14,7 +14,7 @@ await build({ configFile: false, root: resolve(root, 'app'), base: './', worker:
   build: { outDir: destination, emptyOutDir: true,
     rollupOptions: { input: resolve(root, 'app/test/real-service/entry.ts'), output: { entryFileNames: 'entry.js' } } } })
 await mkdir(resolve(destination, 'assets'), { recursive: true })
-await copyFile(resolve(root, 'engine/wasm/fit_error.mjs'), resolve(destination, 'assets/fit_error.mjs'))
+for (const file of ['fit_error.mjs', 'optimizer.mjs']) await copyFile(resolve(root, 'engine/wasm', file), resolve(destination, 'assets', file))
 for (const file of ['remagx-core.mjs', 'remagx-core.wasm']) await copyFile(resolve(wasmDirectory, file), resolve(destination, 'assets', file))
 const adapter = await readFile(resolve(root, 'engine/wasm/parratt.mjs'), 'utf8')
 const entryCall = '    const status = resolution'
@@ -363,6 +363,28 @@ try {
         aggregate.datasets.forEach(data => { data.active = false })
         output.datasetErrors.at(-1).empty = await service.calcChi2(aggregate)
       }
+      output.realFits = []
+      for (const algorithm of ['parratt', 'matrix', 'zak']) {
+        const fit = createDefaultProject()
+        fit.fit.algorithm = 'simplex'; fit.fit.occamQ = 0
+        fit.calculation.algorithm = algorithm
+        fit.calculation.automaticOpticalConstants = true
+        fit.sample.layers = [createLayer({ opticalTable: 'fit-bulk', delta: .01, beta: .002 }),
+          createLayer({ opticalTable: 'fit-film', thickness: 35, delta: .006, beta: .001 }), createLayer({ opticalTable: 'fit-air' })]
+        fit.experiment.qzScan.points = 80; fit.experiment.qzScan.qzMin = .01; fit.experiment.qzScan.qzMax = .15
+        const reference = await service.calcReflectivity(fit)
+        fit.datasets = [{ title: '', comment: '', sourceFile: '', energy: fit.experiment.energy, energyShift: 0, qzShift: 0,
+          angularResolution: fit.experiment.resolution.angularFwhm, intensityScale: 1, intensityOffset: 0,
+          active: true, errorWeight: 1, polarization: fit.experiment.polarization,
+          columns: { qz: reference.qz, reflectivity: reference.reflectivity } }]
+        fit.activeDatasetIndex = 0
+        fit.sample.layers[1].thickness = 30
+        fit.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null, value: 30, step: 0, lowerBound: 20, upperBound: 50 }]
+        const before = JSON.stringify(fit), iterations = []
+        const result = await service.startFit(fit, progress => iterations.push(progress.iteration))
+        output.realFits.push({ algorithm, value: result.values[0], chi2: result.chi2, iterations,
+          unchanged: before === JSON.stringify(fit) })
+      }
       tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
@@ -373,14 +395,16 @@ try {
         angularResolution: 0, intensityScale: 1, intensityOffset: 0, qzShift: 0, errorWeight: 1,
         polarization: busy.experiment.polarization, active: true,
         columns: { qz: Array.from({ length: 100000 }, (_, index) => .1 * (index + 1) / 100000), reflectivity: Array(100000).fill(1) } }]
+      busy.fit.algorithm = 'simplex'; busy.fit.occamQ = 0
+      busy.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null, value: 10, step: 0, lowerBound: 1, upperBound: 20 }]
       output.cancellations = []
-      for (const method of ['calcReflectivity', 'calcChi2']) {
+      for (const method of ['calcReflectivity', 'calcChi2', 'startFit']) {
         let entryTimeout
         const entered = new Promise((resolve, reject) => {
           enteredResolve = resolve
           entryTimeout = setTimeout(() => reject(new Error('Real core did not start')), 10000)
         })
-        const pending = service[method](busy).then(() => 'finished', error => error.name)
+        const pending = service[method](busy, () => {}).then(() => 'finished', error => error.name)
         try { await entered } finally { clearTimeout(entryTimeout) }
         const start = performance.now()
         service.stop()
@@ -393,6 +417,12 @@ try {
     } finally { service.dispose(); window.Worker = NativeWorker }
   })
   assert.equal(results.datasetErrors.length, 3)
+  for (const result of results.realFits) {
+    assert.ok(result.unchanged)
+    assert.ok(Math.abs(result.value - 35) < 1e-6, `${result.algorithm} fitted thickness ${result.value}`)
+    assert.ok(result.chi2 < 1e-16)
+    assert.ok(new Set(result.iterations).size >= 3)
+  }
   for (const result of results.datasetErrors) {
     assert.ok(result.orderedUnchanged)
     assert.ok(Math.abs(result.energyThenQz - 1) <= 1e-15 + 1e-10, `${result.algorithm} optical carry-over`)
@@ -529,11 +559,11 @@ try {
   assert.match(results.matrixProfileError, /profile/)
   assert.equal(results.refreshUnchanged, true)
   assert.match(results.missingTable, /missing optical table ambient/)
-  assert.deepEqual(results.cancellations.map(result => [result.method, result.stopped]), [['calcReflectivity', 'ComputeCancelled'], ['calcChi2', 'ComputeCancelled']])
+  assert.deepEqual(results.cancellations.map(result => [result.method, result.stopped]), [['calcReflectivity', 'ComputeCancelled'], ['calcChi2', 'ComputeCancelled'], ['startFit', 'ComputeCancelled']])
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: weighted multi-dataset Chi² for Parratt/matrix/Zak, prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: native thickness fits with automatic tables and blocked-fit Stop, weighted multi-dataset Chi² for Parratt/matrix/Zak, prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

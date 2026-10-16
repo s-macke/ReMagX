@@ -32,7 +32,7 @@ export type WorkerRequest =
   | { id: number; kind: 'scatteringFactors'; project: Project; spectrum: ElementSpectrumQuery }
   | { id: number; kind: 'layerSpectrum'; project: Project; spectrum: LayerSpectrumQuery }
   | { id: number; kind: CalculationKind; project: Project; tables?: OpticalTable[] }
-  | { id: number; kind: 'fit'; project: Project }
+  | { id: number; kind: 'fit'; project: Project; tables?: OpticalTable[] }
   | { kind: 'stopFit' }
 
 export type WorkerResponse =

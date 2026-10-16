@@ -7,11 +7,13 @@ const handle = createRealRequestHandler(response => self.postMessage(response), 
   const coreUrl = new URL('./remagx-core.mjs', self.location.href).href
   const adapterUrl = new URL('./parratt.mjs', self.location.href).href
   const fitErrorUrl = new URL('./fit_error.mjs', self.location.href).href
-  const [core, adapter, fitErrorAdapter] = await Promise.all([
-    import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl), import(/* @vite-ignore */ fitErrorUrl),
+  const optimizerUrl = new URL('./optimizer.mjs', self.location.href).href
+  const [core, adapter, fitErrorAdapter, optimizerAdapter] = await Promise.all([
+    import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl), import(/* @vite-ignore */ fitErrorUrl), import(/* @vite-ignore */ optimizerUrl),
   ])
   const instance = await core.default()
-  return { fitError: request => fitErrorAdapter.calculateFitError(instance, request),
+  return { minimize: request => optimizerAdapter.minimizeSimplex(instance, request),
+    fitError: request => fitErrorAdapter.calculateFitError(instance, request),
     dielectricTensor: request => adapter.calculateDielectricTensor(instance, request),
     zakQz: request => adapter.calculateZakQz(instance, request),
     zakEnergy: request => adapter.calculateZakEnergyScan(instance, request),
