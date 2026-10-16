@@ -60,7 +60,6 @@ async function calculate(service: ComputeService, project: Project, request: Cal
       yLabel: magnetic ? 'magnetic optical constants' : 'optical constants',
     }
   }
-  if (mode === 'sensitivity') throw new Error('The sensitivity view is not available yet.')
   if (scanKind === 'energyScan') {
     if (mode !== 'monochromatic') throw new Error('Dichroic and asymmetry energy scans are not available in the mock engine yet.')
     const scan = await service.calcEnergyScan(project)

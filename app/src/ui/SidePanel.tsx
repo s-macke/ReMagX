@@ -55,7 +55,13 @@ export function SidePanel() {
       { id: 'fit-algorithm', title: 'Algorithm', content: <FitAlgorithmSection /> },
       { id: 'fit-additional', title: 'Additional Fit Parameters', content: <AdditionalFitParametersSection /> },
       { id: 'fit-window', title: 'Fitting Window', content: <FitWindowSection /> },
-      { id: 'fit-algorithm-parameters', title: 'Algorithm Parameters', content: <FitAlgorithmParametersSection /> },
+      // Context-dependent like legacy: the annealing parameters only for that algorithm (AC-11).
+      {
+        id: 'fit-algorithm-parameters',
+        title: 'Algorithm Parameters',
+        content: <FitAlgorithmParametersSection />,
+        hidden: project.fit.algorithm !== 'simplex-annealing',
+      },
       { id: 'fit-parameters', title: `Parameters (${project.fit.parameters.length})`, content: <FitParametersSection /> },
       {
         id: 'fit-start-stop',

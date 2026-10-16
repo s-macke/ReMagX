@@ -5,14 +5,57 @@ export interface MenuItem {
   onSelect?: () => void
   disabled?: boolean
   checked?: boolean
+  items?: MenuEntry[] // submenu (opens to the right on hover or focus)
 }
+
+export type MenuEntry = MenuItem | 'separator'
 
 export interface Menu {
   label: string
-  items: (MenuItem | 'separator')[]
+  items: MenuEntry[]
 }
 
-// Classic drop-down menu bar (File, Mode, Script, Layer, Help).
+function MenuList({ items, onClose, submenu }: { items: MenuEntry[]; onClose: () => void; submenu?: boolean }) {
+  return (
+    <ul className={submenu ? 'menu__list menu__list--sub' : 'menu__list'} role="menu">
+      {items.map((item, k) =>
+        item === 'separator' ? (
+          <li key={`sep-${k}`} className="menu__separator" role="separator" />
+        ) : item.items ? (
+          <li key={item.label} role="none" className="menu__parent">
+            <button type="button" role="menuitem" aria-haspopup="menu" className="menu__item" disabled={item.disabled}>
+              <span className="menu__check" />
+              {item.label}
+              <span className="menu__arrow" aria-hidden="true">
+                ▸
+              </span>
+            </button>
+            {!item.disabled && <MenuList items={item.items} onClose={onClose} submenu />}
+          </li>
+        ) : (
+          <li key={item.label} role="none">
+            <button
+              type="button"
+              role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+              aria-checked={item.checked}
+              disabled={item.disabled}
+              className="menu__item"
+              onClick={() => {
+                onClose()
+                item.onSelect?.()
+              }}
+            >
+              <span className="menu__check">{item.checked ? '●' : ''}</span>
+              {item.label}
+            </button>
+          </li>
+        ),
+      )}
+    </ul>
+  )
+}
+
+// Classic drop-down menu bar as in legacy 2.6 (File, Edit, Mode, Layer, Tools, Preferences, Help).
 export function MenuBar({ menus, title }: { menus: Menu[]; title: string }) {
   const [open, setOpen] = useState<number | null>(null)
   const barRef = useRef<HTMLElement>(null)
@@ -47,32 +90,7 @@ export function MenuBar({ menus, title }: { menus: Menu[]; title: string }) {
           >
             {menu.label}
           </button>
-          {open === i && (
-            <ul className="menu__list" role="menu">
-              {menu.items.map((item, k) =>
-                item === 'separator' ? (
-                  <li key={`sep-${k}`} className="menu__separator" role="separator" />
-                ) : (
-                  <li key={item.label} role="none">
-                    <button
-                      type="button"
-                      role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
-                      aria-checked={item.checked}
-                      disabled={item.disabled}
-                      className="menu__item"
-                      onClick={() => {
-                        setOpen(null)
-                        item.onSelect?.()
-                      }}
-                    >
-                      <span className="menu__check">{item.checked ? '●' : ''}</span>
-                      {item.label}
-                    </button>
-                  </li>
-                ),
-              )}
-            </ul>
-          )}
+          {open === i && <MenuList items={menu.items} onClose={() => setOpen(null)} />}
         </div>
       ))}
       <span className="menu-bar__file" title={title}>

@@ -113,7 +113,6 @@ export function FitAlgorithmParametersSection() {
     <Group title="Simplex with simulated annealing">
       <NumberField label="temperature" value={annealing.temperature} onChange={(v) => edit((p) => void (p.fit.annealing.temperature = v))} />
       <NumberField label="Δ temperature per iteration" value={annealing.temperatureStep} onChange={(v) => edit((p) => void (p.fit.annealing.temperatureStep = v))} />
-      {project.fit.algorithm !== 'simplex-annealing' && <Note>Used by “Simplex with simulated annealing”.</Note>}
     </Group>
   )
 }

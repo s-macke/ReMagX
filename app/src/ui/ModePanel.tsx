@@ -1,11 +1,11 @@
 import type { DisplayMode } from '../state/appState'
 import { useAppState, useDispatch } from '../state/context'
 
+// The legacy 2.6 mode list (Unit1.dfm RadioGroup1).
 const modes: { value: DisplayMode; label: string; disabled?: boolean }[] = [
   { value: 'monochromatic', label: 'Monochromatic' },
-  { value: 'asymmetry', label: 'Asymmetry' },
   { value: 'dichroic', label: 'Dichroic' },
-  { value: 'sensitivity', label: 'Sensitivity', disabled: true },
+  { value: 'asymmetry', label: 'Asymmetry' },
 ]
 
 // Bottom-right panel of the legacy window: what to show and which scan to calculate.

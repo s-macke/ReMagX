@@ -45,7 +45,14 @@ const formatLinearTicks = (_u: uPlot, splits: number[]) => {
   })
 }
 
-const decadesOnly = (_u: uPlot, splits: number[]) => splits.map((v) => (v > 0 && isDecade(v) ? v : null))
+// Keeps decades only, and only every n-th decade when the plot is too short for all labels.
+const MIN_LABEL_SPACING_PX = 16
+const decadesOnly = (u: uPlot, splits: number[]) => {
+  const decades = splits.filter((v) => v > 0 && isDecade(v))
+  const heightPx = u.bbox.height / (window.devicePixelRatio || 1)
+  const step = Math.max(1, Math.ceil((decades.length * MIN_LABEL_SPACING_PX) / Math.max(heightPx, 1)))
+  return splits.map((v) => (v > 0 && isDecade(v) && Math.round(Math.log10(v)) % step === 0 ? v : null))
+}
 
 // Log axes cannot show values <= 0; they become gaps.
 const forScale = (values: number[], logScale: boolean) =>
@@ -101,7 +108,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
               size: 60,
               label: 'R',
               filter: decadesOnly,
-              values: (_u, splits) => splits.map((v) => (v > 0 && isDecade(v) ? formatDecade(v) : '')),
+              values: (u, splits) => decadesOnly(u, splits).map((v) => (v === null ? '' : formatDecade(v))),
             }
           : { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, size: 70, label: curve.yLabel, values: formatLinearTicks },
       ],

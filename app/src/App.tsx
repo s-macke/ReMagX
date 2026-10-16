@@ -29,6 +29,19 @@ import { Toolbar } from './ui/Toolbar'
 // The script window pulls in the code editor; load it only when opened.
 const ScriptWindow = lazy(() => import('./ui/ScriptWindow').then((m) => ({ default: m.ScriptWindow })))
 
+// Items of the legacy Tools → Scratch menu (deferred, D-25).
+const legacyScratchTools = [
+  'Get optical constants from chemical formula in compound mode',
+  'Calculate reflectivity and save minima, maxima and refl',
+  'Remove spikes from measurement',
+  'Fill Tensors',
+  'Determine Errors of Chemical Profile',
+  'Calculate asymmetry of datasets if Rp and Rm are given',
+  'Set all intensity scalings to current',
+  'Set error weights for energy-scans by integration',
+  'Sort Datasets',
+]
+
 const examples = [
   { label: 'Example: Co/Cu multilayer (default)', file: 'default.all', content: defaultExample },
   { label: 'Example: Tutorial 1', file: 'Tut1.all', content: tutorial1 },
@@ -50,6 +63,7 @@ function Workspace() {
   const unsaved = project !== state.savedProject
   const [error, setError] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [licenseOpen, setLicenseOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
   const [scriptOpen, setScriptOpen] = useState(false)
   const [asciiFile, setAsciiFile] = useState<{ name: string; text: string } | null>(null)
@@ -172,15 +186,6 @@ function Workspace() {
       })),
     },
     {
-      label: 'Script',
-      items: [
-        { label: 'Open Script Window', onSelect: () => setScriptOpen(true) },
-        'separator',
-        { label: 'Execute Script: Default (Lua engine coming)', disabled: true },
-        { label: 'Execute Script: Before Calculation (Lua engine coming)', disabled: true },
-      ],
-    },
-    {
       label: 'Layer',
       items: [
         { label: 'Add Layer', onSelect: () => dispatch({ type: 'insertLayer' }) },
@@ -197,13 +202,31 @@ function Workspace() {
     {
       label: 'Tools',
       items: [
-        { label: 'Show optical profile', onSelect: () => dispatch({ type: 'setPlotView', plotView: 'opticalProfile' }) },
-        { label: 'Show magneto-optical profile', onSelect: () => dispatch({ type: 'setPlotView', plotView: 'magneticProfile' }) },
-        { label: 'Show reflectivity', onSelect: () => dispatch({ type: 'setScanKind', scanKind: 'reflectivity' }) },
+        {
+          label: 'Script',
+          items: [
+            { label: 'Open Script Window', onSelect: () => setScriptOpen(true) },
+            { label: 'Execute Script: Default (Lua engine coming)', disabled: true },
+            { label: 'Execute Script: Before Calculation (Lua engine coming)', disabled: true },
+          ],
+        },
+        // The electric field follows later (D-26); the layer profile is shown now.
+        { label: 'Show layers and electric field', onSelect: () => dispatch({ type: 'setPlotView', plotView: 'opticalProfile' }) },
+        { label: 'Summary (coming)', disabled: true },
+        {
+          label: 'Scratch',
+          items: legacyScratchTools.map((label) => ({ label: `${label} (later)`, disabled: true })),
+        },
       ],
     },
-    { label: 'Preferences', items: [{ label: 'Preferences…', onSelect: () => setPreferencesOpen(true) }] },
-    { label: 'Help', items: [{ label: 'About ReMagX Web', onSelect: () => setAboutOpen(true) }] },
+    { label: 'Preferences', items: [{ label: 'Preferences', onSelect: () => setPreferencesOpen(true) }] },
+    {
+      label: 'Help',
+      items: [
+        { label: 'License', onSelect: () => setLicenseOpen(true) },
+        { label: 'About', onSelect: () => setAboutOpen(true) },
+      ],
+    },
   ]
 
   const elements = project.sample.elementProfiles
@@ -279,6 +302,23 @@ function Workspace() {
         <Suspense fallback={null}>
           <ScriptWindow onClose={() => setScriptOpen(false)} />
         </Suspense>
+      )}
+      {licenseOpen && (
+        <Dialog title="License" onClose={() => setLicenseOpen(false)}>
+          <p>
+            ReMagX Web is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
+            published by the Free Software Foundation, version 3.
+          </p>
+          <p>
+            It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+            MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the{' '}
+            <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noreferrer">
+              GNU General Public License
+            </a>{' '}
+            for details.
+          </p>
+          <p>Please cite ReMagX and its authors in work that uses results obtained with this software.</p>
+        </Dialog>
       )}
       {aboutOpen && (
         <Dialog title="About ReMagX Web" onClose={() => setAboutOpen(false)}>

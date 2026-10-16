@@ -106,7 +106,8 @@ but has known gaps, listed under "still to do".
 - [x] Compute interface and Web Worker; mock engine: Parratt σ/π, Nevot-Croce, angular resolution, depth profile, Nelder-Mead fit with stop flag
 - [x] Legacy `.all` importer with import report; all 99 legacy example files import
 - [x] Optical-constant table readers (`.db`, `.m`, `.e`, `.ff`, `.ffm`), tables held in memory for the session
-- [x] Main window in the legacy layout: layer table, log plot (Hold/Clear/Scale, drag zoom), tabs with collapsible sections, Mode panel, menu bar (partial: menu structure, see below)
+- [x] Main window in the legacy layout: layer table, log plot (Hold/Clear/Scale, drag zoom), tabs with collapsible sections, Mode panel (Monochromatic/Dichroic/Asymmetry), menus as in 2.6 (Tools ▸ Script, Scratch shown as later; Help ▸ License)
+- [x] Context-dependent sections: Algorithm Parameters only for Simplex with annealing (AC-11; Evolution follows with the evolution fit)
 - [x] Side-panel sections Experiment, Sample, Fit with the main legacy fields (partial: missing controls listed below; Map Calculations is a placeholder)
 - [x] Preferences dialog; optical and magneto-optical depth-profile views
 - [x] Fit from the UI: parameter table, Start/Stop/χ², live curve during the fit, only fitted values written back (edits made meanwhile are kept), Debug Window with fit messages
@@ -122,9 +123,6 @@ but has known gaps, listed under "still to do".
 ### UI phase: still to do
 
 Fixes found in the audit:
-- [ ] Menus as in legacy 2.6 (F-29): Script as a submenu of Tools, remove the extra "Show reflectivity" item, add Help → License (GPL-3.0 notice); fix the stale comment in `MenuBar.tsx`
-- [ ] Mode panel as in legacy 2.6: Monochromatic, Dichroic, Asymmetry only ("Sensitivity" is from an older version, not 2.6)
-- [ ] Context-dependent sections (AC-11): show "Algorithm Parameters" only for Simplex with annealing; Evolution and Debug Window sections as in legacy (Evolution disabled until it exists)
 - [ ] Move remaining domain logic out of components into `model/`: "Apply to all layers" (Magneto-Optics), value transfer in the fit parameter table, measured-series selection and diagram export (`App.tsx`)
 
 Missing legacy controls and windows:

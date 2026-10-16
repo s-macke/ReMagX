@@ -161,6 +161,7 @@ button[aria-pressed='true'] {
 .menu__item {
   display: flex;
   width: 100%;
+  white-space: nowrap;
   gap: 6px;
   text-align: left;
   border: none;
@@ -1043,4 +1044,26 @@ button.primary {
   background: var(--panel-alt);
   border: 1px solid var(--border);
   border-radius: 2px;
+}
+
+.menu__parent {
+  position: relative;
+}
+
+.menu__arrow {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--text-muted);
+}
+
+.menu__list--sub {
+  display: none;
+  top: -5px;
+  left: 100%;
+  margin: 0 0 0 1px;
+}
+
+.menu__parent:hover > .menu__list--sub,
+.menu__parent:focus-within > .menu__list--sub {
+  display: block;
 }
