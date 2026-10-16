@@ -38,13 +38,12 @@ RemagxReflectivity interpolate(const double* qz, const std::vector<RemagxReflect
 }
 }
 
-extern "C" int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t layer_count,
-                      const double* qz, size_t point_count, double energy_ev,
-                      const RemagxBeam* beam1, const RemagxBeam* beam2,
-                      int tensor, int analyzer, int magnetization_enabled,
-                      int scan_mode, double width, int fast, RemagxReflectivity* output) {
-    if (!layers || layer_count < 2 || !qz || !point_count || !beam1 || !output ||
-        !std::isfinite(width) || width < 0.0 || (fast != 0 && fast != 1)) return REMAGX_INVALID_ARGUMENT;
+namespace {
+template<class Evaluate>
+int angular_resolution(const double* qz, size_t point_count, double energy_ev,
+                       int scan_mode, double width, int fast, RemagxReflectivity* output, Evaluate evaluate) {
+    if (!qz || !point_count || !output || !std::isfinite(width) || width < 0.0 ||
+        (fast != 0 && fast != 1)) return REMAGX_INVALID_ARGUMENT;
     const size_t samples = !fast && width < 1e-10 ? 1 : 19;
     if (!fast && point_count > std::numeric_limits<size_t>::max() / samples) return REMAGX_ALLOCATION_ERROR;
     try {
@@ -58,8 +57,7 @@ extern "C" int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t la
             }
         }
         std::vector<RemagxReflectivity> raw(coordinates.size());
-        const int status = remagx_parratt_qz(layers, layer_count, coordinates.data(), coordinates.size(), energy_ev,
-                                            beam1, beam2, tensor, analyzer, magnetization_enabled, scan_mode, raw.data());
+        const int status = evaluate(coordinates.data(), coordinates.size(), raw.data());
         if (status != REMAGX_SUCCESS) return status;
         if (fast) {
             const double wave = 2.0 * 3.141592653589793238462643383279502884 / (12398.326 / energy_ev);
@@ -84,6 +82,33 @@ extern "C" int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t la
         return REMAGX_SUCCESS;
     } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
       catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
+}
+
+}
+
+extern "C" int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t layer_count,
+                      const double* qz, size_t point_count, double energy_ev,
+                      const RemagxBeam* beam1, const RemagxBeam* beam2,
+                      int tensor, int analyzer, int magnetization_enabled,
+                      int scan_mode, double width, int fast, RemagxReflectivity* output) {
+    if (!layers || layer_count < 2 || !beam1) return REMAGX_INVALID_ARGUMENT;
+    return angular_resolution(qz, point_count, energy_ev, scan_mode, width, fast, output,
+        [&](const double* coordinates, size_t count, RemagxReflectivity* results) {
+            return remagx_parratt_qz(layers, layer_count, coordinates, count, energy_ev,
+                beam1, beam2, tensor, analyzer, magnetization_enabled, scan_mode, results);
+        });
+}
+
+extern "C" int remagx_visnovsky_qz_resolution(const RemagxMatrixLayer* layers, size_t layer_count,
+                      const double* qz, size_t point_count, double energy_ev, double epsilon,
+                      const RemagxBeam* beam1, const RemagxBeam* beam2, int analyzer,
+                      int scan_mode, double width, int fast, RemagxReflectivity* output) {
+    if (!layers || layer_count < 2 || !beam1) return REMAGX_INVALID_ARGUMENT;
+    return angular_resolution(qz, point_count, energy_ev, scan_mode, width, fast, output,
+        [&](const double* coordinates, size_t count, RemagxReflectivity* results) {
+            return remagx_visnovsky_qz(layers, layer_count, coordinates, count, energy_ev,
+                epsilon, beam1, beam2, analyzer, scan_mode, results);
+        });
 }
 
 // CalcEScan / CalcDicEScan apply this interpolation kernel after the full scan,

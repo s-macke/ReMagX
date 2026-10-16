@@ -157,6 +157,20 @@ int remagx_visnovsky(const RemagxMatrixLayer* layers, size_t layer_count,
                      double angle, double wave_number, double epsilon,
                      const RemagxBeam* beam1, const RemagxBeam* beam2,
                      int analyzer, RemagxReflectivity* output);
+// Fixed-energy qz scan of already-prepared tensors. Both beams use the same
+// stack (legacy matrix dichroism does not reverse tensors for the second beam).
+// Monochromatic mode accepts a null beam2 and returns zero in its output column.
+// Coordinates retain input order; negative coordinates are skipped. Legacy qz
+// bounds differ by mode, as in the Parratt APIs. Outputs are atomic on error.
+int remagx_visnovsky_qz(const RemagxMatrixLayer* layers, size_t layer_count,
+                       const double* qz, size_t point_count, double energy_ev, double epsilon,
+                       const RemagxBeam* beam1, const RemagxBeam* beam2,
+                       int analyzer, int scan_mode, RemagxReflectivity* output);
+// Same exact/fast 19-sample angular convolution contract as Parratt resolution.
+int remagx_visnovsky_qz_resolution(const RemagxMatrixLayer* layers, size_t layer_count,
+                       const double* qz, size_t point_count, double energy_ev, double epsilon,
+                       const RemagxBeam* beam1, const RemagxBeam* beam2, int analyzer,
+                       int scan_mode, double width, int fast, RemagxReflectivity* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.

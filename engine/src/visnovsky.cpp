@@ -2,6 +2,10 @@
 #include <cmath>
 #include <complex>
 #include <limits>
+#include <algorithm>
+#include <new>
+#include <stdexcept>
+#include <vector>
 
 namespace {
 using Complex = std::complex<double>;
@@ -106,6 +110,17 @@ bool valid_beam(const RemagxBeam* beam) {
     return beam && std::isfinite(beam->sigma_real) && std::isfinite(beam->sigma_imaginary) &&
         std::isfinite(beam->pi_real) && std::isfinite(beam->pi_imaginary);
 }
+bool valid_stack(const RemagxMatrixLayer* layers, size_t layer_count) {
+    if (!layers || layer_count < 2 || layer_count > std::numeric_limits<size_t>::max()/sizeof(RemagxMatrixLayer)) return false;
+    for (size_t position = 0; position < layer_count; ++position) {
+        const auto& layer = layers[position];
+        if (!std::isfinite(layer.thickness) || !std::isfinite(layer.roughness) ||
+            !std::isfinite(layer.index_real) || !std::isfinite(layer.index_imaginary) ||
+            (layer.anisotropic != 0 && layer.anisotropic != 1)) return false;
+        for (double entry : layer.dielectric) if (!std::isfinite(entry)) return false;
+    }
+    return true;
+}
 double intensity(const Matrix& reflection, const RemagxBeam& beam, int analyzer) {
     const auto& entries = reflection.entries;
     Complex divisor = -entries[0][1]*entries[1][0] + entries[1][1]*entries[0][0];
@@ -125,17 +140,9 @@ extern "C" int remagx_visnovsky(const RemagxMatrixLayer* layers, size_t layer_co
                                 double angle, double wave_number, double epsilon,
                                 const RemagxBeam* beam1, const RemagxBeam* beam2,
                                 int analyzer, RemagxReflectivity* output) {
-    if (!layers || layer_count < 2 || layer_count > std::numeric_limits<size_t>::max()/sizeof(RemagxMatrixLayer) ||
-        !output || !std::isfinite(angle) || !std::isfinite(wave_number) || !std::isfinite(epsilon) ||
+    if (!valid_stack(layers, layer_count) || !output || !std::isfinite(angle) || !std::isfinite(wave_number) || !std::isfinite(epsilon) ||
         !valid_beam(beam1) || !valid_beam(beam2) || analyzer < REMAGX_BOTH || analyzer > REMAGX_PI)
         return REMAGX_INVALID_ARGUMENT;
-    for (size_t position = 0; position < layer_count; ++position) {
-        const auto& layer = layers[position];
-        if (!std::isfinite(layer.thickness) || !std::isfinite(layer.roughness) ||
-            !std::isfinite(layer.index_real) || !std::isfinite(layer.index_imaginary) ||
-            (layer.anisotropic != 0 && layer.anisotropic != 1)) return REMAGX_INVALID_ARGUMENT;
-        for (double entry : layer.dielectric) if (!std::isfinite(entry)) return REMAGX_INVALID_ARGUMENT;
-    }
     Matrix reflection, previous_boundary, propagation;
     Complex previous_roots[4];
     for (int diagonal = 0; diagonal < 4; ++diagonal) reflection.entries[diagonal][diagonal] = 1.0;
@@ -164,4 +171,35 @@ extern "C" int remagx_visnovsky(const RemagxMatrixLayer* layers, size_t layer_co
     if (!std::isfinite(result.beam1) || !std::isfinite(result.beam2)) return REMAGX_NUMERICAL_ERROR;
     *output = result;
     return REMAGX_SUCCESS;
+}
+
+extern "C" int remagx_visnovsky_qz(const RemagxMatrixLayer* layers, size_t layer_count,
+                                   const double* qz, size_t point_count, double energy_ev, double epsilon,
+                                   const RemagxBeam* beam1, const RemagxBeam* beam2,
+                                   int analyzer, int scan_mode, RemagxReflectivity* output) {
+    if (!valid_stack(layers, layer_count) || !qz || !point_count || !output ||
+        !std::isfinite(energy_ev) || energy_ev <= 0.0 || !std::isfinite(epsilon) || !valid_beam(beam1) ||
+        analyzer < REMAGX_BOTH || analyzer > REMAGX_PI ||
+        (scan_mode != REMAGX_MONOCHROMATIC && scan_mode != REMAGX_DICHROIC) ||
+        (scan_mode == REMAGX_DICHROIC && !valid_beam(beam2))) return REMAGX_INVALID_ARGUMENT;
+    for (size_t index = 0; index < point_count; ++index) if (!std::isfinite(qz[index])) return REMAGX_INVALID_ARGUMENT;
+    const double wave_number = 2.0 * 3.141592653589793238462643383279502884 / (12398.326 / energy_ev);
+    if (!std::isfinite(wave_number) || wave_number <= 0.0 || !std::isfinite(2.0 * wave_number))
+        return REMAGX_NUMERICAL_ERROR;
+    try {
+        std::vector<RemagxReflectivity> results(point_count, {0.0, 0.0});
+        for (size_t index = 0; index < point_count; ++index) {
+            const double ratio = qz[index] / (2.0 * wave_number);
+            if ((scan_mode == REMAGX_MONOCHROMATIC && std::abs(ratio) >= 1.0) ||
+                (scan_mode == REMAGX_DICHROIC && ratio > 1.0)) return REMAGX_QZ_ERROR;
+            if (ratio < 0.0) continue;
+            const int status = remagx_visnovsky(layers, layer_count, std::asin(ratio), wave_number, epsilon,
+                beam1, scan_mode == REMAGX_DICHROIC ? beam2 : beam1, analyzer, &results[index]);
+            if (status != REMAGX_SUCCESS) return status;
+            if (scan_mode == REMAGX_MONOCHROMATIC) results[index].beam2 = 0.0;
+        }
+        std::copy(results.begin(), results.end(), output);
+        return REMAGX_SUCCESS;
+    } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
+      catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
 }

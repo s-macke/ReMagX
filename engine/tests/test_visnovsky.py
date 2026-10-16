@@ -34,6 +34,23 @@ def evaluate(layers, angle=.2, wave=.3, epsilon=1e-8, analyzer=0, beam1=(1, 0, 0
     assert before == (bytes(source), bytes(first), bytes(second))
     return status, [output.beam1, output.beam2]
 
+library.remagx_visnovsky_qz.argtypes = [ctypes.POINTER(Layer), ctypes.c_size_t, ctypes.POINTER(ctypes.c_double),
+    ctypes.c_size_t, ctypes.c_double, ctypes.c_double, ctypes.POINTER(Beam), ctypes.POINTER(Beam),
+    ctypes.c_int, ctypes.c_int, ctypes.POINTER(Result)]
+library.remagx_visnovsky_qz_resolution.argtypes = library.remagx_visnovsky_qz.argtypes[:-1] + [ctypes.c_double, ctypes.c_int, ctypes.POINTER(Result)]
+
+def evaluate_qz(layers, qz, energy=640., epsilon=1e-8, analyzer=0, mode=1,
+                beam1=(1, 0, 0, 0), beam2=(0, 0, 1, 0), resolution=None):
+    source, points = (Layer * len(layers))(*layers), (ctypes.c_double * len(qz))(*qz)
+    first, second = Beam(*beam1), Beam(*beam2) if beam2 is not None else None
+    output = (Result * len(qz))(*(Result(-123, -456) for _ in qz))
+    before = bytes(source), bytes(points), bytes(first), bytes(second) if second else None
+    arguments = [source, len(layers), points, len(qz), energy, epsilon, ctypes.byref(first),
+                 ctypes.byref(second) if second else None, analyzer, mode]
+    status = library.remagx_visnovsky_qz(*arguments, output) if resolution is None else library.remagx_visnovsky_qz_resolution(*arguments, *resolution, output)
+    assert before == (bytes(source), bytes(points), bytes(first), bytes(second) if second else None)
+    return status, [value for row in output for value in (row.beam1, row.beam2)]
+
 def cases():
     generator = random.Random(26026)
     for number in range(120):
@@ -84,6 +101,74 @@ class VisnovskyTest(unittest.TestCase):
         stack[0].dielectric[4] = 0
         stack[1].thickness = 1e308
         self.assertEqual(evaluate(stack), (2, [-123, -456]))
+
+    def test_qz_coordinates_and_same_tensor_beams(self):
+        for number, prepared in enumerate(list(cases())[::12]):
+            layers, _, _, epsilon, _, first, second = prepared
+            energy = [100, 640, 8000][number % 3]
+            wave = 2 * math.pi / (12398.326 / energy)
+            qz = [ratio * 2 * wave for ratio in [-.02, 0, .05, .2, .4]]
+            for mode in [0, 1]:
+                status, actual = evaluate_qz(layers, qz, energy, epsilon, number % 3, mode, first, second)
+                self.assertEqual(status, 0)
+                expected = []
+                for coordinate in qz:
+                    if coordinate < 0: expected.extend([0, 0]); continue
+                    status, pair = evaluate(layers, math.asin(coordinate / (2 * wave)), wave,
+                                            epsilon, number % 3, first, second)
+                    self.assertEqual(status, 0)
+                    expected.extend([pair[0], pair[1] if mode else 0])
+                self.assertEqual(actual, expected)
+
+    def test_qz_boundaries_and_atomic_errors(self):
+        layers = [layer(.99+.001j), layer()]
+        boundary = 2 * (2 * math.pi / (12398.326 / 640))
+        for coordinate, mode, status in [(boundary, 0, 4), (-boundary, 0, 4),
+            (boundary, 1, 0), (-boundary, 1, 0), (math.nextafter(boundary, math.inf), 1, 4)]:
+            actual, output = evaluate_qz(layers, [.01, coordinate], mode=mode)
+            self.assertEqual(actual, status)
+            if status: self.assertEqual(output, [-123, -456] * 2)
+        self.assertEqual(evaluate_qz(layers, [.01, boundary], resolution=(0, 1)), (4, [-123, -456]*2))
+        self.assertEqual(evaluate_qz(layers, [-.01], mode=0, beam2=None), (0, [0, 0]))
+        for options in [dict(energy=0), dict(epsilon=math.nan), dict(mode=3), dict(beam2=None),
+                        dict(resolution=(-1, 0)), dict(resolution=(0, 2))]:
+            self.assertEqual(evaluate_qz(layers, [.01], **options), (1, [-123, -456]))
+        self.assertEqual(evaluate_qz(layers, [.01, math.nan]), (1, [-123, -456]*2))
+        # A negative coordinate skips physics, but does not bypass input validation.
+        layers[0].dielectric[0] = math.nan
+        self.assertEqual(evaluate_qz(layers, [-.01]), (1, [-123, -456]))
+
+    def test_qz_resolution_against_reviewed_kernel(self):
+        offsets = [-2, -1.77777777777778, -1.55555555555556, -1.33333333333333,
+            -1.11111111111111, -.888888888888889, -.666666666666667, -.444444444444444,
+            -.222222222222222, 0, .222222222222222, .444444444444444, .666666666666667,
+            .888888888888889, 1.11111111111111, 1.33333333333333, 1.55555555555556, 1.77777777777778, 2]
+        inputs, actuals = [], []
+        for number, prepared in enumerate(list(cases())[::12]):
+            layers, _, _, epsilon, _, first, second = prepared
+            energy = [100, 640, 8000][number % 3]
+            wave = 2 * math.pi / (12398.326 / energy)
+            qz = [ratio * 2 * wave for ratio in [-.02, 0, .05, .2, .4]]
+            if number % 4 == 0: qz.reverse()
+            options = dict(energy=energy, epsilon=epsilon, analyzer=number % 3,
+                           mode=(number//3)%2, beam1=first, beam2=second)
+            for width in [0, 1e-11, wave*.01]:
+                for fast in [0, 1]:
+                    coordinates = qz if fast else [value+offset*width for value in qz for offset in (offsets[:1] if width < 1e-10 else offsets)]
+                    status, raw = evaluate_qz(layers, coordinates, **options)
+                    self.assertEqual(status, 0)
+                    status, actual = evaluate_qz(layers, qz, resolution=(width, fast), **options)
+                    self.assertEqual(status, 0)
+                    inputs.append(dict(qz=qz, raw=raw, width=width, fast=bool(fast), dichroic=bool(options['mode'])))
+                    actuals.append(actual)
+        reference = json.loads(subprocess.run(['node', '--experimental-strip-types',
+            str(Path(__file__).with_name('compare_resolution.mjs'))], input=json.dumps(inputs),
+            text=True, capture_output=True, check=True).stdout)
+        for actual, expected in zip(actuals, reference):
+            for value, target in zip(actual, expected['values']):
+                self.assertLessEqual(abs(value-target), 1e-15+1e-10*abs(target))
+        self.assertEqual(len(actuals), 720)
+        print('Visnovsky angular resolution: 7,200 intensity comparisons matched reviewed kernel.', flush=True)
 
     @unittest.skipUnless(os.environ.get('LEGACY_ROOT'), 'private original stack comparison not requested')
     def test_original_stack(self):
