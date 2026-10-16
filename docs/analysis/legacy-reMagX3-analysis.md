@@ -214,3 +214,17 @@ an independent `Float64Array`. It validates shape, frees allocated buffers on su
 or failure and refreshes heap views after potential memory growth. It does not prepare
 projects, load optical tables or run outside the worker in the app: integration is still
 pending and the deployed UI continues to use the mock engine.
+
+To run the same 4,320 comparisons inside an actual Chromium module worker, install
+app dependencies and the Chromium headless shell (`cd app && npx playwright install
+--only-shell chromium`), then from the repository root:
+
+```sh
+WASM_BROWSER=1 WASM_MODULE=build/wasm/remagx-core.mjs python3 engine/tests/test_parratt.py build/engine/libremagx_core.so
+```
+
+The browser check serves only the built module, WASM binary, prepared-stack adapter
+and test worker on an ephemeral loopback port. It also enters a long synchronous call
+to the actual core, checks browser event-loop response below 200 ms, terminates the
+busy worker and requires a replacement worker's calculation within 1 s. The harness
+is not deployed and does not substitute for app-level real-engine integration tests.

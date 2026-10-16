@@ -1,0 +1,30 @@
+import createCore from './remagx-core.mjs'
+import { calculateParratt } from './parratt.mjs'
+
+const core = await createCore()
+self.onmessage = ({ data }) => {
+  try {
+    if (data.kind === 'busy') {
+      // Signal immediately before entering a long synchronous call to the actual WASM core.
+      const prepared = {
+        layers: Array.from({ length: 1000 }, (_, index) =>
+          [10, 1, index % 2 ? .001 : .002, .0001, 0, 0, 90, 90]),
+        points: Array.from({ length: 100000 }, () => [.1, 1, 0]),
+        beam: [1, 0, 0, 0],
+      }
+      const original = core._remagx_parratt
+      core._remagx_parratt = (...args) => {
+        self.postMessage({ kind: 'entered' })
+        return original(...args)
+      }
+      calculateParratt(core, prepared)
+      self.postMessage({ kind: 'finished' })
+    } else {
+      self.postMessage({ kind: 'results', values: data.cases.map(prepared =>
+        Array.from(calculateParratt(core, prepared))) })
+    }
+  } catch (error) {
+    self.postMessage({ kind: 'failure', message: String(error) })
+  }
+}
+self.postMessage({ kind: 'ready' })
