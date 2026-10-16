@@ -2,9 +2,10 @@ import { canRemoveSlab, updateElement, updateSlab } from '../model/elements'
 import { isAmbient, isSubstrate } from '../model/layers'
 import type { Layer } from '../model/project'
 import { useAppState, useDispatch } from '../state/context'
+import { FittableNumberCell } from './FittableNumberCell'
 import { NumberCell } from './NumberCell'
 
-type NumericField = 'thickness' | 'density' | 'delta' | 'beta' | 'roughness' | 'deltaMag' | 'betaMag'
+type NumericField = 'delta' | 'beta' | 'roughness' | 'deltaMag' | 'betaMag'
 
 interface Column {
   field: NumericField
@@ -95,7 +96,7 @@ function CompoundLayerTable() {
                   {outer ? (
                     <span className="layer-table__none">--</span>
                   ) : (
-                    <NumberCell label={`thickness of layer ${index}`} value={layer.thickness} min={0} onCommit={(thickness) => update(index, { thickness })} />
+                    <FittableNumberCell fitTarget={{ target: 'thickness', index, elementIndex: null }} label={`thickness of layer ${index}`} value={layer.thickness} min={0} onCommit={(thickness) => update(index, { thickness })} />
                   )}
                 </td>
                 <td>
@@ -119,7 +120,7 @@ function CompoundLayerTable() {
                 </td>
                 {opticalColumns.map((c) => (
                   <td key={c.field}>
-                    <NumberCell label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
+                    <FittableNumberCell fitTarget={{ target: c.field, index, elementIndex: null }} label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
                   </td>
                 ))}
                 {showMagnetization && (
@@ -189,7 +190,7 @@ function ElementLayerTable() {
         {fields.map(([field, label]) => (
           <label key={field} className="element-bar__field">
             {label}
-            <NumberCell label={`${label} of ${element.element}`} value={element[field]} onCommit={(v) => update((p) => updateElement(p, current, { [field]: v }))} />
+            <FittableNumberCell fitTarget={{ target: ({ f1: 'elementF1', f2: 'elementF2', f1Mag: 'elementF1Mag', f2Mag: 'elementF2Mag' } as const)[field], index: null, elementIndex: current }} label={`${label} of ${element.element}`} value={element[field]} onCommit={(v) => update((p) => updateElement(p, current, { [field]: v }))} />
           </label>
         ))}
       </div>
@@ -216,14 +217,14 @@ function ElementLayerTable() {
                   {outer ? (
                     <span className="layer-table__none">--</span>
                   ) : (
-                    <NumberCell label={`thickness of slab ${index}`} value={slab.thickness} min={0} onCommit={(thickness) => update((p) => updateSlab(p, current, index, { thickness }))} />
+                    <FittableNumberCell fitTarget={{ target: 'elementThickness', index, elementIndex: current }} label={`thickness of slab ${index}`} value={slab.thickness} min={0} onCommit={(thickness) => update((p) => updateSlab(p, current, index, { thickness }))} />
                   )}
                 </td>
                 <td>
-                  <NumberCell label={`density of slab ${index}`} value={slab.density} min={0} onCommit={(density) => update((p) => updateSlab(p, current, index, { density }))} />
+                  <FittableNumberCell fitTarget={{ target: 'elementDensity', index, elementIndex: current }} label={`density of slab ${index}`} value={slab.density} min={0} onCommit={(density) => update((p) => updateSlab(p, current, index, { density }))} />
                 </td>
                 <td>
-                  <NumberCell label={`roughness of slab ${index}`} value={slab.roughness} min={0} onCommit={(roughness) => update((p) => updateSlab(p, current, index, { roughness }))} />
+                  <FittableNumberCell fitTarget={{ target: 'elementRoughness', index, elementIndex: current }} label={`roughness of slab ${index}`} value={slab.roughness} min={0} onCommit={(roughness) => update((p) => updateSlab(p, current, index, { roughness }))} />
                 </td>
               </tr>
             )

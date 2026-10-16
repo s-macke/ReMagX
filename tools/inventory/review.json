@@ -626,12 +626,11 @@
     {
       "name": "layer-table-interactions",
       "status": "deferred",
-      "reason": "Editable layer/slab tables exist, but context menus, per-cell fit, spectra, material properties and selection-linked value slider are incomplete.",
+      "reason": "Editable layer/slab tables and per-cell Fit menu exist. Spectra, material properties, database actions and selection-linked value slider remain incomplete.",
       "references": [
         "AGENTS.md"
       ],
       "entries": [
-        "client/Unit1.cpp::item:77b0385c504e42a1:1",
         "client/Unit1.cpp::item:044c0db584147fff:1",
         "client/Unit1.cpp::item:d41f4c83dbad7376:1",
         "client/Unit1.cpp::item:700671cf80246c31:1",
@@ -642,7 +641,6 @@
         "client/Unit1.cpp::item:044c0db584147fff:3",
         "client/Unit1.cpp::item:58ef0caf1cc257a9:1",
         "client/Unit1.cpp::item:535dc714f7bbdb1c:1",
-        "client/Unit1.cpp::item:77b0385c504e42a1:2",
         "client/Unit1.cpp::item:044c0db584147fff:4",
         "client/Unit1.cpp::item:d41f4c83dbad7376:2",
         "client/Unit1.cpp::item:5d980d301945dcd0:1",
@@ -1168,6 +1166,21 @@
         "client/Chart1.cpp::item:5b05361d28a18c91:1",
         "client/Chart1.cpp::item:20380ac471e31ea8:1",
         "client/Chart1.cpp::item:e611fdb4873b818a:1"
+      ]
+    },
+    {
+      "name": "cell-fit-menu",
+      "status": "ported",
+      "reason": "Fit (On/Off) on supported compound and element cells, including element scattering factors. Mouse and keyboard menu, fit highlighting, parameter-list synchronization and undo are implemented; new entries use the existing Fit-tab parameter defaults.",
+      "references": [
+        "app/src/model/cellFit.ts",
+        "app/src/ui/FittableNumberCell.tsx",
+        "app/src/ui/LayerTable.tsx",
+        "app/e2e/cellFit.spec.ts"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:77b0385c504e42a1:1",
+        "client/Unit1.cpp::item:77b0385c504e42a1:2"
       ]
     }
   ],
