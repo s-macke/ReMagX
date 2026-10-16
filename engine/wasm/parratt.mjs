@@ -141,3 +141,38 @@ export function convolveEnergy(module, energies, values, width) {
     return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + values.length)
   })
 }
+
+// One prepared stack per energy; skipped points retain native legacy initialization.
+export function calculateParrattEnergyScan(module, { stacks, energy, qz, enabled, beam1, beam2,
+  tensor, analyzer, magnetic, mode, angularWidth, energyWidth }) {
+  const layerCount = stacks?.[0]?.length
+  if (!validVector(energy) || !energy.every(value => value > 0) || !validVector(qz, energy.length) ||
+      !validVector(enabled, energy.length) || !enabled.every(value => value === 0 || value === 1) ||
+      !Array.isArray(stacks) || stacks.length !== energy.length || !Number.isSafeInteger(layerCount) || layerCount < 2 ||
+      !Array.from(stacks).every(stack => validRows(stack, 8) && stack.length === layerCount) ||
+      !validVector(beam1, 4) || (mode === 1 && !validVector(beam2, 4)) ||
+      ![0, 1].includes(mode) || ![0, 1].includes(magnetic) || ![0, 1].includes(tensor) || ![0, 1, 2].includes(analyzer) ||
+      !Number.isFinite(angularWidth) || angularWidth < 0 || !Number.isFinite(energyWidth) || energyWidth < 0) {
+    throw new TypeError('Invalid prepared energy-scan input')
+  }
+  return withBuffers(module, allocate => {
+    const layerPointer = allocate(stacks.length * layerCount * 8)
+    const energyPointer = allocate(energy.length)
+    const qzPointer = allocate(qz.length)
+    const enabledPointer = allocate(enabled.length) // aligned storage for wasm32 int
+    const firstPointer = allocate(4)
+    const secondPointer = mode === 1 ? allocate(4) : 0
+    const outputPointer = allocate(energy.length * 2)
+    stacks.forEach((stack, index) => module.HEAPF64.set(stack.flat(), layerPointer / 8 + index * layerCount * 8))
+    module.HEAPF64.set(energy, energyPointer / 8)
+    module.HEAPF64.set(qz, qzPointer / 8)
+    const view = new DataView(module.HEAPF64.buffer)
+    enabled.forEach((value, index) => view.setInt32(enabledPointer + index * 4, value, true))
+    module.HEAPF64.set(beam1, firstPointer / 8)
+    if (secondPointer) module.HEAPF64.set(beam2, secondPointer / 8)
+    checkStatus(module._remagx_parratt_energy_scan(layerPointer, layerCount, energyPointer, qzPointer,
+      enabledPointer, energy.length, firstPointer, secondPointer, tensor, analyzer, magnetic, mode,
+      angularWidth, energyWidth, outputPointer), 'Energy scan')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + energy.length * 2)
+  })
+}

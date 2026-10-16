@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy } from '../wasm/parratt.mjs'
+import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -59,6 +59,23 @@ for (const [energies, values, width] of [[[], energyRaw, 1], [new Array(2), ener
   assert.throws(() => convolveEnergy(module, energies, values, width), TypeError)
 }
 assert.throws(() => convolveEnergy(module, [1, 2], energyRaw, 1e308), { status: 2 })
+let scanValues = 0
+for (const item of input.scans) {
+  const snapshot = JSON.stringify(item)
+  const actual = calculateParrattEnergyScan(module, item)
+  assert.equal(JSON.stringify(item), snapshot)
+  actual.forEach((value, index) => {
+    assert.ok(Math.abs(value - item.expected[index]) <= 1e-15 + 1e-10 * Math.abs(item.expected[index]))
+    scanValues++
+  })
+}
+assert.equal(scanValues, 1440)
+const scanPrepared = input.scans[1]
+const scanBefore = calculateParrattEnergyScan(module, scanPrepared)
+for (const change of [{ stacks: [] }, { stacks: new Array(3) }, { enabled: [1, 2, 1] }, { energy: [] }, { angularWidth: -1 }]) {
+  assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, ...change }), TypeError)
+}
+assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, qz: [0, 0, 1e10] }), { status: 4 })
 const duplicateTable = { energy: [1, 2, 2, 3], columns: [[10, 20, 30, 40]] }
 const firstLookup = lookupTable(module, duplicateTable, [2])
 assert.deepEqual(Array.from(firstLookup.values), [20])
@@ -84,6 +101,7 @@ const oldBuffer = module.HEAPF64.buffer
 const largeAllocation = module._malloc(oldBuffer.byteLength + 1024)
 assert.ok(largeAllocation)
 assert.notEqual(module.HEAPF64.buffer, oldBuffer)
+assert.deepEqual(calculateParrattEnergyScan(module, scanPrepared), scanBefore)
 assert.deepEqual(convolveEnergy(module, [1, 2], energyRaw, .1), energyBefore)
 module._free(largeAllocation)
 assert.deepEqual(calculateParratt(module, prepared), before)
@@ -153,3 +171,9 @@ assert.throws(() => convolveEnergy(failingAllocator, [1, 2], energyRaw, .1), /al
 assert.equal(outstanding.size, 0)
 assert.deepEqual(convolveEnergy(module, [1, 2], energyRaw, .1), energyBefore)
 console.log(`WASM/native energy convolution: ${energyValues} values, validation and cleanup passed.`)
+
+allocations = 0
+assert.throws(() => calculateParrattEnergyScan(failingAllocator, scanPrepared), /allocation failed/)
+assert.equal(outstanding.size, 0)
+assert.deepEqual(calculateParrattEnergyScan(module, scanPrepared), scanBefore)
+console.log(`WASM/native prepared energy scans: ${scanValues} intensities, validation and cleanup passed.`)

@@ -199,7 +199,29 @@ class NativeParrattTest(unittest.TestCase):
             self.assertEqual(convolve((ctypes.c_double * 7)(*energies), source, 7, width, output), 0)
             energy_cases.append(dict(energy=energies, raw=raw, width=width,
                 expected=[value for row in output for value in (row.beam1, row.beam2)]))
-        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases))
+        scan_cases = []
+        batch = library.remagx_parratt_energy_scan
+        batch.argtypes = [ctypes.POINTER(Layer), ctypes.c_size_t, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double),
+            ctypes.POINTER(ctypes.c_int), ctypes.c_size_t, ctypes.POINTER(Beam), ctypes.POINTER(Beam),
+            ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_double, ctypes.c_double, ctypes.POINTER(Reflectivity)]
+        for index, prepared in enumerate(qz_cases[:240]):
+            stacks = [prepared['layers']] * 3
+            energies = [prepared['energy'] + offset for offset in [0, 1, 2]]
+            coordinates = prepared['qz'][:3]
+            enabled = [1, index % 2, 1]
+            first, second = Beam(*prepared['beam1']), Beam(.3, .4, .6, .8)
+            output = (Reflectivity * 3)()
+            width = [0, .002][index % 2]
+            energy_width = [0, .5, 2][index % 3]
+            packed = (Layer * (len(stacks[0]) * 3))(*(Layer(*layer) for stack in stacks for layer in stack))
+            self.assertEqual(batch(packed, len(stacks[0]), (ctypes.c_double * 3)(*energies), (ctypes.c_double * 3)(*coordinates),
+                (ctypes.c_int * 3)(*enabled), 3, ctypes.byref(first), ctypes.byref(second), prepared['tensor'], prepared['analyzer'],
+                prepared['magnetic'], prepared['mode'], width, energy_width, output), 0)
+            scan_cases.append(dict(stacks=stacks, energy=energies, qz=coordinates, enabled=enabled,
+                beam1=prepared['beam1'], beam2=[.3, .4, .6, .8], tensor=prepared['tensor'], analyzer=prepared['analyzer'],
+                magnetic=prepared['magnetic'], mode=prepared['mode'], angularWidth=width, energyWidth=energy_width,
+                expected=[value for row in output for value in (row.beam1, row.beam2)]))
+        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
                        input=payload, text=True, check=True)

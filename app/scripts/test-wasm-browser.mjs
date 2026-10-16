@@ -31,7 +31,7 @@ try {
   browser = await chromium.launch()
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
-  const result = await page.evaluate(async ({ cases, tables, energy }) => {
+  const result = await page.evaluate(async ({ cases, tables, energy, scans }) => {
     const next = (worker, kind) => new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { cleanup(); reject(new Error(`Worker timeout: ${kind}`)) }, 10000)
       const cleanup = () => {
@@ -51,8 +51,8 @@ try {
     try {
       await next(worker, 'ready')
       const response = next(worker, 'results')
-      worker.postMessage({ cases, tables, energy })
-      const { values, tables: tableResults, energy: energyResults } = await response
+      worker.postMessage({ cases, tables, energy, scans })
+      const { values, tables: tableResults, energy: energyResults, scans: scanResults } = await response
       const entered = next(worker, 'entered')
       let finished = false
       worker.addEventListener('message', event => { if (event.data.kind === 'finished') finished = true })
@@ -69,11 +69,11 @@ try {
       const replacementResponse = next(worker, 'results')
       worker.postMessage({ cases: [cases[0]] })
       const replacement = (await replacementResponse).values[0]
-      return { energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
+      return { scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
     } finally {
       worker.terminate()
     }
-  }, { cases, tables: input.tables, energy: input.energy })
+  }, { cases, tables: input.tables, energy: input.energy, scans: input.scans })
   let count = 0, maxLogError = 0
   for (const [caseIndex, prepared] of cases.entries()) {
     assert.equal(result.values[caseIndex].length, prepared.expected.length)
@@ -90,6 +90,13 @@ try {
     })
   }
   assert.equal(count, 14880)
+  let scanCount = 0
+  input.scans.forEach((item, index) => result.scanResults[index].forEach((value, point) => {
+    assert.ok(Math.abs(value - item.expected[point]) <= 1e-15 + 1e-10 * Math.abs(item.expected[point]))
+    scanCount++
+  }))
+  assert.equal(scanCount, 1440)
+  console.log(`Chromium prepared energy scans: ${scanCount} intensities matched native.`)
   let energyCount = 0
   input.energy.forEach((item, index) => result.energyResults[index].forEach((value, point) => {
     assert.ok(Math.abs(value - item.expected[point]) <= 1e-15 + 1e-10 * Math.abs(item.expected[point]))

@@ -1,4 +1,4 @@
-import { calculateParrattEnergyScan, type EnergyConvolution } from '../model/parrattEnergyScan'
+import { calculateParrattEnergyScan, type EnergyScanCalculator } from '../model/parrattEnergyScan'
 import { refreshCompoundConstants, type RealTableLookup } from '../model/refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from '../model/units'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from '../model/parrattRequest'
@@ -7,7 +7,7 @@ import type { WorkerRequest, WorkerResponse } from './protocol'
 
 export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Array
 
-export interface RealEngine { calculate: RealQzCalculator; lookup: RealTableLookup; convolve: EnergyConvolution }
+export interface RealEngine { calculate: RealQzCalculator; lookup: RealTableLookup; energyScan: EnergyScanCalculator }
 
 // Uses the existing worker protocol. Unported operations never fall back to the mock.
 export function createRealRequestHandler(send: (response: WorkerResponse) => void, load: () => Promise<RealEngine>) {
@@ -21,7 +21,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
       if (message.kind === 'energyScan' || message.kind === 'energyAsymmetry') {
-        const scan = calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.calculate, engine.convolve, message.kind === 'energyAsymmetry' ? 'dichroic' : 'monochromatic')
+        const scan = calculateParrattEnergyScan(message.project, message.tables ?? [], engine.lookup, engine.energyScan, message.kind === 'energyAsymmetry' ? 'dichroic' : 'monochromatic')
         send({ id: message.id, type: 'result', result: message.kind === 'energyScan'
           ? { energy: scan.energy, reflectivity: scan.reflectivity }
           : { energy: scan.energy, reflectivityPlus: scan.reflectivityPlus, reflectivityMinus: scan.reflectivityMinus, asymmetry: scan.asymmetry } })
