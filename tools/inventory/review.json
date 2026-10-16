@@ -662,16 +662,18 @@
     },
     {
       "name": "segmentation-actions",
-      "status": "deferred",
-      "reason": "To layer list needs worker segmentation output and guarded application to the project. Illustration is implemented separately as a mock UI preview; adaptive engine output remains pending.",
+      "status": "ported",
+      "reason": "Compound-mode To layer list requests a worker mock conversion, previews layer/reference changes, and applies atomically with undo. Stale project/library/session results cannot apply. Stop/Cancel terminate pending work. Real adaptive and element-mode conversion remain explicit engine obligations; the UI labels fixed mock intervals.",
       "references": [
-        "AGENTS.md"
+        "app/src/ui/LayerConversionDialog.tsx",
+        "app/src/model/layerConversion.ts",
+        "app/src/compute/mockLayerConversion.ts",
+        "app/e2e/segmentation.spec.ts"
       ],
       "entries": [
         "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Button13",
         "client/Unit1.cpp::event:0dd769a356830cf2:1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "element-tools",

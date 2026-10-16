@@ -556,3 +556,20 @@ describe('mock element optical spectrum', () => {
     service.dispose()
   })
 })
+
+it('returns a bounded mock layer conversion without modifying source data', async () => {
+  const service = new WorkerComputeService(inProcessWorker)
+  const project = createDefaultProject()
+  const before = structuredClone(project)
+  const layers = await service.segmentLayers(project)
+  expect(layers.length).toBeGreaterThan(project.sample.layers.length)
+  expect(layers.length).toBeLessThan(1000)
+  expect(layers.every(layer => layer.roughness === 0 && layer.opticalTable === 'unknown')).toBe(true)
+  expect(layers.slice(1, -1).every(layer => layer.thickness > 0 && Number.isFinite(layer.delta))).toBe(true)
+  expect(layers[0].delta).toBe(project.sample.layers[0].delta)
+  expect(layers.at(-1)!.beta).toBe(project.sample.layers.at(-1)!.beta)
+  expect(project).toEqual(before)
+  project.sample.mode = 'element'
+  await expect(service.segmentLayers(project)).rejects.toThrow('Switch to compound mode')
+  service.dispose()
+})

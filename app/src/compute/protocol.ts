@@ -3,10 +3,11 @@
 import type { OpticalTable } from '../import/tables'
 import type { DatabaseValues } from '../model/databaseValues'
 import type { TensorPreview } from '../model/tensorView'
-import type { Project } from '../model/project'
+import type { Layer, Project } from '../model/project'
 import type { TensorQuery, AsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
+  segmentLayers: Layer[]
   dielectricTensor: TensorPreview
   databaseValues: DatabaseValues
   densityProfiles: DensityProfiles

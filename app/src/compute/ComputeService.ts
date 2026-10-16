@@ -5,7 +5,7 @@
 import type { OpticalTable } from '../import/tables'
 import type { DatabaseValues } from '../model/databaseValues'
 import type { TensorPreview } from '../model/tensorView'
-import type { Project } from '../model/project'
+import type { Layer, Project } from '../model/project'
 
 export interface TensorQuery { layerIndex: number; tables: OpticalTable[]; spectrum: boolean }
 export interface ElementSpectrumQuery { elementIndex: number; tables: OpticalTable[] }
@@ -74,6 +74,7 @@ export interface ComputeService {
   calcReflectivity(project: Project): Promise<ReflectivityCurve>
   calcEnergyScan(project: Project): Promise<EnergyScanCurve>
   calcAsymmetry(project: Project): Promise<AsymmetryCurve>
+  segmentLayers(project: Project): Promise<Layer[]>
   depthProfile(project: Project): Promise<DepthProfile>
   // Error between simulation and the active dataset (the value a fit minimizes).
   calcChi2(project: Project): Promise<number>

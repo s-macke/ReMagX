@@ -1,6 +1,7 @@
 // Worker-side request handling for the mock engine. Kept free of worker globals so it can be
 // tested directly; worker.ts only wires it to postMessage.
 
+import { mockLayerConversion } from './mockLayerConversion'
 import { mockTensor } from './mockTensor'
 import { mockDatabaseValues } from './mockDatabaseValues'
 import { mockDensityProfiles } from './mockDensityProfiles'
@@ -89,6 +90,9 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
           break
         case 'densityProfiles':
           result = mockDensityProfiles(project)
+          break
+        case 'segmentLayers':
+          result = mockLayerConversion(project)
           break
         case 'depthProfile':
           result = depthProfile(project)

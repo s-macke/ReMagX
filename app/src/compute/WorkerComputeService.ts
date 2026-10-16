@@ -3,7 +3,7 @@
 import type { OpticalTable } from '../import/tables'
 import type { DatabaseValues } from '../model/databaseValues'
 import type { TensorPreview } from '../model/tensorView'
-import type { Project } from '../model/project'
+import type { Layer, Project } from '../model/project'
 import {
   ComputeError,
   ComputeCancelled,
@@ -102,6 +102,10 @@ export class WorkerComputeService implements ComputeService {
 
   densityProfiles(project: Project): Promise<DensityProfiles> {
     return this.request('densityProfiles', project)
+  }
+
+  segmentLayers(project: Project): Promise<Layer[]> {
+    return this.request('segmentLayers', project)
   }
 
   depthProfile(project: Project): Promise<DepthProfile> {
