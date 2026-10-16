@@ -221,7 +221,19 @@ class NativeParrattTest(unittest.TestCase):
                 beam1=prepared['beam1'], beam2=[.3, .4, .6, .8], tensor=prepared['tensor'], analyzer=prepared['analyzer'],
                 magnetic=prepared['magnetic'], mode=prepared['mode'], angularWidth=width, energyWidth=energy_width,
                 expected=[value for row in output for value in (row.beam1, row.beam2)]))
-        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases))
+        tensor_cases = []
+        tensor_function = library.remagx_dielectric_tensor
+        tensor_function.argtypes = [ctypes.POINTER(Layer), ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_int)]
+        for case in cases:
+            layer = Layer(*case['layers'][0])
+            for tensor in [0, 1]:
+                for magnetic in [0, 1]:
+                    output = (ctypes.c_double * 18)()
+                    kind = ctypes.c_int()
+                    self.assertEqual(tensor_function(ctypes.byref(layer), tensor, magnetic, output, ctypes.byref(kind)), 0)
+                    tensor_cases.append(dict(layer=case['layers'][0], tensor=tensor, magnetic=magnetic,
+                        expected=list(output), anisotropic=bool(kind.value)))
+        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
                        input=payload, text=True, check=True)

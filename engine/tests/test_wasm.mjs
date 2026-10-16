@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan } from '../wasm/parratt.mjs'
+import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -76,6 +76,25 @@ for (const change of [{ stacks: [] }, { stacks: new Array(3) }, { enabled: [1, 2
   assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, ...change }), TypeError)
 }
 assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, qz: [0, 0, 1e10] }), { status: 4 })
+let tensorValues = 0
+for (const item of input.tensors) {
+  const snapshot = JSON.stringify(item)
+  const actual = calculateDielectricTensor(module, item)
+  assert.equal(JSON.stringify(item), snapshot)
+  assert.equal(actual.anisotropic, item.anisotropic)
+  assert.equal(actual.values.length, 18)
+  actual.values.forEach((value, index) => {
+    assert.ok(Math.abs(value - item.expected[index]) <= 1e-15 + 1e-10 * Math.abs(item.expected[index]))
+    tensorValues++
+  })
+}
+assert.equal(tensorValues, 8640)
+const tensorPrepared = input.tensors[1]
+const tensorBefore = calculateDielectricTensor(module, tensorPrepared)
+for (const change of [{ layer: new Array(8) }, { layer: [] }, { tensor: 2 }, { magnetic: -1 }]) {
+  assert.throws(() => calculateDielectricTensor(module, { ...tensorPrepared, ...change }), TypeError)
+}
+assert.throws(() => calculateDielectricTensor(module, { ...tensorPrepared, layer: [0, 0, 1e308, 0, 0, 0, 0, 0] }), { status: 2 })
 const duplicateTable = { energy: [1, 2, 2, 3], columns: [[10, 20, 30, 40]] }
 const firstLookup = lookupTable(module, duplicateTable, [2])
 assert.deepEqual(Array.from(firstLookup.values), [20])
@@ -101,6 +120,7 @@ const oldBuffer = module.HEAPF64.buffer
 const largeAllocation = module._malloc(oldBuffer.byteLength + 1024)
 assert.ok(largeAllocation)
 assert.notEqual(module.HEAPF64.buffer, oldBuffer)
+assert.deepEqual(calculateDielectricTensor(module, tensorPrepared), tensorBefore)
 assert.deepEqual(calculateParrattEnergyScan(module, scanPrepared), scanBefore)
 assert.deepEqual(convolveEnergy(module, [1, 2], energyRaw, .1), energyBefore)
 module._free(largeAllocation)
@@ -177,3 +197,9 @@ assert.throws(() => calculateParrattEnergyScan(failingAllocator, scanPrepared), 
 assert.equal(outstanding.size, 0)
 assert.deepEqual(calculateParrattEnergyScan(module, scanPrepared), scanBefore)
 console.log(`WASM/native prepared energy scans: ${scanValues} intensities, validation and cleanup passed.`)
+
+allocations = 0
+assert.throws(() => calculateDielectricTensor(failingAllocator, tensorPrepared), /allocation failed/)
+assert.equal(outstanding.size, 0)
+assert.deepEqual(calculateDielectricTensor(module, tensorPrepared), tensorBefore)
+console.log(`WASM/native dielectric tensors: ${tensorValues} components and ${input.tensors.length} classifications, validation and cleanup passed.`)

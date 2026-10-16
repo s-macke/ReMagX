@@ -176,3 +176,20 @@ export function calculateParrattEnergyScan(module, { stacks, energy, qz, enabled
     return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + energy.length * 2)
   })
 }
+
+// Scalar optical constants to a row-major complex 3x3 dielectric tensor.
+export function calculateDielectricTensor(module, { layer, tensor = 0, magnetic = 1 }) {
+  if (!validVector(layer, 8) || ![0, 1].includes(tensor) || ![0, 1].includes(magnetic)) {
+    throw new TypeError('Invalid dielectric-tensor input')
+  }
+  return withBuffers(module, allocate => {
+    const layerPointer = allocate(8)
+    const outputPointer = allocate(18)
+    const kindPointer = allocate(1)
+    module.HEAPF64.set(layer, layerPointer / 8)
+    checkStatus(module._remagx_dielectric_tensor(layerPointer, tensor, magnetic, outputPointer, kindPointer), 'Dielectric tensor')
+    const kind = new DataView(module.HEAPF64.buffer).getInt32(kindPointer, true)
+    if (kind !== 0 && kind !== 1) throw new Error('Invalid dielectric-tensor classification')
+    return { values: module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + 18), anisotropic: kind === 1 }
+  })
+}
