@@ -464,3 +464,34 @@ components for 120 generated magnetic tensors at four angles. Of these 480 cases
 about 1.0568e-6. This extends the residual observation to generated optical inputs,
 but it is not a full-solver accuracy result: tensor classification, analytic
 shortcuts, mode vectors, propagation and corpus reflectivity remain unverified.
+
+
+## Segmentation error-function compatibility study (2026-10-16)
+
+The original `LayerSegmentation.cpp` initializes a 1,001-value error-function table
+using NR-labelled gamma routines with float intermediates. The active lookup linearly
+interpolates the table; substituting a more accurate function changes its results.
+The maintained diagnostic contains only a source hash, temporary-build wrapper and
+comparison logic. It never commits or prints the private source or generated table.
+
+Reproduce after building the native core:
+
+```sh
+python3 tools/golden/legacy/compare_segmentation_erf.py
+LEGACY_ROOT=old/reMagX3 NATIVE_CORE=build/engine/libremagx_core.so python3 -m unittest discover -s tools/golden/legacy -p 'test_*.py'
+```
+
+| Candidate | Maximum absolute lookup difference | Lookup points exceeding D-23 | Synthetic reflectivity points exceeding D-23 | Maximum relative reflectivity difference |
+|---|---:|---:|---:|---:|
+| Same grid/interpolation, table generated with std::erf | 1.64865e-7 | 8,830 / 20,001 | 23 / 200 | 2.59254e-10 |
+| Direct std::erf evaluation | 1.21332e-5 | 14,554 / 20,001 | 200 / 200 | 1.52353e-5 |
+
+The reflectivity diagnostic uses the validated native scalar Parratt core with a
+synthetic delta=.01/beta=.002 interface, sigma=3 Angstrom, 640 eV, 501 fixed slices,
+and qz=.002 through .201 inverse Angstrom. Fixed slicing isolates the function
+change; it does **not** exercise the legacy adaptive step selection, magnetic
+binding or private corpus. The two candidate curves use identical slices and
+calculation settings. Only the error-function values differ.
+
+The current tolerance is unchanged. Neither replacement has been integrated into
+the engine. The decision journal records the pending user decision under D-29.
