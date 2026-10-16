@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots } from '../wasm/parratt.mjs'
+import { calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -77,6 +77,7 @@ for (const change of [{ stacks: [] }, { stacks: new Array(3) }, { enabled: [1, 2
 }
 assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, qz: [0, 0, 1e10] }), { status: 4 })
 function evaluateProfile(core, request) {
+  if (request.kind === 'application') return applyGaussianProfiles(core, request)
   if (request.kind === 'gaussian') return calculateGaussianProfile(core, request)
   const result = generateGaussianSplineKnots(core, request)
   return new Float64Array([...result.positions, ...result.values])
@@ -94,7 +95,7 @@ for (const [caseIndex, request] of input.profiles.entries()) {
     profileCount++
   })
 }
-assert.equal(profileCount, 9240)
+assert.equal(profileCount, 13080)
 const profileRequests = input.profiles.slice(2, 4)
 const profileBefore = profileRequests.map(request => evaluateProfile(module, request))
 for (const request of profileRequests) {
@@ -107,6 +108,18 @@ assert.throws(() => generateGaussianSplineKnots(module, { profile: [0, 1e308, 1,
 for (const intervals of [-1, 1.5, Infinity, 2147483647])
   assert.throws(() => generateGaussianSplineKnots(module, { profile: [0, 1, 1, 1], intervals }), TypeError)
 assert.throws(() => generateGaussianSplineKnots(module, { profile: [0, 1, 1, 1], intervals: 2147483642 }), RangeError)
+const applicationRequest = input.profiles.find(item => item.kind === 'application')
+for (const change of [{ profiles: new Array(4) }, { positions: new Array(8) }, { initialValues: [] },
+  { weights: new Array(8) }, { weights: [new Array(4)] }, { coupled: 2 }])
+  assert.throws(() => applyGaussianProfiles(module, { ...applicationRequest, ...change }), TypeError)
+const emptyProfiles = { profiles: [], positions: [0, 1], initialValues: [1, 2, 3, 4], weights: [[], []], coupled: 1 }
+assert.deepEqual(Array.from(applyGaussianProfiles(module, emptyProfiles)), emptyProfiles.initialValues)
+const overflowProfile = { profiles: [[0, 1e308, 1, 1]], positions: [0, 1e308], initialValues: [1, 1, 1, 1], weights: [[1], [1]], coupled: 0 }
+assert.throws(() => applyGaussianProfiles(module, overflowProfile), { status: 2 })
+assert.deepEqual(Array.from(applyGaussianProfiles(module, { ...overflowProfile, weights: [[1], [0]] })), [2, 2, 1, 1])
+assert.deepEqual(Array.from(applyGaussianProfiles(module, { ...overflowProfile, profiles: [[0, 1e308, 0, 0]] })), [1, 1, 1, 1])
+profileRequests.push(applicationRequest)
+profileBefore.push(evaluateProfile(module, applicationRequest))
 let zakCount = 0
 for (const [caseIndex, prepared] of input.zak.entries()) {
   const snapshot = JSON.stringify(prepared)
@@ -357,4 +370,4 @@ for (const [index, request] of profileRequests.entries()) {
   assert.equal(outstanding.size, 0)
   assert.deepEqual(evaluateProfile(module, request), profileBefore[index])
 }
-console.log(`WASM/native Gaussian profiles/knots: ${profileCount} values, validation, memory growth and cleanup passed.`)
+console.log(`WASM/native Gaussian profiles/knots/application: ${profileCount} values, validation, memory growth and cleanup passed.`)

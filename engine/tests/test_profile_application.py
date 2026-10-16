@@ -1,5 +1,7 @@
 import ctypes
 import hashlib
+import json
+import sys
 import math
 import os
 from pathlib import Path
@@ -25,6 +27,19 @@ def evaluate(profiles, positions, initial, weights, coupled):
         len(positions), coupled, output)
     assert before == [bytes(value) for value in inputs]
     return status, list(output)
+
+def application_cases():
+    generator = random.Random(26034)
+    cases = []
+    for number in range(120):
+        profiles = [Profile(generator.uniform(-2, 10), generator.uniform(.2, 4),
+            generator.uniform(-2, 2), generator.uniform(-2, 2)) for _ in range(4)]
+        if number % 5 == 0: profiles[0].width = 0
+        if number % 7 == 0: profiles[1].delta_amplitude = profiles[1].beta_amplitude = 0
+        initial = [generator.uniform(-.01, .01) for _ in range(16)]
+        weights = [0 if index % 5 == 0 else generator.uniform(-.2, 1.2) for index in range(32)]
+        for coupled in [0, 1]: cases.append((profiles, [index+.5 for index in range(8)], initial, weights, coupled))
+    return cases
 
 class ProfileApplicationTest(unittest.TestCase):
     def test_order_weights_and_atomic_errors(self):
@@ -73,16 +88,7 @@ binding.resize(count*profile_count);for(auto& value:binding)cin>>value;
 CalcMagProfile(layers,profiles,false,2,CSlicing(),!coupled);
 for(int i=1;i<=count;++i)cout<<layers[i].oc.deltam<<' '<<layers[i].oc.betam<<' ';cout<<'\n';}}
 '''
-        generator = random.Random(26034)
-        cases = []
-        for number in range(120):
-            profiles = [Profile(generator.uniform(-2, 10), generator.uniform(.2, 4),
-                generator.uniform(-2, 2), generator.uniform(-2, 2)) for _ in range(4)]
-            if number % 5 == 0: profiles[0].width = 0
-            if number % 7 == 0: profiles[1].delta_amplitude = profiles[1].beta_amplitude = 0
-            initial = [generator.uniform(-.01, .01) for _ in range(16)]
-            weights = [0 if index % 5 == 0 else generator.uniform(-.2, 1.2) for index in range(32)]
-            for coupled in [0, 1]: cases.append((profiles, [index+.5 for index in range(8)], initial, weights, coupled))
+        cases = application_cases()
         payload = []
         for profiles, positions, initial, weights, coupled in cases:
             values = [len(profiles), len(positions), coupled]
@@ -104,4 +110,15 @@ for(int i=1;i<=count;++i)cout<<layers[i].oc.deltam<<' '<<layers[i].oc.betam<<' '
         print('Original prepared Gaussian application: 3,840 magnetic values matched.')
 
 if __name__ == '__main__':
-    unittest.main()
+    if '--wasm-payload' in sys.argv:
+        payload = []
+        for profiles, positions, initial, weights, coupled in application_cases():
+            status, expected = evaluate(profiles, positions, initial, weights, coupled)
+            assert status == 0
+            count = len(profiles)
+            payload.append(dict(kind='application', profiles=[[getattr(profile, field) for field, _ in Profile._fields_] for profile in profiles],
+                positions=positions, initialValues=initial, weights=[weights[index*count:(index+1)*count] for index in range(len(positions))],
+                coupled=coupled, expected=expected))
+        print(json.dumps(payload))
+    else:
+        unittest.main()

@@ -120,12 +120,12 @@ try {
     result.profileResults[index].forEach((value, beam) => {
       const target = item.expected[beam]
       assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
-        `Gaussian profiles/knots case ${index}, value ${beam}: ${value} vs ${target}`)
+        `Gaussian profiles/knots/application case ${index}, value ${beam}: ${value} vs ${target}`)
       profileCount++
     })
   })
-  assert.equal(profileCount, 9240)
-  console.log(`Chromium Gaussian profiles/knots: ${profileCount} values matched native.`)
+  assert.equal(profileCount, 13080)
+  console.log(`Chromium Gaussian profiles/knots/application: ${profileCount} values matched native.`)
   let tensorCount = 0
   input.tensors.forEach((item, index) => {
     assert.equal(result.tensorResults[index].anisotropic, item.anisotropic)

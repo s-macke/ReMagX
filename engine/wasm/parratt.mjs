@@ -412,3 +412,27 @@ export function generateGaussianSplineKnots(module, { profile, intervals = 4 }) 
     }
   })
 }
+
+// Prepared midpoint samples and binding weights; this does not segment layers.
+export function applyGaussianProfiles(module, { profiles, positions, initialValues, weights, coupled }) {
+  if (!Array.isArray(profiles) || (profiles.length > 0 && !validRows(profiles, 4)) ||
+      !validVector(positions) || !validVector(initialValues, positions.length * 2) ||
+      !Array.isArray(weights) || weights.length !== positions.length ||
+      !Array.from(weights).every(row => validVector(row, profiles.length, true)) || ![0, 1].includes(coupled)) {
+    throw new TypeError('Invalid prepared Gaussian application input')
+  }
+  return withBuffers(module, allocate => {
+    const profilePointer = profiles.length ? allocate(profiles.length * 4) : 0
+    const positionsPointer = allocate(positions.length)
+    const initialPointer = allocate(initialValues.length)
+    const weightsPointer = profiles.length ? allocate(positions.length * profiles.length) : 0
+    const outputPointer = allocate(initialValues.length)
+    if (profilePointer) module.HEAPF64.set(profiles.flat(), profilePointer / 8)
+    module.HEAPF64.set(positions, positionsPointer / 8)
+    module.HEAPF64.set(initialValues, initialPointer / 8)
+    if (weightsPointer) module.HEAPF64.set(weights.flat(), weightsPointer / 8)
+    checkStatus(module._remagx_apply_gaussian_profiles(profilePointer, profiles.length, positionsPointer,
+      initialPointer, weightsPointer, positions.length, coupled, outputPointer), 'Gaussian profile application')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + initialValues.length)
+  })
+}
