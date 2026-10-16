@@ -156,6 +156,19 @@ int remagx_zak_modes(const double* refractive_index, const double* magnetic_cons
 int remagx_zak(const RemagxLayer* layers, size_t layer_count, double angle,
                 double wave_number, int magnetic_enabled, const RemagxBeam* beam1,
                 const RemagxBeam* beam2, int analyzer, RemagxReflectivity* output);
+// Fixed-energy Zak qz scan. Preserves coordinate order, legacy mode-dependent
+// qz bounds and negative-coordinate skips. Both beams use the same magnetic
+// stack; monochromatic mode accepts null beam2 and outputs zero in its column.
+// No preparation or postprocessing. Output is unchanged on any failure.
+int remagx_zak_qz(const RemagxLayer* layers, size_t layer_count,
+                  const double* qz, size_t point_count, double energy_ev, int magnetic_enabled,
+                  const RemagxBeam* beam1, const RemagxBeam* beam2,
+                  int analyzer, int scan_mode, RemagxReflectivity* output);
+// Exact/fast 19-sample angular convolution with the shared legacy kernel.
+int remagx_zak_qz_resolution(const RemagxLayer* layers, size_t layer_count,
+                  const double* qz, size_t point_count, double energy_ev, int magnetic_enabled,
+                  const RemagxBeam* beam1, const RemagxBeam* beam2, int analyzer,
+                  int scan_mode, double width, int fast, RemagxReflectivity* output);
 // Prepared substrate-first matrix stack, including ambient as the last layer.
 // Tensor entries are packed row-major complex real/imag; anisotropic is 0/1.
 // Scalars supply the isotropic index directly. Tensors are already constructed

@@ -111,6 +111,18 @@ extern "C" int remagx_visnovsky_qz_resolution(const RemagxMatrixLayer* layers, s
         });
 }
 
+extern "C" int remagx_zak_qz_resolution(const RemagxLayer* layers, size_t layer_count,
+                      const double* qz, size_t point_count, double energy_ev, int magnetic_enabled,
+                      const RemagxBeam* beam1, const RemagxBeam* beam2, int analyzer,
+                      int scan_mode, double width, int fast, RemagxReflectivity* output) {
+    if (!layers || layer_count < 2 || !beam1) return REMAGX_INVALID_ARGUMENT;
+    return angular_resolution(qz, point_count, energy_ev, scan_mode, width, fast, output,
+        [&](const double* coordinates, size_t count, RemagxReflectivity* results) {
+            return remagx_zak_qz(layers, layer_count, coordinates, count, energy_ev,
+                magnetic_enabled, beam1, beam2, analyzer, scan_mode, results);
+        });
+}
+
 // CalcEScan / CalcDicEScan apply this interpolation kernel after the full scan,
 // before asymmetry and other postprocessing. It is independent of fast settings.
 extern "C" int remagx_energy_resolution(const double* energies,

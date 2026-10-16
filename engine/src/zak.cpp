@@ -1,9 +1,23 @@
 #include "remagx/core.h"
 #include "matrix_algebra.hpp"
 #include <limits>
+#include <algorithm>
+#include <new>
+#include <stdexcept>
+#include <vector>
 
 namespace {
 using namespace remagx::matrix;
+bool valid_stack(const RemagxLayer* layers, size_t layer_count) {
+    if (!layers || layer_count < 2 || layer_count > std::numeric_limits<size_t>::max() / sizeof(RemagxLayer)) return false;
+    for (size_t position = 0; position < layer_count; ++position) {
+        const auto& layer = layers[position];
+        for (double value : {layer.thickness, layer.roughness, layer.delta, layer.beta,
+                             layer.delta_magnetic, layer.beta_magnetic, layer.gamma_degrees, layer.phi_degrees})
+            if (!std::isfinite(value)) return false;
+    }
+    return true;
+}
 int modes(const RemagxLayer& layer, double angle, double wave_number, int magnetic_enabled,
           double thickness, Matrix& boundary, Matrix& propagation, Complex& root) {
     const Complex imaginary(0.0, 1.0);
@@ -45,16 +59,9 @@ extern "C" int remagx_zak(const RemagxLayer* layers, size_t layer_count, double 
                            double wave_number, int magnetic_enabled, const RemagxBeam* beam1,
                            const RemagxBeam* beam2, int analyzer, RemagxReflectivity* output) {
     using namespace remagx::matrix;
-    if (!layers || layer_count < 2 || layer_count > std::numeric_limits<size_t>::max() / sizeof(RemagxLayer) ||
-        !output || !std::isfinite(angle) || !std::isfinite(wave_number) ||
+    if (!valid_stack(layers, layer_count) || !output || !std::isfinite(angle) || !std::isfinite(wave_number) ||
         (magnetic_enabled != 0 && magnetic_enabled != 1) || !valid_beam(beam1) || !valid_beam(beam2) ||
         analyzer < REMAGX_BOTH || analyzer > REMAGX_PI) return REMAGX_INVALID_ARGUMENT;
-    for (size_t position = 0; position < layer_count; ++position) {
-        const auto& layer = layers[position];
-        for (double value : {layer.thickness, layer.roughness, layer.delta, layer.beta,
-                             layer.delta_magnetic, layer.beta_magnetic, layer.gamma_degrees, layer.phi_degrees})
-            if (!std::isfinite(value)) return REMAGX_INVALID_ARGUMENT;
-    }
     Matrix reflection, previous_boundary, propagation;
     Complex previous_root;
     for (int diagonal = 0; diagonal < 4; ++diagonal) reflection.entries[diagonal][diagonal] = 1.0;
@@ -83,4 +90,35 @@ extern "C" int remagx_zak(const RemagxLayer* layers, size_t layer_count, double 
     if (!std::isfinite(result.beam1) || !std::isfinite(result.beam2)) return REMAGX_NUMERICAL_ERROR;
     *output = result;
     return REMAGX_SUCCESS;
+}
+
+extern "C" int remagx_zak_qz(const RemagxLayer* layers, size_t layer_count,
+                                   const double* qz, size_t point_count, double energy_ev, int magnetic_enabled,
+                                   const RemagxBeam* beam1, const RemagxBeam* beam2,
+                                   int analyzer, int scan_mode, RemagxReflectivity* output) {
+    if (!valid_stack(layers, layer_count) || !qz || !point_count || !output ||
+        !std::isfinite(energy_ev) || energy_ev <= 0.0 || (magnetic_enabled != 0 && magnetic_enabled != 1) || !valid_beam(beam1) ||
+        analyzer < REMAGX_BOTH || analyzer > REMAGX_PI ||
+        (scan_mode != REMAGX_MONOCHROMATIC && scan_mode != REMAGX_DICHROIC) ||
+        (scan_mode == REMAGX_DICHROIC && !valid_beam(beam2))) return REMAGX_INVALID_ARGUMENT;
+    for (size_t index = 0; index < point_count; ++index) if (!std::isfinite(qz[index])) return REMAGX_INVALID_ARGUMENT;
+    const double wave_number = 2.0 * 3.141592653589793238462643383279502884 / (12398.326 / energy_ev);
+    if (!std::isfinite(wave_number) || wave_number <= 0.0 || !std::isfinite(2.0 * wave_number))
+        return REMAGX_NUMERICAL_ERROR;
+    try {
+        std::vector<RemagxReflectivity> results(point_count, {0.0, 0.0});
+        for (size_t index = 0; index < point_count; ++index) {
+            const double ratio = qz[index] / (2.0 * wave_number);
+            if ((scan_mode == REMAGX_MONOCHROMATIC && std::abs(ratio) >= 1.0) ||
+                (scan_mode == REMAGX_DICHROIC && ratio > 1.0)) return REMAGX_QZ_ERROR;
+            if (ratio < 0.0) continue;
+            const int status = remagx_zak(layers, layer_count, std::asin(ratio), wave_number, magnetic_enabled,
+                beam1, scan_mode == REMAGX_DICHROIC ? beam2 : beam1, analyzer, &results[index]);
+            if (status != REMAGX_SUCCESS) return status;
+            if (scan_mode == REMAGX_MONOCHROMATIC) results[index].beam2 = 0.0;
+        }
+        std::copy(results.begin(), results.end(), output);
+        return REMAGX_SUCCESS;
+    } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
+      catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
 }
