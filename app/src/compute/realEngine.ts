@@ -1,3 +1,4 @@
+import { realTensor } from '../model/realTensor'
 import { realLayerSpectrum, realScatteringFactors } from '../model/realSpectrum'
 import { realDatabaseValues } from '../model/realDatabaseValues'
 import { runRealFit, type RealMinimizer } from '../model/realFit'
@@ -13,11 +14,15 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
   return async (message: WorkerRequest): Promise<void> => {
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     try {
-      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors') {
+      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
+      if (message.kind === 'dielectricTensor') {
+        send({ id: message.id, type: 'result', result: realTensor(message.project, message.spectrum, engine.lookup, engine.dielectricTensor) })
+        return
+      }
       if (message.kind === 'layerSpectrum' || message.kind === 'scatteringFactors') {
         const result = message.kind === 'layerSpectrum' ? realLayerSpectrum(message.project, message.spectrum, engine.lookup)
           : realScatteringFactors(message.project, message.spectrum, engine.lookup)

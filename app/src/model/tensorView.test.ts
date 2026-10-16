@@ -11,3 +11,10 @@ it('groups all nine components and uses 1 − real only for the three diagonal c
   expect(tensorPlot(preview, 'lower').series[2]).toEqual({ label: 'Re ε_zx', y: [6, 7] })
   expect(preview).toEqual(original)
 })
+
+
+it('labels native tensors without claiming that mock previews are real', () => {
+  const preview: TensorPreview = { energy: [], tensors: [], source: 'scalar' }
+  expect(tensorPlot(preview, 'upper').yLabel).toBe('ε upper (mock preview)')
+  expect(tensorPlot({ ...preview, engine: 'real' }, 'upper').yLabel).toBe('ε upper')
+})

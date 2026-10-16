@@ -498,6 +498,17 @@ try {
       output.realFactors = await service.scatteringFactors(spectrumProject, { elementIndex: 0, tables: factorTables })
       output.realElementSpectrum = await service.layerSpectrum(spectrumProject, { elementIndex: 0, layerIndex: 0, magnetic: false, tables: factorTables })
       output.realSpectrumUnchanged = spectrumSnapshot === JSON.stringify(spectrumProject)
+      const tensorProject = createDefaultProject()
+      tensorProject.experiment.energy = 150
+      tensorProject.sample.layers = [createLayer({ opticalTable: 'tensor', delta: .01, beta: .002 })]
+      const nativeTensorSnapshot = JSON.stringify(tensorProject)
+      output.realScalarTensor = await service.dielectricTensor(tensorProject, { layerIndex: 0, spectrum: false, tables: [] })
+      const tensorValues = Array.from({ length: 18 }, (_, index) => (index + 1) / 100)
+      output.realTensorSpectrum = await service.dielectricTensor(tensorProject, { layerIndex: 0, spectrum: true, tables: [
+        { name: 'tensor', kind: 'db', energy: [120, 180], columns: [[.01, .01], [.002, .002]], warnings: [] },
+        { name: 'tensor', kind: 'e', energy: [100, 150, 200], columns: tensorValues.map(value => [value, value, value]), warnings: [] },
+      ] })
+      output.realTensorUnchanged = nativeTensorSnapshot === JSON.stringify(tensorProject)
       tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
@@ -529,6 +540,20 @@ try {
       return output
     } finally { service.dispose(); window.Worker = NativeWorker }
   })
+  assert.ok(results.realTensorUnchanged)
+  assert.equal(results.realScalarTensor.engine, 'real')
+  assert.equal(results.realTensorSpectrum.source, 'table')
+  assert.deepEqual(results.realTensorSpectrum.energy, [100, 150, 200])
+  for (let component = 0; component < 9; component++) {
+    const expected = component % 4 === 0 ? { re: .99 * .99 - .002 * .002, im: 2 * .99 * .002 } : { re: 0, im: 0 }
+    for (const field of ['re', 'im']) {
+      const value = results.realScalarTensor.tensors[0][component][field]
+      assert.ok(Math.abs(value - expected[field]) <= 1e-15 + 1e-10 * Math.abs(expected[field]))
+      assert.equal(results.realTensorSpectrum.tensors[0][component][field], value)
+      const imported = (2 * component + (field === 're' ? 1 : 2)) / 100
+      for (const point of [1, 2]) assert.ok(Math.abs(results.realTensorSpectrum.tensors[point][component][field] - imported) <= 1e-15 + 1e-10 * Math.abs(imported))
+    }
+  }
   assert.deepEqual(results.realMagneticSpectrum, { energy: [100, 150, 200], first: [9, 3, 3], second: [8, 4, 4] })
   assert.deepEqual(results.realFactors, { energy: [100, 150, 200], first: [26, 26, 26], second: [.5, .5, .5] })
   assert.ok(results.realSpectrumUnchanged)
