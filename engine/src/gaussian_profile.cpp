@@ -63,3 +63,50 @@ extern "C" int remagx_gaussian_spline_knots(const RemagxGaussianProfile* profile
     } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
       catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
 }
+
+extern "C" int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profiles, size_t profile_count,
+                                               const double* positions, const double* initial_values,
+                                               const double* weights, size_t sample_count, int coupled,
+                                               double* output) {
+    if (!positions || !initial_values || !output || !sample_count || (coupled != 0 && coupled != 1) ||
+        (profile_count && (!profiles || !weights))) return REMAGX_INVALID_ARGUMENT;
+    if (sample_count > std::numeric_limits<size_t>::max() / (2 * sizeof(double)) ||
+        profile_count > std::numeric_limits<size_t>::max() / sizeof(RemagxGaussianProfile) ||
+        (profile_count && sample_count > std::numeric_limits<size_t>::max() / sizeof(double) / profile_count))
+        return REMAGX_ALLOCATION_ERROR;
+    for (size_t profile = 0; profile < profile_count; ++profile)
+        if (!valid(profiles + profile)) return REMAGX_INVALID_ARGUMENT;
+    for (size_t sample = 0; sample < sample_count; ++sample) {
+        if (!std::isfinite(positions[sample]) || !std::isfinite(initial_values[2 * sample]) ||
+            !std::isfinite(initial_values[2 * sample + 1])) return REMAGX_INVALID_ARGUMENT;
+        for (size_t profile = 0; profile < profile_count; ++profile)
+            if (!std::isfinite(weights[sample * profile_count + profile])) return REMAGX_INVALID_ARGUMENT;
+    }
+    try {
+        std::vector<double> result(initial_values, initial_values + sample_count * 2);
+        for (size_t sample = 0; sample < sample_count; ++sample) {
+            for (size_t profile = 0; profile < profile_count; ++profile) {
+                const auto& shape = profiles[profile];
+                if (shape.delta_amplitude == 0.0 && shape.beta_amplitude == 0.0) continue;
+                const double weight = weights[sample * profile_count + profile];
+                if (weight == 0.0) continue;
+                const double delta = evaluate(shape.delta_amplitude, positions[sample], shape);
+                const double beta = evaluate(shape.beta_amplitude, positions[sample], shape);
+                if (coupled) {
+                    // CalcMagProfile updates in profile order, using the current
+                    // segment value for each contribution, not its initial value.
+                    result[2 * sample] += weight * result[2 * sample] * delta;
+                    result[2 * sample + 1] += weight * result[2 * sample + 1] * beta;
+                } else {
+                    result[2 * sample] += weight * delta;
+                    result[2 * sample + 1] += weight * beta;
+                }
+            }
+            if (!std::isfinite(result[2 * sample]) || !std::isfinite(result[2 * sample + 1]))
+                return REMAGX_NUMERICAL_ERROR;
+        }
+        std::copy(result.begin(), result.end(), output);
+        return REMAGX_SUCCESS;
+    } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
+      catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
+}

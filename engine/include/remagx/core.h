@@ -244,6 +244,19 @@ int remagx_gaussian_profile(const RemagxGaussianProfile* profile,
 // Caller owns n+5 doubles in each nonoverlapping output; errors are atomic.
 int remagx_gaussian_spline_knots(const RemagxGaussianProfile* profile, int intervals,
                                 double* positions, double* values);
+// Apply Gaussian profiles at prepared segment midpoints. initial_values/output
+// are interleaved magnetic delta/beta (2*sample_count doubles). weights is a
+// sample-major sample_count*profile_count matrix of already prepared binding
+// weights (zero skips a profile). coupled=0 adds W*profile; coupled=1 adds
+// W*current*profile, sequentially in profile order. Both-zero amplitudes skip.
+// This does not segment layers, calculate density weights, resolve spline
+// shapes or alter dielectric tensors. Caller omits the substrate sample.
+// profile_count=0 allows null profiles/weights and copies initial_values.
+// Finite inputs; nonoverlapping buffers; output remains untouched on failure.
+int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profiles, size_t profile_count,
+                                   const double* positions, const double* initial_values,
+                                   const double* weights, size_t sample_count, int coupled,
+                                   double* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
