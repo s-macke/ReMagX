@@ -226,6 +226,24 @@ int remagx_visnovsky_energy_scan(const RemagxMatrixLayer* layers, size_t layer_c
                        double epsilon, const RemagxBeam* beam1, const RemagxBeam* beam2,
                        int analyzer, int scan_mode, double angular_width, double energy_width,
                        RemagxReflectivity* output);
+// Independent magnetic Gaussian shape; layer binding/coupling and segmentation
+// are caller responsibilities. Signed width is preserved; zero width gives zero.
+typedef struct RemagxGaussianProfile {
+    double center;
+    double width;
+    double delta_amplitude;
+    double beta_amplitude;
+} RemagxGaussianProfile;
+// Interleaved delta/beta amplitudes at count positions (2*count output doubles).
+// Finite inputs, nonempty positions; nonoverlapping buffers, atomic errors.
+int remagx_gaussian_profile(const RemagxGaussianProfile* profile,
+                            const double* positions, size_t count, double* output);
+// Legacy BuildSpline(n) knots: n+5 positions/values over center +/- 6*width.
+// The legacy UI uses n=4. Values preserve delta*exp(...)/delta rounding; zero
+// delta or zero width produces zeros. Does not evaluate the resulting spline.
+// Caller owns n+5 doubles in each nonoverlapping output; errors are atomic.
+int remagx_gaussian_spline_knots(const RemagxGaussianProfile* profile, int intervals,
+                                double* positions, double* values);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
