@@ -1,0 +1,33 @@
+import { test, expect } from './fixtures'
+
+test('profile Fit controls follow selection, deletion, the parameter list and undo', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('tab', { name: 'Sample', exact: true }).click()
+  const heading = page.getByRole('button', { name: 'Additional Magnetization Profile', exact: true })
+  if (await heading.getAttribute('aria-expanded') !== 'true') await heading.click()
+  const section = page.locator('#section-magnetization-profile')
+  await section.getByRole('button', { name: 'Add', exact: true }).click()
+  for (const label of ['Fit δ amplitude', 'Fit β amplitude', 'Fit center z', 'Fit width (σ)']) {
+    await section.getByRole('checkbox', { name: label, exact: true }).check()
+  }
+  await page.getByRole('tab', { name: 'Fit', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Parameters (4)', exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Sample', exact: true }).click()
+  await section.getByRole('button', { name: 'Add', exact: true }).click()
+  const width = section.getByRole('checkbox', { name: 'Fit width (σ)', exact: true })
+  await expect(width).not.toBeChecked()
+  await width.check()
+  await section.getByRole('button', { name: 'previous function', exact: true }).click()
+  await section.getByRole('button', { name: 'Remove', exact: true }).click()
+  await expect(width).toBeChecked()
+  await expect(section.getByRole('checkbox', { name: 'Fit center z', exact: true })).not.toBeChecked()
+  await page.getByRole('tab', { name: 'Fit', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Parameters (1)', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Parameters (5)', exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Sample', exact: true }).click()
+  await expect(section.getByRole('checkbox', { name: 'Fit center z', exact: true })).toBeChecked()
+  await width.uncheck()
+  await page.getByRole('tab', { name: 'Fit', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Parameters (4)', exact: true })).toBeVisible()
+})

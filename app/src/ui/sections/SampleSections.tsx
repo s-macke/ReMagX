@@ -4,6 +4,8 @@
 import { useState } from 'react'
 import { tableKinds } from '../../import/tables'
 import { datasetMetadata, deleteDataset, moveDataset, updateDataset } from '../../model/datasets'
+import { removeMagneticProfile } from '../../model/magneticProfiles'
+import { FitCheckbox } from '../FitCheckbox'
 import { createDepthProfileFunction } from '../../model/defaults'
 import { applyMagnetizationToAllLayers } from '../../model/layers'
 import { magnetizationPresets, type MagnetizationPreset } from '../../model/presets'
@@ -303,6 +305,7 @@ export function MagnetoOpticsSection() {
 
 export function MagnetizationProfileSection() {
   const { project } = useAppState()
+  const dispatch = useDispatch()
   const edit = useEditProject()
   const [index, setIndex] = useState(0)
   const functions = project.sample.depthProfileFunctions
@@ -353,16 +356,20 @@ export function MagnetizationProfileSection() {
         >
           Add
         </button>
-        <button type="button" disabled={!fn} onClick={() => edit((p) => void p.sample.depthProfileFunctions.splice(current, 1))}>
+        <button type="button" disabled={!fn} onClick={() => dispatch({ type: 'updateProject', update: p => removeMagneticProfile(p, current) })}>
           Remove
         </button>
       </div>
       {fn && (
         <Group title={fn.spline.enabled ? 'Spline' : 'Gauss'}>
           <NumberField label="δ amplitude" value={fn.deltaAmplitude} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].deltaAmplitude = v))} />
+          <FitCheckbox label="Fit δ amplitude" target={{ target: 'profileDeltaAmplitude', index: current, elementIndex: null }} />
           <NumberField label="β amplitude" value={fn.betaAmplitude} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].betaAmplitude = v))} />
+          <FitCheckbox label="Fit β amplitude" target={{ target: 'profileBetaAmplitude', index: current, elementIndex: null }} />
           <NumberField label="center z" unit="Å" value={fn.center} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].center = v))} />
+          <FitCheckbox label="Fit center z" target={{ target: 'profileCenter', index: current, elementIndex: null }} />
           <NumberField label="width (σ)" unit="Å" min={0} value={fn.width} onChange={(v) => edit((p) => void (p.sample.depthProfileFunctions[current].width = v))} />
+          <FitCheckbox label="Fit width (σ)" target={{ target: 'profileWidth', index: current, elementIndex: null }} />
           {couplingSelect('amplitude coupled to', fn.amplitudeCoupledTo, (v) => edit((p) => void (p.sample.depthProfileFunctions[current].amplitudeCoupledTo = v)))}
           {couplingSelect('width coupled to', fn.widthCoupledTo, (v) => edit((p) => void (p.sample.depthProfileFunctions[current].widthCoupledTo = v)))}
           <Field label="bound to layer">

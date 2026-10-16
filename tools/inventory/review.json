@@ -651,7 +651,7 @@
     {
       "name": "value-slider",
       "status": "deferred",
-      "reason": "Implement numeric-cell selection and the 0–4× slider for layer, magnetic-profile and script-parameter tables.",
+      "reason": "Implement numeric-cell selection and the 0\u20134\u00d7 slider for layer, magnetic-profile and script-parameter tables.",
       "references": [
         "AGENTS.md"
       ],
@@ -702,21 +702,20 @@
     },
     {
       "name": "magnetic-fit-controls",
-      "status": "deferred",
-      "reason": "Implement the per-profile and magnetization Fit checkboxes and their handlers.",
+      "status": "ported",
+      "reason": "Four active legacy profile Fit checkboxes synchronize with the parameter list and undo; deletion preserves surviving target and coupling identities. Real profile fitting remains engine work.",
       "references": [
-        "AGENTS.md"
+        "app/src/ui/FitCheckbox.tsx",
+        "app/src/ui/sections/SampleSections.tsx",
+        "app/src/model/magneticProfiles.ts",
+        "app/e2e/profileFit.spec.ts"
       ],
       "entries": [
-        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/CheckBox1",
-        "client/MzFrame.dfm::Frame8/CheckBox11",
-        "client/Unit1.cpp::event:da8c2ba785fe8675:1",
         "client/Unit1.cpp::event:2eef42fbff4b8770:1",
         "client/Unit1.cpp::event:492d3888430b559d:1",
         "client/Unit1.cpp::event:8742cf89c1feaa03:1",
         "client/Unit1.cpp::event:91ff2648dc48b278:1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "magnetic-profile-editor",
@@ -1051,7 +1050,10 @@
         "client/Unit1.cpp::event:abc5ab747d010ff7:1",
         "client/Unit1.dfm::Form1/Button1",
         "client/Unit1.dfm::Form1/ButtonTest",
-        "client/Unit1.dfm::Form1/ButtonAnalyze"
+        "client/Unit1.dfm::Form1/ButtonAnalyze",
+        "client/MagnetizationDirectionFrame.dfm::Frame11/Mag/CheckBox1",
+        "client/MzFrame.dfm::Frame8/CheckBox11",
+        "client/Unit1.cpp::event:da8c2ba785fe8675:1"
       ],
       "phase": "decision"
     },
