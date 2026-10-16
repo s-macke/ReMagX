@@ -1080,3 +1080,8 @@ button.primary {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+
+.plot-panel__export > summary { cursor: pointer; font-size: 12px; }
+.plot-panel__export > div { position: absolute; right: 64px; top: 0; display: grid; gap: 4px; padding: 6px; background: var(--panel); border: 1px solid var(--grid); z-index: 2; }
+.plot-panel__export > div button { width: 190px; }
+.plot-panel__export-message { position: absolute; bottom: 20px; left: 80px; right: 80px; font-size: 12px; background: var(--panel); }

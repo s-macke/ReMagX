@@ -152,3 +152,13 @@ export function layerTableToText(project: Project): string {
     .reverse()
   return [`# ${header.join('\t')}`, ...rows.map((r) => r.join('\t'))].join('\n') + '\n'
 }
+
+// Legacy chart clipboard layout: one x/y pair per curve, side by side. Blank cells
+// preserve unequal curve lengths without inventing measurements or indexing past the end.
+export function diagramClipboardText(series: ExportSeries[]): string {
+  const populated = series.filter(s => s.x.length > 0)
+  const rows = Math.max(0, ...populated.map(s => s.x.length))
+  return Array.from({ length: rows }, (_, index) => populated.flatMap(s =>
+    index < s.x.length ? [String(s.x[index]), String(s.y[index])] : ['', ''],
+  ).join('\t')).join('\r\n') + (rows ? '\r\n' : '')
+}

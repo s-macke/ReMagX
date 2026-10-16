@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
+import { diagramClipboardText, diagramSeries } from '../import/asciiData'
+import { plotImage } from './plotImage'
 import { zoomPlotRange } from '../model/plotZoom'
 import type { MeasuredCurve } from '../model/datasets'
 import type { CalculatedCurve } from '../state/useCalculation'
@@ -66,6 +68,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
   const plotRef = useRef<uPlot | null>(null)
   const coordinatesRef = useRef<HTMLSpanElement>(null)
   const zoomRef = useRef<((factor: number) => void) | null>(null)
+  const [exportMessage, setExportMessage] = useState('')
   const [held, setHeld] = useState<HeldCurve | null>(null)
 
   const heldVisible = held && curve && held.axis === curve.axis && held.logScale === curve.logScale ? held : null
@@ -194,6 +197,38 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
           : MEASURED_COLOR,
   }))
 
+  const exportPlot = async (action: 'data' | 'graphic' | 'picture') => {
+    if (!curve || !plotRef.current) return
+    setExportMessage('')
+    try {
+      if (action === 'data') {
+        if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable. Use File → Save diagram data.')
+        const curves = diagramSeries(curve, measured)
+        if (heldVisible) curves.push({ label: 'held', x: heldVisible.x, y: heldVisible.y })
+        await navigator.clipboard.writeText(diagramClipboardText(curves))
+        setExportMessage('Diagram data copied.')
+      } else {
+        if (action === 'graphic' && (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined')) throw new Error('Graphic clipboard access is unavailable. Use Save Picture.')
+        const mimeType = action === 'graphic' ? 'image/png' : 'image/jpeg'
+        const encoded = plotImage(plotRef.current.ctx.canvas, legend ?? [], mimeType, cssColor('--panel', '#ffffff'), cssColor('--text', '#222222'))
+        if (action === 'graphic') {
+          await navigator.clipboard.write([new ClipboardItem({ [mimeType]: encoded })])
+          setExportMessage('Graphic copied.')
+        } else {
+          const url = URL.createObjectURL(await encoded)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = 'remagx-plot.jpg'
+          link.click()
+          setTimeout(() => URL.revokeObjectURL(url), 0)
+          setExportMessage('Picture saved.')
+        }
+      }
+    } catch (error) {
+      setExportMessage(`Export failed: ${(error as Error).message}`)
+    }
+  }
+
   return (
     <section className="plot-panel" aria-label="Plot">
       <div className="plot-panel__canvas" ref={containerRef} aria-label={curve ? `Plot axis: ${curve.axis}` : 'No calculated curve'} />
@@ -208,7 +243,16 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
         </ul>
       )}
       <span className="plot-panel__coordinates" ref={coordinatesRef} aria-label="Cursor coordinates" aria-live="off">X: —  Y: —</span>
+      {exportMessage && <p className="plot-panel__export-message" aria-live="polite">{exportMessage}</p>}
       <div className="plot-panel__buttons">
+        <details className="plot-panel__export">
+          <summary>Export</summary>
+          <div>
+            <button type="button" disabled={!curve} onClick={() => void exportPlot('data')}>Copy data to clipboard</button>
+            <button type="button" disabled={!curve} onClick={() => void exportPlot('graphic')}>Copy graphic to clipboard</button>
+            <button type="button" disabled={!curve} onClick={() => void exportPlot('picture')}>Save Picture</button>
+          </div>
+        </details>
         <button type="button" onClick={() => zoomRef.current?.(2)} disabled={!curve} title="Double the visible range around the plot center">Zoom Out</button>
         <button type="button" onClick={hold} disabled={!curve} title="Keep the current simulation as a reference curve">
           Hold
