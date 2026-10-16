@@ -394,3 +394,23 @@ cases (7,200 values) spanning exact/fast, zero/small/nonzero widths, magnetic/te
 branches and both beams. Maximum positive log10 discrepancy on the recorded build is
 about 2.13e-12 decades. Memory-growth and allocation/error-recovery tests exercise the
 resolution API too. The TypeScript reference is not imported by the production worker.
+
+### Native optical-table lookup
+
+`remagx_table_lookup` ports `CTable::Get` into a data-only C API. Energies must be
+nondecreasing; values/output are row-major with 1–20 columns. A caller-owned cursor
+preserves lookup history, including repeated duplicate-energy queries. Exact endpoints
+return stored rows (the first row wins if all energies coincide); empty/out-of-range
+lookups return zeros. This differs from the mock preview helper's endpoint clamping.
+The original 1e-5 duplicate-distance fallback and operation order are retained.
+
+Outputs and cursor commit only on success. Invalid ordering/nonfinite data and
+nonfinite interpolation fail clearly. Future automatic refresh must separately apply
+`WithinRange` semantics; a zero lookup outside the range does not establish that a
+required optical table is usable.
+
+`tables_native` runs analytic/API tests. With `LEGACY_ROOT`, it also extracts only the
+reviewed `CTable::Get` method, validates its SHA-256 and compiles it temporarily with
+minimal single-thread scaffolding. 14,760 outputs and 80 cursor histories across
+1/2/18/20 columns match the original. No private implementation or research data is
+committed. WASM export, material-table selection and automatic refresh remain open.

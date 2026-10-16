@@ -218,6 +218,7 @@ Data:
 - [x] Per-browser IndexedDB material library (D-13): all five table kinds restore, same-name/kind imports replace prior copies, explicit cache deletion persists, startup races preserve new imports/clears, and storage failures/unreadable records are reported without losing session data. Project JSON and undo history stay separate.
 - [ ] Built-in periodic-table/Chantler asset (D-13); licence check of the Chantler/Henke data before shipping it (D-31)
 - [ ] Real layer and element spectra: per-energy Filldb/BeforeCalculation evaluation, element conversion and dielectric tensors behind the spectrum service (current compound, tensor and f1/f2 views are mock previews).
+- [x] Native optical-table interpolation component: caller-owned cursor, legacy duplicate-energy history, exact endpoints and zero outside range; 14,760 values/80 cursor sequences compared with the private original method. WASM exposure and automatic table refresh remain open.
 - [ ] Automatic optical-constant table use during calculations (energy scans currently keep δ/β constant); legacy interpolation, built-in data and tensor handling behind manual database updates (current actions use mock linear scalar interpolation).
 
 Quality gates:

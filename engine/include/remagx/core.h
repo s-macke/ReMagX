@@ -68,6 +68,14 @@ int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t layer_count,
                       const RemagxBeam* beam1, const RemagxBeam* beam2,
                       int tensor, int analyzer, int magnetization_enabled,
                       int scan_mode, double width, int fast, RemagxReflectivity* output);
+// Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
+// Values and output are row-major; column_count is 1..20. Empty tables and
+// out-of-range queries return zeros; exact endpoints return their stored row.
+// Cursor is caller-owned state (initially zero), preserving duplicate-energy
+// lookup history. It and output remain unchanged on failure. Buffers must not overlap.
+int remagx_table_lookup(const double* energies, const double* values, size_t row_count,
+                       size_t column_count, const double* queries, size_t query_count,
+                       size_t* cursor, double* output);
 #ifdef __cplusplus
 }
 #endif
