@@ -172,3 +172,18 @@ test('Stop terminates an unresponsive database update within 1 s and calculation
   await page.waitForFunction(previous => window.results > previous, results)
   await expect(page.locator('.mode-panel__stop')).toBeDisabled()
 })
+
+test('Material Settings can stop an unresponsive tensor preview and calculation recovers', async ({ page }) => {
+  await page.evaluate(() => { window.blockedKind = 'dielectricTensor' })
+  await page.getByRole('textbox', { name: 'thickness of layer 1', exact: true }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Properties', exact: true }).click()
+  await page.waitForFunction(() => window.workerBlocked)
+  const dialog = page.getByRole('dialog', { name: 'Material Settings', exact: true })
+  const elapsed = await timedClick(page, dialog.getByRole('button', { name: 'Stop calculation', exact: true }), 'dialog [role="alert"]')
+  expect(elapsed).toBeLessThan(1000)
+  await expect(dialog.getByRole('alert')).toContainText('Stopped.')
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  const results = await page.evaluate(() => { window.blockedKind = undefined; return window.results })
+  await page.getByRole('button', { name: 'Reflectivity', exact: true }).click()
+  await page.waitForFunction(previous => window.results > previous, results)
+})

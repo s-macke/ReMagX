@@ -483,3 +483,47 @@ describe('mock database update service', () => {
     service.dispose()
   })
 })
+
+describe('mock dielectric tensor service', () => {
+  it('returns all imported tensor components and interpolates a current-energy preview without mutating the project', async () => {
+    const service = new WorkerComputeService(inProcessWorker)
+    const project = createDefaultProject()
+    project.experiment.energy = 750
+    const before = structuredClone(project)
+    const tables = [{ name: 'Co', kind: 'e' as const, energy: [700, 800], columns: Array.from({ length: 18 }, (_, index) => [index, index + 2]), warnings: [] }]
+    const current = await service.dielectricTensor(project, { layerIndex: 1, tables, spectrum: false })
+    expect(current).toMatchObject({ energy: [750], source: 'table' })
+    expect(current.tensors[0]).toEqual(Array.from({ length: 9 }, (_, index) => ({ re: 2 * index + 1, im: 2 * index + 2 })))
+    const spectrum = await service.dielectricTensor(project, { layerIndex: 1, tables, spectrum: true })
+    expect(spectrum.energy).toEqual([700, 800])
+    expect(spectrum.tensors[1][8]).toEqual({ re: 18, im: 19 })
+    expect(project).toEqual(before)
+    service.dispose()
+  })
+
+  it('provides responsive scalar previews with zero off-diagonals when unmagnetized and clear missing-grid errors', async () => {
+    const service = new WorkerComputeService(inProcessWorker)
+    const project = createDefaultProject()
+    const query = { layerIndex: 1, tables: [], spectrum: false }
+    const plain = (await service.dielectricTensor(project, query)).tensors[0]
+    expect(plain[0]).toEqual(plain[4])
+    expect(plain[0]).toEqual(plain[8])
+    for (const index of [1, 2, 3, 5, 6, 7]) expect(plain[index]).toEqual({ re: 0, im: 0 })
+    project.calculation.magnetization.mode = 'add'
+    const magnetic = (await service.dielectricTensor(project, query)).tensors[0]
+    expect(magnetic[2]).not.toEqual(plain[2])
+    expect(magnetic[6].re).toBe(-magnetic[2].re)
+    expect(magnetic[6].im).toBe(-magnetic[2].im)
+    project.sample.layers[1].magnetization.phi = 0
+    const rotated = (await service.dielectricTensor(project, query)).tensors[0]
+    expect(rotated[2]).not.toEqual(magnetic[2])
+    project.calculation.tensorContribution = 'tetragonal'
+    const tetragonal = (await service.dielectricTensor(project, query)).tensors[0]
+    expect(tetragonal[8]).not.toEqual(tetragonal[0])
+    await expect(service.dielectricTensor(project, { ...query, spectrum: true })).rejects.toThrow('Load Co.e or .db')
+    const fallback = await service.dielectricTensor(project, { ...query, spectrum: true, tables: [{ name: 'Co', kind: 'db', energy: [700, 800], columns: [[0.1, 0.2], [0, 0]], warnings: [] }] })
+    expect(fallback.source).toBe('scalar')
+    expect(fallback.tensors[0][0]).not.toEqual(fallback.tensors[1][0])
+    service.dispose()
+  })
+})

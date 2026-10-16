@@ -629,16 +629,13 @@
     {
       "name": "layer-table-interactions",
       "status": "deferred",
-      "reason": "Layer/slab editing, Fit menus, value slider, compound spectrum previews, material settings and database actions exist. Element optical spectra and dielectric tensor views remain.",
+      "reason": "Layer/slab editing, Fit menus, value slider, compound spectrum previews, material settings and database actions exist. Element optical spectra remain; dielectric tensor views have a separate mock UI implementation.",
       "references": [
         "AGENTS.md"
       ],
       "entries": [
         "client/Unit1.cpp::item:044c0db584147fff:1",
         "client/Unit1.cpp::item:044c0db584147fff:2",
-        "client/Unit1.cpp::item:61a2b426cc67354c:1",
-        "client/Unit1.cpp::item:f4745806781e8610:1",
-        "client/Unit1.cpp::item:67940c3e1072cb65:1",
         "client/Unit1.cpp::item:044c0db584147fff:3",
         "client/Unit1.cpp::item:044c0db584147fff:4",
         "client/Unit1.cpp::item:d41f4c83dbad7376:2",
@@ -739,7 +736,7 @@
     {
       "name": "materials",
       "status": "ported",
-      "reason": "Properties opens the Material Settings dialog: read-only structural/optical values, draft formula/density/gamma/phi and per-layer Fit flags, atomic OK/undo, Cancel/Escape, and preservation of concurrent changes to unedited fields. Tensor display remains separate and explicitly unavailable; hidden Fill Dielectric Tensor stays pending scope.",
+      "reason": "Properties opens the Material Settings dialog: read-only structural/optical values, draft formula/density/gamma/phi and per-layer Fit flags, atomic OK/undo, Cancel/Escape, and preservation of concurrent changes to unedited fields. Tensor display is a separate labelled mock preview; hidden Fill Dielectric Tensor stays pending scope.",
       "references": [
         "app/src/ui/MaterialSettingsDialog.tsx",
         "app/src/model/materialSettings.ts",
@@ -1226,12 +1223,13 @@
     },
     {
       "name": "materials-tensor-display",
-      "status": "deferred",
-      "phase": "ui",
-      "reason": "Materials dialog currently identifies unavailable tensor data. Add the read-only real/imaginary 3×3 tensor values through ComputeService when the engine supplies them; no tensor values are fabricated or stored in project JSON.",
+      "status": "ported",
+      "reason": "Read-only real and imaginary 3×3 matrices through ComputeService, with labelled mock .e interpolation or scalar construction and blocked-request Stop. No project mutation. Real tensor evaluation and Lua remain engine work.",
       "references": [
         "AGENTS.md",
-        "app/src/ui/MaterialSettingsDialog.tsx"
+        "app/src/ui/MaterialSettingsDialog.tsx",
+        "app/src/ui/MaterialTensorPreview.tsx",
+        "app/e2e/tensorViews.spec.ts"
       ],
       "entries": [
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1",
@@ -1271,6 +1269,21 @@
       "entries": [
         "client/Unit1.cpp::item:58ef0caf1cc257a9:1",
         "client/Unit1.cpp::item:5d980d301945dcd0:1"
+      ]
+    },
+    {
+      "name": "dielectric-tensor-spectra",
+      "status": "ported",
+      "reason": "Three legacy component groups through ComputeService; diagonal 1−Re and Im, off-diagonal Re and Im. Mock previews prefer .e grid, fall back to .db, and report missing data. Real Filldb/BeforeCalculation remains engine work.",
+      "references": [
+        "app/src/compute/mockTensor.ts",
+        "app/src/model/tensorView.ts",
+        "app/e2e/tensorViews.spec.ts"
+      ],
+      "entries": [
+        "client/Unit1.cpp::item:61a2b426cc67354c:1",
+        "client/Unit1.cpp::item:f4745806781e8610:1",
+        "client/Unit1.cpp::item:67940c3e1072cb65:1"
       ]
     }
   ],

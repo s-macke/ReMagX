@@ -9,7 +9,7 @@ import { zoomPlotRange } from '../model/plotZoom'
 import type { MeasuredCurve } from '../model/datasets'
 import type { CalculatedCurve } from '../state/useCalculation'
 
-const SIMULATED_COLORS = ['#c0392b', '#2f6fd6']
+const SIMULATED_COLORS = ['#c0392b', '#2f6fd6', '#218c54', '#9854b3', '#bb7900', '#008b95', '#d04d86', '#69757d']
 const MEASURED_COLOR = '#2e9d4e'
 const HELD_COLOR = '#8a8f98'
 
@@ -270,7 +270,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       y: { min: y.min, max: y.max, steps: properties?.y.steps ?? 5, logarithmic: logY },
       background: properties?.background ?? cssColor('--panel', '#ffffff'),
       border: properties?.border ?? cssColor('--panel', '#ffffff'),
-      colors: properties?.colors ?? Array.from({ length: 8 }, (_, i) => legend?.[i]?.color ?? SIMULATED_COLORS[i % 2]),
+      colors: properties?.colors ?? Array.from({ length: 8 }, (_, i) => legend?.[i]?.color ?? SIMULATED_COLORS[i % SIMULATED_COLORS.length]),
       fontSize: properties?.fontSize ?? 12, lineWidth: properties?.lineWidth ?? 1.5, points: properties?.points ?? false,
     })
   }

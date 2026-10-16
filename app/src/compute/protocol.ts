@@ -2,10 +2,12 @@
 
 import type { OpticalTable } from '../import/tables'
 import type { DatabaseValues } from '../model/databaseValues'
+import type { TensorPreview } from '../model/tensorView'
 import type { Project } from '../model/project'
-import type { AsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
+import type { TensorQuery, AsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
+  dielectricTensor: TensorPreview
   databaseValues: DatabaseValues
   densityProfiles: DensityProfiles
   scatteringFactors: LayerSpectrum
@@ -18,9 +20,10 @@ export interface CalculationResults {
   fit: FitResult
 }
 
-export type CalculationKind = Exclude<keyof CalculationResults, 'fit' | 'layerSpectrum' | 'scatteringFactors' | 'databaseValues'>
+export type CalculationKind = Exclude<keyof CalculationResults, 'fit' | 'layerSpectrum' | 'scatteringFactors' | 'databaseValues' | 'dielectricTensor'>
 
 export type WorkerRequest =
+  | { id: number; kind: 'dielectricTensor'; project: Project; spectrum: TensorQuery }
   | { id: number; kind: 'databaseValues'; project: Project; spectrum: { tables: OpticalTable[] } }
   | { id: number; kind: 'scatteringFactors'; project: Project; spectrum: ElementSpectrumQuery }
   | { id: number; kind: 'layerSpectrum'; project: Project; spectrum: LayerSpectrumQuery }

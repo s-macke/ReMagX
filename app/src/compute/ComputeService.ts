@@ -4,8 +4,10 @@
 
 import type { OpticalTable } from '../import/tables'
 import type { DatabaseValues } from '../model/databaseValues'
+import type { TensorPreview } from '../model/tensorView'
 import type { Project } from '../model/project'
 
+export interface TensorQuery { layerIndex: number; tables: OpticalTable[]; spectrum: boolean }
 export interface ElementSpectrumQuery { elementIndex: number; tables: OpticalTable[] }
 export interface LayerSpectrumQuery { layerIndex: number; magnetic: boolean; tables: OpticalTable[] }
 export interface LayerSpectrum { energy: number[]; first: number[]; second: number[] }
@@ -58,6 +60,7 @@ export interface FitResult {
 }
 
 export interface ComputeService {
+  dielectricTensor(project: Project, query: TensorQuery): Promise<TensorPreview>
   databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues>
   densityProfiles(project: Project): Promise<DensityProfiles>
   scatteringFactors(project: Project, query: ElementSpectrumQuery): Promise<LayerSpectrum>

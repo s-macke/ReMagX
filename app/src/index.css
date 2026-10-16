@@ -1100,3 +1100,8 @@ button.primary {
 
 .material-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
 @media (max-width: 600px) { .material-settings-grid { grid-template-columns: 1fr; } }
+
+.tensor-preview { table-layout: fixed; width: 100%; margin-bottom: 8px; }
+.tensor-preview label { display: flex; align-items: center; gap: 4px; }
+.tensor-preview input { width: 0; }
+.cell-fit-menu { max-height: calc(100vh - 16px); overflow-y: auto; }

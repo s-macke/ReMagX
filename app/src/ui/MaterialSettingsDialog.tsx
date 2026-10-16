@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { applyMaterialSettings, readMaterialSettings } from '../model/materialSettings'
 import { useAppState, useDispatch } from '../state/context'
+import { MaterialTensorPreview } from './MaterialTensorPreview'
 import { Dialog } from './Dialog'
-import { CheckboxField, Field, Group, Note } from './form'
+import { CheckboxField, Field, Group } from './form'
 import { formatNumber } from './numberFormat'
 
 export function MaterialSettingsDialog({ index, onClose }: { index: number; onClose: () => void }) {
@@ -54,7 +55,7 @@ export function MaterialSettingsDialog({ index, onClose }: { index: number; onCl
         </Group>
       </div>
       <Group title="Initial Dielectric Tensor">
-        <Note>Tensor values are not available from the mock engine. The real engine will supply this read-only view.</Note>
+        <MaterialTensorPreview index={index} />
       </Group>
       {error && <p role="alert">{error}</p>}
     </form>

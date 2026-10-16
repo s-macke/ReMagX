@@ -7,6 +7,7 @@ import type { OpticalTable } from '../import/tables'
 import type { Project } from '../model/project'
 import type { DisplayMode, PlotView, ScanKind } from './appState'
 
+import { tensorPlot } from '../model/tensorView'
 import type { CalculatedCurve } from '../model/plotCoordinates'
 export type { CalculatedCurve, CurveSeries } from '../model/plotCoordinates'
 
@@ -43,6 +44,10 @@ export function discardComputeService(): void {
 
 async function calculate(service: ComputeService, project: Project, request: CalculationRequest): Promise<CalculatedCurve> {
   const { scanKind, displayMode: mode, plotView } = request
+  if (plotView === 'tensorDiagonal' || plotView === 'tensorUpper' || plotView === 'tensorLower') {
+    const tensor = await service.dielectricTensor(project, { layerIndex: request.layerIndex ?? 0, tables: request.tables ?? [], spectrum: true })
+    return tensorPlot(tensor, plotView === 'tensorDiagonal' ? 'diagonal' : plotView === 'tensorUpper' ? 'upper' : 'lower')
+  }
   if (plotView === 'densityProfiles') {
     const profiles = await service.densityProfiles(project)
     return { axis: 'z', x: profiles.z, series: profiles.elements.map(element => ({ label: element.name, y: element.density })),
