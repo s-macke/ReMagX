@@ -48,6 +48,8 @@ it('maps both complex beams without normalization and produces independent numer
   expect([prepared.mode, prepared.magnetic, prepared.tensor, prepared.analyzer]).toEqual([1, 1, 1, 2])
   prepared.layers[0][0] = 200
   prepared.qz[0] = 20
+  expect(prepared.resolution).toEqual({ width: 0, fast: true })
+  prepared.resolution.width = 8
   prepared.beam1[0] = 0
   expect(project).toEqual(before)
   const mono = prepareParrattQzRequest(project, 'monochromatic')

@@ -48,13 +48,16 @@ function withBuffers(module, run) {
 
 // Returns interleaved beam1/beam2 intensities. Monochromatic beam2 values are zero.
 export function calculateParrattQz(module, {
-  layers, qz, energy, beam1, beam2 = null, tensor = 0, analyzer = 0, magnetic = 1, mode = 1,
+  layers, qz, energy, beam1, beam2 = null, tensor = 0, analyzer = 0, magnetic = 1, mode = 1, resolution,
 }) {
   if (!validRows(layers, 8) || layers.length < 2 || !validVector(qz) ||
       !Number.isFinite(energy) || energy <= 0 || !validVector(beam1, 4) ||
       (mode === 1 && !validVector(beam2, 4)) || ![0, 1].includes(mode) ||
       ![0, 1].includes(magnetic) || ![0, 1].includes(tensor) || ![0, 1, 2].includes(analyzer)) {
     throw new TypeError('Invalid prepared Parratt qz input')
+  }
+  if (resolution !== undefined && (!resolution || !Number.isFinite(resolution.width) || resolution.width < 0 || typeof resolution.fast !== 'boolean')) {
+    throw new TypeError('Invalid angular-resolution settings')
   }
   return withBuffers(module, allocate => {
     const layerPointer = allocate(layers.length * 8)
@@ -66,8 +69,12 @@ export function calculateParrattQz(module, {
     module.HEAPF64.set(qz, qzPointer / 8)
     module.HEAPF64.set(beam1, firstBeamPointer / 8)
     if (secondBeamPointer) module.HEAPF64.set(beam2, secondBeamPointer / 8)
-    checkStatus(module._remagx_parratt_qz(layerPointer, layers.length, qzPointer, qz.length,
-      energy, firstBeamPointer, secondBeamPointer, tensor, analyzer, magnetic, mode, outputPointer))
+    const argumentsBeforeOutput = [layerPointer, layers.length, qzPointer, qz.length,
+      energy, firstBeamPointer, secondBeamPointer, tensor, analyzer, magnetic, mode]
+    const status = resolution
+      ? module._remagx_parratt_qz_resolution(...argumentsBeforeOutput, resolution.width, Number(resolution.fast), outputPointer)
+      : module._remagx_parratt_qz(...argumentsBeforeOutput, outputPointer)
+    checkStatus(status)
     return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + qz.length * 2)
   })
 }

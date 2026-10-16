@@ -28,11 +28,13 @@ for (const [caseIndex, prepared] of cases.entries()) {
     count++
   })
 }
-assert.equal(count, 7680)
+assert.equal(count, 14880)
 const prepared = cases[0]
 const before = calculateParratt(module, prepared)
 const qzPrepared = input.qz[1]
 const qzBefore = calculateParrattQz(module, qzPrepared)
+const resolvedPrepared = { ...qzPrepared, qz: [.01, .02], resolution: { width: .002, fast: false } }
+const resolvedBefore = calculateParrattQz(module, resolvedPrepared)
 const oldBuffer = module.HEAPF64.buffer
 const largeAllocation = module._malloc(oldBuffer.byteLength + 1024)
 assert.ok(largeAllocation)
@@ -50,6 +52,12 @@ const limit = 2 * (2 * Math.PI / (12398.326 / qzPrepared.energy))
 assert.throws(() => calculateParrattQz(module, { ...qzPrepared, qz: [.01, limit], mode: 0 }), { status: 4 })
 assert.ok(calculateParrattQz(module, { ...qzPrepared, qz: [limit] }).every(Number.isFinite))
 assert.deepEqual(Array.from(calculateParrattQz(module, { ...qzPrepared, qz: [-limit] })), [0, 0])
+assert.deepEqual(calculateParrattQz(module, resolvedPrepared), resolvedBefore)
+for (const resolution of [null, { width: -1, fast: false }, { width: NaN, fast: false }, { width: 0, fast: 1 }]) {
+  assert.throws(() => calculateParrattQz(module, { ...resolvedPrepared, resolution }), TypeError)
+}
+assert.throws(() => calculateParrattQz(module, { ...qzPrepared, qz: [limit], resolution: { width: 0, fast: true } }), { status: 4 })
+assert.deepEqual(calculateParrattQz(module, resolvedPrepared), resolvedBefore)
 assert.throws(() => calculateParrattQz(module, { ...qzPrepared, qz: [] }), TypeError)
 assert.throws(() => calculateParrattQz(module, { ...qzPrepared, qz: new Array(2) }), TypeError)
 assert.throws(() => calculateParrattQz(module, { ...qzPrepared, layers: new Array(2) }), TypeError)
@@ -81,7 +89,7 @@ const failingAllocator = new Proxy(module, {
 assert.throws(() => calculateParratt(failingAllocator, prepared), /allocation failed/)
 assert.equal(outstanding.size, 0)
 allocations = 0
-assert.throws(() => calculateParrattQz(failingAllocator, qzPrepared), /allocation failed/)
+assert.throws(() => calculateParrattQz(failingAllocator, resolvedPrepared), /allocation failed/)
 assert.equal(outstanding.size, 0)
 assert.deepEqual(calculateParrattQz(module, qzPrepared), qzBefore)
 assert.deepEqual(calculateParratt(module, prepared), before)

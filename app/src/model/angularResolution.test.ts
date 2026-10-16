@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { angularResolutionCoordinates, combineAngularResolution } from './angularResolution'
+import { angularResolutionCoordinates, combineAngularResolution } from '../../../engine/tests/angular_resolution_reference'
 
 it('preserves the active 19 samples and the shifted single-sample small-width branch', () => {
   expect(angularResolutionCoordinates([1, 2], .1, false)).toHaveLength(38)

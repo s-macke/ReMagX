@@ -12,6 +12,7 @@ export interface PreparedParrattQzRequest {
   analyzer: 0 | 1 | 2
   magnetic: 0 | 1
   mode: 0 | 1
+  resolution: { width: number; fast: boolean }
 }
 
 // Unit1.cpp Button3Click uses j=1..numberofpoints, not an inclusive-minimum linspace.
@@ -62,11 +63,14 @@ export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' 
   if (mode === 'dichroic' && project.experiment.resolution.fastConvolution && qz.some(value => value / (waveNumber * 2) >= 1)) {
     throw new Error('Qz exceeds the legacy fast-dichroic scan boundary.')
   }
+  const experimentResolution = project.experiment.resolution
+  if (!Number.isFinite(experimentResolution.angularFwhm) || experimentResolution.angularFwhm < 0) throw new Error('Angular resolution must be finite and nonnegative.')
   const polarization = project.experiment.polarization
   return { layers, qz, energy, beam1: packBeam(polarization.beam1),
     beam2: mode === 'dichroic' ? packBeam(polarization.beam2) : null,
     tensor: calculation.tensorContribution === 'tetragonal' ? 1 : 0,
     analyzer: polarization.analyzer === 'none' ? 0 : polarization.analyzer === 'sigma' ? 1 : 2,
     magnetic: calculation.magnetization.mode === 'none' ? 0 : 1,
-    mode: mode === 'monochromatic' ? 0 : 1 }
+    mode: mode === 'monochromatic' ? 0 : 1,
+    resolution: { width: experimentResolution.angularFwhm, fast: experimentResolution.fastConvolution } }
 }

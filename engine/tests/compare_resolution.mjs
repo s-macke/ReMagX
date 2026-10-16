@@ -1,6 +1,6 @@
 // Cross-check the native port against the independently reviewed worker implementation.
 import { readFileSync } from 'node:fs'
-import { angularResolutionCoordinates, combineAngularResolution } from '../../app/src/model/angularResolution.ts'
+import { angularResolutionCoordinates, combineAngularResolution } from './angular_resolution_reference.ts'
 const input = JSON.parse(readFileSync(0, 'utf8'))
 console.log(JSON.stringify(input.map(item => ({
   coordinates: angularResolutionCoordinates(item.qz, item.width, item.fast),

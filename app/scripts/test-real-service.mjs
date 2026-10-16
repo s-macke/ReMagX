@@ -15,7 +15,7 @@ await build({ configFile: false, root: resolve(root, 'app'), base: './', worker:
 await mkdir(resolve(destination, 'assets'), { recursive: true })
 for (const file of ['remagx-core.mjs', 'remagx-core.wasm']) await copyFile(resolve(wasmDirectory, file), resolve(destination, 'assets', file))
 const adapter = await readFile(resolve(root, 'engine/wasm/parratt.mjs'), 'utf8')
-const entryCall = '    checkStatus(module._remagx_parratt_qz('
+const entryCall = '    const status = resolution'
 assert.ok(adapter.includes(entryCall))
 // Test-only marker immediately before the actual synchronous C API call.
 await writeFile(resolve(destination, 'assets/parratt.mjs'), adapter.replace(entryCall,

@@ -4,7 +4,7 @@ import math
 import os
 from pathlib import Path
 import json
-from parratt_cases import synthetic_cases, synthetic_qz_cases
+from parratt_cases import synthetic_cases, synthetic_qz_cases, synthetic_resolution_cases
 import subprocess
 import sys
 import tempfile
@@ -173,6 +173,11 @@ class NativeParrattTest(unittest.TestCase):
             status, values = calculate_qz(**prepared)
             self.assertEqual(status, 0)
             qz_cases.append(dict(**prepared, expected=[value for pair in values for value in pair]))
+        for prepared in synthetic_resolution_cases():
+            status, values = calculate_qz(**prepared)
+            self.assertEqual(status, 0)
+            width, fast = prepared['resolution']
+            qz_cases.append(dict(prepared, resolution=dict(width=width, fast=bool(fast)), expected=[value for pair in values for value in pair]))
         payload = json.dumps(dict(angular=cases, qz=qz_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],

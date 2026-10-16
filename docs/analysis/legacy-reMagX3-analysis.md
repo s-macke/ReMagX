@@ -347,7 +347,7 @@ is not full-project corpus acceptance and no private source was committed.
 
 ### Real-worker angular resolution
 
-`model/angularResolution.ts` preserves the active 19-point offset/weight arrays from
+`engine/tests/angular_resolution_reference.ts` preserves the active 19-point offset/weight arrays from
 `shared/RechenHilfe.h`. Non-fast requests expand qz into shifted coordinates, calculate
 them through the WASM batch API and accumulate in legacy order. Width below `1e-10`
 uses one sample with weight one at offset -2*width, including the small nonzero shift.
@@ -376,6 +376,21 @@ intensities across 720 cases against the reviewed worker convolution. That compa
 uses Node with `--experimental-strip-types` to load the pure TypeScript reference;
 Node is therefore needed for this native test, not for compiling the library itself.
 
-The worker continues to use its previous resolution path until this new C API is
-exported through WASM and integrated. Energy resolution and full project/corpus
+The real worker now uses this C API through WASM. The previous TypeScript
+convolution is retained only under engine/tests as a comparison reference. Energy resolution and full project/corpus
 acceptance remain open.
+
+### Shared native/WASM resolution integration
+
+`PreparedParrattQzRequest.resolution` carries width and the fast flag. The real worker
+passes the original qz grid to the WASM adapter, which calls
+`remagx_parratt_qz_resolution`; sample expansion and convolution now occur in C++.
+Calls without resolution retain the prepared zero-resolution API for component tests.
+Invalid resolution settings fail before allocation, and native failure statuses retain
+the existing service error mapping.
+
+The shared Node/Chromium suite compares 14,880 intensities, including 720 resolution
+cases (7,200 values) spanning exact/fast, zero/small/nonzero widths, magnetic/tensor
+branches and both beams. Maximum positive log10 discrepancy on the recorded build is
+about 2.13e-12 decades. Memory-growth and allocation/error-recovery tests exercise the
+resolution API too. The TypeScript reference is not imported by the production worker.

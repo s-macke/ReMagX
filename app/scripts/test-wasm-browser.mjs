@@ -89,7 +89,7 @@ try {
       count++
     })
   }
-  assert.equal(count, 7680)
+  assert.equal(count, 14880)
   assert.equal(result.finished, false, 'busy calculation must still be running at termination')
   assert.ok(result.tickMilliseconds < 200, `browser event loop took ${result.tickMilliseconds} ms`)
   assert.ok(result.recoveryMilliseconds < 1000, `replacement took ${result.recoveryMilliseconds} ms`)

@@ -20,8 +20,11 @@ it('prepares and routes requests, shares initialization, and returns the establi
   const project = createDefaultProject()
   project.experiment.qzScan.points = 2
   project.experiment.resolution.fastConvolution = false
+  project.experiment.resolution.angularFwhm = .001
   await Promise.all([handle({ id: 1, kind: 'reflectivity', project }), handle({ id: 2, kind: 'asymmetry', project })])
   expect(load).toHaveBeenCalledTimes(1)
+  expect(calculate.mock.calls[0][0].resolution).toEqual({ width: .001, fast: false })
+  expect(calculate.mock.calls[0][0].qz).toHaveLength(2)
   expect(send.mock.calls[0][0]).toMatchObject({ id: 1, type: 'result', result: { reflectivity: [3, 3] } })
   expect(send.mock.calls[1][0]).toMatchObject({ id: 2, type: 'result', result: { asymmetry: [.5, .5] } })
   expect(calculate.mock.calls.map(([request]) => request.mode)).toEqual([0, 1])
