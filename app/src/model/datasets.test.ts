@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultProject } from './defaults'
-import { deleteDataset, measuredSeries, moveDataset } from './datasets'
+import { datasetMetadata, deleteDataset, measuredSeries, moveDataset } from './datasets'
 import type { Dataset, Project } from './project'
 
 function withDatasets(titles: string[], active: number | null): Project {
@@ -58,4 +58,13 @@ describe('measured series', () => {
     expect(measuredSeries(project, 'asymmetry', 'qz')[0].curve.y).toEqual([0.1, -0.1])
     expect(measuredSeries(project, 'dichroic', 'qz')).toEqual([])
   })
+})
+
+it('describes stored measurement columns and switches the energy editor only for nonempty energy scans', () => {
+  const dataset = withDatasets(['scan'], 0).datasets[0]
+  expect(datasetMetadata(dataset)).toEqual({ energyScan: false, type: '', points: 1 })
+  dataset.columns.energy = []
+  expect(datasetMetadata(dataset).energyScan).toBe(false)
+  dataset.columns = { qz: [0.1, 0.2], energy: [700, 701], reflectivity: [1, 2], asymmetry: [0, 0], reflectivityPlus: [1, 2], reflectivityMinus: [1, 2], electronYield: [3, 4] }
+  expect(datasetMetadata(dataset)).toEqual({ energyScan: true, type: 'energy R0 Asym R+ R− TEY', points: 2 })
 })

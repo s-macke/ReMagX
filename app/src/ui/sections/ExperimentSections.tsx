@@ -1,13 +1,11 @@
 // Sections of the Experiment tab (legacy GeneralFrames): ExperimentFrame, EScanFrame,
 // ResolutionFrame, MeasurementParamsFrame, PolarizationFrame, MapFrame.
 
-import { beamFromPreset, beamPresetLabels, normalizeBeam, presetOfBeam, type BeamPreset } from '../../model/presets'
-import type { Polarization } from '../../model/project'
 import { wavelengthFromEnergy } from '../../model/units'
 import { useAppState, useDispatch } from '../../state/context'
 import { useEditProject } from '../../state/useEditProject'
-import { ButtonRow, CheckboxField, Field, Group, Note, NumberField, RadioGroupField } from '../form'
-import { NumberCell } from '../NumberCell'
+import { CheckboxField, Field, Group, Note, NumberField, RadioGroupField } from '../form'
+import { BeamEditor } from '../BeamEditor'
 
 export function EnergySection() {
   const { project, energyUnit } = useAppState()
@@ -153,61 +151,6 @@ export function SimulationParametersSection() {
         <Note>Syntax example: 0, 3*(1, 2), 4</Note>
       </Group>
     </>
-  )
-}
-
-function BeamEditor({ title, beam, onChange }: { title: string; beam: Polarization['beam1']; onChange: (beam: Polarization['beam1']) => void }) {
-  const preset = presetOfBeam(beam)
-  const component = (part: 'sigma' | 'pi', axis: 're' | 'im') => (
-    <NumberCell
-      label={`${title} ${part} ${axis === 're' ? 'real' : 'imaginary'}`}
-      value={beam[part][axis]}
-      onCommit={(v) => onChange({ ...beam, [part]: { ...beam[part], [axis]: v } })}
-    />
-  )
-  return (
-    <Group title={title}>
-      <Field label="preset">
-        <select
-          className="select"
-          value={preset ?? ''}
-          onChange={(e) => e.target.value && onChange(beamFromPreset(e.target.value as BeamPreset))}
-        >
-          <option value="">custom</option>
-          {Object.entries(beamPresetLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <table className="jones-table">
-        <thead>
-          <tr>
-            <th />
-            <th scope="col">real</th>
-            <th scope="col">imaginary</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th scope="row">sigma</th>
-            <td>{component('sigma', 're')}</td>
-            <td>{component('sigma', 'im')}</td>
-          </tr>
-          <tr>
-            <th scope="row">pi</th>
-            <td>{component('pi', 're')}</td>
-            <td>{component('pi', 'im')}</td>
-          </tr>
-        </tbody>
-      </table>
-      <ButtonRow>
-        <button type="button" onClick={() => onChange(normalizeBeam(beam))}>
-          Norm
-        </button>
-      </ButtonRow>
-    </Group>
   )
 }
 

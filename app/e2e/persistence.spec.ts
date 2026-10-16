@@ -110,12 +110,14 @@ test('AC-15: real file handles support Open, Save and Save As', async ({ page })
     return text ? JSON.parse(text) : null
   }, name)
   project.sample.layers[1].thickness = 44
-  await expect.poll(() => readProject('opened.json')).toEqual(project)
+  await expect(page.getByRole('status')).toContainText('Saved opened.json.')
+  expect(await readProject('opened.json')).toEqual(project)
   await editThickness(page, '45')
   await page.getByRole('button', { name: 'File', exact: true }).click()
   await page.getByRole('menuitem', { name: /Save As/ }).click()
   project.sample.layers[1].thickness = 45
-  await expect.poll(() => readProject('saved-as.json')).toEqual(project)
+  await expect(page.getByRole('status')).toContainText('Saved saved-as.json.')
+  expect(await readProject('saved-as.json')).toEqual(project)
   project.sample.layers[1].thickness = 44
   expect(await readProject('opened.json')).toEqual(project)
 })

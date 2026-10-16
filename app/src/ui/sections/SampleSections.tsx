@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import { tableKinds } from '../../import/tables'
-import { deleteDataset, moveDataset, updateDataset } from '../../model/datasets'
+import { datasetMetadata, deleteDataset, moveDataset, updateDataset } from '../../model/datasets'
 import { createDepthProfileFunction } from '../../model/defaults'
 import { applyMagnetizationToAllLayers } from '../../model/layers'
 import { magnetizationPresets, type MagnetizationPreset } from '../../model/presets'
@@ -11,14 +11,17 @@ import { useAppState, useDispatch } from '../../state/context'
 import { useEditProject } from '../../state/useEditProject'
 import { chooseFiles, readOpticalTableFiles } from '../fileActions'
 import { ButtonRow, CheckboxField, Field, Group, Note, NumberField, RadioGroupField } from '../form'
+import { BeamEditor } from '../BeamEditor'
 import { NumberCell } from '../NumberCell'
 
 export function DatasetSection() {
   const { project } = useAppState()
   const dispatch = useDispatch()
-  const update = (fn: (p: typeof project) => typeof project) => dispatch({ type: 'updateProject', update: fn })
+  const update = (fn: (p: typeof project) => typeof project, coalesce?: string) => dispatch({ type: 'updateProject', update: fn, coalesce })
   const active = project.activeDatasetIndex
   const dataset = active === null ? undefined : project.datasets[active]
+
+  const metadata = dataset && datasetMetadata(dataset)
 
   if (project.datasets.length === 0) {
     return <Note>No measured data. Open a legacy .all file that contains datasets (File → Examples → Tutorial 2).</Note>
@@ -55,15 +58,27 @@ export function DatasetSection() {
           </button>
         </ButtonRow>
       )}
-      {dataset && active !== null && (
+      {dataset && metadata && active !== null && (
         <Group title="Selected dataset">
-          <NumberField label="energy" unit="eV" value={dataset.energy} onChange={(energy) => update((p) => updateDataset(p, active, { energy }))} />
+          <Field label="Title">
+            <input value={dataset.title} onChange={(e) => { const title = e.target.value; update((p) => updateDataset(p, active, { title }), `dataset-${active}-title`) }} />
+          </Field>
+          <Field label="Comment">
+            <textarea value={dataset.comment} onChange={(e) => { const comment = e.target.value; update((p) => updateDataset(p, active, { comment }), `dataset-${active}-comment`) }} />
+          </Field>
+          {metadata.energyScan
+            ? <NumberField label="Energy shift" unit="eV" value={dataset.energyShift} onChange={(energyShift) => update((p) => updateDataset(p, active, { energyShift }))} />
+            : <NumberField label="Energy" unit="eV" value={dataset.energy} onChange={(energy) => update((p) => updateDataset(p, active, { energy }))} />}
+          <NumberField label="Angular Resolution" unit="1/Å" min={0} value={dataset.angularResolution} onChange={(angularResolution) => update((p) => updateDataset(p, active, { angularResolution }))} />
           <NumberField label="intensity scale" value={dataset.intensityScale} onChange={(intensityScale) => update((p) => updateDataset(p, active, { intensityScale }))} />
           <NumberField label="intensity offset" value={dataset.intensityOffset} onChange={(intensityOffset) => update((p) => updateDataset(p, active, { intensityOffset }))} />
           <NumberField label="qz shift" unit="1/Å" value={dataset.qzShift} onChange={(qzShift) => update((p) => updateDataset(p, active, { qzShift }))} />
-          <NumberField label="energy shift" unit="eV" value={dataset.energyShift} onChange={(energyShift) => update((p) => updateDataset(p, active, { energyShift }))} />
           <NumberField label="error weight" value={dataset.errorWeight} onChange={(errorWeight) => update((p) => updateDataset(p, active, { errorWeight }))} />
-          {dataset.sourceFile && <Note>Source: {dataset.sourceFile}</Note>}
+          <BeamEditor title="Polarization 1" beam={dataset.polarization.beam1} onChange={(beam1) => update((p) => updateDataset(p, active, { polarization: { ...p.datasets[active].polarization, beam1 } }))} />
+          <BeamEditor title="Polarization 2" beam={dataset.polarization.beam2} onChange={(beam2) => update((p) => updateDataset(p, active, { polarization: { ...p.datasets[active].polarization, beam2 } }))} />
+          <Field label="Type"><output aria-label="Type">{metadata.type || '—'}</output></Field>
+          <Field label="File"><output aria-label="File">{dataset.sourceFile || '—'}</output></Field>
+          <Field label="Datapoints"><output aria-label="Datapoints">{metadata.points}</output></Field>
         </Group>
       )}
     </>

@@ -251,7 +251,7 @@
     {
       "name": "dataset-list",
       "status": "ported",
-      "reason": "Selection, fit inclusion, ordering and deletion use model actions; incomplete property editing is classified separately.",
+      "reason": "Selection, fit inclusion, ordering and deletion use model actions; property editing is classified separately.",
       "references": [
         "app/src/ui/sections/SampleSections.tsx",
         "app/src/model/datasets.ts"
@@ -513,16 +513,18 @@
     },
     {
       "name": "dataset-properties",
-      "status": "deferred",
-      "reason": "Complete the selected dataset editor: title/comment, angular resolution and both beam polarizations; reconcile legacy metadata rows. Existing scale/offset/shift/weight fields are partial.",
+      "status": "ported",
+      "reason": "Selected dataset editor covers title/comment, energy or energy shift according to stored columns, angular resolution, scale/offset/qz shift/error weight, both complex beam polarizations, and read-only Type/File/Datapoints metadata. Numerical use of dataset settings remains engine-phase work.",
       "references": [
-        "AGENTS.md"
+        "app/src/ui/sections/SampleSections.tsx",
+        "app/src/ui/BeamEditor.tsx",
+        "app/src/model/datasets.ts",
+        "app/e2e/datasets.spec.ts"
       ],
       "entries": [
         "client/DatasetFrame.dfm::Frame9/DataListEditor",
         "client/Unit1.cpp::event:c25ef0424c40ab4f:1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "angle-axis",

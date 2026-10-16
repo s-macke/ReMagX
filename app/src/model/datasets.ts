@@ -82,3 +82,19 @@ export function measuredSeries(project: Project, mode: 'monochromatic' | 'dichro
     return curve ? [{ label: quantityLabels[quantity], curve }] : []
   })
 }
+
+// Legacy DataListClick metadata: energy is present only for energy scans; Type reflects
+// the stored measured columns, independent of the currently displayed plot mode.
+export function datasetMetadata(dataset: Dataset): { energyScan: boolean; type: string; points: number } {
+  const columns = dataset.columns
+  const energyScan = (columns.energy?.length ?? 0) > 0
+  const types = [
+    energyScan ? 'energy' : '',
+    columns.reflectivity?.length ? 'R0' : '',
+    columns.asymmetry?.length ? 'Asym' : '',
+    columns.reflectivityPlus?.length ? 'R+' : '',
+    columns.reflectivityMinus?.length ? 'R−' : '',
+    columns.electronYield?.length ? 'TEY' : '',
+  ].filter(Boolean)
+  return { energyScan, type: types.join(' '), points: columns.qz.length }
+}
