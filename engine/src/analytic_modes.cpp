@@ -11,6 +11,14 @@ bool finite(const double* values, int count) {
         if (!std::isfinite(values[index])) return false;
     return true;
 }
+// Legacy SetMatrixLine stores each supplied field vector as a column.
+// Our mode assembly names the physical field rows; transpose those
+// into the actual CMATRIX storage consumed by legacy stack operations.
+void transpose_boundary(Complex* matrix) {
+    for (int row = 0; row < 4; ++row)
+        for (int column = row + 1; column < 4; ++column)
+            std::swap(matrix[row * 4 + column], matrix[column * 4 + row]);
+}
 bool pack(const Complex* values, int count, double* output) {
     for (int index = 0; index < count; ++index) {
         output[2 * index] = values[index].real();
@@ -84,6 +92,7 @@ extern "C" int remagx_analytic_modes(int kind, const double* tensor, const doubl
             propagation_matrix[mode * 5] = std::exp(-imaginary * wave_number * modes[mode] * thickness);
         }
     }
+    transpose_boundary(interface_matrix);
     double packed_roots[8], packed_boundary[32], packed_propagation[32];
     if (!pack(modes, 4, packed_roots) || !pack(interface_matrix, 16, packed_boundary) ||
         !pack(propagation_matrix, 16, packed_propagation)) return REMAGX_NUMERICAL_ERROR;
@@ -141,6 +150,7 @@ extern "C" int remagx_matrix_modes(int anisotropic, const double* tensor, const 
         interface_matrix[12 + mode] = root * electric_x;
         propagation_matrix[mode * 5] = std::exp(-imaginary * wave_number * root * thickness);
     }
+    transpose_boundary(interface_matrix);
     double packed_boundary[32], packed_propagation[32];
     if (!pack(interface_matrix, 16, packed_boundary) || !pack(propagation_matrix, 16, packed_propagation))
         return REMAGX_NUMERICAL_ERROR;

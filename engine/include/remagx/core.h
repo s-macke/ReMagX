@@ -120,7 +120,9 @@ int remagx_classify_tensor(const double* tensor, double epsilon, int* kind);
 // Caller selecting isotropic after classification supplies sqrt(tensor[0,0]).
 // Angles are radians, wave number inverse Angstrom, thickness Angstrom.
 // Output: 8 root doubles, 32 boundary-matrix doubles, 32 propagation doubles;
-// matrices row-major complex real/imag. Buffers must not overlap. All outputs
+// matrices row-major complex real/imag in legacy CMATRIX storage: its
+// SetMatrixLine writes a column, so boundary rows are modes and columns
+// are field components. Buffers must not overlap. All outputs
 // remain untouched on error. General anisotropic mode vectors are not provided.
 int remagx_analytic_modes(int kind, const double* tensor, const double* refractive_index,
                          double angle, double wave_number, double thickness,

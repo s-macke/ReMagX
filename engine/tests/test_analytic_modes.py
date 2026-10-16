@@ -85,6 +85,21 @@ class AnalyticModesTest(unittest.TestCase):
     def test_original_general_dispatch(self):
         self.compare_original(True)
 
+    def test_boundary_storage_is_legacy_column_storage(self):
+        # Original SetMatrixLine writes columns, despite its name. Check unequal
+        # off-diagonal entries so a transposed scaffold cannot pass unnoticed.
+        status, output = evaluate(0, [0.] * 18, [1.1, .01], .2, .3, 0)
+        self.assertEqual(status, 0)
+        boundary = [complex(*output[position:position+2]) for position in range(8, 40, 2)]
+        index = complex(1.1, .01)
+        root = complex(*output[:2])
+        normal = root / index
+        expected = [1, 0, 0, normal * index,
+                    0, normal, -index, 0,
+                    1, 0, 0, -normal * index,
+                    0, -normal, -index, 0]
+        self.assertEqual(boundary, expected)
+
     def test_dispatch_and_degenerate_errors(self):
         tensor = [0.] * 18
         for position in [0, 8, 16]: tensor[position] = 1
@@ -118,7 +133,7 @@ class AnalyticModesTest(unittest.TestCase):
 using namespace std;
 enum EPSILONTYPE { ISOTROPIC=0, ANISOTROPIC=1, TETRAGONAL=2 };
 template<class T> struct CMATRIX {complex<T> a[4][4]{};
-void SetMatrixLine(int row,complex<T> x,complex<T> y,complex<T> z,complex<T> w){a[row][0]=x;a[row][1]=y;a[row][2]=z;a[row][3]=w;}};
+void SetMatrixLine(int, const complex<T>&, const complex<T>&, const complex<T>&, const complex<T>&);};
 '''
         wrapper = '''int main(){int kind;double angle,wave,thickness,real,imag;cout<<setprecision(17);
 while(cin>>kind>>angle>>wave>>thickness>>real>>imag){complex<double> index(real,imag),roots[4];CMATRIX<double> tensor,boundary,propagation;
@@ -130,6 +145,10 @@ for(auto value:roots)cout<<value.real()<<' '<<value.imag()<<' ';
 for(auto matrix:{boundary,propagation})for(auto& row:matrix.a)for(auto value:row)cout<<value.real()<<' '<<value.imag()<<' ';
 cout<<'\\n';}}
 '''
+        matrix_source = (root / 'shared/CMatrix.h').read_text(encoding='latin1')
+        setter = matrix_source[matrix_source.index('template<class T >\nvoid inline CMATRIX<T>::SetMatrixLine'):matrix_source.index('\n#endif')]
+        self.assertEqual(hashlib.sha256(setter.encode()).hexdigest(), 'd75d436c1b97a8756cd5ac167300700eb18b02aac51dd23e6bf5f557c253372e')
+        scaffold += setter
         inputs = list(cases())
         if dispatch:
             wrapper = wrapper.replace('if(kind==0)SetMatrixIsotropic(propagation,boundary,roots,angle,wave,thickness,index);\nelse SetMatrixTetragonal(propagation,boundary,roots,angle,wave,thickness,index,tensor);',
