@@ -882,12 +882,14 @@
     {
       "name": "worker-lifecycle",
       "status": "ported",
-      "reason": "Worker error/messageerror and startup/send failures reject all pending requests without changing project state. Failed workers are detached and terminated, the next request creates a replacement, and disposal rejects further work. Chromium headless cancellation and recovery tests also pass (app/e2e/responsiveness.spec.ts).",
+      "reason": "Worker error/messageerror and startup/send failures reject all pending requests without changing project state. Failed workers are detached and terminated, the next request creates a replacement, and disposal rejects further work. Chromium headless cancellation and recovery tests also pass (app/e2e/responsiveness.spec.ts). Fit/evaluation callbacks are also guarded by a session epoch; structural edits and project loading clear previews and discard the old worker independently of the mounted panel.",
       "references": [
         "app/src/compute/WorkerComputeService.ts",
         "app/src/compute/WorkerComputeService.test.ts",
         "app/src/state/useCalculation.ts",
-        "app/src/state/useFitRunner.ts"
+        "app/src/state/useFitRunner.ts",
+        "app/src/model/fitStructure.ts",
+        "app/src/state/fitSession.test.ts"
       ],
       "entries": [
         "client/Unit1.cpp::event:5a93eb0c0e4e8cab:1"

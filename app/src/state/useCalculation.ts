@@ -30,6 +30,13 @@ export function computeService(): ComputeService {
   return sharedService
 }
 
+// A structural edit makes all old worker work unusable. Dispose immediately so
+// the new project can calculate without waiting for cooperative fit cancellation.
+export function discardComputeService(): void {
+  sharedService?.dispose()
+  sharedService = null
+}
+
 async function calculate(service: ComputeService, project: Project, request: CalculationRequest): Promise<CalculatedCurve> {
   const { scanKind, displayMode: mode, plotView } = request
   if (plotView !== 'scan') {

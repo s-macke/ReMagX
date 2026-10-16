@@ -131,3 +131,27 @@ for (const kind of ['fit', 'reflectivity', 'chi2']) {
     await expect(page.locator('.mode-panel__stop')).toBeDisabled()
   })
 }
+
+for (const change of ['insert', 'load'] as const) {
+  test(`a blocked fit is invalidated by project ${change}, even with the Fit panel unmounted`, async ({ page }) => {
+    await page.evaluate(() => { window.blockedKind = 'fit' })
+    await page.getByRole('button', { name: 'Start', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => window.workerBlocked)).toBe(true)
+    await page.getByRole('tab', { name: 'Sample', exact: true }).click()
+    await page.evaluate(() => { window.results = 0 })
+    if (change === 'insert') {
+      await page.getByRole('button', { name: 'Add layer above the selected one', exact: true }).click()
+    } else {
+      const chooser = page.waitForEvent('filechooser')
+      await page.getByRole('button', { name: 'Open… (Ctrl+O)', exact: true }).click()
+      await (await chooser).setFiles(projectFile())
+    }
+    await expect.poll(() => page.evaluate(() => window.terminations)).toBeGreaterThan(0)
+    await page.getByRole('tab', { name: 'Fit', exact: true }).click()
+    await expect(page.locator('#section-fit-start-stop')).toContainText('Fit cancelled')
+    await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeEnabled()
+    await expect(page.getByRole('textbox', { name: 'thickness of layer 1', exact: true })).toHaveValue('46')
+    // A replacement worker must serve the current project again.
+    await expect.poll(() => page.evaluate(() => window.results)).toBeGreaterThan(0)
+  })
+}

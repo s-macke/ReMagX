@@ -1,6 +1,7 @@
 // Application state: the current project plus UI-only view settings. Components dispatch
 // actions; project changes go through the pure helpers in model/.
 
+import { fitStructureChanged } from '../model/fitStructure'
 import { createDefaultProject } from '../model/defaults'
 import { insertSlabAbove, removeSlab } from '../model/elements'
 import { insertLayerAbove, removeLayer, updateLayer } from '../model/layers'
@@ -28,6 +29,8 @@ const DEBUG_LOG_LIMIT = 500
 
 export interface AppState {
   project: Project
+  fitEpoch: number // callbacks must match the current fit/evaluation session
+  fitInvalidations: number // requests worker cancellation independently of panel mounting
   fileName: string
   selectedLayer: number // row of the layer table (a slab of selectedElement in element mode)
   selectedElement: number
@@ -57,7 +60,11 @@ export interface History {
 const HISTORY_LIMIT = 100
 const COALESCE_MS = 1000
 
+export type FitEvent = Extract<Action, { type: 'setFitStatus' | 'updateProject' | 'setCalculationPaused' | 'appendDebug' }>
+
 export type Action =
+  | { type: 'beginFit'; parameters: FitParameter[] | null }
+  | { type: 'fitEvent'; epoch: number; event: FitEvent }
   | { type: 'loadProject'; project: Project; fileName: string; report?: ImportReport; notice?: string; unsaved?: boolean }
   | { type: 'markSaved'; fileName: string }
   | { type: 'setNotice'; notice: string | null }
@@ -86,6 +93,8 @@ export function initialState(): AppState {
   const project = createDefaultProject()
   return {
     project,
+    fitEpoch: 0,
+    fitInvalidations: 0,
     savedProject: project,
     notice: null,
     history: { past: [], future: [], lastKey: null, lastAt: 0 },
@@ -108,7 +117,15 @@ const emptyHistory = (): History => ({ past: [], future: [], lastKey: null, last
 
 // Wraps the state transitions with undo history: every change of the project is recorded,
 // loading a project starts a fresh history.
+function invalidateFit(state: AppState, message: string): AppState {
+  const active = state.fitStatus.running || state.fitStatus.evaluating
+  return { ...state, fitEpoch: state.fitEpoch + 1, fitInvalidations: state.fitInvalidations + Number(active),
+    fitStatus: { ...state.fitStatus, running: false, evaluating: false, parameters: null, values: null, chi2: null,
+      message: active ? message : state.fitStatus.message } }
+}
+
 export function reducer(state: AppState, action: Action): AppState {
+  if (action.type === 'fitEvent') return action.epoch === state.fitEpoch ? reducer(state, action.event) : state
   if (action.type === 'undo' || action.type === 'redo') {
     const { past, future } = state.history
     const from = action.type === 'undo' ? past : future
@@ -119,12 +136,14 @@ export function reducer(state: AppState, action: Action): AppState {
       action.type === 'undo'
         ? { past: rest, future: [...future, state.project], lastKey: null, lastAt: 0 }
         : { past: [...past, state.project], future: rest, lastKey: null, lastAt: 0 }
-    return { ...state, project, history, notice: null, calculationPaused: false }
+    const next = { ...state, project, history, notice: null, calculationPaused: false }
+    return invalidateFit(next, 'Fit cancelled by undo/redo.')
   }
 
-  const next = transition(state, action)
-  if (action.type === 'loadProject') return { ...next, history: emptyHistory(), calculationPaused: false }
+  let next = transition(state, action)
+  if (action.type === 'loadProject') return { ...invalidateFit(next, 'Fit cancelled because a project was loaded.'), history: emptyHistory(), calculationPaused: false }
   if (next.project === state.project) return next
+  if (fitStructureChanged(state.project, next.project)) next = invalidateFit(next, 'Fit cancelled because project structure changed.')
 
   const now = Date.now()
   const key = 'coalesce' in action ? (action.coalesce ?? null) : null
@@ -135,6 +154,9 @@ export function reducer(state: AppState, action: Action): AppState {
 
 function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | { type: 'redo' }>): AppState {
   switch (action.type) {
+    case 'fitEvent': return state // handled by the reducer wrapper
+    case 'beginFit':
+      return { ...state, fitEpoch: state.fitEpoch + 1, fitStatus: { running: action.parameters !== null, evaluating: action.parameters === null, iteration: 0, chi2: null, parameters: action.parameters, values: null, message: action.parameters === null ? 'Calculating χ²…' : 'Fitting…' } }
     case 'loadProject':
       return {
         ...state,
