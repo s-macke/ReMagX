@@ -2,6 +2,7 @@
 // ("air"); both always exist. All functions return a new project and leave the input unchanged.
 
 import { createLayer } from './defaults'
+import { remapStackFitTargets } from './fitTargets'
 import { remapProfileBindings } from './magneticProfiles'
 import type { Layer, Project } from './project'
 
@@ -20,6 +21,7 @@ export function updateLayer(project: Project, index: number, patch: Partial<Laye
 // Inserts a copy of the layer at `index` directly above it (above the substrate if the ambient
 // medium is selected, since nothing can sit above the ambient).
 export function insertLayerAbove(project: Project, index: number): { project: Project; inserted: number } {
+  if (!Number.isInteger(index) || index < 0 || index >= project.sample.layers.length) return { project, inserted: index }
   const layers = [...project.sample.layers]
   const source = isAmbient(project, index) ? layers.length - 2 : index
   const template = source <= 0 ? createLayer({ thickness: 10 }) : { ...layers[source] }
@@ -27,11 +29,12 @@ export function insertLayerAbove(project: Project, index: number): { project: Pr
   layers.splice(position, 0, structuredClone(template))
   const changed = withLayers(project, layers)
   changed.sample.depthProfileFunctions = remapProfileBindings(project, layers.length, index => index >= position ? index + 1 : index)
+  changed.fit = { ...project.fit, parameters: remapStackFitTargets(project.fit.parameters, 'layer', index => index >= position ? index + 1 : index) }
   return { project: changed, inserted: position }
 }
 
 export function canRemoveLayer(project: Project, index: number): boolean {
-  return !isSubstrate(index) && !isAmbient(project, index)
+  return Number.isInteger(index) && index > 0 && index < project.sample.layers.length - 1
 }
 
 export function removeLayer(project: Project, index: number): Project {
@@ -39,6 +42,7 @@ export function removeLayer(project: Project, index: number): Project {
   const layers = project.sample.layers.filter((_, i) => i !== index)
   const changed = withLayers(project, layers)
   changed.sample.depthProfileFunctions = remapProfileBindings(project, layers.length, oldIndex => oldIndex === index ? null : oldIndex > index ? oldIndex - 1 : oldIndex)
+  changed.fit = { ...project.fit, parameters: remapStackFitTargets(project.fit.parameters, 'layer', oldIndex => oldIndex === index ? null : oldIndex > index ? oldIndex - 1 : oldIndex) }
   return changed
 }
 

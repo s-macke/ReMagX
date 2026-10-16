@@ -1,6 +1,7 @@
 // Element mode: editing the slab stacks of the element profiles. As with layers, slabs[0] is the
 // substrate and the last slab the ambient medium (legacy ElementLayerSystem::GetDensity).
 
+import { remapStackFitTargets } from './fitTargets'
 import type { ElementProfile, Project } from './project'
 
 type Slab = ElementProfile['slabs'][number]
@@ -20,21 +21,25 @@ export function updateSlab(project: Project, elementIndex: number, slabIndex: nu
 
 export function insertSlabAbove(project: Project, elementIndex: number, slabIndex: number): { project: Project; inserted: number } {
   const element = project.sample.elementProfiles[elementIndex]
-  if (!element) return { project, inserted: slabIndex }
+  if (!element || !Number.isInteger(slabIndex) || slabIndex < 0 || slabIndex >= element.slabs.length) return { project, inserted: slabIndex }
   const slabs = [...element.slabs]
   const last = slabs.length - 1
   const source = slabIndex >= last ? last - 1 : slabIndex
   const position = Math.max(1, source + 1)
   slabs.splice(position, 0, source >= 1 ? { ...slabs[source] } : { thickness: 10, density: 0, roughness: 0 })
-  return { project: withElement(project, elementIndex, (e) => ({ ...e, slabs })), inserted: position }
+  const changed = withElement(project, elementIndex, (e) => ({ ...e, slabs }))
+  changed.fit = { ...project.fit, parameters: remapStackFitTargets(project.fit.parameters, 'elementSlab', index => index >= position ? index + 1 : index, elementIndex) }
+  return { project: changed, inserted: position }
 }
 
 export function canRemoveSlab(project: Project, elementIndex: number, slabIndex: number): boolean {
   const slabs = project.sample.elementProfiles[elementIndex]?.slabs ?? []
-  return slabIndex > 0 && slabIndex < slabs.length - 1
+  return Number.isInteger(slabIndex) && slabIndex > 0 && slabIndex < slabs.length - 1
 }
 
 export function removeSlab(project: Project, elementIndex: number, slabIndex: number): Project {
   if (!canRemoveSlab(project, elementIndex, slabIndex)) return project
-  return withElement(project, elementIndex, (e) => ({ ...e, slabs: e.slabs.filter((_, i) => i !== slabIndex) }))
+  const changed = withElement(project, elementIndex, (e) => ({ ...e, slabs: e.slabs.filter((_, i) => i !== slabIndex) }))
+  changed.fit = { ...project.fit, parameters: remapStackFitTargets(project.fit.parameters, 'elementSlab', index => index === slabIndex ? null : index > slabIndex ? index - 1 : index, elementIndex) }
+  return changed
 }

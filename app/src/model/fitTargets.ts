@@ -201,3 +201,19 @@ export function targetIndexOptions(project: Project, target: FitTargetKind, elem
       return []
   }
 }
+
+// Structural stack edits preserve the identity of surviving fit targets. A null
+// result means the target was deleted; parameters in other stacks stay untouched.
+export function remapStackFitTargets(
+  parameters: FitParameter[],
+  kind: 'layer' | 'elementSlab',
+  mapIndex: (index: number) => number | null,
+  elementIndex?: number,
+): FitParameter[] {
+  return parameters.flatMap(parameter => {
+    if (fitTargetInfo[parameter.target].index !== kind || parameter.index === null ||
+        (kind === 'elementSlab' && parameter.elementIndex !== elementIndex)) return [parameter]
+    const index = mapIndex(parameter.index)
+    return index === null ? [] : [{ ...parameter, index }]
+  })
+}

@@ -326,3 +326,7 @@ D-36: [accepted] **Chromium headless is the automated browser-test target.** The
 - Validation note: the full browser run exposed a 5 s PNG clipboard assertion timeout. Temporary instrumentation confirmed delayed asynchronous canvas encoding (an image callback took about 6.7 s). The export-completion assertion now allows 15 s; actual clipboard image/content checks remain, and no AC-10 timing or numerical tolerance changed. Instrumentation was removed.
 
 - Follow-up found while reviewing layer mutations: layer-indexed fit parameters are not yet remapped by insertLayerAbove/removeLayer. Recorded an explicit checklist task; this binding change only remaps profile bindings.
+
+- 2026-10-16: Completed the layer-mutation follow-up for both compound layers and element slabs. A shared fit-target remapping function preserves surviving indices and parameter settings, removes targets for deleted entries, and leaves profile/script/global targets and other element stacks untouched. Invalid structural indices are rejected without mutating the project. Unit tests cover insertion/deletion round trips, boundary layers/slabs, bounds/steps, stack isolation and invalid indices; Chromium checks cell highlighting, parameter counts and undo. No importer or numerical engine changes.
+
+- Follow-up: useFitRunner still captures the original indexed targets for progress/results. Structural edits or project replacement during a running fit need stale-result protection beyond remapping the saved parameter list; recorded separately in the checklist.
