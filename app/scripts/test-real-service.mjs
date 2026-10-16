@@ -385,6 +385,52 @@ try {
         output.realFits.push({ algorithm, value: result.values[0], chi2: result.chi2, iterations,
           unchanged: before === JSON.stringify(fit) })
       }
+      // Exercise recovery separately for each stored data kind, then a weighted mixed fit.
+      output.mixedFits = []
+      tables = [
+        { name: 'fit-bulk', kind: 'db', energy: [600, 800], columns: [[.009, .011], [.0015, .0025]], warnings: [] },
+        { name: 'fit-film', kind: 'db', energy: [600, 800], columns: [[.005, .007], [.0008, .0012]], warnings: [] },
+        { name: 'fit-film', kind: 'm', energy: [600, 800], columns: [[.0003, .0005], [.00003, .00005]], warnings: [] },
+        { name: 'fit-air', kind: 'db', energy: [600, 800], columns: [[0, 0], [0, 0]], warnings: [] },
+      ]
+      for (const algorithm of ['parratt', 'matrix', 'zak']) {
+        const fit = createDefaultProject()
+        fit.fit.algorithm = 'simplex'; fit.fit.occamQ = 0
+        fit.calculation.algorithm = algorithm; fit.calculation.automaticOpticalConstants = true
+        fit.calculation.magnetization.mode = 'add'
+        fit.sample.layers = [createLayer({ opticalTable: 'fit-bulk' }),
+          createLayer({ opticalTable: 'fit-film', thickness: 35, magnetization: { gamma: 45, phi: 70 } }),
+          createLayer({ opticalTable: 'fit-air' })]
+        fit.experiment.energy = 640; fit.experiment.qzScan.useDatasetPoints = true
+        const datasets = [], labels = []
+        for (const energyScan of [false, true]) for (const kind of ['reflectivity', 'asymmetry', 'dichroic']) {
+          const qz = Array.from({ length: 32 }, (_, index) => .025 + index * .004)
+          const data = { title: '', comment: '', sourceFile: '', energy: 640, energyShift: 0, qzShift: 0,
+            angularResolution: 0, intensityScale: 1, intensityOffset: 0, active: true, errorWeight: datasets.length + 1,
+            polarization: structuredClone(fit.experiment.polarization),
+            columns: { qz, ...(energyScan ? { energy: qz.map((_, index) => 610 + index * 5) } : {}) } }
+          fit.datasets = [data]; fit.activeDatasetIndex = 0
+          const curve = kind === 'reflectivity'
+            ? await (energyScan ? service.calcEnergyScan(fit) : service.calcReflectivity(fit))
+            : await (energyScan ? service.calcEnergyAsymmetry(fit) : service.calcAsymmetry(fit))
+          if (kind === 'reflectivity') data.columns.reflectivity = curve.reflectivity
+          else if (kind === 'asymmetry') data.columns.asymmetry = curve.asymmetry
+          else { data.columns.reflectivityPlus = curve.reflectivityPlus; data.columns.reflectivityMinus = curve.reflectivityMinus }
+          datasets.push(data); labels.push(`${energyScan ? 'energy' : 'qz'}-${kind}`)
+        }
+        fit.sample.layers[1].thickness = 30
+        fit.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null, value: 30, step: 0, lowerBound: 20, upperBound: 50 }]
+        for (let selected = 0; selected <= datasets.length; selected++) {
+          fit.datasets = datasets.map((data, index) => ({ ...data, active: selected === datasets.length || selected === index }))
+          // Selection must not determine which active datasets enter the fit.
+          fit.activeDatasetIndex = (selected + 1) % datasets.length
+          const before = JSON.stringify(fit)
+          const initial = await service.calcChi2(fit)
+          const result = await service.startFit(fit, () => {})
+          output.mixedFits.push({ algorithm, kind: labels[selected] ?? 'weighted-mixed', initial,
+            value: result.values[0], chi2: result.chi2, unchanged: before === JSON.stringify(fit) })
+        }
+      }
       tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)
@@ -416,6 +462,14 @@ try {
       return output
     } finally { service.dispose(); window.Worker = NativeWorker }
   })
+  assert.equal(results.mixedFits.length, 21)
+  for (const result of results.mixedFits) {
+    const label = `${result.algorithm} ${result.kind}`
+    assert.ok(result.unchanged, label)
+    assert.ok(result.initial > 1e-10, `${label}: insensitive synthetic fixture (${result.initial})`)
+    assert.ok(Math.abs(result.value - 35) < 1e-6, `${label}: recovered ${result.value}`)
+    assert.ok(result.chi2 < 1e-16, `${label}: final error ${result.chi2}`)
+  }
   assert.equal(results.datasetErrors.length, 3)
   for (const result of results.realFits) {
     assert.ok(result.unchanged)
@@ -563,7 +617,7 @@ try {
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: native thickness fits with automatic tables and blocked-fit Stop, weighted multi-dataset Chi² for Parratt/matrix/Zak, prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: native thickness recovery for qz/energy reflectivity/asymmetry/dichroic and weighted mixed fits with automatic tables and blocked-fit Stop, weighted multi-dataset Chi² for Parratt/matrix/Zak, prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))
