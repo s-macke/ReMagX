@@ -7,5 +7,5 @@ export default defineConfig({
   retries: 0,
   use: { baseURL: 'http://127.0.0.1:4173', viewport: { width: 1440, height: 1000 } },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
-  webServer: { command: 'npm run preview -- --host 127.0.0.1', port: 4173, reuseExistingServer: false },
+  webServer: { command: 'python3 -m http.server 4173 --bind 127.0.0.1 --directory dist', port: 4173, reuseExistingServer: false },
 })

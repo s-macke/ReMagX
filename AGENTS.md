@@ -200,7 +200,7 @@ Data:
 Quality gates:
 - [x] Settings/handler inventory: `tools/inventory/` parses 36 DFM forms, `Items->Add` calls and runtime event bindings; 676 entries explicitly reviewed as 367 ported, 29 dropped and 280 deferred. `tools/inventory/check` and parser/gate tests run in Pages CI; optional local source verification detects drift. Deferred UI/engine entries remain MVP work (D-16, D-17.1, AC-12).
 - [ ] Run all private-corpus imports in CI using `CORPUS_DIR` with private data access; fail if the corpus is missing or empty, without publishing research data in the repository, logs or artifacts (D-17.3, D-20, AC-4). Today the Pages workflow does not supply the corpus and the suite skips.
-- [ ] Complete Playwright end-to-end tests in Chromium headless (D-36): AC-10 passes; AC-11, AC-13, AC-14 and AC-15 remain. Exercise the upload/download fallback in Chromium with the File System Access API unavailable.
+- [x] Playwright end-to-end tests in Chromium headless (D-36): AC-10 responsiveness/Stop, AC-11 section toggles and persistence, AC-13 static Python hosting with external requests blocked, AC-14 IndexedDB reload restoration, and AC-15 upload/download and direct file-handle Open/Save/Save As. Native picker dialogs are substituted with real browser OPFS handles in headless tests; operating-system dialog interaction is not automated. These tests verify the current UI/mock phase, not real-engine acceptance.
 
 ### Engine phase: still to do
 - [ ] Docker build (optional, pinned emsdk + g++ + Node) producing the static site (D-19)
