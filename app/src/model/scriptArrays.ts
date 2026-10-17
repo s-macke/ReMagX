@@ -1,3 +1,5 @@
+import { HC_EV_ANGSTROM } from './units'
+import type { ScriptHookState } from './scriptHookState'
 import type { Project } from './project'
 
 // User-visible names/type IDs from script.cpp and scriptmetaarray.cpp.
@@ -33,6 +35,8 @@ export interface ScriptElementBinding {
 /** Mutable script workspace, isolated from the UI/project until a request succeeds. */
 export function createScriptArrayWorkspace(source: Project) {
   const project = structuredClone(source)
+  let wavelength = HC_EV_ANGSTROM / project.experiment.energy
+  let renewOpticalConstants = 0
   const arrays = new Map<string, ScriptNumericArray>()
   function register(name: string, typeId: number, count: number,
     read: (index: number) => number, write: (index: number, value: number) => void,
@@ -79,25 +83,63 @@ export function createScriptArrayWorkspace(source: Project) {
       index => project.sample.elementProfiles[index][name],
       (index, value) => { project.sample.elementProfiles[index][name] = value })
   }
-  const elements: ScriptElementBinding[] = project.sample.elementProfiles.map(profile => {
+  const elements: ScriptElementBinding[] = project.sample.elementProfiles.map((initialProfile, elementIndex) => {
+    const current = () => project.sample.elementProfiles[elementIndex]
     function slab(index: number) {
-      if (!Number.isSafeInteger(index) || index < 0 || index >= profile.slabs.length) {
-        throw new Error(`${profile.element}: slab index out of range`)
+      if (!Number.isSafeInteger(index) || index < 0 || index >= current().slabs.length) {
+        throw new Error(`${initialProfile.element}: slab index out of range`)
       }
-      return profile.slabs[index]
+      return current().slabs[index]
     }
     function finite(value: number) {
-      if (!Number.isFinite(value)) throw new Error(`${profile.element}: value must be finite`)
+      if (!Number.isFinite(value)) throw new Error(`${initialProfile.element}: value must be finite`)
     }
     return {
-      name: profile.element,
-      getFactor: field => profile[field],
-      setFactor(field, value) { finite(value); profile[field] = value },
+      name: initialProfile.element,
+      getFactor: field => current()[field],
+      setFactor(field, value) { finite(value); current()[field] = value },
       getSlab: (index, field) => slab(index)[field],
       setSlab(index, field, value) { finite(value); slab(index)[field] = value },
     }
   })
   return {
+    replace(next: Project, renew = 0): void {
+      const previous = project.sample, sample = next.sample
+      if (sample.mode !== previous.mode || sample.layers.length !== previous.layers.length ||
+        sample.depthProfileFunctions.length !== previous.depthProfileFunctions.length ||
+        sample.elementProfiles.length !== previous.elementProfiles.length ||
+        next.scripts.parameters.length !== project.scripts.parameters.length ||
+        sample.elementProfiles.some((element, index) => element.element !== previous.elementProfiles[index].element ||
+          element.slabs.length !== previous.elementProfiles[index].slabs.length)) {
+        throw new Error('Script project structure changed; create a new session')
+      }
+      const nextWavelength = HC_EV_ANGSTROM / next.experiment.energy
+      if (!(nextWavelength > 0) || !Number.isFinite(nextWavelength) || !Number.isFinite(renew)) {
+        throw new Error('Invalid script project refresh')
+      }
+      const copy = structuredClone(next)
+      Object.assign(project, copy)
+      wavelength = nextWavelength
+      renewOpticalConstants = renew
+    },
+    beginHook(): ScriptHookState {
+      const state = { energy: HC_EV_ANGSTROM / wavelength, epsilon: project.calculation.epsilon,
+        resolution: project.experiment.resolution.angularFwhm, energyScanQz: project.experiment.energyScan.qz,
+        renewOpticalConstants }
+      // Consume before executing, so nested calculations see the cleared state.
+      renewOpticalConstants = 0
+      return state
+    },
+    applyHook(state: ScriptHookState): void {
+      const nextWavelength = HC_EV_ANGSTROM / state.energy
+      if (![state.energy, state.epsilon, state.resolution, state.energyScanQz].every(Number.isFinite) ||
+        !(nextWavelength > 0) || !Number.isFinite(nextWavelength)) throw new Error('Invalid script result state')
+      wavelength = nextWavelength
+      project.experiment.energy = HC_EV_ANGSTROM / wavelength
+      project.calculation.epsilon = state.epsilon
+      project.experiment.resolution.angularFwhm = state.resolution
+      project.experiment.energyScan.qz = state.energyScanQz
+    },
     setLayerText(index: number, field: 'material' | 'opticalTable', value: string): void {
       if (project.sample.mode !== 'compound') throw new Error('Element-mode active-film names are not supported yet')
       if (!Number.isSafeInteger(index) || index < 0 || index >= project.sample.layers.length) {

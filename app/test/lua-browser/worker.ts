@@ -1,3 +1,4 @@
+import { runProjectHook } from '../../src/compute/lua/projectHook'
 import { createScriptOptics } from '../../src/model/scriptOptics'
 import { createScriptFactorLookup } from '../../src/model/scriptFactors'
 import type { OpticalTable } from '../../src/import/tables'
@@ -51,9 +52,11 @@ async function run() {
       const expected = .985 * .985 - .0015 * .0015
       opticsPassed = Math.abs(actual - expected) <= 1e-15 + 1e-10 * Math.abs(expected)
       opticsSession.compile('calls = (calls or 0) + 1; energy = energy + calls; delta[0] = delta[0] + 0.001; assert(math.type(energy) == "float")', 'BeforeCalculation')
-      const first = opticsSession.runHook({ energy: 700, epsilon: 1e-8, resolution: 0, energyScanQz: .1, renewOpticalConstants: 1 })
-      const second = opticsSession.runHook(first)
-      hooksPassed = second.energy === 703 && second.renewOpticalConstants === 0 &&
+      const initial = opticsWorkspace.snapshot(); initial.experiment.energy = 700
+      opticsWorkspace.replace(initial, 1)
+      runProjectHook(opticsSession, opticsWorkspace)
+      const second = runProjectHook(opticsSession, opticsWorkspace)
+      hooksPassed = Math.abs(second.experiment.energy - 703) <= 1e-15 + 703e-10 && opticsSession.getGlobal('renewocs') === 0 &&
         Math.abs(opticsWorkspace.snapshot().sample.layers[0].delta - .017) < 1e-15
     } finally { opticsSession.close() }
     session.installElements(workspace.elements, createScriptFactorLookup(tables,
