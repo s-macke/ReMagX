@@ -24,11 +24,12 @@ try {
   assert.equal(result.isolated, true)
   assert.equal(result.arraysPassed, true)
   assert.equal(result.solutionPassed, true)
+  assert.equal(result.tensorPassed, true)
   assert.match(result.diagnostic, /BeforeCalculation:3:/)
   assert.deepEqual(errors, [])
   assert.ok(requests.some(url => url.endsWith('.wasm')), 'Worker must load the local WASM asset')
   assert.ok(requests.every(url => new URL(url).origin === origin), 'No external runtime requests')
-  console.log('Lua worker: local WASM, synchronous execution, scalar/result userdata arrays, line diagnostics and session isolation passed')
+  console.log('Lua worker: local WASM, synchronous execution, scalar/result/tensor userdata arrays, line diagnostics and session isolation passed')
 } finally {
   await browser?.close()
   await new Promise((resolve, reject) => server.httpServer.close(error => error ? reject(error) : resolve()))
