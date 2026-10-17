@@ -2,6 +2,7 @@ import { installScriptOutput } from './output'
 import { installProjectFunctions, type ScriptProjectFunctions } from './functions'
 import type { ScriptFactorLookup } from '../../model/scriptFactors'
 import { LuaFactory, type LuaEngine } from 'wasmoon'
+import type { ScriptHookState } from '../../model/scriptHookState'
 import type { ScriptNumericArray, ScriptElementBinding } from '../../model/scriptArrays'
 import { installScriptArrays } from './arrays'
 import { installScriptElements } from './elements'
@@ -9,6 +10,7 @@ import { installScriptElements } from './elements'
 /** A calculation-owned VM. Never share a session between independent requests. */
 export class LuaSession {
   private engine: LuaEngine | undefined
+  private compiled = false
 
   constructor(engine: LuaEngine) {
     this.engine = engine
@@ -53,6 +55,59 @@ export class LuaSession {
 
   getGlobal(name: string): unknown {
     return this.activeEngine().global.get(name)
+  }
+
+  /** Each legacy CScript instance owns one Default or BeforeCalculation program. */
+  compile(source: string, name: 'Default' | 'BeforeCalculation'): void {
+    const engine = this.activeEngine()
+    const stackTop = engine.global.getTop()
+    try {
+      // A Lua chunk is itself a function; avoid wrapper lines in user diagnostics.
+      engine.global.loadString(source, `@${name}`)
+      engine.global.lua.lua_setglobal(engine.global.address, 'Start')
+      this.compiled = true
+    } catch (error) {
+      this.close()
+      throw error
+    } finally {
+      if (this.engine) engine.global.setTop(stackTop)
+    }
+  }
+
+  runHook(state: Readonly<ScriptHookState>): ScriptHookState {
+    const engine = this.activeEngine()
+    if (!this.compiled) throw new Error('Lua script has not been compiled')
+    const global = engine.global
+    const stackTop = global.getTop()
+    try {
+      for (const [name, value] of [['energy', state.energy], ['epsilon', state.epsilon],
+        ['resolution', state.resolution], ['energyscan_qz', state.energyScanQz],
+        ['renewocs', state.renewOpticalConstants]] as const) {
+        if (!Number.isFinite(value)) throw new Error(`Invalid script input ${name}`)
+        global.lua.lua_pushnumber(global.address, value)
+        global.lua.lua_setglobal(global.address, name)
+      }
+      // Resolve Start each time, as legacy does; scripts can replace their entry function.
+      global.lua.lua_getglobal(global.address, 'Start')
+      global.runSync()
+      global.setTop(stackTop)
+      const read = (name: string) => {
+        global.lua.lua_getglobal(global.address, name)
+        try {
+          if (!global.lua.lua_isnumber(global.address, -1)) throw new Error(`Script global ${name} must be numeric`)
+          const value = global.lua.lua_tonumberx(global.address, -1, null)
+          if (!Number.isFinite(value)) throw new Error(`Script global ${name} must be finite`)
+          return value
+        } finally { global.pop() }
+      }
+      return { energy: read('energy'), epsilon: read('epsilon'), resolution: read('resolution'),
+        energyScanQz: read('energyscan_qz'), renewOpticalConstants: 0 }
+    } catch (error) {
+      this.close()
+      throw error
+    } finally {
+      if (this.engine) global.setTop(stackTop)
+    }
   }
 
   /** Synchronous execution also works inside native optimizer callbacks. */

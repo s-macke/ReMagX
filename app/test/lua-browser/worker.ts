@@ -38,6 +38,7 @@ async function run() {
     const opticsTensors = createScriptTensorWorkspace(opticsProject.sample.layers.map(() => ({ values: new Float64Array(18), anisotropic: false })))
     const opticsSession = await runtime.createSession()
     let opticsPassed = false
+    let hooksPassed = false
     try {
       const operations = createScriptOptics(opticsWorkspace, opticsTensors,
         [{ name: 'A', kind: 'db', energy: [100, 200], columns: [[.01, .02], [.001, .002]], warnings: [] }],
@@ -49,6 +50,11 @@ async function run() {
       const actual = opticsTensors.snapshot()[0].values[0]
       const expected = .985 * .985 - .0015 * .0015
       opticsPassed = Math.abs(actual - expected) <= 1e-15 + 1e-10 * Math.abs(expected)
+      opticsSession.compile('calls = (calls or 0) + 1; energy = energy + calls; delta[0] = delta[0] + 0.001; assert(math.type(energy) == "float")', 'BeforeCalculation')
+      const first = opticsSession.runHook({ energy: 700, epsilon: 1e-8, resolution: 0, energyScanQz: .1, renewOpticalConstants: 1 })
+      const second = opticsSession.runHook(first)
+      hooksPassed = second.energy === 703 && second.renewOpticalConstants === 0 &&
+        Math.abs(opticsWorkspace.snapshot().sample.layers[0].delta - .017) < 1e-15
     } finally { opticsSession.close() }
     session.installElements(workspace.elements, createScriptFactorLookup(tables,
       (table, energy, cursor) => adapter.lookupTable(instance, table, energy, cursor)))
@@ -81,7 +87,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }
