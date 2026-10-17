@@ -1,3 +1,4 @@
+import type { ScriptFactorLookup } from '../../model/scriptFactors'
 import { LuaRawResult, LuaTypeExtension, type Decoration, type LuaGlobal, type LuaThread } from 'wasmoon'
 import type { ScriptElementBinding } from '../../model/scriptArrays'
 import { callback, numericArgument } from './arrays'
@@ -37,7 +38,7 @@ function elementIndex(thread: LuaThread, argument: number): number {
   return value
 }
 
-export function installScriptElements(global: LuaGlobal, elements: readonly ScriptElementBinding[]): void {
+export function installScriptElements(global: LuaGlobal, elements: readonly ScriptElementBinding[], lookupFactors?: ScriptFactorLookup): void {
   const extension = new ElementExtension(global)
   global.registerTypeExtension(10, extension)
   const binding = (thread: LuaThread) => extension.getValue(thread, 1).binding
@@ -65,8 +66,9 @@ export function installScriptElements(global: LuaGlobal, elements: readonly Scri
     method(`set${name}`, thread => { binding(thread).setSlab(elementIndex(thread, 2), field, numericArgument(thread, 3)) })
   }
   method('setf', thread => {
-    binding(thread); numericArgument(thread, 2)
-    throw new Error('element.setf: native table lookup is not supported yet')
+    const element = binding(thread), energy = numericArgument(thread, 2)
+    if (!lookupFactors) throw new Error('element.setf: native table lookup is not available')
+    lookupFactors(element, energy)
   })
   method('get', thread => { binding(thread); return number(thread, scratchValue) })
   method('set', thread => { const value = numericArgument(thread, 3); binding(thread); scratchValue = value })

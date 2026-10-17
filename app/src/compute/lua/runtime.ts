@@ -1,3 +1,4 @@
+import type { ScriptFactorLookup } from '../../model/scriptFactors'
 import { LuaFactory, type LuaEngine } from 'wasmoon'
 import type { ScriptNumericArray, ScriptElementBinding } from '../../model/scriptArrays'
 import { installScriptArrays } from './arrays'
@@ -23,8 +24,8 @@ export class LuaSession {
     }
   }
 
-  installElements(elements: readonly ScriptElementBinding[]): void {
-    try { installScriptElements(this.activeEngine().global, elements) } catch (error) {
+  installElements(elements: readonly ScriptElementBinding[], lookupFactors?: ScriptFactorLookup): void {
+    try { installScriptElements(this.activeEngine().global, elements, lookupFactors) } catch (error) {
       this.close()
       throw error
     }

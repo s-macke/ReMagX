@@ -1,3 +1,5 @@
+import { createScriptFactorLookup } from '../../src/model/scriptFactors'
+import type { OpticalTable } from '../../src/import/tables'
 import { createScriptTensorWorkspace } from '../../src/model/scriptTensors'
 import { createScriptSolutionWorkspace } from '../../src/model/scriptSolution'
 import { createScriptArrayWorkspace } from '../../src/model/scriptArrays'
@@ -14,7 +16,16 @@ async function run() {
       slabs: [{ thickness: 10, density: 3, roughness: 2 }] }]
     const original = JSON.stringify(source)
     const workspace = createScriptArrayWorkspace(source)
-    session.installElements(workspace.elements)
+    const coreUrl = new URL('./remagx-core.mjs', self.location.href).href
+    const adapterUrl = new URL('./parratt.mjs', self.location.href).href
+    const [core, adapter] = await Promise.all([import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl)])
+    const instance = await core.default()
+    const tables: OpticalTable[] = [
+      { name: 'Fe', kind: 'ff', energy: [100, 200], columns: [[20, 40], [2, 4]], warnings: [] },
+      { name: 'Fe', kind: 'ffm', energy: [120, 180], columns: [[1, 3], [2, 4]], warnings: [] },
+    ]
+    session.installElements(workspace.elements, createScriptFactorLookup(tables,
+      (table, energy, cursor) => adapter.lookupTable(instance, table, energy, cursor)))
     const solution = createScriptSolutionWorkspace()
     const tensors = createScriptTensorWorkspace([{ values: new Float64Array(18).fill(.5), anisotropic: false }])
     session.installArrays(new Map([...workspace.arrays, ...solution.arrays, ...tensors.arrays]), solution.dynamicMaximumIndex)
@@ -30,6 +41,9 @@ async function run() {
     solution.replace({ qz: [.02], reflectivity: [.25], reflectivityPlus: [], reflectivityMinus: [], energy: [] })
     session.execute('assert(resultAlias[0] == 0.25); resultAlias[0] = 0.125', 'Default')
     const solutionPassed = solution.snapshot().reflectivity[0] === .125
+    session.execute('Fe:setf(150); assert(math.abs(f1[0]-30) < 1e-10 and math.abs(Fe:getf2m()-3) < 1e-10)', 'Default')
+    session.execute('Fe:setf(100); assert(f1[0] == 20 and Fe:getf1m() == 0 and Fe:getf2m() == 0); Fe:setf(99); assert(f1[0] == 20)', 'Default')
+    const factorsPassed = workspace.snapshot().sample.elementProfiles[0].f1 === 20
     session.setGlobal('energy', 700.25)
     session.execute('energy = energy + 0.125; version = _VERSION', 'Default')
     const energy = session.getGlobal('energy')
@@ -41,7 +55,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }

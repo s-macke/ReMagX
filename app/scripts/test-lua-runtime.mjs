@@ -1,3 +1,5 @@
+import { copyFile, mkdir } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import assert from 'node:assert/strict'
 import { fileURLToPath } from 'node:url'
 import { build, preview } from 'vite'
@@ -6,6 +8,10 @@ import { chromium } from '@playwright/test'
 const root = fileURLToPath(new URL('../test/lua-browser', import.meta.url))
 const outDir = fileURLToPath(new URL('../../build/lua-browser', import.meta.url))
 await build({ root, configFile: false, base: './', build: { outDir, emptyOutDir: true } })
+await mkdir(resolve(outDir, 'assets'), { recursive: true })
+const coreDirectory = fileURLToPath(new URL('../../build/wasm/', import.meta.url))
+for (const name of ['remagx-core.mjs', 'remagx-core.wasm']) await copyFile(resolve(coreDirectory, name), resolve(outDir, 'assets', name))
+await copyFile(fileURLToPath(new URL('../../engine/wasm/parratt.mjs', import.meta.url)), resolve(outDir, 'assets/parratt.mjs'))
 const server = await preview({ root, configFile: false, build: { outDir }, preview: { host: '127.0.0.1', port: 0 } })
 let browser
 try {
@@ -26,6 +32,7 @@ try {
   assert.equal(result.solutionPassed, true)
   assert.equal(result.tensorPassed, true)
   assert.equal(result.elementsPassed, true)
+  assert.equal(result.factorsPassed, true)
   assert.match(result.diagnostic, /BeforeCalculation:3:/)
   assert.deepEqual(errors, [])
   assert.ok(requests.some(url => url.endsWith('.wasm')), 'Worker must load the local WASM asset')

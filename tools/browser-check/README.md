@@ -43,3 +43,15 @@ absence of redraw requests behind a running fit, and recovery after blocked
 fit/reflectivity/chi-square workers. The existing `test-real-service.mjs` checks
 numerics and worker integration separately. These timing checks do not establish
 original-optimizer fit quality or full engine acceptance.
+
+The isolated Lua worker check uses the same `build/wasm` core files and the
+installed Wasmoon package:
+
+```sh
+node app/scripts/test-lua-runtime.mjs
+```
+
+It stages locally hosted Lua and numerical WASM assets, verifies that no external
+runtime requests occur, and exercises array/element userdata, source-line errors,
+session isolation and native `element:setf` interpolation. It does not yet run
+whole-project legacy scripts or establish AC-7/AC-8 acceptance.
