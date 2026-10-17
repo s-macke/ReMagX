@@ -1,6 +1,7 @@
 import { LuaFactory, type LuaEngine } from 'wasmoon'
-import type { ScriptNumericArray } from '../../model/scriptArrays'
+import type { ScriptNumericArray, ScriptElementBinding } from '../../model/scriptArrays'
 import { installScriptArrays } from './arrays'
+import { installScriptElements } from './elements'
 
 /** A calculation-owned VM. Never share a session between independent requests. */
 export class LuaSession {
@@ -17,6 +18,13 @@ export class LuaSession {
 
   installArrays(arrays: ReadonlyMap<string, ScriptNumericArray>, dynamicMaximumIndex?: () => number): void {
     try { installScriptArrays(this.activeEngine().global, arrays, dynamicMaximumIndex) } catch (error) {
+      this.close()
+      throw error
+    }
+  }
+
+  installElements(elements: readonly ScriptElementBinding[]): void {
+    try { installScriptElements(this.activeEngine().global, elements) } catch (error) {
       this.close()
       throw error
     }

@@ -20,6 +20,16 @@ export interface ScriptNumericArray {
   write(index: number, value: number): void
 }
 
+export type ScriptFactorField = 'f1' | 'f2' | 'f1Mag' | 'f2Mag'
+export type ScriptSlabField = 'thickness' | 'roughness' | 'density'
+export interface ScriptElementBinding {
+  name: string
+  getFactor(field: ScriptFactorField): number
+  setFactor(field: ScriptFactorField, value: number): void
+  getSlab(index: number, field: ScriptSlabField): number
+  setSlab(index: number, field: ScriptSlabField, value: number): void
+}
+
 /** Mutable script workspace, isolated from the UI/project until a request succeeds. */
 export function createScriptArrayWorkspace(source: Project) {
   const project = structuredClone(source)
@@ -69,7 +79,26 @@ export function createScriptArrayWorkspace(source: Project) {
       index => project.sample.elementProfiles[index][name],
       (index, value) => { project.sample.elementProfiles[index][name] = value })
   }
+  const elements: ScriptElementBinding[] = project.sample.elementProfiles.map(profile => {
+    function slab(index: number) {
+      if (!Number.isSafeInteger(index) || index < 0 || index >= profile.slabs.length) {
+        throw new Error(`${profile.element}: slab index out of range`)
+      }
+      return profile.slabs[index]
+    }
+    function finite(value: number) {
+      if (!Number.isFinite(value)) throw new Error(`${profile.element}: value must be finite`)
+    }
+    return {
+      name: profile.element,
+      getFactor: field => profile[field],
+      setFactor(field, value) { finite(value); profile[field] = value },
+      getSlab: (index, field) => slab(index)[field],
+      setSlab(index, field, value) { finite(value); slab(index)[field] = value },
+    }
+  })
   return {
+    elements,
     arrays: arrays as ReadonlyMap<string, ScriptNumericArray>,
     /** A fresh snapshot prevents callers from mutating the running script's state. */
     snapshot: (): Project => structuredClone(project),

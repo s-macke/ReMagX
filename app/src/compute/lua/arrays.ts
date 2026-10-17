@@ -11,7 +11,7 @@ class ArrayHandle {
   }
 }
 
-function numericArgument(thread: LuaThread, index: number): number {
+export function numericArgument(thread: LuaThread, index: number): number {
   if (!thread.lua.lua_isnumber(thread.address, index)) throw new Error(`argument ${index}: number expected`)
   const value = thread.lua.lua_tonumberx(thread.address, index, null)
   if (!Number.isFinite(value)) throw new Error(`argument ${index}: finite number expected`)
@@ -26,7 +26,7 @@ function integerArgument(thread: LuaThread, index: number): number {
   return value
 }
 
-function callback(action: (thread: LuaThread) => LuaRawResult | void) {
+export function callback(action: (thread: LuaThread) => LuaRawResult | void) {
   return decorateFunction((thread: LuaThread) => {
     try { return action(thread) } catch (error) {
       thread.lua.luaL_where(thread.address, 1)

@@ -10,11 +10,16 @@ async function run() {
   try {
     const source = createDefaultProject()
     source.scripts.parameters = [1, 2]
+    source.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: 0, f2Mag: 0,
+      slabs: [{ thickness: 10, density: 3, roughness: 2 }] }]
     const original = JSON.stringify(source)
     const workspace = createScriptArrayWorkspace(source)
+    session.installElements(workspace.elements)
     const solution = createScriptSolutionWorkspace()
     const tensors = createScriptTensorWorkspace([{ values: new Float64Array(18).fill(.5), anisotropic: false }])
     session.installArrays(new Map([...workspace.arrays, ...solution.arrays, ...tensors.arrays]), solution.dynamicMaximumIndex)
+    session.execute('Fe:setthickness(0, 12); Fe:setf1(24); assert(f1[0] == 24)', 'Default')
+    const elementsPassed = workspace.snapshot().sample.elementProfiles[0].slabs[0].thickness === 12
     session.execute('assert(exy_i[0] == 0.5); ezz_r[0] = 0.75', 'Default')
     const tensorPassed = tensors.snapshot()[0].anisotropic && tensors.overrides()[0]?.[16] === .75
     session.execute('par[0] = 2.5; array.set(par, 1, -0.0); assert(type(par) == "userdata"); assert(math.type(par[0]) == "float")', 'Default')
@@ -36,7 +41,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }
