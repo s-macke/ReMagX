@@ -2,6 +2,8 @@ import type { LuaGlobal } from 'wasmoon'
 import { callback } from './arrays'
 
 export interface ScriptProjectFunctions {
+  fillTensors?(): void
+  setDeltaBeta?(index: number, energy: number): void
   setLayerText(index: number, field: 'material' | 'opticalTable', value: string): void
 }
 
@@ -20,6 +22,17 @@ export function installProjectFunctions(global: LuaGlobal, project: ScriptProjec
       project.setLayerText(index, field, value)
     }))
   }
+  global.set('FillTensors', callback(() => {
+    if (!project.fillTensors) throw new Error('FillTensors: native tensor construction is not available')
+    project.fillTensors()
+  }))
+  global.set('SetDeltaBeta', callback(thread => {
+    if (thread.getTop() !== 2) return
+    const index = Math.trunc(thread.lua.lua_tonumberx(thread.address, 1, null))
+    const energy = thread.lua.lua_tonumberx(thread.address, 2, null)
+    if (!project.setDeltaBeta) throw new Error('SetDeltaBeta: native table lookup is not available')
+    project.setDeltaBeta(index, energy)
+  }))
   // Explicit deferred-feature errors required by D-22 / AC-7a, not missing globals.
   for (const name of ['KramersKronigRange', 'ShowMatrixEigenvalues', 'ShowEScanEigenvalues']) {
     global.set(name, callback(() => { throw new Error(`${name}: not supported yet`) }))

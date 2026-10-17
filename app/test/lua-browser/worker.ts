@@ -1,3 +1,4 @@
+import { createScriptOptics } from '../../src/model/scriptOptics'
 import { createScriptFactorLookup } from '../../src/model/scriptFactors'
 import type { OpticalTable } from '../../src/import/tables'
 import { createScriptTensorWorkspace } from '../../src/model/scriptTensors'
@@ -28,6 +29,23 @@ async function run() {
       { name: 'Fe', kind: 'ff', energy: [100, 200], columns: [[20, 40], [2, 4]], warnings: [] },
       { name: 'Fe', kind: 'ffm', energy: [120, 180], columns: [[1, 3], [2, 4]], warnings: [] },
     ]
+    const opticsProject = createDefaultProject()
+    const opticsWorkspace = createScriptArrayWorkspace(opticsProject)
+    const opticsTensors = createScriptTensorWorkspace(opticsProject.sample.layers.map(() => ({ values: new Float64Array(18), anisotropic: false })))
+    const opticsSession = await runtime.createSession()
+    let opticsPassed = false
+    try {
+      const operations = createScriptOptics(opticsWorkspace, opticsTensors,
+        [{ name: 'A', kind: 'db', energy: [100, 200], columns: [[.01, .02], [.001, .002]], warnings: [] }],
+        (table, energy, cursor) => adapter.lookupTable(instance, table, energy, cursor),
+        request => adapter.calculateDielectricTensor(instance, request))
+      opticsSession.installArrays(new Map([...opticsWorkspace.arrays, ...opticsTensors.arrays]))
+      opticsSession.installProjectFunctions({ ...opticsWorkspace, ...operations })
+      opticsSession.execute('SetName(0, "A"); SetDeltaBeta(0, 150); assert(exx_r[0] == 0); FillTensors()', 'Default')
+      const actual = opticsTensors.snapshot()[0].values[0]
+      const expected = .985 * .985 - .0015 * .0015
+      opticsPassed = Math.abs(actual - expected) <= 1e-15 + 1e-10 * Math.abs(expected)
+    } finally { opticsSession.close() }
     session.installElements(workspace.elements, createScriptFactorLookup(tables,
       (table, energy, cursor) => adapter.lookupTable(instance, table, energy, cursor)))
     const solution = createScriptSolutionWorkspace()
@@ -59,7 +77,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }
