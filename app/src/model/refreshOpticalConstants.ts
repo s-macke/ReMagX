@@ -28,8 +28,8 @@ export function refreshCompoundOpticsState(project: Project, tables: OpticalTabl
   return refreshState(project, tables, energy, lookup, cursors, previousTensors)
 }
 
-// Qz callers ignore Filldb's false result and continue with partial updates.
-export function refreshQzCompoundOptics(project: Project, tables: OpticalTable[], energy: number,
+// Preserve Filldb's partial updates and failure status; each caller decides whether to skip.
+export function refreshPartialCompoundOptics(project: Project, tables: OpticalTable[], energy: number,
   lookup: RealTableLookup, cursors = new Map<OpticalTable, number>(), previousTensors?: (Float64Array | null)[]) {
   if (previousTensors && previousTensors.length !== project.sample.layers.length) {
     throw new Error('Optical tensor state must match the layer count.')

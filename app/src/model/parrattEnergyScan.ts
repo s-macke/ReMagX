@@ -4,7 +4,7 @@ import type { Project } from './project'
 import { prepareEnergyCoordinates } from './energyScanCoordinates'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from './parrattRequest'
 import { postprocessParrattResult } from './parrattResult'
-import { refreshCompoundOpticsState, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
+import { refreshPartialCompoundOptics, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 
 export interface PreparedEnergyScan extends Pick<PreparedParrattQzRequest, 'beam1' | 'beam2' | 'tensor' | 'analyzer' | 'magnetic' | 'mode'> {
@@ -32,11 +32,6 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
     resolution: { ...project.experiment.resolution, fastConvolution: false } } }
   // Validate unsupported settings even when every dataset point lies outside the tables.
   const template = prepareTemplate(local, mode)
-  for (const layer of project.sample.layers) {
-    if (!tables.some(table => layer.opticalTable && table.name === layer.opticalTable && table.kind === 'db' && table.energy.length)) {
-      throw new Error(`Missing optical table ${layer.opticalTable || '(unnamed)'}.db for energy scan.`)
-    }
-  }
   const cursors = new Map(previous?.cursors)
   let opticalState: SerialOpticalState = { layers: project.sample.layers,
     dielectricTensors: previous?.dielectricTensors ?? project.sample.layers.map(() => null), cursors }
@@ -44,7 +39,7 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
   const enabled: number[] = []
   const dielectricTensors: (Float64Array | null)[][] = []
   coordinates.energy.forEach(energy => {
-    const refreshed = refreshCompoundOpticsState({ ...project, sample: { ...project.sample, layers: opticalState.layers } },
+    const refreshed = refreshPartialCompoundOptics({ ...project, sample: { ...project.sample, layers: opticalState.layers } },
       tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors, opticalState.dielectricTensors)
     opticalState = { layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors, cursors }
     if (refreshed.rangeError) {

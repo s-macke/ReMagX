@@ -241,6 +241,23 @@ try {
       tables = tables.filter(table => table.name !== 'ambient')
       const missing = structuredClone(automatic); missing.calculation.magnetization.mode = 'none'
       output.missingRetained = await service.calcReflectivity(missing)
+      for (const algorithm of ['parratt', 'matrix', 'zak']) {
+        const missingEnergy = structuredClone(energyProject)
+        missingEnergy.calculation.algorithm = algorithm
+        missingEnergy.experiment.resolution.energyFwhm = 0
+        missingEnergy.experiment.qzScan.useDatasetPoints = true
+        missingEnergy.datasets = [{ title: '', comment: '', sourceFile: '', energy: 640, energyShift: 0, qzShift: 0,
+          angularResolution: 0, intensityScale: 1, intensityOffset: 0, errorWeight: 1,
+          polarization: missingEnergy.experiment.polarization, active: true,
+          columns: { energy: [639.5, 640.5], qz: [.03, .03], reflectivity: [1, 1] } }]
+        missingEnergy.activeDatasetIndex = 0
+        const mono = await service.calcEnergyScan(missingEnergy)
+        const dichroic = await service.calcEnergyAsymmetry(missingEnergy)
+        if (mono.reflectivity.some(value => value !== 1) || dichroic.reflectivityPlus.some(value => value !== 1) ||
+          dichroic.reflectivityMinus.some(value => value !== 1) || dichroic.asymmetry.some(value => value !== 0)) {
+          throw new Error(`Missing-primary energy skip mismatch for ${algorithm}`)
+        }
+      }
       tables = []
       const matrix = createDefaultProject()
       matrix.calculation.algorithm = 'matrix'

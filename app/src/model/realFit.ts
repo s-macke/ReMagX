@@ -5,7 +5,7 @@ import { applyRealFitParameters } from './realFitParameters'
 import { prepareRealFitSimplex } from './realFitSimplex'
 import { evaluateProjectDatasetError, type FitErrorCalculator } from './projectDatasetError'
 import type { RealCalculationEngine } from './realCalculation'
-import { refreshCompoundOpticsState, type SerialOpticalState } from './refreshOpticalConstants'
+import { refreshPartialCompoundOptics, type SerialOpticalState } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 
 export interface SimplexProgress {
@@ -61,7 +61,7 @@ export function runRealFit(project: Project, tables: OpticalTable[],
       // CMultiFit refreshes once in the current context before the dataset loop.
       // Filldb's false range return is ignored here; partial updates survive.
       const cursors = new Map(opticalState?.cursors)
-      const refreshed = refreshCompoundOpticsState(current, tables,
+      const refreshed = refreshPartialCompoundOptics(current, tables,
         HC_EV_ANGSTROM / (HC_EV_ANGSTROM / current.experiment.energy), engine.lookup, cursors, opticalState?.dielectricTensors)
       opticalState = { layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors, cursors }
       current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }

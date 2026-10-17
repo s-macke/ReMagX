@@ -2,7 +2,7 @@ import { prepareZakQzRequest, calculateZakEnergyScan, type PreparedZakQzRequest,
 import { calculateVisnovskyEnergyScan, type VisnovskyEnergyCalculator } from './visnovskyEnergyScan'
 import { prepareVisnovskyQzRequest, type PreparedVisnovskyQzRequest, type DielectricTensorCalculator } from './visnovskyRequest'
 import { calculateParrattEnergyScan, type EnergyScanCalculator } from './parrattEnergyScan'
-import { refreshQzCompoundOptics, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
+import { refreshPartialCompoundOptics, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from './parrattRequest'
 import { postprocessParrattResult } from './parrattResult'
@@ -44,7 +44,7 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   if (project.calculation.automaticOpticalConstants) {
     // Filldb reads LambdaToEnergy after the GUI has stored EnergyToLambda.
     const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / project.experiment.energy)
-    const refreshed = refreshQzCompoundOptics(project, tables, energy, engine.lookup, cursors, dielectricTensors)
+    const refreshed = refreshPartialCompoundOptics(project, tables, energy, engine.lookup, cursors, dielectricTensors)
     dielectricTensors = refreshed.dielectricTensors
     project = { ...project, sample: { ...project.sample, layers: refreshed.layers },
       calculation: { ...project.calculation, automaticOpticalConstants: false } }

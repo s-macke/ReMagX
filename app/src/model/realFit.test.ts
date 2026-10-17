@@ -102,3 +102,21 @@ it('does not substitute another dataset when the selected dataset is excluded fr
   runRealFit(project, [], engine, vi.fn(), progress)
   expect(progress.mock.calls[0][0].datasetPreview).toBeUndefined()
 })
+
+it('retains missing-table layers during fit initialization and later qz dataset refreshes', () => {
+  const { project, engine } = fixture()
+  project.experiment.energy = 640
+  project.calculation.automaticOpticalConstants = true
+  project.sample.layers[0].opticalTable = 'available'
+  project.sample.layers[1].opticalTable = 'missing'
+  project.fit.parameters[0].lowerBound = 0; project.fit.parameters[0].upperBound = 0
+  vi.mocked(engine.lookup).mockImplementation((_table, _energies, cursor) => ({ values: new Float64Array([.02, .001]), cursor: cursor + 1 }))
+  const before = structuredClone(project)
+  const result = runRealFit(project, [{ name: 'available', kind: 'db', energy: [600, 800], columns: [[.02, .02], [.001, .001]], warnings: [] }], engine, vi.fn(), vi.fn())
+  expect(result.chi2).toBe(2)
+  expect(vi.mocked(engine.lookup).mock.calls.map(call => call[2])).toEqual([0, 1, 2])
+  for (const [request] of vi.mocked(engine.calculate).mock.calls) {
+    expect(request.layers.map(layer => layer[2])).toEqual([.02, 0])
+  }
+  expect(project).toEqual(before)
+})

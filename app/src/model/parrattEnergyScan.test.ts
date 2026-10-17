@@ -65,3 +65,27 @@ it('preserves both energy beams and computes asymmetry after energy convolution'
   project.calculation.asymmetryDefinition = 'difference'
   expect(calculateParrattEnergyScan(project, tables, lookup, calculate, 'dichroic').asymmetry).toEqual([4, 4, 4])
 })
+
+
+it('skips missing-primary dataset points but retains valid-layer updates and cursor history', () => {
+  const { project, tables, lookup, calculate } = setup()
+  project.sample.layers[0].opticalTable = 'missing'
+  project.sample.layers[0].delta = .75
+  project.experiment.qzScan.useDatasetPoints = true
+  project.datasets = [{ title: '', comment: '', sourceFile: '', energy: 100, energyShift: 0, qzShift: 0,
+    angularResolution: 0, intensityScale: 1, intensityOffset: 0, errorWeight: 1,
+    polarization: project.experiment.polarization, active: true,
+    columns: { energy: [100, 150, 200], qz: [.1, .2, .3], reflectivity: [0, 0, 0] } }]
+  project.activeDatasetIndex = 0
+  const before = structuredClone(project)
+  const result = calculateParrattEnergyScan(project, tables, lookup, calculate)
+  expect(result.reflectivity).toEqual([1, 1, 1])
+  expect(calculate.mock.calls[0][0].enabled).toEqual([0, 0, 0])
+  expect(result.opticalState.layers[0].delta).toBe(.75)
+  expect(result.opticalState.layers.slice(1).every(layer => layer.delta === .02)).toBe(true)
+  expect(lookup.mock.calls.map(call => call[2])).toEqual(Array.from({ length: (project.sample.layers.length - 1) * 3 }, (_, index) => index))
+  expect(project).toEqual(before)
+  // GUI-generated scan preparation still requires complete primary tables.
+  project.experiment.qzScan.useDatasetPoints = false
+  expect(() => calculateParrattEnergyScan(project, tables, lookup, calculate)).toThrow('Missing')
+})

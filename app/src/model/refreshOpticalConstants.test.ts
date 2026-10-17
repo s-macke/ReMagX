@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { createDefaultProject } from './defaults'
 import type { OpticalTable } from '../import/tables'
-import { refreshCompoundConstants, refreshQzCompoundOptics, refreshCompoundOptics, refreshCompoundOpticsState, type RealTableLookup } from './refreshOpticalConstants'
+import { refreshCompoundConstants, refreshPartialCompoundOptics, refreshCompoundOptics, refreshCompoundOpticsState, type RealTableLookup } from './refreshOpticalConstants'
 
 const table = (kind: OpticalTable['kind'] = 'db'): OpticalTable => ({
   name: 'sample', kind, energy: [100, 200], columns: [[1, 2], [3, 4]], warnings: [],
@@ -135,7 +135,7 @@ it('retains missing/empty/out-of-range qz layers and tensors while refreshing la
   const previous = project.sample.layers.map((_, index) => new Float64Array(18).fill(index))
   const tables = [{ ...table(), name: 'empty', energy: [] }, { ...table(), name: 'outside', energy: [300, 400] }, table()]
   const lookup = vi.fn<RealTableLookup>((_table, _queries, cursor) => ({ values: new Float64Array([.1, .2]), cursor: cursor + 1 }))
-  const result = refreshQzCompoundOptics(project, tables, 150, lookup, new Map(), previous)
+  const result = refreshPartialCompoundOptics(project, tables, 150, lookup, new Map(), previous)
   expect(result.rangeError).toMatch(/outside/)
   expect(result.layers.map(layer => layer.delta)).toEqual([1, 2, 3, .1, .1])
   expect(result.dielectricTensors.slice(0, 3)).toEqual(previous.slice(0, 3))
