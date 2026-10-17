@@ -63,7 +63,8 @@ export function runRealFit(project: Project, tables: OpticalTable[],
       const cursors = new Map(opticalState?.cursors)
       const refreshed = refreshPartialCompoundOptics(current, tables,
         HC_EV_ANGSTROM / (HC_EV_ANGSTROM / current.experiment.energy), engine.lookup, cursors, opticalState?.dielectricTensors)
-      opticalState = { layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors, cursors }
+      opticalState = { layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
+        dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState?.dielectricState?.[index] ?? null), cursors }
       current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
     }
     let preview: FitDatasetPreview | undefined

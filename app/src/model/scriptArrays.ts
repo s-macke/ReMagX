@@ -113,7 +113,7 @@ export function createScriptArrayWorkspace(source: Project) {
           element.slabs.length !== previous.elementProfiles[index].slabs.length)) {
         throw new Error('Script project structure changed; create a new session')
       }
-      const nextWavelength = HC_EV_ANGSTROM / next.experiment.energy
+      const nextWavelength = next.experiment.energy === project.experiment.energy ? wavelength : HC_EV_ANGSTROM / next.experiment.energy
       if (!(nextWavelength > 0) || !Number.isFinite(nextWavelength) || !Number.isFinite(renew)) {
         throw new Error('Invalid script project refresh')
       }

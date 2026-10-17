@@ -20,6 +20,8 @@ export function createBeforeCalculation(session: LuaSession, engine: RealCalcula
         for (const [table, cursor] of opticalState.cursors) cursors.set(table, cursor)
       }
       const initial = project.sample.layers.map((layer, index) => {
+        const retained = opticalState.dielectricState?.[index]
+        if (retained) return retained
         const override = opticalState.dielectricTensors[index]
         return override ? { values: override, anisotropic: true } : engine.dielectricTensor({
           layer: [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag,
@@ -46,7 +48,7 @@ export function createBeforeCalculation(session: LuaSession, engine: RealCalcula
       }
       const { workspace, tensors } = context
       const result = runProjectHook(session, workspace)
-      return { project: result, opticalState: { layers: result.sample.layers, dielectricTensors: tensors.overrides(), cursors: new Map(cursors) } }
+      return { project: result, opticalState: { layers: result.sample.layers, dielectricTensors: tensors.overrides(), dielectricState: tensors.snapshot(), cursors: new Map(cursors) } }
     } catch (error) {
       session.close()
       throw error

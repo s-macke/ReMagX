@@ -40,19 +40,22 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   }
   let project = original
   let cursors = new Map(previous?.cursors)
+  let dielectricState = previous?.dielectricState
   let dielectricTensors = previous?.dielectricTensors ?? project.sample.layers.map(() => null)
   if (project.calculation.automaticOpticalConstants) {
     // Filldb reads LambdaToEnergy after the GUI has stored EnergyToLambda.
     const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / project.experiment.energy)
     const refreshed = refreshPartialCompoundOptics(project, tables, energy, engine.lookup, cursors, dielectricTensors)
     dielectricTensors = refreshed.dielectricTensors
+    dielectricState = refreshed.updated.map((updated, index) => updated ? null : dielectricState?.[index] ?? null)
     project = { ...project, sample: { ...project.sample, layers: refreshed.layers },
       calculation: { ...project.calculation, automaticOpticalConstants: false } }
   }
   if (beforeCalculation && project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
-    const scripted = beforeCalculation(project, { layers: project.sample.layers, dielectricTensors, cursors })
+    const scripted = beforeCalculation(project, { layers: project.sample.layers, dielectricTensors, dielectricState, cursors })
     project = { ...scripted.project, scripts: { ...scripted.project.scripts, enabled: false } }
     dielectricTensors = scripted.opticalState.dielectricTensors
+    dielectricState = scripted.opticalState.dielectricState
     cursors = scripted.opticalState.cursors
   }
   let qz: number[], values: Float64Array
@@ -70,6 +73,6 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     values = engine.calculate(request)
   }
   const result = postprocessParrattResult(project, qz, values, mode)
-  return { ...result, opticalState: { layers: project.sample.layers, dielectricTensors, cursors },
+  return { ...result, opticalState: { layers: project.sample.layers, dielectricTensors, dielectricState, cursors },
     finalEnergy: project.experiment.energy }
 }

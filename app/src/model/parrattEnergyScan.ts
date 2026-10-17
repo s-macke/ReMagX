@@ -34,14 +34,15 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
   const template = prepareTemplate(local, mode)
   const cursors = new Map(previous?.cursors)
   let opticalState: SerialOpticalState = { layers: project.sample.layers,
-    dielectricTensors: previous?.dielectricTensors ?? project.sample.layers.map(() => null), cursors }
+    dielectricTensors: previous?.dielectricTensors ?? project.sample.layers.map(() => null), dielectricState: previous?.dielectricState, cursors }
   const stacks: PreparedCompoundLayer[][] = []
   const enabled: number[] = []
   const dielectricTensors: (Float64Array | null)[][] = []
   coordinates.energy.forEach(energy => {
     const refreshed = refreshPartialCompoundOptics({ ...project, sample: { ...project.sample, layers: opticalState.layers } },
       tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors, opticalState.dielectricTensors)
-    opticalState = { layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors, cursors }
+    opticalState = { layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
+      dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState.dielectricState?.[index] ?? null), cursors }
     if (refreshed.rangeError) {
       stacks.push(template.layers)
       dielectricTensors.push(template.layers.map(() => null))
