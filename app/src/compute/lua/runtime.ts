@@ -15,8 +15,8 @@ export class LuaSession {
     return this.engine
   }
 
-  installArrays(arrays: ReadonlyMap<string, ScriptNumericArray>): void {
-    try { installScriptArrays(this.activeEngine().global, arrays) } catch (error) {
+  installArrays(arrays: ReadonlyMap<string, ScriptNumericArray>, dynamicMaximumIndex?: () => number): void {
+    try { installScriptArrays(this.activeEngine().global, arrays, dynamicMaximumIndex) } catch (error) {
       this.close()
       throw error
     }

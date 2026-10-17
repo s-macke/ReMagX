@@ -58,7 +58,8 @@ class ArrayExtension extends LuaTypeExtension<ArrayHandle> {
   close(): void { this.thread.lua.module.removeFunction(this.garbageCollector) }
 }
 
-export function installScriptArrays(global: LuaGlobal, arrays: ReadonlyMap<string, ScriptNumericArray>): void {
+export function installScriptArrays(global: LuaGlobal, arrays: ReadonlyMap<string, ScriptNumericArray>,
+  dynamicMaximumIndex: () => number = () => -1): void {
   const extension = new ArrayExtension(global)
   global.registerTypeExtension(10, extension)
   const byType = new Map([...arrays.values()].map(array => [array.typeId, array]))
@@ -67,7 +68,8 @@ export function installScriptArrays(global: LuaGlobal, arrays: ReadonlyMap<strin
   }
   function index(thread: LuaThread, target: ArrayHandle): number {
     const value = integerArgument(thread, 2)
-    if (value < 0 || value > target.maximumIndex) throw new Error(`${target.array.name}: index out of range`)
+    const maximumIndex = target.maximumIndex === -1 ? dynamicMaximumIndex() : target.maximumIndex
+    if (value < 0 || value > maximumIndex) throw new Error(`${target.array.name}: index out of range`)
     return value
   }
   const get = callback(thread => {
