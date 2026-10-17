@@ -16,6 +16,10 @@ async function run() {
       slabs: [{ thickness: 10, density: 3, roughness: 2 }] }]
     const original = JSON.stringify(source)
     const workspace = createScriptArrayWorkspace(source)
+    session.installProjectFunctions(workspace)
+    session.execute('SetName(0, "test-table"); SetChemicalFormula(0, "Fe2O3")', 'Default')
+    const functionsPassed = workspace.snapshot().sample.layers[0].opticalTable === 'test-table' &&
+      workspace.snapshot().sample.layers[0].material === 'Fe2O3'
     const coreUrl = new URL('./remagx-core.mjs', self.location.href).href
     const adapterUrl = new URL('./parratt.mjs', self.location.href).href
     const [core, adapter] = await Promise.all([import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl)])
@@ -50,12 +54,12 @@ async function run() {
     const version = session.getGlobal('version')
     let diagnostic = ''
     try {
-      session.execute('local a = 1\na = a + 1\npar[2] = 3', 'BeforeCalculation')
+      session.execute('local a = 1\na = a + 1\nKramersKronigRange()', 'BeforeCalculation')
     } catch (error) { diagnostic = String(error) }
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }

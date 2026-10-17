@@ -98,6 +98,13 @@ export function createScriptArrayWorkspace(source: Project) {
     }
   })
   return {
+    setLayerText(index: number, field: 'material' | 'opticalTable', value: string): void {
+      if (project.sample.mode !== 'compound') throw new Error('Element-mode active-film names are not supported yet')
+      if (!Number.isSafeInteger(index) || index < 0 || index >= project.sample.layers.length) {
+        throw new Error('Layer index out of range')
+      }
+      project.sample.layers[index][field] = value
+    },
     elements,
     arrays: arrays as ReadonlyMap<string, ScriptNumericArray>,
     /** A fresh snapshot prevents callers from mutating the running script's state. */
