@@ -24,9 +24,13 @@ export interface RealCalculationEngine {
 
 export type RealCurve = ReturnType<typeof postprocessParrattResult> & { energy?: number[]; opticalState: SerialOpticalState; finalEnergy: number }
 
+export type RealBeforeCalculation = (project: Project, opticalState: SerialOpticalState) => {
+  project: Project; opticalState: SerialOpticalState
+}
+
 // Shared calculation preparation for plots and dataset objectives.
 export function calculateRealCurve(original: Project, tables: OpticalTable[], engine: RealCalculationEngine,
-  scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous?: SerialOpticalState): RealCurve {
+  scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation): RealCurve {
   if (scan === 'energy') {
     return original.calculation.algorithm === 'matrix'
       ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous)
@@ -35,7 +39,7 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
         : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous)
   }
   let project = original
-  const cursors = new Map(previous?.cursors)
+  let cursors = new Map(previous?.cursors)
   let dielectricTensors = previous?.dielectricTensors ?? project.sample.layers.map(() => null)
   if (project.calculation.automaticOpticalConstants) {
     // Filldb reads LambdaToEnergy after the GUI has stored EnergyToLambda.
@@ -44,6 +48,12 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     dielectricTensors = refreshed.dielectricTensors
     project = { ...project, sample: { ...project.sample, layers: refreshed.layers },
       calculation: { ...project.calculation, automaticOpticalConstants: false } }
+  }
+  if (beforeCalculation && project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
+    const scripted = beforeCalculation(project, { layers: project.sample.layers, dielectricTensors, cursors })
+    project = { ...scripted.project, scripts: { ...scripted.project.scripts, enabled: false } }
+    dielectricTensors = scripted.opticalState.dielectricTensors
+    cursors = scripted.opticalState.cursors
   }
   let qz: number[], values: Float64Array
   if (project.calculation.algorithm === 'matrix') {
@@ -59,7 +69,7 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     qz = request.qz
     values = engine.calculate(request)
   }
-  const result = postprocessParrattResult(original, qz, values, mode)
+  const result = postprocessParrattResult(project, qz, values, mode)
   return { ...result, opticalState: { layers: project.sample.layers, dielectricTensors, cursors },
-    finalEnergy: original.experiment.energy }
+    finalEnergy: project.experiment.energy }
 }

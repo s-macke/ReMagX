@@ -6,8 +6,8 @@ import type { RealTableLookup } from './refreshOpticalConstants'
 
 export function createScriptOptics(workspace: ReturnType<typeof createScriptArrayWorkspace>,
   tensors: ReturnType<typeof createScriptTensorWorkspace>, tables: readonly OpticalTable[],
-  lookup: RealTableLookup, construct: DielectricTensorCalculator, cursors = new Map<OpticalTable, number>()) {
-  const resolvedTables = new Map<number, OpticalTable>()
+  lookup: RealTableLookup, construct: DielectricTensorCalculator, cursors = new Map<OpticalTable, number>(),
+  resolvedTables = new Map<number, OpticalTable>()) {
   function compound() {
     const project = workspace.snapshot()
     if (project.sample.mode !== 'compound') throw new Error('Element active-film optics are not supported yet')

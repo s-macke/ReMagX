@@ -1,3 +1,5 @@
+import { createBeforeCalculation } from './lua/beforeCalculation'
+import type { LuaSession } from './lua/runtime'
 import { realTensor } from '../model/realTensor'
 import { realLayerSpectrum, realScatteringFactors } from '../model/realSpectrum'
 import { realDatabaseValues } from '../model/realDatabaseValues'
@@ -9,7 +11,7 @@ export type { RealQzCalculator } from '../model/realCalculation'
 export interface RealEngine extends RealCalculationEngine { fitError: FitErrorCalculator; minimize?: RealMinimizer }
 
 // Uses the existing worker protocol. Unported operations never fall back to the mock.
-export function createRealRequestHandler(send: (response: WorkerResponse) => void, load: () => Promise<RealEngine>) {
+export function createRealRequestHandler(send: (response: WorkerResponse) => void, load: () => Promise<RealEngine>, createLuaSession?: () => Promise<LuaSession>) {
   let calculator: Promise<RealEngine> | null = null
   return async (message: WorkerRequest): Promise<void> => {
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
@@ -46,7 +48,14 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       }
       const energy = message.kind === 'energyScan' || message.kind === 'energyAsymmetry'
       const mode = message.kind === 'reflectivity' || message.kind === 'energyScan' ? 'monochromatic' : 'dichroic'
-      const result = calculateRealCurve(message.project, message.tables ?? [], engine, energy ? 'energy' : 'qz', mode)
+      const hasScript = message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
+      const session = !energy && hasScript && createLuaSession ? await createLuaSession() : undefined
+      const scriptMessages: string[] = []
+      let result
+      try {
+        const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], message.project.calculation.automaticOpticalConstants, message => scriptMessages.push(message)) : undefined
+        result = calculateRealCurve(message.project, message.tables ?? [], engine, energy ? 'energy' : 'qz', mode, undefined, hook)
+      } finally { session?.close() }
       if (energy) {
         if (!result.energy) throw new Error('Missing energy-scan coordinates.')
         send({ id: message.id, type: 'result', result: message.kind === 'energyScan'
@@ -54,8 +63,8 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
           : { energy: result.energy, reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry } })
       } else {
         send({ id: message.id, type: 'result', result: message.kind === 'reflectivity'
-          ? { qz: result.qz, reflectivity: result.reflectivityPlus }
-          : { qz: result.qz, reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry } })
+          ? { qz: result.qz, reflectivity: result.reflectivityPlus, ...(session ? { scriptMessages } : {}) }
+          : { qz: result.qz, reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry, ...(session ? { scriptMessages } : {}) } })
       }
     } catch (error) {
       const status = (error as { status?: number })?.status

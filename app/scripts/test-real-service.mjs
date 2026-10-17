@@ -63,6 +63,46 @@ try {
     const snapshot = JSON.stringify(project)
     const output = {}
     try {
+      // Actual BeforeCalculation Lua through the worker, compared with manually edited input.
+      tables = [{ name: 'lua-film', kind: 'db', energy: [600, 900], columns: [[.006, .006], [.001, .001]], warnings: [] }]
+      for (const algorithm of ['parratt', 'matrix', 'zak']) for (const automatic of [false, true]) {
+        const scripted = createDefaultProject()
+        scripted.sample.layers = [createLayer({ opticalTable: 'lua-film', delta: .006, beta: .001 }),
+          createLayer({ opticalTable: 'lua-film', thickness: 20, delta: .006, beta: .001 }),
+          createLayer({ opticalTable: 'lua-film', delta: .006, beta: .001 })]
+        scripted.calculation.algorithm = algorithm
+        scripted.calculation.automaticOpticalConstants = automatic
+        scripted.experiment.energy = 700
+        scripted.experiment.qzScan.points = 12
+        scripted.scripts.enabled = true
+        scripted.scripts.beforeCalculation = 'thickness[1] = 35; delta[1] = 0.004; energy = 710; resolution = 0.002; FillTensors(); print("script=", energy)'
+        const before = JSON.stringify(scripted)
+        const expected = structuredClone(scripted)
+        expected.scripts.enabled = false
+        expected.calculation.automaticOpticalConstants = false
+        expected.sample.layers[1].thickness = 35
+        expected.sample.layers[1].delta = .004
+        expected.experiment.energy = 710
+        expected.experiment.resolution.angularFwhm = .002
+        for (const method of ['calcReflectivity', 'calcAsymmetry']) {
+          const actualCurve = await service[method](scripted), expectedCurve = await service[method](expected)
+          for (const key of ['reflectivity', 'reflectivityPlus', 'reflectivityMinus', 'asymmetry']) {
+            if (!expectedCurve[key]) continue
+            actualCurve[key].forEach((value, index) => {
+              const reference = expectedCurve[key][index]
+              if (Math.abs(value-reference) > 1e-15 + 1e-10*Math.abs(reference)) throw new Error(`Lua ${algorithm}/${method}/${key} mismatch`)
+            })
+          }
+          if (JSON.stringify(actualCurve.scriptMessages) !== '["script=710"]') throw new Error('Missing Lua output')
+        }
+        scripted.scripts.beforeCalculation = 'delta[1] = 0.1\nlocal x = 1\nerror("broken calculation")'
+        let failed = false
+        try { await service.calcReflectivity(scripted) } catch (error) { failed = /BeforeCalculation:3:/.test(error.message) }
+        if (!failed) throw new Error('Missing Lua line-3 error')
+        scripted.scripts.beforeCalculation = JSON.parse(before).scripts.beforeCalculation
+        if (JSON.stringify(scripted) !== before) throw new Error('Script changed caller project')
+      }
+      tables = []
       // AC-3: use the actual importer and unmodified public fixture through the real worker.
       if (!precisionFixture.includes('precision = 1')) throw new Error('Missing precision fixture key')
       output.precision = []

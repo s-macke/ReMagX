@@ -19,6 +19,7 @@ export interface DensityProfiles {
 }
 
 export interface ReflectivityCurve {
+  scriptMessages?: string[]
   qz: number[]
   reflectivity: number[]
 }
@@ -37,6 +38,7 @@ export interface EnergyAsymmetryCurve {
 
 // Reflectivity for the two beams (legacy "dichroic" mode) and their asymmetry.
 export interface AsymmetryCurve {
+  scriptMessages?: string[]
   qz: number[]
   reflectivityPlus: number[]
   reflectivityMinus: number[]
