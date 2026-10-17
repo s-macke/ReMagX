@@ -53,7 +53,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       const scriptMessages: string[] = []
       let result
       try {
-        const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], message.project.calculation.automaticOpticalConstants, message => scriptMessages.push(message)) : undefined
+        const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], message => scriptMessages.push(message)) : undefined
         result = calculateRealCurve(message.project, message.tables ?? [], engine, energy ? 'energy' : 'qz', mode, undefined, hook)
       } finally { session?.close() }
       if (energy) {

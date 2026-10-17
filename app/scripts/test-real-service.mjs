@@ -106,6 +106,14 @@ try {
             if (Math.abs(value-reference[key][index]) > 1e-15 + 1e-10*Math.abs(reference[key][index])) throw new Error(`Lua repair ${algorithm} mismatch`)
           })
           tables.pop()
+          tables.push({ name: 'lua-override', kind: 'db', energy: [600, 900], columns: [[.004, .004], [.001, .001]], warnings: [] })
+          const renamed = structuredClone(scripted)
+          renamed.scripts.beforeCalculation = 'thickness[1] = 35; energy = 710; resolution = 0.002; SetName(1, "lua-override"); SetDeltaBeta(1, 710); FillTensors()'
+          const renamedCurve = await service.calcReflectivity(renamed), renamedReference = await service.calcReflectivity(expected)
+          renamedCurve.reflectivity.forEach((value, index) => {
+            if (Math.abs(value-renamedReference.reflectivity[index]) > 1e-15 + 1e-10*Math.abs(renamedReference.reflectivity[index])) throw new Error(`Lua first-table resolution ${algorithm} mismatch`)
+          })
+          tables.pop()
         }
         scripted.scripts.beforeCalculation = 'delta[1] = 0.1\nlocal x = 1\nerror("broken calculation")'
         let failed = false
