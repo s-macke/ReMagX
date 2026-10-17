@@ -1,4 +1,6 @@
 import { LuaFactory, type LuaEngine } from 'wasmoon'
+import type { ScriptNumericArray } from '../../model/scriptArrays'
+import { installScriptArrays } from './arrays'
 
 /** A calculation-owned VM. Never share a session between independent requests. */
 export class LuaSession {
@@ -11,6 +13,13 @@ export class LuaSession {
   private activeEngine(): LuaEngine {
     if (!this.engine) throw new Error('Lua session is closed')
     return this.engine
+  }
+
+  installArrays(arrays: ReadonlyMap<string, ScriptNumericArray>): void {
+    try { installScriptArrays(this.activeEngine().global, arrays) } catch (error) {
+      this.close()
+      throw error
+    }
   }
 
   setGlobal(name: string, value: unknown): void {
