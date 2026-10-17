@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { createDefaultProject } from './defaults'
 import type { OpticalTable } from '../import/tables'
-import { refreshCompoundConstants, refreshCompoundOptics, refreshCompoundOpticsState, type RealTableLookup } from './refreshOpticalConstants'
+import { refreshCompoundConstants, refreshQzCompoundOptics, refreshCompoundOptics, refreshCompoundOpticsState, type RealTableLookup } from './refreshOpticalConstants'
 
 const table = (kind: OpticalTable['kind'] = 'db'): OpticalTable => ({
   name: 'sample', kind, energy: [100, 200], columns: [[1, 2], [3, 4]], warnings: [],
@@ -123,4 +123,24 @@ it('retains partial scalar and tensor refreshes across skipped energies without 
   expect(complete.layers.map(layer => layer.delta)).toEqual([175, 175])
   expect(() => refreshCompoundOptics(project, tables, 125, lookup)).toThrow('other.db')
   expect(() => refreshCompoundOpticsState(project, tables, 175, lookup, cursors, [])).toThrow('layer count')
+})
+
+
+it('retains missing/empty/out-of-range qz layers and tensors while refreshing later valid layers', () => {
+  const project = projectWithTables()
+  const base = project.sample.layers[0]
+  project.sample.layers = ['missing', 'empty', 'outside', 'sample', 'sample'].map((name, index) =>
+    ({ ...base, opticalTable: name, delta: index + 1 }))
+  const before = structuredClone(project)
+  const previous = project.sample.layers.map((_, index) => new Float64Array(18).fill(index))
+  const tables = [{ ...table(), name: 'empty', energy: [] }, { ...table(), name: 'outside', energy: [300, 400] }, table()]
+  const lookup = vi.fn<RealTableLookup>((_table, _queries, cursor) => ({ values: new Float64Array([.1, .2]), cursor: cursor + 1 }))
+  const result = refreshQzCompoundOptics(project, tables, 150, lookup, new Map(), previous)
+  expect(result.rangeError).toMatch(/outside/)
+  expect(result.layers.map(layer => layer.delta)).toEqual([1, 2, 3, .1, .1])
+  expect(result.dielectricTensors.slice(0, 3)).toEqual(previous.slice(0, 3))
+  expect(result.dielectricTensors.slice(3)).toEqual([null, null])
+  expect(result.dielectricTensors[0]).not.toBe(previous[0])
+  expect(lookup.mock.calls.map(call => call[2])).toEqual([0, 1])
+  expect(project).toEqual(before)
 })

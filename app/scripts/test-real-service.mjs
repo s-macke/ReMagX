@@ -95,6 +95,18 @@ try {
           }
           if (JSON.stringify(actualCurve.scriptMessages) !== '["script=710"]') throw new Error('Missing Lua output')
         }
+        if (automatic) {
+          const repair = structuredClone(scripted)
+          repair.sample.layers[0].opticalTable = 'missing'
+          repair.sample.layers[1].opticalTable = 'outside'
+          repair.sample.layers[1].delta = .123
+          tables.push({ name: 'outside', kind: 'db', energy: [100, 200], columns: [[.3, .4], [.1, .2]], warnings: [] })
+          const actual = await service.calcAsymmetry(repair), reference = await service.calcAsymmetry(expected)
+          for (const key of ['reflectivityPlus', 'reflectivityMinus', 'asymmetry']) actual[key].forEach((value, index) => {
+            if (Math.abs(value-reference[key][index]) > 1e-15 + 1e-10*Math.abs(reference[key][index])) throw new Error(`Lua repair ${algorithm} mismatch`)
+          })
+          tables.pop()
+        }
         scripted.scripts.beforeCalculation = 'delta[1] = 0.1\nlocal x = 1\nerror("broken calculation")'
         let failed = false
         try { await service.calcReflectivity(scripted) } catch (error) { failed = /BeforeCalculation:3:/.test(error.message) }
@@ -227,7 +239,8 @@ try {
       energyProject.calculation.asymmetryDefinition = 'difference'
       output.differenceEnergy = await service.calcEnergyAsymmetry(energyProject)
       tables = tables.filter(table => table.name !== 'ambient')
-      try { await service.calcReflectivity(automatic) } catch (error) { output.missingTable = error.message }
+      const missing = structuredClone(automatic); missing.calculation.magnetization.mode = 'none'
+      output.missingRetained = await service.calcReflectivity(missing)
       tables = []
       const matrix = createDefaultProject()
       matrix.calculation.algorithm = 'matrix'
@@ -781,7 +794,7 @@ try {
   assert.equal(results.matrixUnchanged, true)
   assert.match(results.matrixProfileError, /profile/)
   assert.equal(results.refreshUnchanged, true)
-  assert.match(results.missingTable, /missing optical table ambient/)
+  results.missingRetained.reflectivity.forEach((value, index) => near(value, results.automaticBaseline.reflectivity[index]))
   assert.deepEqual(results.cancellations.map(result => [result.method, result.stopped]), [['calcReflectivity', 'ComputeCancelled'], ['calcChi2', 'ComputeCancelled'], ['startFit', 'ComputeCancelled']])
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)

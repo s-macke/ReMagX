@@ -28,6 +28,15 @@ export function refreshCompoundOpticsState(project: Project, tables: OpticalTabl
   return refreshState(project, tables, energy, lookup, cursors, previousTensors)
 }
 
+// Qz callers ignore Filldb's false result and continue with partial updates.
+export function refreshQzCompoundOptics(project: Project, tables: OpticalTable[], energy: number,
+  lookup: RealTableLookup, cursors = new Map<OpticalTable, number>(), previousTensors?: (Float64Array | null)[]) {
+  if (previousTensors && previousTensors.length !== project.sample.layers.length) {
+    throw new Error('Optical tensor state must match the layer count.')
+  }
+  return refreshState(project, tables, energy, lookup, cursors, previousTensors, 'retain')
+}
+
 // Compound branch of MaterialConstantsHelper.cpp Filldb / CMaterialConstants::Getdb.
 // Called inside the compute worker with the native table lookup implementation.
 // The caller supplies the calculation energy (including any legacy conversion).
@@ -39,7 +48,7 @@ export function refreshCompoundOptics(project: Project, tables: OpticalTable[], 
 }
 
 function refreshState(project: Project, tables: OpticalTable[], energy: number, lookup: RealTableLookup,
-  cursors: Map<OpticalTable, number>, previousTensors?: (Float64Array | null)[]): CompoundOpticalState & { rangeError: string | null } {
+  cursors: Map<OpticalTable, number>, previousTensors?: (Float64Array | null)[], missing: 'reject' | 'retain' = 'reject'): CompoundOpticalState & { rangeError: string | null } {
   if (project.sample.mode !== 'compound') throw new Error('Real optical-table refresh for element mode is not implemented yet.')
   if (!Number.isFinite(energy) || energy <= 0) throw new Error('Optical-table refresh needs a positive finite energy.')
   let rangeError = ''
@@ -54,7 +63,12 @@ function refreshState(project: Project, tables: OpticalTable[], energy: number, 
     // Findoc uses exact material names, without case folding or path rewriting.
     const name = layer.opticalTable
     const table = name ? tables.find(candidate => candidate.name === name && candidate.kind === 'db') : undefined
-    if (!table || !table.energy.length) throw new Error(`Layer ${index}: missing optical table ${name || '(unnamed)'}.db.`)
+    if (!table || !table.energy.length) {
+      const message = `Layer ${index}: missing optical table ${name || '(unnamed)'}.db.`
+      if (missing === 'reject') throw new Error(message)
+      rangeError = message
+      return { ...layer }
+    }
     if (energy < table.energy[0] || energy > table.energy.at(-1)!) {
       rangeError = `Layer ${index}: ${energy} eV is outside ${name}.db.`
       return { ...layer } // Filldb continues refreshing other layers before returning false.

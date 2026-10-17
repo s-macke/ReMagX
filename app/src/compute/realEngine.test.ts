@@ -64,8 +64,9 @@ it('refreshes only the worker snapshot, using the legacy wavelength round trip b
   expect(calculate.mock.calls[0][0].layers.every(layer => layer[2] === .01 && layer[3] === .002 && layer[4] === 0 && layer[5] === 0)).toBe(true)
   expect(project).toEqual(before)
   await handle({ id: 2, kind: 'reflectivity', project })
-  expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ id: 2, type: 'error' })
-  expect(calculate).toHaveBeenCalledTimes(1)
+  expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ id: 2, type: 'result' })
+  expect(calculate).toHaveBeenCalledTimes(2)
+  expect(calculate.mock.calls[1][0].layers.map(layer => layer[2])).toEqual(project.sample.layers.map(layer => layer.delta))
 })
 
 it('routes matrix qz requests through tensor preparation and preserves asymmetry postprocessing', async () => {
