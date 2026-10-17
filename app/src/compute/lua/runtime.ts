@@ -1,3 +1,4 @@
+import { installScriptOutput } from './output'
 import { installProjectFunctions, type ScriptProjectFunctions } from './functions'
 import type { ScriptFactorLookup } from '../../model/scriptFactors'
 import { LuaFactory, type LuaEngine } from 'wasmoon'
@@ -34,6 +35,13 @@ export class LuaSession {
 
   installProjectFunctions(project: ScriptProjectFunctions): void {
     try { installProjectFunctions(this.activeEngine().global, project) } catch (error) {
+      this.close()
+      throw error
+    }
+  }
+
+  installOutput(emit: (message: string) => void): void {
+    try { installScriptOutput(this.activeEngine().global, emit) } catch (error) {
       this.close()
       throw error
     }

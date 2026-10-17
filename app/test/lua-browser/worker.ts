@@ -11,6 +11,10 @@ const runtime = createBrowserLuaRuntime()
 async function run() {
   const session = await runtime.createSession()
   try {
+    const messages: string[] = []
+    session.installOutput(message => messages.push(message))
+    session.execute('print("energy=", 700.0); write("small=", 0.000012345678901234567)', 'Default')
+    const outputPassed = messages.join('|') === 'energy=700|small=1.2345678901235e-05'
     const source = createDefaultProject()
     source.scripts.parameters = [1, 2]
     source.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: 0, f2Mag: 0,
@@ -77,7 +81,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }
