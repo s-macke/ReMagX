@@ -35,7 +35,7 @@ try {
   browser = await chromium.launch()
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
-  const result = await page.evaluate(async ({ cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors }) => {
+  const result = await page.evaluate(async ({ lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors }) => {
     const next = (worker, kind) => new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { cleanup(); reject(new Error(`Worker timeout: ${kind}`)) }, 10000)
       const cleanup = () => {
@@ -55,8 +55,8 @@ try {
     try {
       await next(worker, 'ready')
       const response = next(worker, 'results')
-      worker.postMessage({ cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors })
-      const { values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults, matrices: matrixResults, zak: zakResults, profiles: profileResults, optimizer: optimizerResults, fitErrors: fitErrorValues } = await response
+      worker.postMessage({ lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors })
+      const { lineShapes: lineShapeResults, values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults, matrices: matrixResults, zak: zakResults, profiles: profileResults, optimizer: optimizerResults, fitErrors: fitErrorValues } = await response
       const entered = next(worker, 'entered')
       let finished = false
       worker.addEventListener('message', event => { if (event.data.kind === 'finished') finished = true })
@@ -73,11 +73,11 @@ try {
       const replacementResponse = next(worker, 'results')
       worker.postMessage({ cases: [cases[0]] })
       const replacement = (await replacementResponse).values[0]
-      return { fitErrorValues, optimizerResults, profileResults, zakResults, matrixResults, tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
+      return { lineShapeResults, fitErrorValues, optimizerResults, profileResults, zakResults, matrixResults, tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
     } finally {
       worker.terminate()
     }
-  }, { cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors, matrices: input.matrices, zak: input.zak, profiles: input.profiles, optimizer: input.optimizer, fitErrors: input.fitErrors })
+  }, { lineShapes: input.lineShapes, cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors, matrices: input.matrices, zak: input.zak, profiles: input.profiles, optimizer: input.optimizer, fitErrors: input.fitErrors })
   assert.equal(result.fitErrorValues, 12480)
   console.log(`Chromium dataset fit errors: ${result.fitErrorValues} native means/residuals, validation, growth and cleanup passed.`)
   assert.deepEqual(result.optimizerResults, { cases: input.optimizer.length, validation: true, stop: true, growth: true, cleanup: true, reflectivity: true })
@@ -122,6 +122,9 @@ try {
   })
   assert.equal(zakCount, 15552)
   console.log(`Chromium Zak: ${zakCount} intensities matched native.`)
+  assert.equal(result.lineShapeResults.length, 630)
+  input.lineShapes.forEach((item, index) => assert.ok(Math.abs(result.lineShapeResults[index] - item.expected) <= 1e-15 + 1e-10 * Math.abs(item.expected)))
+  console.log('Chromium Gauss-Lorentzian imaginary part: 630 values matched native.')
   let profileCount = 0
   input.profiles.forEach((item, index) => {
     assert.equal(result.profileResults[index].length, item.expected.length)

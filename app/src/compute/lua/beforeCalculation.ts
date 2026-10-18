@@ -39,7 +39,11 @@ export function createBeforeCalculation(session: LuaSession, engine: RealCalcula
         session.installOutput(emit)
         session.installElements(workspace.elements, createScriptFactorLookup(tables, engine.lookup, cursors))
         session.installArrays(new Map([...workspace.arrays, ...solution.arrays, ...tensors.arrays]), solution.dynamicMaximumIndex)
-        session.installProjectFunctions({ ...workspace, ...optics })
+        session.installProjectFunctions({ ...workspace, ...optics,
+          gaussLorentzianImag: (center, area, width, mixingPercent) => {
+            if (!engine.gaussLorentzianImag) throw new Error('GetGaussLorentzianImag: native line-shape calculation is not available')
+            return engine.gaussLorentzianImag(workspace.calculationEnergy(), center, area, width, mixingPercent)
+          } })
         session.compile(project.scripts.beforeCalculation, 'BeforeCalculation')
         context = { workspace, tensors, source: project.scripts.beforeCalculation }
       } else {

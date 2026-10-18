@@ -110,3 +110,18 @@ extern "C" int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profi
     } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
       catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
 }
+
+
+extern "C" int remagx_gauss_lorentzian_imag(double energy, double center, double area,
+                                            double width, double mixing_percent, double* output) {
+    if (!output || !std::isfinite(energy) || !std::isfinite(center) || !std::isfinite(area) ||
+        !std::isfinite(width) || !std::isfinite(mixing_percent)) return REMAGX_INVALID_ARGUMENT;
+    if (width < 1e-5) width = 1e-5;
+    const double offset = (energy - center) * (energy - center) / (width * width);
+    const double lorentzian = area / width / (1.0 + (mixing_percent / 100.0) * 4.0 * offset);
+    const double gaussian = std::exp(-4.0 * std::log(2.0) * (1.0 - mixing_percent / 100.0) * offset);
+    const double result = gaussian * lorentzian;
+    if (!std::isfinite(result)) return REMAGX_NUMERICAL_ERROR;
+    *output = result;
+    return REMAGX_SUCCESS;
+}

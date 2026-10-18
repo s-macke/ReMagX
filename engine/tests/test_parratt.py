@@ -250,7 +250,9 @@ class NativeParrattTest(unittest.TestCase):
         scan_cases.extend(point_settings['scans'])
         matrix_cases.extend(point_settings['matrices'])
         zak_cases.extend(point_settings['zak'])
-        payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases, zak=zak_cases, profiles=profile_cases, optimizer=optimizer_cases, fitErrors=fit_error_cases))
+        line_shapes = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_line_shape.py')),
+            library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
+        payload = json.dumps(dict(lineShapes=line_shapes, angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases, zak=zak_cases, profiles=profile_cases, optimizer=optimizer_cases, fitErrors=fit_error_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
                        input=payload, text=True, check=True)

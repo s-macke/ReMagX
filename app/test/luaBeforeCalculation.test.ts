@@ -83,3 +83,22 @@ it('invalidates only tensors whose optical tables were refreshed before the scri
     expect(state.dielectricState.every(tensor => !tensor.anisotropic && tensor.values[0] === 7)).toBe(true)
   } finally { session.close() }
 })
+
+
+it('line-shape helpers read stored state energy until hook globals are committed', async () => {
+  const project = createDefaultProject(); project.experiment.energy = 640
+  project.scripts.beforeCalculation = 'energy = 900; value = GetGaussLorentzianImag(640, 0.03, 0.1, 50)'
+  const engine: RealCalculationEngine = { calculate: vi.fn(), energyScan: vi.fn(), zakQz: vi.fn(), zakEnergy: vi.fn(),
+    matrixQz: vi.fn(), matrixEnergy: vi.fn(), lookup: vi.fn(),
+    dielectricTensor: () => ({ values: new Float64Array(18), anisotropic: false }),
+    gaussLorentzianImag: vi.fn(energy => energy) }
+  const session = await runtime.createSession()
+  try {
+    const hook = createBeforeCalculation(session, engine, [])
+    const first = hook(project, { layers: project.sample.layers, dielectricTensors: project.sample.layers.map(() => null), cursors: new Map() })
+    expect(session.getGlobal('value')).toBe(640)
+    hook(first.project, first.opticalState)
+    expect(session.getGlobal('value')).toBe(900)
+    expect(vi.mocked(engine.gaussLorentzianImag!).mock.calls.map(args => args.slice(1))).toEqual([[640, .03, .1, 50], [640, .03, .1, 50]])
+  } finally { session.close() }
+})

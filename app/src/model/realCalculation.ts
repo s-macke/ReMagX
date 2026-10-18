@@ -12,6 +12,7 @@ import type { OpticalTable } from '../import/tables'
 export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Array
 
 export interface RealCalculationEngine {
+  gaussLorentzianImag?(energy: number, center: number, area: number, width: number, mixingPercent: number): number
   calculate: RealQzCalculator
   lookup: RealTableLookup
   energyScan: EnergyScanCalculator

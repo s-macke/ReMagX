@@ -449,3 +449,13 @@ export function applyGaussianProfiles(module, { profiles, positions, initialValu
     return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + initialValues.length)
   })
 }
+
+
+export function calculateGaussLorentzianImag(module, parameters) {
+  if (!validVector(parameters, 5)) throw new TypeError('Invalid Gauss-Lorentzian input')
+  return withBuffers(module, allocate => {
+    const output = allocate(1)
+    checkStatus(module._remagx_gauss_lorentzian_imag(...parameters, output), 'Gauss-Lorentzian imaginary part')
+    return module.HEAPF64[output / 8]
+  })
+}

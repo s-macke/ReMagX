@@ -122,6 +122,7 @@ export function createScriptArrayWorkspace(source: Project) {
       wavelength = nextWavelength
       renewOpticalConstants = renew
     },
+    calculationEnergy: (): number => HC_EV_ANGSTROM / wavelength,
     beginHook(): ScriptHookState {
       const state = { energy: HC_EV_ANGSTROM / wavelength, epsilon: project.calculation.epsilon,
         resolution: project.experiment.resolution.angularFwhm, energyScanQz: project.experiment.energyScan.qz,

@@ -30,7 +30,7 @@ if(EMSCRIPTEN)
   set_target_properties(remagx_wasm PROPERTIES OUTPUT_NAME "remagx-core" SUFFIX ".mjs")
   target_link_options(remagx_wasm PRIVATE --no-entry -fexceptions
     "-sMODULARIZE=1" "-sEXPORT_ES6=1" "-sENVIRONMENT=web,worker,node"
-    "-sEXPORTED_FUNCTIONS=['_remagx_parratt','_remagx_parratt_qz','_remagx_parratt_qz_resolution','_remagx_table_lookup','_remagx_energy_resolution','_remagx_parratt_energy_scan','_remagx_parratt_energy_scan_points','_remagx_dielectric_tensor','_remagx_visnovsky','_remagx_visnovsky_qz','_remagx_visnovsky_qz_resolution','_remagx_visnovsky_energy_scan','_remagx_visnovsky_energy_scan_points','_remagx_zak','_remagx_zak_qz','_remagx_zak_qz_resolution','_remagx_zak_energy_scan','_remagx_zak_energy_scan_points','_remagx_gaussian_profile','_remagx_gaussian_spline_knots','_remagx_apply_gaussian_profiles','_remagx_nelder_mead','_remagx_fit_dataset_error','_malloc','_free']"
+    "-sEXPORTED_FUNCTIONS=['_remagx_parratt','_remagx_parratt_qz','_remagx_parratt_qz_resolution','_remagx_table_lookup','_remagx_energy_resolution','_remagx_parratt_energy_scan','_remagx_parratt_energy_scan_points','_remagx_dielectric_tensor','_remagx_visnovsky','_remagx_visnovsky_qz','_remagx_visnovsky_qz_resolution','_remagx_visnovsky_energy_scan','_remagx_visnovsky_energy_scan_points','_remagx_zak','_remagx_zak_qz','_remagx_zak_qz_resolution','_remagx_zak_energy_scan','_remagx_zak_energy_scan_points','_remagx_gauss_lorentzian_imag','_remagx_gaussian_profile','_remagx_gaussian_spline_knots','_remagx_apply_gaussian_profiles','_remagx_nelder_mead','_remagx_fit_dataset_error','_malloc','_free']"
     "-sEXPORTED_RUNTIME_METHODS=['HEAPF64','addFunction','removeFunction']"
     "-sALLOW_TABLE_GROWTH=1" "-sALLOW_MEMORY_GROWTH=1" "-sABORTING_MALLOC=0")
 endif()
@@ -48,6 +48,7 @@ if(BUILD_TESTING)
   if(BUILD_SHARED_LIBS AND NOT EMSCRIPTEN)
     add_test(NAME fit_error_native COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_fit_error.py $<TARGET_FILE:remagx_core>)
     add_test(NAME profile_application_native COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_profile_application.py $<TARGET_FILE:remagx_core>)
+    add_test(NAME line_shape_native COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_line_shape.py $<TARGET_FILE:remagx_core>)
     add_test(NAME gaussian_profile_native COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_gaussian_profile.py $<TARGET_FILE:remagx_core>)
     add_test(NAME zak_native COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_zak.py $<TARGET_FILE:remagx_core>)
     add_test(NAME zak_modes_native COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_zak_modes.py $<TARGET_FILE:remagx_core>)

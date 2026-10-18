@@ -75,7 +75,7 @@ try {
         scripted.experiment.energy = 700
         scripted.experiment.qzScan.points = 12
         scripted.scripts.enabled = true
-        scripted.scripts.beforeCalculation = 'thickness[1] = 35; delta[1] = 0.004; energy = 710; resolution = 0.002; FillTensors(); print("script=", energy)'
+        scripted.scripts.beforeCalculation = 'thickness[1] = 35; energy = 710; delta[1] = GetGaussLorentzianImag(700, 0.004, 1, 50); resolution = 0.002; FillTensors(); print("script=", energy)'
         const before = JSON.stringify(scripted)
         const expected = structuredClone(scripted)
         expected.scripts.enabled = false

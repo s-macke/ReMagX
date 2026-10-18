@@ -43,3 +43,17 @@ it.each(['SetName(-1, "bad")', 'SetName(0, nil)', 'SetChemicalFormula(10000, "ba
     session.installProjectFunctions(createScriptArrayWorkspace(createDefaultProject()))
     expect(() => session.execute(statement, 'Default')).toThrow(/Default:1:/)
   })
+
+
+it('preserves Gauss-Lorentzian Lua argument conversion, arity and double return values', async () => {
+  const session = await runtime.createSession()
+  const calls: number[][] = []
+  try {
+    session.installProjectFunctions({ ...createScriptArrayWorkspace(createDefaultProject()),
+      gaussLorentzianImag: (...args) => { calls.push(args); return -0 } })
+    session.execute(`assert(GetGaussLorentzianImag(1, 2, 3) == nil)
+      local value = GetGaussLorentzianImag("640", false, nil, "50")
+      assert(math.type(value) == "float" and 1/value == -math.huge)`, 'Default')
+    expect(calls).toEqual([[640, 0, 0, 50]])
+  } finally { session.close() }
+})
