@@ -1,5 +1,6 @@
 import type { OpticalTable } from '../import/tables'
-import type { SerialOpticalState } from './refreshOpticalConstants'
+import { refreshCompoundOptics, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
+import { HC_EV_ANGSTROM } from './units'
 import type { Project } from './project'
 import { prepareFitDataset, type FitErrorMode } from './fitDataset'
 import { calculateRealCurve, type RealCalculationEngine, type RealCurve, type RealBeforeCalculation } from './realCalculation'
@@ -23,7 +24,21 @@ export type FitErrorCalculator = (request: FitErrorRequest) => { error: number; 
 // Zero-weight active datasets are still evaluated, as in legacy; inactive ones are untouched.
 export function calculateProjectDatasetError(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }): number {
-  return evaluateProjectDatasetError(project, tables, engine).error
+  const prepared = prepareStandaloneDatasetError(project, tables, engine.lookup)
+  return evaluateProjectDatasetError(prepared.project, tables, engine, prepared.opticalState).error
+}
+
+// Button22Click calls SetOCStrict at the current GUI energy before entering
+// the dataset loop. Individual dataset calculations still use partial refresh.
+export function prepareStandaloneDatasetError(project: Project, tables: OpticalTable[], lookup: RealTableLookup): {
+  project: Project; opticalState?: SerialOpticalState
+} {
+  if (!project.calculation.automaticOpticalConstants) return { project }
+  const cursors = new Map<OpticalTable, number>()
+  const refreshed = refreshCompoundOptics(project, tables,
+    HC_EV_ANGSTROM / (HC_EV_ANGSTROM / project.experiment.energy), lookup, cursors)
+  return { project: { ...project, sample: { ...project.sample, layers: refreshed.layers } },
+    opticalState: { ...refreshed, cursors } }
 }
 
 // Return the serial state as well as the objective for the optimizer's next candidate.
@@ -43,8 +58,9 @@ export function evaluateProjectDatasetError(project: Project, tables: OpticalTab
 // Both runners share exactly the same serial state and objective accumulation.
 export async function evaluateProjectDatasetErrorAsync(project: Project,
   fitError: FitErrorCalculator,
-  calculate: (prepared: ReturnType<typeof prepareFitDataset>, previous?: SerialOpticalState) => Promise<RealCurve>) {
-  const evaluation = datasetErrorSteps(project, fitError)
+  calculate: (prepared: ReturnType<typeof prepareFitDataset>, previous?: SerialOpticalState) => Promise<RealCurve>,
+  previous?: SerialOpticalState) {
+  const evaluation = datasetErrorSteps(project, fitError, previous)
   let step = evaluation.next()
   while (!step.done) step = evaluation.next(await calculate(step.value.prepared, step.value.opticalState))
   return step.value

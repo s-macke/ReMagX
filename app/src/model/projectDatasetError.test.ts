@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { createDefaultProject, createLayer } from './defaults'
 import type { Dataset } from './project'
-import { calculateProjectDatasetError, evaluateProjectDatasetError, type FitErrorRequest } from './projectDatasetError'
+import { calculateProjectDatasetError, evaluateProjectDatasetError, prepareStandaloneDatasetError, type FitErrorRequest } from './projectDatasetError'
 import type { RealEngine } from '../compute/realEngine'
 
 function fixture() {
@@ -123,4 +123,30 @@ it('carries partial optical refreshes and dataset context from energy scans into
     expect(reversed.project.experiment.energy).toBe(825)
     expect(reversed.project.activeDatasetIndex).toBe(1)
   }
+})
+
+
+it('strictly refreshes standalone chi2 at the GUI energy before dataset preparation and retains cursors', () => {
+  const { project, engine, tables } = fixture()
+  project.calculation.automaticOpticalConstants = true
+  project.experiment.energy = 777.198
+  engine.lookup = vi.fn((_table, queries, cursor) => ({ values: new Float64Array([queries[0] / 100000, 0]), cursor: cursor + 1 }))
+  const before = structuredClone(project)
+  calculateProjectDatasetError(project, tables, engine)
+  const energy = 12398.326 / (12398.326 / 777.198)
+  expect(vi.mocked(engine.lookup).mock.calls.map(([, queries, cursor]) => [queries[0], cursor])).toEqual([
+    [energy, 0], [energy, 1], [640, 2], [640, 3],
+  ])
+  expect(project).toEqual(before)
+  project.experiment.energy = 900 // Dataset energy is still valid; GUI preflight must fail first.
+  vi.mocked(engine.calculate).mockClear()
+  expect(() => calculateProjectDatasetError(project, tables, engine)).toThrow('outside')
+  expect(engine.calculate).not.toHaveBeenCalled()
+  project.experiment.energy = 640
+  expect(() => prepareStandaloneDatasetError(project, [], engine.lookup)).toThrow('missing optical table')
+  expect(() => prepareStandaloneDatasetError(project, [{ ...tables[0], energy: [] }], engine.lookup)).toThrow('missing optical table')
+  project.datasets = []
+  expect(() => calculateProjectDatasetError(project, [], engine)).toThrow('missing optical table')
+  project.calculation.automaticOpticalConstants = false
+  expect(calculateProjectDatasetError(project, [], engine)).toBe(0)
 })

@@ -514,6 +514,17 @@ try {
         const actualError = await service.calcChi2(chiProject, messages => lines.push(...messages))
         if (Math.abs(actualError - expectedError) > 1e-15 + 1e-10 * Math.abs(expectedError)) throw new Error('Scripted chi2 state mismatch: ' + algorithm)
         if (JSON.stringify(lines) !== '["chi2:1","chi2:1"]' || JSON.stringify(chiProject) !== chiBefore) throw new Error('Scripted chi2 isolation failed')
+        for (const failure of ['range', 'missing']) {
+          const invalid = structuredClone(chiProject)
+          if (failure === 'range') invalid.experiment.energy = 900
+          else invalid.sample.layers[0].opticalTable = 'not-imported'
+          const prior = JSON.stringify(invalid), emitted = []
+          let rejected = false
+          try { await service.calcChi2(invalid, messages => emitted.push(...messages)) }
+          catch (error) { rejected = (failure === 'range' ? /outside/ : /missing optical table/).test(error.message) }
+          if (!rejected || emitted.length || JSON.stringify(invalid) !== prior) throw new Error('Chi2 preflight failed: ' + failure)
+        }
+
         fit.scripts.beforeCalculation = 'local x = 1\nlocal y = 2\nerror("fit script failure")'
         let failed = false
         try { await service.startFit(fit, () => {}) } catch (error) { failed = /BeforeCalculation:3:/.test(error.message) }
