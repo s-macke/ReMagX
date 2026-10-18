@@ -1,3 +1,4 @@
+import type { OpticalTable } from '../import/tables'
 import { createBeforeCalculation } from './lua/beforeCalculation'
 import type { LuaSession } from './lua/runtime'
 import { realTensor } from '../model/realTensor'
@@ -5,7 +6,7 @@ import { realLayerSpectrum, realScatteringFactors } from '../model/realSpectrum'
 import { realDatabaseValues } from '../model/realDatabaseValues'
 import { runRealFit, type RealMinimizer } from '../model/realFit'
 import { calculateRealCurve, type RealCalculationEngine } from '../model/realCalculation'
-import { calculateProjectDatasetError, type FitErrorCalculator } from '../model/projectDatasetError'
+import { evaluateProjectDatasetErrorAsync, type FitErrorCalculator } from '../model/projectDatasetError'
 import type { WorkerRequest, WorkerResponse } from './protocol'
 export type { RealQzCalculator } from '../model/realCalculation'
 export interface RealEngine extends RealCalculationEngine { fitError: FitErrorCalculator; minimize?: RealMinimizer }
@@ -49,7 +50,19 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         return
       }
       if (message.kind === 'chi2') {
-        send({ id: message.id, type: 'result', result: calculateProjectDatasetError(message.project, message.tables ?? [], engine) })
+        // Table resolution belongs to the film state, even across temporary Lua VMs.
+        const resolvedTables = new Map<number, OpticalTable>()
+        const result = await evaluateProjectDatasetErrorAsync(message.project, engine.fitError, async (prepared, previous) => {
+          const scripted = prepared.project.scripts.enabled && prepared.project.scripts.beforeCalculation.trim()
+          if (scripted && prepared.scan === 'energy') throw new Error('BeforeCalculation in real energy-scan chi2 is not implemented yet.')
+          const session = scripted && createLuaSession ? await createLuaSession() : undefined
+          try {
+            const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [],
+              text => send({ id: message.id, type: 'scriptMessages', lines: [text] }), resolvedTables) : undefined
+            return calculateRealCurve(prepared.project, message.tables ?? [], engine, prepared.scan, prepared.beams, previous, hook)
+          } finally { session?.close() }
+        })
+        send({ id: message.id, type: 'result', result: result.error })
         return
       }
       const energy = message.kind === 'energyScan' || message.kind === 'energyAsymmetry'

@@ -36,6 +36,7 @@ export type WorkerRequest =
   | { kind: 'stopFit' }
 
 export type WorkerResponse =
+  | { id: number; type: 'scriptMessages'; lines: string[] }
   | { id: number; type: 'result'; result: CalculationResults[keyof CalculationResults] }
   | { id: number; type: 'error'; message: string }
   | { id: number; type: 'fitProgress'; progress: FitProgress }

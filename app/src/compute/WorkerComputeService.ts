@@ -38,6 +38,7 @@ interface Pending {
   resolve: (value: unknown) => void
   reject: (error: Error) => void
   onProgress?: (progress: FitProgress) => void
+  onScriptMessages?: (lines: string[]) => void
 }
 
 // Leave time for the UI to settle within D-28’s 1 s deadline, even for a stuck fit.
@@ -126,8 +127,8 @@ export class WorkerComputeService implements ComputeService {
     return this.request('depthProfile', project)
   }
 
-  calcChi2(project: Project): Promise<number> {
-    return this.request('chi2', project)
+  calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<number> {
+    return this.request('chi2', project, undefined, undefined, onScriptMessages)
   }
 
   startFit(project: Project, onProgress: (progress: FitProgress) => void): Promise<FitResult> {
@@ -191,12 +192,13 @@ export class WorkerComputeService implements ComputeService {
     project: Project,
     onProgress?: (progress: FitProgress) => void,
     spectrum?: TensorQuery | LayerSpectrumQuery | ElementSpectrumQuery | { tables: OpticalTable[] },
+    onScriptMessages?: (lines: string[]) => void,
   ): Promise<CalculationResults[K]> {
     if (this.disposed) return Promise.reject(new ComputeError('Compute service was shut down.'))
     if (this.stopping) return Promise.reject(new ComputeCancelled())
     const id = this.nextId++
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress })
+      this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress, onScriptMessages })
       try {
         this.worker ??= this.connect()
         const tables = (kind === 'fit' || kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || project.calculation.automaticOpticalConstants && (kind === 'reflectivity' || kind === 'asymmetry')) ? this.getTables?.() : undefined
@@ -210,6 +212,10 @@ export class WorkerComputeService implements ComputeService {
   private receive(response: WorkerResponse): void {
     const pending = this.pending.get(response.id)
     if (!pending) return
+    if (response.type === 'scriptMessages') {
+      if (!this.stopping) pending.onScriptMessages?.(response.lines)
+      return
+    }
     if (response.type === 'fitProgress') {
       if (!this.stopping) pending.onProgress?.(response.progress)
       return

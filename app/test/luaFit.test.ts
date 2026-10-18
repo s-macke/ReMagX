@@ -1,3 +1,4 @@
+import { createRealRequestHandler } from '../src/compute/realEngine'
 import { fileURLToPath } from 'node:url'
 import { expect, it, vi } from 'vitest'
 import { createLuaRuntime } from '../src/compute/lua/runtime'
@@ -55,4 +56,43 @@ it('runs persistent Lua initialization, objective renewal and serial dataset hoo
     expect(() => runRealFit(project, [], engine, minimize, vi.fn(), undefined, hook)).toThrow('energy-scan fits')
     expect(messages).toHaveLength(7)
   } finally { session.close() }
+})
+
+
+it('standalone chi2 uses fresh Lua globals but carries film state and table resolution across datasets', async () => {
+  const { project, engine } = fixture()
+  project.calculation.automaticOpticalConstants = false
+  project.scripts.enabled = true
+  project.sample.layers[0].opticalTable = 'A'
+  project.scripts.beforeCalculation = `calls = (calls or 0) + 1; assert(calls == 1); assert(renewocs == 0)
+    print("chi2:", calls)
+    if thickness[0] == 0 then SetName(0, "B") else SetName(0, "A") end
+    SetDeltaBeta(0, 150); thickness[0] = thickness[0] + 1`
+  project.datasets[0].errorWeight = 0
+  const before = structuredClone(project)
+  engine.dielectricTensor = () => ({ values: new Float64Array(18), anisotropic: false })
+  engine.lookup = vi.fn((table, _queries, cursor) => ({ values: new Float64Array([table.name === 'B' ? .02 : .03, 0]), cursor: cursor + 1 }))
+  const runtime = createLuaRuntime(fileURLToPath(new URL('../node_modules/wasmoon/dist/glue.wasm', import.meta.url)))
+  const closes: ReturnType<typeof vi.spyOn>[] = []
+  const createSession = async () => { const session = await runtime.createSession(); closes.push(vi.spyOn(session, 'close')); return session }
+  const messages = vi.fn()
+  const handle = createRealRequestHandler(messages, async () => engine, createSession)
+  const tables = ['A', 'B'].map(name => ({ name, kind: 'db' as const, energy: [100, 200], columns: [], warnings: [] }))
+  await handle({ id: 1, kind: 'chi2', project, tables })
+  expect(messages.mock.calls.map(([message]) => message)).toEqual([
+    { id: 1, type: 'scriptMessages', lines: ['chi2:1'] },
+    { id: 1, type: 'scriptMessages', lines: ['chi2:1'] },
+    { id: 1, type: 'result', result: 1 },
+  ])
+  expect(vi.mocked(engine.lookup).mock.calls.map(([table, , cursor]) => [table.name, cursor])).toEqual([['B', 0], ['B', 1]])
+  expect(vi.mocked(engine.calculate).mock.calls.map(([request]) => request.layers[0][2])).toEqual([.02, .02])
+  expect(closes).toHaveLength(2)
+  expect(closes.every(close => close.mock.calls.length > 0)).toBe(true)
+  expect(project).toEqual(before)
+  project.scripts.beforeCalculation = 'print("before failure")\nlocal x = 1\nerror("chi2 failure")'
+  await handle({ id: 2, kind: 'chi2', project, tables })
+  expect(messages.mock.calls.at(-2)![0]).toEqual({ id: 2, type: 'scriptMessages', lines: ['before failure'] })
+  expect(messages.mock.calls.at(-1)![0]).toMatchObject({ id: 2, type: 'error', message: expect.stringContaining('BeforeCalculation:3:') })
+  expect(closes).toHaveLength(3)
+  expect(closes[2]).toHaveBeenCalled()
 })

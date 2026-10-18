@@ -168,6 +168,10 @@ try {
   await page.waitForFunction(() => document.querySelector('.debug-log')?.textContent.includes('lua-ui:2:1'))
   await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
   assert.ok((await page.locator('.debug-log').textContent()).includes('lua-ui:3:0'))
+  const previousMessages = await page.locator('.debug-log').evaluate(node => node.textContent.split('lua-ui:1:0').length)
+  await page.getByRole('button', { name: 'χ²', exact: true }).click()
+  await page.waitForFunction(count => document.querySelector('.debug-log')?.textContent.split('lua-ui:1:0').length > count, previousMessages)
+  await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
   // Hold a completed result, stop the request, then deliver its obsolete callback.
   await page.evaluate(() => { window.holdScriptResults = true; window.releaseScriptResult = undefined })
   scripted.scripts.beforeCalculation = 'print("obsolete-lua-output")'

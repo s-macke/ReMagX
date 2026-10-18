@@ -30,13 +30,37 @@ export function calculateProjectDatasetError(project: Project, tables: OpticalTa
 export function evaluateProjectDatasetError(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }, previous?: SerialOpticalState,
   observe?: (index: number, scan: 'qz' | 'energy', beams: 'monochromatic' | 'dichroic', curve: RealCurve) => void, beforeCalculation?: RealBeforeCalculation) {
+  const evaluation = datasetErrorSteps(project, engine.fitError, previous, observe)
+  let step = evaluation.next()
+  while (!step.done) {
+    const { prepared, opticalState } = step.value
+    step = evaluation.next(calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, opticalState, beforeCalculation))
+  }
+  return step.value
+}
+
+// Standalone scripting constructs a fresh asynchronous Lua session per dataset.
+// Both runners share exactly the same serial state and objective accumulation.
+export async function evaluateProjectDatasetErrorAsync(project: Project,
+  fitError: FitErrorCalculator,
+  calculate: (prepared: ReturnType<typeof prepareFitDataset>, previous?: SerialOpticalState) => Promise<RealCurve>) {
+  const evaluation = datasetErrorSteps(project, fitError)
+  let step = evaluation.next()
+  while (!step.done) step = evaluation.next(await calculate(step.value.prepared, step.value.opticalState))
+  return step.value
+}
+
+function* datasetErrorSteps(project: Project, fitError: FitErrorCalculator, previous?: SerialOpticalState,
+  observe?: (index: number, scan: 'qz' | 'energy', beams: 'monochromatic' | 'dichroic', curve: RealCurve) => void): Generator<
+    { prepared: ReturnType<typeof prepareFitDataset>; opticalState?: SerialOpticalState },
+    { error: number; project: Project; opticalState?: SerialOpticalState }, RealCurve> {
   let current = project
   let opticalState = previous
   let total = 0
   for (let index = 0; index < project.datasets.length; index++) {
     if (!project.datasets[index].active) continue
     const prepared = prepareFitDataset(current, index)
-    const curve = calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, opticalState, beforeCalculation)
+    const curve = yield { prepared, opticalState }
     opticalState = curve.opticalState
     const calculatedProject = curve.scriptedProject ?? prepared.project
     current = { ...calculatedProject, sample: { ...calculatedProject.sample, layers: opticalState.layers },
@@ -53,7 +77,7 @@ export function evaluateProjectDatasetError(project: Project, tables: OpticalTab
         curve.energy.length !== columns.energy!.length || curve.energy.some((value, point) => value !== columns.energy![point]))) {
       throw new Error('Fit calculation and measurement energies differ.')
     }
-    const result = engine.fitError({ mode: prepared.errorMode, qz: columns.qz, energy: columns.energy,
+    const result = fitError({ mode: prepared.errorMode, qz: columns.qz, energy: columns.energy,
       measured, calculated, ...(dichroic ? { measuredSecond: columns.reflectivityMinus!, calculatedSecond: curve.reflectivityMinus } : {}),
       ...project.fit.window })
     if (!Number.isFinite(result.error) || !Number.isSafeInteger(result.accepted) || result.accepted < 0 || result.accepted > columns.qz.length) {

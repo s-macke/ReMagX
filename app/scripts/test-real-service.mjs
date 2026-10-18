@@ -499,6 +499,21 @@ try {
         if (Math.abs(result.values[0] - 30) > 1e-6 || result.chi2 > 1e-16) throw new Error('Scripted fit recovery failed: ' + algorithm)
         if (result.scriptMessages.length < 5 || result.scriptMessages.some((value, index) => value !== (index % 2 ? '1' : '0'))) throw new Error('Incorrect fit hook lifecycle')
         if (before !== JSON.stringify(fit)) throw new Error('Scripted fit mutated input')
+        const chiProject = structuredClone(fit)
+        chiProject.datasets.push(structuredClone(chiProject.datasets[0]))
+        chiProject.datasets[1].errorWeight = 3
+        chiProject.scripts.beforeCalculation = 'calls = (calls or 0) + 1; assert(calls == 1); assert(renewocs == 0); print("chi2:", calls); thickness[1] = thickness[1] + 5'
+        const expectedFirst = structuredClone(chiProject)
+        expectedFirst.scripts.enabled = false; expectedFirst.sample.layers[1].thickness = 30
+        expectedFirst.datasets[1].active = false
+        const expectedSecond = structuredClone(expectedFirst)
+        expectedSecond.sample.layers[1].thickness = 35
+        expectedSecond.datasets[0].active = false; expectedSecond.datasets[1].active = true
+        const expectedError = await service.calcChi2(expectedFirst) + await service.calcChi2(expectedSecond)
+        const chiBefore = JSON.stringify(chiProject), lines = []
+        const actualError = await service.calcChi2(chiProject, messages => lines.push(...messages))
+        if (Math.abs(actualError - expectedError) > 1e-15 + 1e-10 * Math.abs(expectedError)) throw new Error('Scripted chi2 state mismatch: ' + algorithm)
+        if (JSON.stringify(lines) !== '["chi2:1","chi2:1"]' || JSON.stringify(chiProject) !== chiBefore) throw new Error('Scripted chi2 isolation failed')
         fit.scripts.beforeCalculation = 'local x = 1\nlocal y = 2\nerror("fit script failure")'
         let failed = false
         try { await service.startFit(fit, () => {}) } catch (error) { failed = /BeforeCalculation:3:/.test(error.message) }

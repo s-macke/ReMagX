@@ -585,3 +585,21 @@ it('converts materials through the worker and reports unsupported formulas witho
   expect(project).toEqual(before)
   service.dispose()
 })
+
+
+it('routes script messages only to their pending request and rejects late output after cancellation', async () => {
+  const worker = controlledWorker()
+  const service = new WorkerComputeService(() => worker)
+  const lines = vi.fn()
+  const request = service.calcChi2(createDefaultProject(), lines)
+  const response = worker.onmessage!
+  response({ data: { id: 1, type: 'scriptMessages', lines: ['running'] } } as MessageEvent<WorkerResponse>)
+  response({ data: { id: 2, type: 'scriptMessages', lines: ['wrong request'] } } as MessageEvent<WorkerResponse>)
+  expect(lines.mock.calls).toEqual([[['running']]])
+  const rejected = expect(request).rejects.toBeInstanceOf(ComputeCancelled)
+  service.stop()
+  await rejected
+  response({ data: { id: 1, type: 'scriptMessages', lines: ['late'] } } as MessageEvent<WorkerResponse>)
+  expect(lines).toHaveBeenCalledTimes(1)
+  service.dispose()
+})

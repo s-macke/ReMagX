@@ -111,7 +111,7 @@ export interface ComputeService {
   segmentLayers(project: Project): Promise<Layer[]>
   depthProfile(project: Project): Promise<DepthProfile>
   // Dataset-error statistic. The real engine sums all fit-enabled datasets, as the legacy χ² action does.
-  calcChi2(project: Project): Promise<number>
+  calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<number>
   startFit(project: Project, onProgress: (progress: FitProgress) => void): Promise<FitResult>
   // Stop all current work in the shared worker, including standalone calculations.
   stop(): void

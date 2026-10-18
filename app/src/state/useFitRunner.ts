@@ -51,7 +51,7 @@ export function useFitRunner() {
     const report = (event: FitEvent) => dispatch({ type: 'fitEvent', epoch, event })
     dispatch({ type: 'beginFit', parameters: null })
     computeService()
-      .calcChi2(project)
+      .calcChi2(project, lines => report({ type: 'appendDebug', lines }))
       .then((chi2) => {
         report({ type: 'setFitStatus', fitStatus: { evaluating: false, chi2, message: 'χ² of the current parameters.' } })
         report({ type: 'appendDebug', lines: [`Chi^2 of the current parameters: ${chi2.toPrecision(6)}`] })

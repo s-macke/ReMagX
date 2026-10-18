@@ -10,7 +10,8 @@ import { runProjectHook } from './projectHook'
 
 /** Reusable calculation-owned hook; its caller determines scan/fit invocation order. */
 export function createBeforeCalculation(session: LuaSession, engine: RealCalculationEngine,
-  tables: OpticalTable[], emit: (message: string) => void = () => {}): RealBeforeCalculation {
+  tables: OpticalTable[], emit: (message: string) => void = () => {},
+  resolvedTables = new Map<number, OpticalTable>()): RealBeforeCalculation {
   let context: { workspace: ReturnType<typeof createScriptArrayWorkspace>; tensors: ReturnType<typeof createScriptTensorWorkspace>; source: string } | undefined
   const cursors = new Map<OpticalTable, number>()
   return (project, opticalState, renewOpticalConstants = 0) => {
@@ -34,7 +35,7 @@ export function createBeforeCalculation(session: LuaSession, engine: RealCalcula
         const workspace = createScriptArrayWorkspace(project)
         const tensors = createScriptTensorWorkspace(initial)
         const solution = createScriptSolutionWorkspace()
-        const optics = createScriptOptics(workspace, tensors, tables, engine.lookup, engine.dielectricTensor, cursors)
+        const optics = createScriptOptics(workspace, tensors, tables, engine.lookup, engine.dielectricTensor, cursors, resolvedTables)
         session.installOutput(emit)
         session.installElements(workspace.elements, createScriptFactorLookup(tables, engine.lookup, cursors))
         session.installArrays(new Map([...workspace.arrays, ...solution.arrays, ...tensors.arrays]), solution.dynamicMaximumIndex)
