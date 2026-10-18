@@ -33,10 +33,10 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation): RealCurve {
   if (scan === 'energy') {
     return original.calculation.algorithm === 'matrix'
-      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous)
+      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous, beforeCalculation)
       : original.calculation.algorithm === 'zak'
-        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous)
-        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous)
+        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous, beforeCalculation)
+        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous, beforeCalculation)
   }
   let scriptedProject: Project | undefined
   let project = original

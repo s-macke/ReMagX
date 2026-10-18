@@ -1,3 +1,4 @@
+import type { RealBeforeCalculation } from './realCalculation'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
 import { prepareCompoundQzRequest, type PreparedParrattQzRequest } from './parrattRequest'
@@ -22,9 +23,9 @@ export function prepareZakQzRequest(project: Project, mode: 'monochromatic' | 'd
 }
 
 export function calculateZakEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
-  calculate: ZakEnergyCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState) {
+  calculate: ZakEnergyCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation) {
   return calculateCompoundEnergyScan(project, tables, lookup, prepared => {
     const { tensor: _tensor, dielectricTensors: _dielectricTensors, ...request } = prepared
     return calculate(request)
-  }, mode, prepareZakTemplate, previous)
+  }, mode, prepareZakTemplate, previous, beforeCalculation)
 }

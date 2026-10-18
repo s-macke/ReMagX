@@ -25,11 +25,13 @@ export interface ReflectivityCurve {
 }
 
 export interface EnergyScanCurve {
+  scriptMessages?: string[]
   energy: number[]
   reflectivity: number[]
 }
 
 export interface EnergyAsymmetryCurve {
+  scriptMessages?: string[]
   energy: number[]
   reflectivityPlus: number[]
   reflectivityMinus: number[]

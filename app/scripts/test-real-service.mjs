@@ -122,6 +122,63 @@ try {
         scripted.scripts.beforeCalculation = JSON.parse(before).scripts.beforeCalculation
         if (JSON.stringify(scripted) !== before) throw new Error('Script changed caller project')
       }
+      // Energy hooks: independently calculate each valid point, then convolve
+      // against the original measurement grid (including the skipped point).
+      const energyCore = await (await import('/assets/remagx-core.mjs')).default()
+      const { convolveEnergy } = await import('/assets/parratt.mjs')
+      tables = [
+        { name: 'script-bulk', kind: 'db', energy: [600, 700], columns: [[.01, .01], [.002, .002]], warnings: [] },
+        { name: 'script-film', kind: 'db', energy: [600, 700], columns: [[.006, .006], [.001, .001]], warnings: [] },
+        { name: 'script-air', kind: 'db', energy: [600, 700], columns: [[0, 0], [0, 0]], warnings: [] },
+      ]
+      for (const algorithm of ['parratt', 'matrix', 'zak']) for (const dichroic of [false, true]) {
+        const scripted = createDefaultProject()
+        scripted.calculation.algorithm = algorithm; scripted.calculation.automaticOpticalConstants = false
+        scripted.calculation.magnetization.mode = 'add'
+        scripted.experiment.energy = 640; scripted.experiment.resolution.energyFwhm = .4
+        scripted.experiment.qzScan.useDatasetPoints = true
+        scripted.sample.layers = [createLayer({ opticalTable: 'script-bulk', delta: .01, beta: .002 }),
+          createLayer({ opticalTable: 'script-film', thickness: 20, delta: .006, beta: .001 }), createLayer({ opticalTable: 'script-air' })]
+        scripted.datasets = [{ title: '', comment: '', sourceFile: '', energy: 640, energyShift: 0, qzShift: 0,
+          angularResolution: 0, intensityScale: 1, intensityOffset: 0, active: true, errorWeight: 1,
+          polarization: scripted.experiment.polarization, columns: { energy: [650, 900, 660], qz: [.02, .03, .04], reflectivity: [1, 1, 1] } }]
+        scripted.activeDatasetIndex = 0; scripted.scripts.enabled = true
+        scripted.scripts.beforeCalculation = 'calls = (calls or 0) + 1; print("energy-call:", calls); thickness[1] = 20 + calls; delta[1] = 0.004 + calls * 0.0001; deltam[1] = 0.0004; energy = energy + 10; resolution = calls * 0.001; epsilon = calls % 2 == 0 and 0.1 or 0.00000001; FillTensors()'
+        const before = JSON.stringify(scripted)
+        const actual = await (dichroic ? service.calcEnergyAsymmetry(scripted) : service.calcEnergyScan(scripted))
+        const raw = []
+        for (let index = 0; index < 3; index++) {
+          if (index === 1) { raw.push(1, dichroic ? 1 : 0); continue }
+          const calls = index === 0 ? 2 : 3
+          const reference = structuredClone(scripted)
+          reference.scripts.enabled = false; reference.experiment.qzScan.useDatasetPoints = false
+          reference.experiment.qzScan.points = 2
+          reference.experiment.qzScan.qzMin = reference.experiment.qzScan.qzMax = scripted.datasets[0].columns.qz[index]
+          reference.experiment.energy = scripted.datasets[0].columns.energy[index] + (dichroic ? 0 : 10)
+          reference.experiment.resolution.angularFwhm = calls * .001; reference.experiment.resolution.fastConvolution = false
+          reference.calculation.epsilon = calls % 2 === 0 ? .1 : 1e-8
+          Object.assign(reference.sample.layers[1], { thickness: 20 + calls, delta: .004 + calls * .0001, deltaMag: .0004 })
+          const point = await (dichroic ? service.calcAsymmetry(reference) : service.calcReflectivity(reference))
+          raw.push(dichroic ? point.reflectivityPlus[0] : point.reflectivity[0], dichroic ? point.reflectivityMinus[0] : 0)
+        }
+        const expected = convolveEnergy(energyCore, [650, 900, 660], new Float64Array(raw), .4)
+        for (let index = 0; index < 3; index++) {
+          const plus = dichroic ? actual.reflectivityPlus[index] : actual.reflectivity[index]
+          if (Math.abs(plus - expected[2 * index]) > 1e-15 + 1e-10 * Math.abs(expected[2 * index])) throw new Error('Energy script first beam mismatch: ' + algorithm)
+          if (dichroic && Math.abs(actual.reflectivityMinus[index] - expected[2 * index + 1]) > 1e-15 + 1e-10 * Math.abs(expected[2 * index + 1])) throw new Error('Energy script second beam mismatch: ' + algorithm)
+          if (dichroic) {
+            const sum = expected[2 * index] + expected[2 * index + 1]
+            const asymmetry = sum === 0 ? 0 : (expected[2 * index] - expected[2 * index + 1]) / sum
+            if (Math.abs(actual.asymmetry[index] - asymmetry) > 1e-15 + 1e-10 * Math.abs(asymmetry)) throw new Error('Energy script asymmetry mismatch: ' + algorithm)
+          }
+        }
+        if (JSON.stringify(actual.energy) !== '[650,900,660]' || JSON.stringify(actual.scriptMessages) !== '["energy-call:1","energy-call:2","energy-call:3"]') throw new Error('Energy hook coordinates/lifecycle failed')
+        if (JSON.stringify(scripted) !== before) throw new Error('Energy script mutated input')
+        scripted.scripts.beforeCalculation = 'calls = (calls or 0) + 1\nlocal x = 1\nif calls == 2 then error("energy point failed") end'
+        let failed = false
+        try { await service.calcEnergyScan(scripted) } catch (error) { failed = /BeforeCalculation:3:/.test(error.message) }
+        if (!failed) throw new Error('Missing per-energy script error line')
+      }
       tables = []
       // AC-3: use the actual importer and unmodified public fixture through the real worker.
       if (!precisionFixture.includes('precision = 1')) throw new Error('Missing precision fixture key')

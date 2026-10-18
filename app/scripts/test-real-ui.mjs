@@ -181,6 +181,22 @@ try {
   await page.evaluate(() => { window.holdScriptResults = false; window.releaseScriptResult() })
   await page.waitForTimeout(200)
   assert.ok(!(await page.locator('.debug-log').textContent()).includes('obsolete-lua-output'))
+  // Missing energy tables skip each point but still execute the constructor
+  // hook; verify its output survives both energy display transformations.
+  scripted.experiment.qzScan.useDatasetPoints = true
+  scripted.datasets[0].columns.energy = [640, 641, 642, 643]
+  scripted.scripts.beforeCalculation = 'print("energy-ui:", renewocs)'
+  await openProject(scripted)
+  await page.waitForFunction(() => document.querySelector('.debug-log')?.textContent.includes('energy-ui:0'))
+  await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  for (const mode of ['Monochromatic', 'Dichroic', 'Asymmetry']) {
+    await page.getByRole('radio', { name: mode, exact: true }).check()
+    await page.waitForTimeout(200)
+    const count = await page.locator('.debug-log').evaluate(node => node.textContent.split('energy-ui:0').length)
+    await page.getByRole('button', { name: 'Energy Scan', exact: true }).click()
+    await page.waitForFunction(count => document.querySelector('.debug-log')?.textContent.split('energy-ui:0').length > count, count)
+    await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  }
   assert.deepEqual(failures, [])
   console.log(JSON.stringify({ realUi: 'passed', points: 10000, layers: 102, tabMilliseconds, stopMilliseconds, blockedStops }))
 } finally {

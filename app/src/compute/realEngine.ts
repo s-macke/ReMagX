@@ -69,7 +69,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       const energy = message.kind === 'energyScan' || message.kind === 'energyAsymmetry'
       const mode = message.kind === 'reflectivity' || message.kind === 'energyScan' ? 'monochromatic' : 'dichroic'
       const hasScript = message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
-      const session = !energy && hasScript && createLuaSession ? await createLuaSession() : undefined
+      const session = hasScript && createLuaSession ? await createLuaSession() : undefined
       const scriptMessages: string[] = []
       let result
       try {
@@ -79,8 +79,8 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       if (energy) {
         if (!result.energy) throw new Error('Missing energy-scan coordinates.')
         send({ id: message.id, type: 'result', result: message.kind === 'energyScan'
-          ? { energy: result.energy, reflectivity: result.reflectivityPlus }
-          : { energy: result.energy, reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry } })
+          ? { energy: result.energy, reflectivity: result.reflectivityPlus, ...(session ? { scriptMessages } : {}) }
+          : { energy: result.energy, reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry, ...(session ? { scriptMessages } : {}) } })
       } else {
         send({ id: message.id, type: 'result', result: message.kind === 'reflectivity'
           ? { qz: result.qz, reflectivity: result.reflectivityPlus, ...(session ? { scriptMessages } : {}) }

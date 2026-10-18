@@ -78,12 +78,12 @@ async function calculate(service: ComputeService, project: Project, request: Cal
     if (mode !== 'monochromatic') {
       const scan = await service.calcEnergyAsymmetry(project)
       return mode === 'dichroic'
-        ? { axis: 'energy', x: scan.energy, series: [{ label: 'simulated R+', y: scan.reflectivityPlus },
+        ? { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated R+', y: scan.reflectivityPlus },
           { label: 'simulated R−', y: scan.reflectivityMinus }], logScale: true, yLabel: 'R' }
-        : { axis: 'energy', x: scan.energy, series: [{ label: 'simulated asymmetry', y: scan.asymmetry }], logScale: false, yLabel: 'asymmetry' }
+        : { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated asymmetry', y: scan.asymmetry }], logScale: false, yLabel: 'asymmetry' }
     }
     const scan = await service.calcEnergyScan(project)
-    return { axis: 'energy', x: scan.energy, series: [{ label: 'simulated R', y: scan.reflectivity }], logScale: true, yLabel: 'R' }
+    return { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated R', y: scan.reflectivity }], logScale: true, yLabel: 'R' }
   }
   if (mode === 'monochromatic') {
     const curve = await service.calcReflectivity(project)
