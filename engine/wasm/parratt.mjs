@@ -142,11 +142,18 @@ export function convolveEnergy(module, energies, values, width) {
   })
 }
 
+// Optional rows: calculation energy, angular width, matrix epsilon. Measured
+// energy coordinates remain separate and are always used for convolution.
+function validEnergyPointSettings(settings, count) {
+  return settings === undefined || (validRows(settings, 3) && settings.length === count &&
+    settings.every(row => row[0] > 0 && row[1] >= 0))
+}
+
 // One prepared stack per energy; skipped points retain native legacy initialization.
 export function calculateParrattEnergyScan(module, { stacks, energy, qz, enabled, beam1, beam2,
-  tensor, analyzer, magnetic, mode, angularWidth, energyWidth }) {
+  tensor, analyzer, magnetic, mode, angularWidth, energyWidth, pointSettings }) {
   const layerCount = stacks?.[0]?.length
-  if (!validVector(energy) || !energy.every(value => value > 0) || !validVector(qz, energy.length) ||
+  if (!validEnergyPointSettings(pointSettings, energy?.length) || !validVector(energy) || !energy.every(value => value > 0) || !validVector(qz, energy.length) ||
       !validVector(enabled, energy.length) || !enabled.every(value => value === 0 || value === 1) ||
       !Array.isArray(stacks) || stacks.length !== energy.length || !Number.isSafeInteger(layerCount) || layerCount < 2 ||
       !Array.from(stacks).every(stack => validRows(stack, 8) && stack.length === layerCount) ||
@@ -163,6 +170,8 @@ export function calculateParrattEnergyScan(module, { stacks, energy, qz, enabled
     const firstPointer = allocate(4)
     const secondPointer = mode === 1 ? allocate(4) : 0
     const outputPointer = allocate(energy.length * 2)
+    const settingsPointer = pointSettings ? allocate(energy.length * 3) : 0
+    if (settingsPointer) module.HEAPF64.set(pointSettings.flat(), settingsPointer / 8)
     stacks.forEach((stack, index) => module.HEAPF64.set(stack.flat(), layerPointer / 8 + index * layerCount * 8))
     module.HEAPF64.set(energy, energyPointer / 8)
     module.HEAPF64.set(qz, qzPointer / 8)
@@ -170,9 +179,9 @@ export function calculateParrattEnergyScan(module, { stacks, energy, qz, enabled
     enabled.forEach((value, index) => view.setInt32(enabledPointer + index * 4, value, true))
     module.HEAPF64.set(beam1, firstPointer / 8)
     if (secondPointer) module.HEAPF64.set(beam2, secondPointer / 8)
-    checkStatus(module._remagx_parratt_energy_scan(layerPointer, layerCount, energyPointer, qzPointer,
+    checkStatus(module._remagx_parratt_energy_scan_points(layerPointer, layerCount, energyPointer, qzPointer,
       enabledPointer, energy.length, firstPointer, secondPointer, tensor, analyzer, magnetic, mode,
-      angularWidth, energyWidth, outputPointer), 'Energy scan')
+      angularWidth, energyWidth, settingsPointer, outputPointer), 'Energy scan')
     return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + energy.length * 2)
   })
 }
@@ -263,9 +272,9 @@ export function calculateVisnovskyQz(module, { layers, qz, energy, epsilon, beam
 
 // One prepared tensor stack per energy, followed by native angular/energy convolution.
 export function calculateVisnovskyEnergyScan(module, { stacks, energy, qz, enabled, epsilon,
-  beam1, beam2, analyzer, mode, angularWidth, energyWidth }) {
+  beam1, beam2, analyzer, mode, angularWidth, energyWidth, pointSettings }) {
   const layerCount = stacks?.[0]?.length
-  if (!validVector(energy) || !energy.every(value => value > 0) || !validVector(qz, energy.length) ||
+  if (!validEnergyPointSettings(pointSettings, energy?.length) || !validVector(energy) || !energy.every(value => value > 0) || !validVector(qz, energy.length) ||
       !validVector(enabled, energy.length) || !enabled.every(value => value === 0 || value === 1) ||
       !Array.isArray(stacks) || stacks.length !== energy.length || !Number.isSafeInteger(layerCount) ||
       !Array.from(stacks).every(stack => validMatrixLayers(stack) && stack.length === layerCount) ||
@@ -282,6 +291,8 @@ export function calculateVisnovskyEnergyScan(module, { stacks, energy, qz, enabl
     const firstPointer = allocate(4)
     const secondPointer = mode === 1 ? allocate(4) : 0
     const outputPointer = allocate(energy.length * 2)
+    const settingsPointer = pointSettings ? allocate(energy.length * 3) : 0
+    if (settingsPointer) module.HEAPF64.set(pointSettings.flat(), settingsPointer / 8)
     stacks.forEach((stack, index) => packMatrixLayers(module, layerPointer + index * layerCount * 184, stack))
     module.HEAPF64.set(energy, energyPointer / 8)
     module.HEAPF64.set(qz, qzPointer / 8)
@@ -289,9 +300,9 @@ export function calculateVisnovskyEnergyScan(module, { stacks, energy, qz, enabl
     enabled.forEach((value, index) => view.setInt32(enabledPointer + index * 4, value, true))
     module.HEAPF64.set(beam1, firstPointer / 8)
     if (secondPointer) module.HEAPF64.set(beam2, secondPointer / 8)
-    checkStatus(module._remagx_visnovsky_energy_scan(layerPointer, layerCount, energyPointer, qzPointer,
+    checkStatus(module._remagx_visnovsky_energy_scan_points(layerPointer, layerCount, energyPointer, qzPointer,
       enabledPointer, energy.length, epsilon, firstPointer, secondPointer, analyzer, mode,
-      angularWidth, energyWidth, outputPointer), 'Visnovsky energy scan')
+      angularWidth, energyWidth, settingsPointer, outputPointer), 'Visnovsky energy scan')
     return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + energy.length * 2)
   })
 }
@@ -348,9 +359,9 @@ export function calculateZakQz(module, { layers, qz, energy, magnetic, beam1, be
 
 
 export function calculateZakEnergyScan(module, { stacks, energy, qz, enabled, magnetic,
-  beam1, beam2, analyzer, mode, angularWidth, energyWidth }) {
+  beam1, beam2, analyzer, mode, angularWidth, energyWidth, pointSettings }) {
   const layerCount = stacks?.[0]?.length
-  if (!validVector(energy) || !energy.every(value => value > 0) || !validVector(qz, energy.length) ||
+  if (!validEnergyPointSettings(pointSettings, energy?.length) || !validVector(energy) || !energy.every(value => value > 0) || !validVector(qz, energy.length) ||
       !validVector(enabled, energy.length) || !enabled.every(value => value === 0 || value === 1) ||
       !Array.isArray(stacks) || stacks.length !== energy.length || !Number.isSafeInteger(layerCount) ||
       !Array.from(stacks).every(stack => (validRows(stack, 8) && stack.length >= 2) && stack.length === layerCount) ||
@@ -367,6 +378,8 @@ export function calculateZakEnergyScan(module, { stacks, energy, qz, enabled, ma
     const firstPointer = allocate(4)
     const secondPointer = mode === 1 ? allocate(4) : 0
     const outputPointer = allocate(energy.length * 2)
+    const settingsPointer = pointSettings ? allocate(energy.length * 3) : 0
+    if (settingsPointer) module.HEAPF64.set(pointSettings.flat(), settingsPointer / 8)
     stacks.forEach((stack, index) => module.HEAPF64.set(stack.flat(), layerPointer / 8 + index * layerCount * 8))
     module.HEAPF64.set(energy, energyPointer / 8)
     module.HEAPF64.set(qz, qzPointer / 8)
@@ -374,9 +387,9 @@ export function calculateZakEnergyScan(module, { stacks, energy, qz, enabled, ma
     enabled.forEach((value, index) => view.setInt32(enabledPointer + index * 4, value, true))
     module.HEAPF64.set(beam1, firstPointer / 8)
     if (secondPointer) module.HEAPF64.set(beam2, secondPointer / 8)
-    checkStatus(module._remagx_zak_energy_scan(layerPointer, layerCount, energyPointer, qzPointer,
+    checkStatus(module._remagx_zak_energy_scan_points(layerPointer, layerCount, energyPointer, qzPointer,
       enabledPointer, energy.length, magnetic, firstPointer, secondPointer, analyzer, mode,
-      angularWidth, energyWidth, outputPointer), 'Zak energy scan')
+      angularWidth, energyWidth, settingsPointer, outputPointer), 'Zak energy scan')
     return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + energy.length * 2)
   })
 }

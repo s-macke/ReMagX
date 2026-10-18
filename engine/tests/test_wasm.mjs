@@ -78,7 +78,7 @@ for (const item of input.scans) {
     scanValues++
   })
 }
-assert.equal(scanValues, 1440)
+assert.equal(scanValues, 1584)
 const scanPrepared = input.scans[1]
 const scanBefore = calculateParrattEnergyScan(module, scanPrepared)
 for (const change of [{ stacks: [] }, { stacks: new Array(3) }, { enabled: [1, 2, 1] }, { energy: [] }, { angularWidth: -1 }]) {
@@ -142,7 +142,7 @@ for (const [caseIndex, prepared] of input.zak.entries()) {
     zakCount++
   })
 }
-assert.equal(zakCount, 15408)
+assert.equal(zakCount, 15552)
 const zakSingle = input.zak[0]
 const zakQz = input.zak.find(item => item.kind === 'qz' && item.mode === 1 && item.resolution?.width > 1e-10)
 const zakEnergy = input.zak.find(item => item.kind === 'energy' && item.mode === 1 && item.energyWidth > 1e-10)
@@ -181,7 +181,7 @@ for (const [caseIndex, prepared] of input.matrices.entries()) {
     matrixCount++
   })
 }
-assert.equal(matrixCount, 13200)
+assert.equal(matrixCount, 13344)
 const matrixPrepared = input.matrices[0]
 const matrixBefore = calculateVisnovsky(module, matrixPrepared)
 for (const change of [{ layers: new Array(2) }, { layers: [] }, { angle: NaN }, { analyzer: 3 }, { beam2: new Array(4) }]) {
@@ -380,3 +380,27 @@ for (const [index, request] of profileRequests.entries()) {
   assert.deepEqual(evaluateProfile(module, request), profileBefore[index])
 }
 console.log(`WASM/native Gaussian profiles/knots/application: ${profileCount} values, validation, memory growth and cleanup passed.`)
+
+
+for (const [calculate, request] of [
+  [calculateParrattEnergyScan, input.scans.find(item => item.pointSettings)],
+  [calculateVisnovskyEnergyScan, input.matrices.find(item => item.pointSettings)],
+  [calculateZakEnergyScan, input.zak.find(item => item.pointSettings)],
+]) {
+  for (const pointSettings of [[], new Array(4), [[640, 0, 1e-8]],
+    [[640, 0, 1e-8], [640, 0, 1e-8], [640, 0, 1e-8], [0, 0, 1e-8]],
+    request.pointSettings.map((row, index) => index === 3 ? [row[0], -1, row[2]] : row),
+    request.pointSettings.map((row, index) => index === 3 ? [row[0], row[1], NaN] : row)]) {
+    assert.throws(() => calculate(module, { ...request, pointSettings }), TypeError)
+  }
+  allocations = 0
+  assert.throws(() => calculate(failingAllocator, request), /allocation failed/)
+  assert.equal(outstanding.size, 0)
+  // Check all buffer cleanup on a native failure after every allocation succeeded.
+  allocations = 3
+  assert.throws(() => calculate(failingAllocator, { ...request, qz: [.02, .03, .04, 1e10] }), { status: 4 })
+  assert.equal(outstanding.size, 0)
+  const values = calculate(module, request)
+  values.forEach((value, index) => assert.ok(Math.abs(value - request.expected[index]) <= 1e-15 + 1e-10 * Math.abs(request.expected[index])))
+}
+console.log('Per-point energy settings: validation, memory growth, allocation cleanup and native failure recovery passed.')

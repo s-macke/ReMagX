@@ -13,6 +13,8 @@ export interface PreparedEnergyScan extends Pick<PreparedParrattQzRequest, 'beam
   energy: number[]
   qz: number[]
   enabled: number[]
+  // Calculation energy, angular width and matrix epsilon per point (Lua preparation).
+  pointSettings?: [number, number, number][]
   angularWidth: number
   energyWidth: number
 }

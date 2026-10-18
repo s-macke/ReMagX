@@ -108,7 +108,7 @@ try {
       matrixCount++
     })
   })
-  assert.equal(matrixCount, 13200)
+  assert.equal(matrixCount, 13344)
   console.log(`Chromium Visnovsky: ${matrixCount} intensities matched native.`)
   let zakCount = 0
   input.zak.forEach((item, index) => {
@@ -120,7 +120,7 @@ try {
       zakCount++
     })
   })
-  assert.equal(zakCount, 15408)
+  assert.equal(zakCount, 15552)
   console.log(`Chromium Zak: ${zakCount} intensities matched native.`)
   let profileCount = 0
   input.profiles.forEach((item, index) => {
@@ -150,7 +150,7 @@ try {
     assert.ok(Math.abs(value - item.expected[point]) <= 1e-15 + 1e-10 * Math.abs(item.expected[point]))
     scanCount++
   }))
-  assert.equal(scanCount, 1440)
+  assert.equal(scanCount, 1584)
   console.log(`Chromium prepared energy scans: ${scanCount} intensities matched native.`)
   let energyCount = 0
   input.energy.forEach((item, index) => result.energyResults[index].forEach((value, point) => {

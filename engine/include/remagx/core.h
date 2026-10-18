@@ -87,6 +87,21 @@ int remagx_parratt_energy_scan(const RemagxLayer* layers, size_t layer_count,
                       const RemagxBeam* beam1, const RemagxBeam* beam2,
                       int tensor, int analyzer, int magnetization_enabled, int scan_mode,
                       double angular_width, double energy_width, RemagxReflectivity* output);
+// Optional per-point settings for script-prepared energy scans. The energy grid
+// passed separately remains the measured coordinate used by energy convolution.
+// All values must be finite; energy positive and angular width nonnegative.
+// epsilon is used only by Visnovsky. NULL settings retain the scalar API behavior.
+typedef struct RemagxEnergyPoint {
+    double calculation_energy;
+    double angular_width;
+    double epsilon;
+} RemagxEnergyPoint;
+int remagx_parratt_energy_scan_points(const RemagxLayer* layers, size_t layer_count,
+                      const double* energies, const double* qz, const int* enabled, size_t point_count,
+                      const RemagxBeam* beam1, const RemagxBeam* beam2,
+                      int tensor, int analyzer, int magnetization_enabled, int scan_mode,
+                      double angular_width, double energy_width, const RemagxEnergyPoint* settings,
+                      RemagxReflectivity* output);
 // Scalar FillEpsilonTensor construction, with 18 row-major real/imag doubles.
 // Uses delta/beta, magnetic constants and per-layer angles; ignores thickness and
 // roughness. anisotropic receives 0 for nonmagnetic isotropic input, otherwise 1
@@ -180,6 +195,11 @@ int remagx_zak_energy_scan(const RemagxLayer* layers, size_t layer_count,
                   int magnetic_enabled, const RemagxBeam* beam1, const RemagxBeam* beam2,
                   int analyzer, int scan_mode, double angular_width, double energy_width,
                   RemagxReflectivity* output);
+int remagx_zak_energy_scan_points(const RemagxLayer* layers, size_t layer_count,
+                  const double* energies, const double* qz, const int* enabled, size_t point_count,
+                  int magnetic_enabled, const RemagxBeam* beam1, const RemagxBeam* beam2,
+                  int analyzer, int scan_mode, double angular_width, double energy_width,
+                  const RemagxEnergyPoint* settings, RemagxReflectivity* output);
 // Prepared substrate-first matrix stack, including ambient as the last layer.
 // Tensor entries are packed row-major complex real/imag; anisotropic is 0/1.
 // Scalars supply the isotropic index directly. Tensors are already constructed
@@ -226,6 +246,11 @@ int remagx_visnovsky_energy_scan(const RemagxMatrixLayer* layers, size_t layer_c
                        double epsilon, const RemagxBeam* beam1, const RemagxBeam* beam2,
                        int analyzer, int scan_mode, double angular_width, double energy_width,
                        RemagxReflectivity* output);
+int remagx_visnovsky_energy_scan_points(const RemagxMatrixLayer* layers, size_t layer_count,
+                       const double* energies, const double* qz, const int* enabled, size_t point_count,
+                       double epsilon, const RemagxBeam* beam1, const RemagxBeam* beam2,
+                       int analyzer, int scan_mode, double angular_width, double energy_width,
+                       const RemagxEnergyPoint* settings, RemagxReflectivity* output);
 // Independent magnetic Gaussian shape; layer binding/coupling and segmentation
 // are caller responsibilities. Signed width is preserved; zero width gives zero.
 typedef struct RemagxGaussianProfile {

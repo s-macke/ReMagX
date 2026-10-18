@@ -245,6 +245,11 @@ class NativeParrattTest(unittest.TestCase):
             library._name], capture_output=True, text=True, check=True).stdout)
         fit_error_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_fit_error.py')),
             library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
+        point_settings = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_energy_point_settings.py')),
+            library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
+        scan_cases.extend(point_settings['scans'])
+        matrix_cases.extend(point_settings['matrices'])
+        zak_cases.extend(point_settings['zak'])
         payload = json.dumps(dict(angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases, zak=zak_cases, profiles=profile_cases, optimizer=optimizer_cases, fitErrors=fit_error_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
