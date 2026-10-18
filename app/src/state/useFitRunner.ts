@@ -25,6 +25,7 @@ export function useFitRunner() {
         report({ type: 'appendDebug', lines: [`Iteration: ${progress.iteration} Chi^2: ${progress.chi2.toPrecision(6)}`] })
       })
       .then((result) => {
+        if (result.scriptMessages?.length) report({ type: 'appendDebug', lines: result.scriptMessages })
         report({ type: 'updateProject', update: (current) => mergeFitResult(current, project, result) })
         if (result.stopped) report({ type: 'setCalculationPaused', paused: true })
         const message = result.stopped ? `Stopped after ${result.iterations} iterations.` : `Finished after ${result.iterations} iterations.`

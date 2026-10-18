@@ -289,7 +289,7 @@ export function FitStartStopSection() {
   )
 }
 
-// Legacy "Debug Window" (DebugFrame): messages of fits and χ² evaluations.
+// Legacy "Debug Window" (DebugFrame): messages of fits, scripts and χ² evaluations.
 export function DebugWindowSection() {
   const { debugLog } = useAppState()
   const dispatch = useDispatch()

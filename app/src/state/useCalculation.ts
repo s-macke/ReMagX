@@ -44,7 +44,7 @@ export function discardComputeService(): void {
   sharedService = null
 }
 
-async function calculate(service: ComputeService, project: Project, request: CalculationRequest): Promise<CalculatedCurve> {
+async function calculate(service: ComputeService, project: Project, request: CalculationRequest): Promise<CalculatedCurve & { scriptMessages?: string[] }> {
   const { scanKind, displayMode: mode, plotView } = request
   if (plotView === 'tensorDiagonal' || plotView === 'tensorUpper' || plotView === 'tensorLower') {
     const tensor = await service.dielectricTensor(project, { layerIndex: request.layerIndex ?? 0, tables: request.tables ?? [], spectrum: true })
@@ -87,11 +87,12 @@ async function calculate(service: ComputeService, project: Project, request: Cal
   }
   if (mode === 'monochromatic') {
     const curve = await service.calcReflectivity(project)
-    return { axis: 'qz', x: curve.qz, series: [{ label: 'simulated R', y: curve.reflectivity }], logScale: true, yLabel: 'R' }
+    return { scriptMessages: curve.scriptMessages, axis: 'qz', x: curve.qz, series: [{ label: 'simulated R', y: curve.reflectivity }], logScale: true, yLabel: 'R' }
   }
   const curve = await service.calcAsymmetry(project)
   if (mode === 'dichroic') {
     return {
+      scriptMessages: curve.scriptMessages,
       axis: 'qz',
       x: curve.qz,
       series: [
@@ -102,10 +103,10 @@ async function calculate(service: ComputeService, project: Project, request: Cal
       yLabel: 'R',
     }
   }
-  return { axis: 'qz', x: curve.qz, series: [{ label: 'simulated asymmetry', y: curve.asymmetry }], logScale: false, yLabel: 'asymmetry' }
+  return { scriptMessages: curve.scriptMessages, axis: 'qz', x: curve.qz, series: [{ label: 'simulated asymmetry', y: curve.asymmetry }], logScale: false, yLabel: 'asymmetry' }
 }
 
-export function useCalculation(project: Project, request: CalculationRequest, paused = false, live = false) {
+export function useCalculation(project: Project, request: CalculationRequest, paused = false, live = false, onScriptMessages?: (lines: string[]) => void) {
   const { scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables } = request
   const [state, setState] = useState<CalculationState>({ curve: null, error: null, busy: true, stopped: false })
   const requestId = useRef(0)
@@ -130,8 +131,11 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
       lastCalculation.current = performance.now()
       setState((s) => ({ ...s, busy: true, stopped: false, error: null }))
       calculate(computeService(), project, { scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables })
-        .then((curve) => {
-          if (active && id === requestId.current) setState({ curve, error: null, busy: false, stopped: false })
+        .then(({ scriptMessages, ...curve }) => {
+          if (active && id === requestId.current) {
+            setState({ curve, error: null, busy: false, stopped: false })
+            if (scriptMessages?.length) onScriptMessages?.(scriptMessages)
+          }
         })
         .catch((error: Error) => {
           if (active && id === requestId.current) setState((s) => ({ curve: s.curve, error: error instanceof ComputeCancelled ? null : error.message, busy: false, stopped: error instanceof ComputeCancelled }))
@@ -143,7 +147,7 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
       debounceTimer.current = null
       active = false
     }
-  }, [project, scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables, revision, paused, live])
+  }, [project, scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables, revision, paused, live, onScriptMessages])
 
   return { ...(paused ? { ...state, busy: false, stopped: true, error: null } : state), stop, recalculate }
 }

@@ -1,6 +1,6 @@
 import { fitPreviewCurve } from './model/fitPreview'
 import { useMaterialLibrary } from './state/useMaterialLibrary'
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import defaultExample from '../test/fixtures/default.all?raw'
 import tutorial1 from '../test/fixtures/Tut1.all?raw'
 import tutorial2 from '../test/fixtures/Tut2.all?raw'
@@ -66,7 +66,8 @@ function Workspace() {
     () => (!workerFit && fitStatus.running && fitStatus.parameters && fitStatus.values ? applyFitValues(project, fitStatus.parameters, fitStatus.values) : project),
     [project, workerFit, fitStatus.running, fitStatus.parameters, fitStatus.values],
   )
-  const backgroundCalculation = useCalculation(displayedProject, { scanKind, displayMode, plotView, illustrateSegmentation: state.illustrateSegmentation, layerIndex: state.selectedLayer, elementIndex: state.selectedElement, tables: state.opticalTables }, state.calculationPaused || workerFit, state.valueSlider !== null)
+  const reportScriptMessages = useCallback((lines: string[]) => dispatch({ type: 'appendDebug', lines }), [dispatch])
+  const backgroundCalculation = useCalculation(displayedProject, { scanKind, displayMode, plotView, illustrateSegmentation: state.illustrateSegmentation, layerIndex: state.selectedLayer, elementIndex: state.selectedElement, tables: state.opticalTables }, state.calculationPaused || workerFit, state.valueSlider !== null, reportScriptMessages)
   const liveCurve = useMemo(() => plotView === 'scan'
     ? fitPreviewCurve(fitStatus.datasetPreview, project.activeDatasetIndex, scanKind === 'energyScan' ? 'energy' : 'qz', displayMode)
     : null, [fitStatus.datasetPreview, project.activeDatasetIndex, scanKind, displayMode, plotView])
