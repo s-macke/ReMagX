@@ -2,7 +2,7 @@ import type { OpticalTable } from '../import/tables'
 import type { SerialOpticalState } from './refreshOpticalConstants'
 import type { Project } from './project'
 import { prepareFitDataset, type FitErrorMode } from './fitDataset'
-import { calculateRealCurve, type RealCalculationEngine, type RealCurve } from './realCalculation'
+import { calculateRealCurve, type RealCalculationEngine, type RealCurve, type RealBeforeCalculation } from './realCalculation'
 
 export interface FitErrorRequest {
   mode: FitErrorMode
@@ -29,17 +29,18 @@ export function calculateProjectDatasetError(project: Project, tables: OpticalTa
 // Return the serial state as well as the objective for the optimizer's next candidate.
 export function evaluateProjectDatasetError(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }, previous?: SerialOpticalState,
-  observe?: (index: number, scan: 'qz' | 'energy', beams: 'monochromatic' | 'dichroic', curve: RealCurve) => void) {
+  observe?: (index: number, scan: 'qz' | 'energy', beams: 'monochromatic' | 'dichroic', curve: RealCurve) => void, beforeCalculation?: RealBeforeCalculation) {
   let current = project
   let opticalState = previous
   let total = 0
   for (let index = 0; index < project.datasets.length; index++) {
     if (!project.datasets[index].active) continue
     const prepared = prepareFitDataset(current, index)
-    const curve = calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, opticalState)
+    const curve = calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, opticalState, beforeCalculation)
     opticalState = curve.opticalState
-    current = { ...prepared.project, sample: { ...prepared.project.sample, layers: opticalState.layers },
-      experiment: { ...prepared.project.experiment, energy: curve.finalEnergy } }
+    const calculatedProject = curve.scriptedProject ?? prepared.project
+    current = { ...calculatedProject, sample: { ...calculatedProject.sample, layers: opticalState.layers },
+      experiment: { ...calculatedProject.experiment, energy: curve.finalEnergy } }
     const columns = prepared.measurement
     const asymmetry = prepared.errorMode === 2 || prepared.errorMode === 6
     const dichroic = prepared.errorMode === 3 || prepared.errorMode === 7

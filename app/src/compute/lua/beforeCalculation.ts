@@ -13,7 +13,7 @@ export function createBeforeCalculation(session: LuaSession, engine: RealCalcula
   tables: OpticalTable[], emit: (message: string) => void = () => {}): RealBeforeCalculation {
   let context: { workspace: ReturnType<typeof createScriptArrayWorkspace>; tensors: ReturnType<typeof createScriptTensorWorkspace>; source: string } | undefined
   const cursors = new Map<OpticalTable, number>()
-  return (project, opticalState) => {
+  return (project, opticalState, renewOpticalConstants = 0) => {
     try {
       if (opticalState.cursors !== cursors) {
         cursors.clear()
@@ -43,10 +43,10 @@ export function createBeforeCalculation(session: LuaSession, engine: RealCalcula
         context = { workspace, tensors, source: project.scripts.beforeCalculation }
       } else {
         if (project.scripts.beforeCalculation !== context.source) throw new Error('BeforeCalculation source changed; create a new session')
-        context.workspace.replace(project)
         context.tensors.replace(initial)
       }
       const { workspace, tensors } = context
+      workspace.replace(project, renewOpticalConstants)
       const result = runProjectHook(session, workspace)
       return { project: result, opticalState: { layers: result.sample.layers, dielectricTensors: tensors.overrides(), dielectricState: tensors.snapshot(), cursors: new Map(cursors) } }
     } catch (error) {

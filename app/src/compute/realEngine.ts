@@ -37,9 +37,15 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       }
       if (message.kind === 'fit') {
         if (!engine.minimize) throw new Error('The real optimizer is unavailable.')
-        const result = runRealFit(message.project, message.tables ?? [], engine, engine.minimize,
-          progress => send({ id: message.id, type: 'fitProgress', progress }))
-        send({ id: message.id, type: 'result', result })
+        const hasScript = message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
+        const session = hasScript && createLuaSession ? await createLuaSession() : undefined
+        try {
+          const scriptMessages: string[] = []
+          const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], text => scriptMessages.push(text)) : undefined
+          const result = runRealFit(message.project, message.tables ?? [], engine, engine.minimize,
+            progress => send({ id: message.id, type: 'fitProgress', progress }), undefined, hook)
+          send({ id: message.id, type: 'result', result: { ...result, ...(session ? { scriptMessages } : {}) } })
+        } finally { session?.close() }
         return
       }
       if (message.kind === 'chi2') {

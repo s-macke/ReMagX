@@ -86,6 +86,7 @@ export interface FitDatasetUpdate {
 }
 
 export interface FitResult {
+  scriptMessages?: string[]
   // Real fits report exactly which dataset fields were fitted. Absent for the mock.
   datasetUpdates?: FitDatasetUpdate[]
   project: Project // evaluated best snapshot; may include calculation context changed during a real fit

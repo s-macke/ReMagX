@@ -4,7 +4,8 @@ import type { Project } from './project'
 import { applyRealFitParameters } from './realFitParameters'
 import { prepareRealFitSimplex } from './realFitSimplex'
 import { evaluateProjectDatasetError, type FitErrorCalculator } from './projectDatasetError'
-import type { RealCalculationEngine } from './realCalculation'
+import { prepareFitDataset } from './fitDataset'
+import type { RealCalculationEngine, RealBeforeCalculation } from './realCalculation'
 import { refreshPartialCompoundOptics, type SerialOpticalState } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 
@@ -33,7 +34,7 @@ export class FitStoppedBeforeEvaluation extends Error {}
 // The fit state advances after each evaluation just as CMultiFit::Error does.
 export function runRealFit(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }, minimize: RealMinimizer,
-  onProgress: (progress: FitProgress) => void, shouldStop = () => false): FitResult {
+  onProgress: (progress: FitProgress) => void, shouldStop = () => false, beforeCalculation?: RealBeforeCalculation): FitResult {
   if (project.fit.algorithm !== 'simplex') throw new Error('Real annealing fits are not implemented yet.')
   if (project.fit.occamQ !== 0) throw new Error('Real fit regularization is not implemented yet.')
   if (!project.fit.parameters.length) throw new Error('Select at least one fit parameter.')
@@ -41,6 +42,18 @@ export function runRealFit(project: Project, tables: OpticalTable[],
   const prepared = prepareRealFitSimplex(project.fit.parameters)
   let current = project
   let opticalState: SerialOpticalState | undefined
+  const scripted = project.scripts.enabled && project.scripts.beforeCalculation.trim()
+  if (scripted && beforeCalculation && project.datasets.some((dataset, index) =>
+    dataset.active && prepareFitDataset(project, index).scan === 'energy')) {
+    throw new Error('BeforeCalculation in real energy-scan fits is not implemented yet.')
+  }
+  const runHook = (renew: number) => {
+    if (!scripted || !beforeCalculation) return
+    const result = beforeCalculation(current, opticalState ?? { layers: current.sample.layers,
+      dielectricTensors: current.sample.layers.map(() => null), cursors: new Map() }, renew)
+    current = result.project
+    opticalState = result.opticalState
+  }
   const touched = new Map<number, Set<keyof FitDatasetUpdate['values']>>()
   const best: { result: FitResult | null; preview?: FitDatasetPreview } = { result: null }
   const objective = (coordinates: Float64Array): number => {
@@ -67,13 +80,14 @@ export function runRealFit(project: Project, tables: OpticalTable[],
         dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState?.dielectricState?.[index] ?? null), cursors }
       current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
     }
+    runHook(1) // CMultiFit::Error explicitly renews before every objective.
     let preview: FitDatasetPreview | undefined
     const evaluated = evaluateProjectDatasetError(current, tables, engine, opticalState, (index, scan, beams, curve) => {
       if (index === project.activeDatasetIndex) {
         preview = { datasetIndex: index, scan, beams, qz: curve.qz, ...(curve.energy ? { energy: curve.energy } : {}),
           reflectivityPlus: curve.reflectivityPlus, reflectivityMinus: curve.reflectivityMinus, asymmetry: curve.asymmetry }
       }
-    })
+    }, beforeCalculation)
     current = evaluated.project
     opticalState = evaluated.opticalState
     if (!best.result || evaluated.error < best.result.chi2) {
@@ -87,6 +101,7 @@ export function runRealFit(project: Project, tables: OpticalTable[],
     return evaluated.error
   }
   if (shouldStop()) throw new FitStoppedBeforeEvaluation('Stopped before evaluating a fit candidate.')
+  runHook(0) // The CMultiFit constructor compiles and executes the script once.
   if (!prepared.simplex.length) {
     objective(new Float64Array())
     const result = best.result!

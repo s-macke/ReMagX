@@ -476,6 +476,35 @@ try {
         output.realFits.push({ algorithm, value: result.values[0], chi2: result.chi2, iterations, preview, completedCurve, rendered, previewRequests, capability: service.providesFitPreviews,
           unchanged: before === JSON.stringify(fit) })
       }
+      // Persistent Lua fit hooks: the dataset hook adds five to each candidate.
+      // The independently generated measurement above has thickness 35.
+      for (const algorithm of ['parratt', 'matrix', 'zak']) {
+        const fit = createDefaultProject()
+        fit.fit.algorithm = 'simplex'; fit.fit.occamQ = 0
+        fit.calculation.algorithm = algorithm; fit.calculation.automaticOpticalConstants = true
+        fit.sample.layers = [createLayer({ opticalTable: 'fit-bulk', delta: .01, beta: .002 }),
+          createLayer({ opticalTable: 'fit-film', thickness: 35, delta: .006, beta: .001 }), createLayer({ opticalTable: 'fit-air' })]
+        fit.experiment.qzScan.points = 40; fit.experiment.qzScan.qzMin = .01; fit.experiment.qzScan.qzMax = .15
+        const reference = await service.calcReflectivity(fit)
+        fit.datasets = [{ title: '', comment: '', sourceFile: '', energy: fit.experiment.energy, energyShift: 0, qzShift: 0,
+          angularResolution: fit.experiment.resolution.angularFwhm, intensityScale: 1, intensityOffset: 0,
+          active: true, errorWeight: 1, polarization: fit.experiment.polarization,
+          columns: { qz: reference.qz, reflectivity: reference.reflectivity } }]
+        fit.activeDatasetIndex = 0; fit.sample.layers[1].thickness = 25
+        fit.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null, value: 25, step: 0, lowerBound: 20, upperBound: 50 }]
+        fit.scripts.enabled = true
+        fit.scripts.beforeCalculation = 'calls = (calls or 0) + 1; print(renewocs); if calls > 1 and renewocs == 0 then thickness[1] = thickness[1] + 5 end'
+        const before = JSON.stringify(fit)
+        const result = await service.startFit(fit, () => {})
+        if (Math.abs(result.values[0] - 30) > 1e-6 || result.chi2 > 1e-16) throw new Error('Scripted fit recovery failed: ' + algorithm)
+        if (result.scriptMessages.length < 5 || result.scriptMessages.some((value, index) => value !== (index % 2 ? '1' : '0'))) throw new Error('Incorrect fit hook lifecycle')
+        if (before !== JSON.stringify(fit)) throw new Error('Scripted fit mutated input')
+        fit.scripts.beforeCalculation = 'local x = 1\nlocal y = 2\nerror("fit script failure")'
+        let failed = false
+        try { await service.startFit(fit, () => {}) } catch (error) { failed = /BeforeCalculation:3:/.test(error.message) }
+        if (!failed) throw new Error('Missing fit script source line')
+        await service.calcReflectivity({ ...fit, scripts: { ...fit.scripts, enabled: false } })
+      }
       // Exercise recovery separately for each stored data kind, then a weighted mixed fit.
       output.mixedFits = []
       output.fitMerges = []

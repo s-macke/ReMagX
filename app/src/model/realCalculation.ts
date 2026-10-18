@@ -22,9 +22,9 @@ export interface RealCalculationEngine {
   matrixQz: (request: PreparedVisnovskyQzRequest) => Float64Array
 }
 
-export type RealCurve = ReturnType<typeof postprocessParrattResult> & { energy?: number[]; opticalState: SerialOpticalState; finalEnergy: number }
+export type RealCurve = ReturnType<typeof postprocessParrattResult> & { energy?: number[]; opticalState: SerialOpticalState; finalEnergy: number; scriptedProject?: Project }
 
-export type RealBeforeCalculation = (project: Project, opticalState: SerialOpticalState) => {
+export type RealBeforeCalculation = (project: Project, opticalState: SerialOpticalState, renewOpticalConstants?: number) => {
   project: Project; opticalState: SerialOpticalState
 }
 
@@ -38,6 +38,7 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
         ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous)
         : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous)
   }
+  let scriptedProject: Project | undefined
   let project = original
   let cursors = new Map(previous?.cursors)
   let dielectricState = previous?.dielectricState
@@ -53,6 +54,8 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   }
   if (beforeCalculation && project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
     const scripted = beforeCalculation(project, { layers: project.sample.layers, dielectricTensors, dielectricState, cursors })
+    scriptedProject = { ...scripted.project, calculation: { ...scripted.project.calculation,
+      automaticOpticalConstants: original.calculation.automaticOpticalConstants } }
     project = { ...scripted.project, scripts: { ...scripted.project.scripts, enabled: false } }
     dielectricTensors = scripted.opticalState.dielectricTensors
     dielectricState = scripted.opticalState.dielectricState
@@ -74,5 +77,5 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   }
   const result = postprocessParrattResult(project, qz, values, mode)
   return { ...result, opticalState: { layers: project.sample.layers, dielectricTensors, dielectricState, cursors },
-    finalEnergy: project.experiment.energy }
+    finalEnergy: project.experiment.energy, ...(scriptedProject ? { scriptedProject } : {}) }
 }
