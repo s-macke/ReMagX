@@ -4,7 +4,6 @@ import type { Project } from './project'
 import { applyRealFitParameters } from './realFitParameters'
 import { prepareRealFitSimplex } from './realFitSimplex'
 import { evaluateProjectDatasetError, type FitErrorCalculator } from './projectDatasetError'
-import { prepareFitDataset } from './fitDataset'
 import type { RealCalculationEngine, RealBeforeCalculation } from './realCalculation'
 import { refreshPartialCompoundOptics, type SerialOpticalState } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
@@ -43,10 +42,6 @@ export function runRealFit(project: Project, tables: OpticalTable[],
   let current = project
   let opticalState: SerialOpticalState | undefined
   const scripted = project.scripts.enabled && project.scripts.beforeCalculation.trim()
-  if (scripted && beforeCalculation && project.datasets.some((dataset, index) =>
-    dataset.active && prepareFitDataset(project, index).scan === 'energy')) {
-    throw new Error('BeforeCalculation in real energy-scan fits is not implemented yet.')
-  }
   const runHook = (renew: number) => {
     if (!scripted || !beforeCalculation) return
     const result = beforeCalculation(current, opticalState ?? { layers: current.sample.layers,

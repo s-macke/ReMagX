@@ -49,7 +49,7 @@ export function evaluateProjectDatasetError(project: Project, tables: OpticalTab
   let step = evaluation.next()
   while (!step.done) {
     const { prepared, opticalState } = step.value
-    step = evaluation.next(calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, opticalState, beforeCalculation))
+    step = evaluation.next(calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, opticalState, beforeCalculation, 'existing'))
   }
   return step.value
 }

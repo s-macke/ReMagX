@@ -55,7 +55,6 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         const initial = prepareStandaloneDatasetError(message.project, message.tables ?? [], engine.lookup)
         const result = await evaluateProjectDatasetErrorAsync(initial.project, engine.fitError, async (prepared, previous) => {
           const scripted = prepared.project.scripts.enabled && prepared.project.scripts.beforeCalculation.trim()
-          if (scripted && prepared.scan === 'energy') throw new Error('BeforeCalculation in real energy-scan chi2 is not implemented yet.')
           const session = scripted && createLuaSession ? await createLuaSession() : undefined
           try {
             const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [],

@@ -634,6 +634,25 @@ try {
           output.mixedFits.push({ algorithm, kind: labels[selected] ?? 'weighted-mixed', initial,
             value: result.values[0], chi2: result.chi2, unchanged: before === JSON.stringify(fit) })
         }
+        // Fit a Lua par[] value against independently generated thickness-35
+        // data for each energy kind, then all qz/energy datasets together.
+        for (const selected of [3, 4, 5, 6]) {
+          const scripted = structuredClone(fit)
+          scripted.datasets = datasets.map((data, index) => ({ ...data, active: selected === 6 || selected === index }))
+          scripted.scripts.enabled = true; scripted.scripts.parameters = [30]
+          scripted.scripts.beforeCalculation = 'calls = (calls or 0) + 1; if calls == 1 then print("init") elseif renewocs == 1 then print("objective") end; thickness[1] = par[0]'
+          scripted.fit.parameters = [{ target: 'scriptParameter', index: 0, elementIndex: null, value: 30, step: 0, lowerBound: 20, upperBound: 50 }]
+          const before = JSON.stringify(scripted), lines = []
+          const manual = structuredClone(scripted); manual.scripts.enabled = false
+          const expectedInitial = await service.calcChi2(manual)
+          const initial = await service.calcChi2(scripted, messages => lines.push(...messages))
+          if (Math.abs(initial - expectedInitial) > 1e-15 + 1e-10 * Math.abs(expectedInitial)) throw new Error('Energy chi2 script mismatch')
+          if (lines.length !== scripted.datasets.filter(data => data.active).length || lines.some(line => line !== 'init')) throw new Error('Energy chi2 session lifetime mismatch')
+          const result = await service.startFit(scripted, () => {})
+          if (Math.abs(result.values[0] - 35) > 1e-6 || result.chi2 > 1e-16) throw new Error('Energy Lua fit recovery failed: ' + algorithm + '/' + selected)
+          if (result.scriptMessages[0] !== 'init' || result.scriptMessages.length < 2 || result.scriptMessages.slice(1).some(line => line !== 'objective')) throw new Error('Energy fit session lifetime mismatch')
+          if (JSON.stringify(scripted) !== before) throw new Error('Energy Lua fit mutated project')
+        }
       }
       // Native dataset-wide fit results merge into metadata edited during fitting.
       for (const algorithm of ['parratt', 'matrix', 'zak']) {

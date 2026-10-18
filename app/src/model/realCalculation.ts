@@ -24,19 +24,21 @@ export interface RealCalculationEngine {
 
 export type RealCurve = ReturnType<typeof postprocessParrattResult> & { energy?: number[]; opticalState: SerialOpticalState; finalEnergy: number; scriptedProject?: Project }
 
+export type ScriptSessionLifetime = 'temporary' | 'existing'
+
 export type RealBeforeCalculation = (project: Project, opticalState: SerialOpticalState, renewOpticalConstants?: number) => {
   project: Project; opticalState: SerialOpticalState
 }
 
 // Shared calculation preparation for plots and dataset objectives.
 export function calculateRealCurve(original: Project, tables: OpticalTable[], engine: RealCalculationEngine,
-  scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation): RealCurve {
+  scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary'): RealCurve {
   if (scan === 'energy') {
     return original.calculation.algorithm === 'matrix'
-      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous, beforeCalculation)
+      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous, beforeCalculation, scriptLifetime)
       : original.calculation.algorithm === 'zak'
-        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous, beforeCalculation)
-        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous, beforeCalculation)
+        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous, beforeCalculation, scriptLifetime)
+        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous, beforeCalculation, scriptLifetime)
   }
   let scriptedProject: Project | undefined
   let project = original

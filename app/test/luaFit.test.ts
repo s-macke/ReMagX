@@ -52,9 +52,6 @@ it('runs persistent Lua initialization, objective renewal and serial dataset hoo
     expect(result.project.scripts.enabled).toBe(true)
     expect(engine.calculate).toHaveBeenCalledTimes(4)
     expect(project).toEqual(before)
-    project.datasets[1].columns.energy = [640]
-    expect(() => runRealFit(project, [], engine, minimize, vi.fn(), undefined, hook)).toThrow('energy-scan fits')
-    expect(messages).toHaveLength(7)
   } finally { session.close() }
 })
 
@@ -95,4 +92,49 @@ it('standalone chi2 uses fresh Lua globals but carries film state and table reso
   expect(messages.mock.calls.at(-1)![0]).toMatchObject({ id: 2, type: 'error', message: expect.stringContaining('BeforeCalculation:3:') })
   expect(closes).toHaveLength(3)
   expect(closes[2]).toHaveBeenCalled()
+})
+
+
+it('reuses the fit session for energy datasets but initializes a fresh energy session per standalone chi2 dataset', async () => {
+  const { project, engine } = fixture()
+  project.calculation.automaticOpticalConstants = false
+  project.experiment.energy = 640
+  project.sample.layers.forEach(layer => { layer.opticalTable = 'sample' })
+  project.datasets[0].columns = { energy: [640, 900, 650], qz: [.02, .03, .04], reflectivity: [1, 1, 1] }
+  project.scripts.enabled = true
+  project.scripts.beforeCalculation = 'calls = (calls or 0) + 1; print(calls, ":", renewocs); epsilon = epsilon + 0.001; energy = energy + 1'
+  const initialEpsilon = project.calculation.epsilon
+  const original = structuredClone(project)
+  engine.energyScan = vi.fn(request => new Float64Array(request.energy.flatMap(() => [1, 0])))
+  engine.dielectricTensor = () => ({ values: new Float64Array(18), anisotropic: false })
+  engine.lookup = () => ({ values: new Float64Array([.01, 0]), cursor: 0 })
+  const tables = [{ name: 'sample', kind: 'db' as const, energy: [600, 700], columns: [], warnings: [] }]
+  const runtime = createLuaRuntime(fileURLToPath(new URL('../node_modules/wasmoon/dist/glue.wasm', import.meta.url)))
+  const messages: string[] = []
+  const session = await runtime.createSession()
+  try {
+    const minimize: RealMinimizer = ({ objective }) => {
+      const value = objective(new Float64Array([0]))
+      objective(new Float64Array([1]))
+      return { termination: 'converged', parameters: new Float64Array([0]), value, iterations: 1, evaluations: 2 }
+    }
+    const result = runRealFit(project, tables, engine, minimize, vi.fn(), undefined,
+      createBeforeCalculation(session, engine, tables, text => messages.push(text)))
+    expect(messages).toEqual(['1:0', '2:1', '3:0', '4:0', '5:0', '6:1', '7:0', '8:0', '9:0'])
+    expect(result.project.calculation.epsilon).toBeCloseTo(initialEpsilon + .005, 14)
+    expect(session.getGlobal('epsilon')).toBeCloseTo(initialEpsilon + .009, 14)
+    expect(engine.energyScan).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(engine.energyScan).mock.calls[0][0].pointSettings?.map(row => row[0])).toEqual([641, 900, 651])
+    expect(result.project.experiment.energy).toBe(641)
+    expect(project).toEqual(original)
+  } finally { session.close() }
+  project.datasets[1] = structuredClone(project.datasets[0])
+  project.datasets[0].errorWeight = 0
+  const send = vi.fn()
+  const createSession = vi.fn(() => runtime.createSession())
+  await createRealRequestHandler(send, async () => engine, createSession)({ id: 1, kind: 'chi2', project, tables })
+  expect(createSession).toHaveBeenCalledTimes(2)
+  expect(send.mock.calls.map(([message]) => message.type === 'scriptMessages' ? message.lines[0] : message.result)).toEqual([
+    '1:0', '2:0', '3:0', '1:0', '2:0', '3:0', 1,
+  ])
 })

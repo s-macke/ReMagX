@@ -1,4 +1,4 @@
-import type { RealBeforeCalculation } from './realCalculation'
+import type { RealBeforeCalculation, ScriptSessionLifetime } from './realCalculation'
 import type { OpticalTable } from '../import/tables'
 import { prepareCompoundLayers, prepareCompoundLayerIndices, type PreparedCompoundLayer } from './compoundLayers'
 import type { Project } from './project'
@@ -25,7 +25,7 @@ export type EnergyScanCalculator = (request: PreparedEnergyScan) => Float64Array
 // calls CalculateResolution (exact angular convolution, independent of fast flag).
 export function calculateCompoundEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
   calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic',
-  prepareTemplate: typeof prepareParrattQzRequest, previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation) {
+  prepareTemplate: typeof prepareParrattQzRequest, previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary') {
   const width = project.experiment.resolution.energyFwhm
   if (!Number.isFinite(width) || width < 0) throw new Error('Energy resolution must be finite and nonnegative.')
   const coordinates = prepareEnergyCoordinates(project, tables)
@@ -41,7 +41,7 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
     opticalState = result.opticalState
   }
   // A temporary CScript constructor executes once before the point loop.
-  runHook()
+  if (scriptLifetime === 'temporary') runHook()
   const local: Project = { ...current,
     calculation: { ...current.calculation, automaticOpticalConstants: false },
     scripts: scripted ? { ...current.scripts, enabled: false } : current.scripts,
@@ -88,6 +88,6 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
 }
 
 export function calculateParrattEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
-  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation) {
-  return calculateCompoundEnergyScan(project, tables, lookup, calculate, mode, prepareParrattQzRequest, previous, beforeCalculation)
+  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary') {
+  return calculateCompoundEnergyScan(project, tables, lookup, calculate, mode, prepareParrattQzRequest, previous, beforeCalculation, scriptLifetime)
 }
