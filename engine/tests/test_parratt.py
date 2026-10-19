@@ -256,6 +256,23 @@ class NativeParrattTest(unittest.TestCase):
             output = (ctypes.c_double * 18)()
             self.assertEqual(scattering_function((ctypes.c_double * 4)(*factors), gamma, phi, tensor, magnetic, output), 0)
             scattering_cases.append(dict(factors=factors, gamma=gamma, phi=phi, tensor=tensor, magnetic=magnetic, expected=list(output)))
+        element_cases = []
+        element_function = library.remagx_element_optics
+        pointer = ctypes.POINTER(ctypes.c_double)
+        element_function.argtypes = [pointer, ctypes.c_size_t, ctypes.c_double, pointer, pointer, pointer]
+        generator = random.Random(26024)
+        for index in range(400):
+            count, matrix = index % 9, index % 2
+            factor = (.0004151761541 * 1e6) / (generator.uniform(100, 30000) ** 2)
+            rows = [[generator.uniform(-2, 20)] + [generator.uniform(-100, 100) for _ in range(4)] for _ in range(count)]
+            tensors = [[generator.uniform(-100, 100) for _ in range(18)] for _ in rows]
+            packed = (ctypes.c_double * (count * 5))(*(v for row in rows for v in row))
+            packed_tensors = (ctypes.c_double * (count * 18))(*(v for row in tensors for v in row)) if matrix else None
+            scalar = (ctypes.c_double * 4)()
+            tensor = (ctypes.c_double * 18)() if matrix else None
+            self.assertEqual(element_function(packed, count, factor, packed_tensors, scalar, tensor), 0)
+            element_cases.append(dict(elements=rows, factor=factor, scatteringTensors=tensors if matrix else None,
+                                      expected=list(scalar) + (list(tensor) if matrix else [])))
         matrix_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_visnovsky.py')),
             library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
         zak_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_zak.py')),
@@ -275,7 +292,7 @@ class NativeParrattTest(unittest.TestCase):
         zak_cases.extend(point_settings['zak'])
         line_shapes = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_line_shape.py')),
             library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
-        payload = json.dumps(dict(scattering=scattering_cases, lineShapes=line_shapes, angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases, zak=zak_cases, profiles=profile_cases, optimizer=optimizer_cases, fitErrors=fit_error_cases))
+        payload = json.dumps(dict(elementOptics=element_cases, scattering=scattering_cases, lineShapes=line_shapes, angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases, zak=zak_cases, profiles=profile_cases, optimizer=optimizer_cases, fitErrors=fit_error_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
                        input=payload, text=True, check=True)

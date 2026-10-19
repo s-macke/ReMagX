@@ -204,6 +204,28 @@ export function calculateParrattEnergyScan(module, { stacks, energy, qz, enabled
   })
 }
 
+// Prepared element rows: density, f1, f2, magnetic f1, magnetic f2.
+// Supplying scatteringTensors requests matrix output; null selects scalar only.
+export function calculateElementOptics(module, { elements, factor, scatteringTensors = null }) {
+  const rows = (value, width) => Array.isArray(value) && (value.length === 0 || validRows(value, width))
+  if (!rows(elements, 5) || !Number.isFinite(factor) ||
+      (scatteringTensors !== null && (!rows(scatteringTensors, 18) || scatteringTensors.length !== elements.length))) {
+    throw new TypeError('Invalid prepared element optics')
+  }
+  return withBuffers(module, allocate => {
+    const elementsPointer = elements.length ? allocate(elements.length * 5) : 0
+    const scatteringPointer = scatteringTensors?.length ? allocate(scatteringTensors.length * 18) : 0
+    const scalarPointer = allocate(4)
+    const tensorPointer = scatteringTensors !== null ? allocate(18) : 0
+    if (elementsPointer) module.HEAPF64.set(elements.flat(), elementsPointer / 8)
+    if (scatteringPointer) module.HEAPF64.set(scatteringTensors.flat(), scatteringPointer / 8)
+    checkStatus(module._remagx_element_optics(elementsPointer, elements.length, factor,
+      scatteringPointer, scalarPointer, tensorPointer), 'Element optical conversion')
+    return { opticalConstants: module.HEAPF64.slice(scalarPointer / 8, scalarPointer / 8 + 4),
+      dielectricTensor: tensorPointer ? module.HEAPF64.slice(tensorPointer / 8, tensorPointer / 8 + 18) : null }
+  })
+}
+
 // Element form factors to a row-major complex 3x3 scattering tensor.
 export function calculateScatteringTensor(module, { factors, gamma, phi, tensor = 0, magnetic = 1 }) {
   if (!validVector(factors, 4) || !Number.isFinite(gamma) || !Number.isFinite(phi) ||

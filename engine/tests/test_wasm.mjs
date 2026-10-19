@@ -1,3 +1,4 @@
+import { checkElementOptics } from './element_optics_checks.mjs'
 import { checkScattering } from './scattering_checks.mjs'
 import { calculateFitError } from '../wasm/fit_error.mjs'
 import { checkFitErrors } from './fit_error_checks.mjs'
@@ -6,7 +7,7 @@ import { checkOptimizer } from './optimizer_checks.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
+import { calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -215,6 +216,8 @@ assert.throws(() => calculateVisnovskyEnergyScan(module, shortStack), TypeError)
 assert.throws(() => calculateVisnovskyEnergyScan(module, { ...matrixEnergyPrepared, qz: [0, 0, 0, 1e10] }), { status: 4 })
 assert.deepEqual(Array.from(calculateVisnovskyEnergyScan(module, { ...matrixEnergyPrepared,
   enabled: [0, 0, 0, 0], mode: 0, beam2: null, energyWidth: 0 })), [1, 0, 1, 0, 1, 0, 1, 0])
+assert.equal(checkElementOptics(module, calculateElementOptics, input.elementOptics), 5200)
+console.log('WASM/native element optics: 5,200 values, validation, growth and cleanup passed.')
 assert.equal(checkScattering(module, calculateScatteringTensor, input.scattering), 8640)
 console.log('WASM/native scattering tensors: 8,640 components, validation, growth and cleanup passed.')
 let tensorValues = 0
