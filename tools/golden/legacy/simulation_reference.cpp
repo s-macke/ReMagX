@@ -24,6 +24,9 @@ int main(int argc, char** argv) {
     FILE* output = fdopen(dup(STDOUT_FILENO), "w");
     if (!output) return 3;
     if (!freopen("/dev/null", "w", stdout) || !freopen("/dev/null", "w", stderr)) return 3;
+    // Unit1.cpp GUI startup and server/dllbinding.c initialize this before use.
+    // The original lookup implementation/table stays in the private legacy build.
+    erffinit();
     // Process ownership avoids unrelated destruction paths in the original code.
     auto* state = new CStateHandler;
     if (!state->LoadState(argv[1])) return 4;

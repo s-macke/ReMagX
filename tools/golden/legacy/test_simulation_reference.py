@@ -111,6 +111,23 @@ class SimulationReferenceTest(unittest.TestCase):
             self.assertEqual(result.stdout, '')
             self.assertEqual(result.stderr, '')
 
+    def test_lookup_initialization_for_segmentation_and_elements(self):
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        element = '\n'.join([
+            'mode = 1', 'elementlayerversion = 2', 'element = Fe',
+            'el_f1 = 26', 'el_f2 = 0.1', 'el_f1m = 0', 'el_f2m = 0',
+            'el_layer = 0', 'el_density = 0.1', 'el_sigma = 3',
+            'el_layer = 1', 'el_d = 20', 'el_density = 0.05', 'el_sigma = 3',
+            'el_layer = 2', 'el_density = 0', 'el_sigma = 3', '',
+        ])
+        for settings in ['layersegmentationmode = 1', element]:
+            path = Path(self.directory.name) / 'lookup.all'
+            path.write_text(fixture + '\nnumberofpoints = 12\n' + settings + '\n')
+            points = self.run_fixture(path)
+            self.assertEqual(len(points), 12)
+            self.assertTrue(all(math.isfinite(value) for row in points for value in row))
+            self.assertGreater(max(row[1] for row in points), min(row[1] for row in points))
+
     def test_zero_contrast_is_zero(self):
         content = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
         content = re.sub(r'(?m)^(\s*layer_(?:delta|beta|ddelta|dbeta|sigma)\s*=).*$', r'\1 0', content)

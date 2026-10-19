@@ -116,3 +116,17 @@ qz/energy project variants pass unchanged D-23 across 44,610 values. Ten native 
 checks cover generated table-range intersection, fixed-angle and two-beam output,
 measured energy shifts and invalid/nonadvancing grid handling alongside the earlier
 qz checks. GUI parallel scheduling and general scripted/private-corpus scans remain open.
+
+
+The reference now calls the original `erffinit()` before loading a project, matching
+GUI, DLL and terminal startup. Without it, segmentation and element-density paths
+indexed an uninitialized private lookup table. Public synthetic fixtures cover both
+paths; all 11 native adapter tests pass. The original lookup implementation and its
+Numerical Recipes dependencies remain confined to the private reference build.
+
+A local 99-project qz execution diagnostic on 2026-10-19 improved from 66 finite
+curves and 27 segmentation faults to 93 finite curves with no crashes. Five projects
+failed strict table preparation and one exceeded the per-project 10-second limit.
+Runs used a disposable copy of the private tree; no private curves were committed.
+This checks execution availability, not numerical accuracy or corpus golden acceptance.
+The 123 public-project Chromium cases still pass D-23 across 44,610 values.
