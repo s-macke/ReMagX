@@ -1,3 +1,4 @@
+import { assertRealAlgorithm } from './realAlgorithm'
 import { prepareCompoundLayers, type PreparedCompoundLayer } from './compoundLayers'
 import type { Polarization, Project } from './project'
 import { HC_EV_ANGSTROM } from './units'
@@ -76,6 +77,7 @@ export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic'
 }
 
 export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]): PreparedParrattQzRequest {
-  if (project.calculation.algorithm !== 'parratt') throw new Error('This real-engine path currently supports Parratt only.')
+  assertRealAlgorithm(project.calculation.algorithm)
+  if (project.calculation.algorithm !== 'parratt') throw new Error('Parratt request preparation requires the Parratt algorithm.')
   return prepareCompoundQzRequest(project, mode, coordinates)
 }

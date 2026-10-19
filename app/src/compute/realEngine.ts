@@ -1,3 +1,4 @@
+import { assertRealAlgorithm } from '../model/realAlgorithm'
 import { prepareStandaloneQz } from '../model/standaloneQz'
 import { prepareStandaloneFit } from '../model/standaloneFit'
 import { prepareStandaloneEnergyScan } from '../model/standaloneEnergyScan'
@@ -23,6 +24,11 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
     try {
       if (message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
+      }
+      if (message.kind === 'reflectivity' || message.kind === 'asymmetry' ||
+          message.kind === 'energyScan' || message.kind === 'energyAsymmetry' ||
+          message.kind === 'chi2' || message.kind === 'fit') {
+        assertRealAlgorithm(message.project.calculation.algorithm)
       }
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator

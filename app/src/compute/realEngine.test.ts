@@ -111,3 +111,26 @@ it('routes Zak requests to the scalar solver after standalone energy GetState pr
   expect(send.mock.calls[0][0]).toMatchObject({ type: 'result', result: { asymmetry: [.5, 0] } })
   expect(send.mock.calls[1][0]).toMatchObject({ type: 'result', result: { asymmetry: [.5, 0, -.5] } })
 })
+
+
+it('reports deferred algorithms before loading physics or running scripts across calculation and fit requests', async () => {
+  const load = vi.fn(), createLuaSession = vi.fn(), send = vi.fn()
+  const handle = createRealRequestHandler(send, load, createLuaSession)
+  const project = createDefaultProject()
+  project.scripts.beforeCalculation = 'error("must not execute")'
+  for (const [algorithm, label] of [
+    ['parratt-single-scattering', 'Parratt without multiple scattering'],
+    ['electron-yield', 'Total electron yield'],
+  ] as const) {
+    project.calculation.algorithm = algorithm
+    const snapshot = structuredClone(project)
+    for (const kind of ['reflectivity', 'asymmetry', 'energyScan', 'energyAsymmetry', 'chi2', 'fit'] as const) {
+      await handle({ id: 123, kind, project })
+      expect(send).toHaveBeenLastCalledWith({ id: 123, type: 'error',
+        message: `${label} is planned for a later release and is not available in the real engine.` })
+    }
+    expect(project).toEqual(snapshot)
+  }
+  expect(load).not.toHaveBeenCalled()
+  expect(createLuaSession).not.toHaveBeenCalled()
+})
