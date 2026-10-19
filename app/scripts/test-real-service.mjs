@@ -104,10 +104,9 @@ try {
           repair.sample.layers[1].opticalTable = 'outside'
           repair.sample.layers[1].delta = .123
           tables.push({ name: 'outside', kind: 'db', energy: [100, 200], columns: [[.3, .4], [.1, .2]], warnings: [] })
-          const actual = await service.calcAsymmetry(repair), reference = await service.calcAsymmetry(expected)
-          for (const key of ['reflectivityPlus', 'reflectivityMinus', 'asymmetry']) actual[key].forEach((value, index) => {
-            if (Math.abs(value-reference[key][index]) > 1e-15 + 1e-10*Math.abs(reference[key][index])) throw new Error(`Lua repair ${algorithm} mismatch`)
-          })
+          let rejected = false
+          try { await service.calcAsymmetry(repair) } catch (error) { rejected = /missing optical table/.test(error.message) }
+          if (!rejected) throw new Error(`Standalone ${algorithm} must reject missing primaries before Lua repair`)
           tables.pop()
           tables.push({ name: 'lua-override', kind: 'db', energy: [600, 900], columns: [[.004, .004], [.001, .001]], warnings: [] })
           const renamed = structuredClone(scripted)
@@ -311,7 +310,10 @@ try {
       output.differenceEnergy = await service.calcEnergyAsymmetry(energyProject)
       tables = tables.filter(table => table.name !== 'ambient')
       const missing = structuredClone(automatic); missing.calculation.magnetization.mode = 'none'
-      output.missingRetained = await service.calcReflectivity(missing)
+      let missingRejected = false
+      try { await service.calcReflectivity(missing) }
+      catch (error) { missingRejected = /missing optical table/.test(String(error)) }
+      if (!missingRejected) throw new Error('Automatic qz strict primary-table gate failed')
       for (const algorithm of ['parratt', 'matrix', 'zak']) {
         const missingEnergy = structuredClone(energyProject)
         missingEnergy.calculation.algorithm = algorithm
@@ -808,24 +810,29 @@ try {
         await service.dielectricTensor(scripted, { ...query, spectrum: false })
       }
 
-      // Persisted anisotropic tensors in qz scans match an independently
-      // prepared imported-.e reference with identical scalar optical values.
+      // Standalone automatic qz refresh replaces saved tensors, matching an
+      // independently prepared imported-.e reference.
       const savedQz = createDefaultProject()
       savedQz.calculation.algorithm = 'matrix'; savedQz.calculation.automaticOpticalConstants = true
       savedQz.experiment.energy = 640; savedQz.experiment.qzScan.points = 8; savedQz.experiment.qzScan.qzMax = .1
       const storedValues = [.96, .001, 0, .002, 0, 0, 0, -.002, .95, .002, 0, 0, 0, 0, 0, 0, .97, .001]
       savedQz.sample.layers = [createLayer({ opticalTable: 'saved-qz', delta: .01, beta: .001,
-        dielectricTensor: { values: storedValues, anisotropic: true } }), createLayer({ opticalTable: 'vacuum' })]
+        dielectricTensor: { values: Array(18).fill(7), anisotropic: true } }), createLayer({ opticalTable: 'vacuum' })]
       const savedQzBefore = JSON.stringify(savedQz)
       tables = []
-      const retainedQz = await service.calcAsymmetry(savedQz)
+      let savedMissingRejected = false
+      try { await service.calcAsymmetry(savedQz) }
+      catch (error) { savedMissingRejected = /missing optical table/.test(String(error)) }
+      if (!savedMissingRejected) throw new Error('Stored tensors bypassed the automatic qz table gate')
       const tensorReference = JSON.parse(savedQzBefore)
       delete tensorReference.sample.layers[0].dielectricTensor
-      tables = [
+      const tensorTables = [
         { name: 'saved-qz', kind: 'db', energy: [600, 900], columns: [[.01, .01], [.001, .001]], warnings: [] },
         { name: 'saved-qz', kind: 'e', energy: [600, 900], columns: storedValues.map(value => [value, value]), warnings: [] },
         { name: 'vacuum', kind: 'db', energy: [600, 900], columns: [[0, 0], [0, 0]], warnings: [] },
       ]
+      tables = tensorTables
+      const retainedQz = await service.calcAsymmetry(savedQz)
       const referenceQz = await service.calcAsymmetry(tensorReference)
       for (const field of ['reflectivityPlus', 'reflectivityMinus', 'asymmetry']) retainedQz[field].forEach((value, index) => {
         if (Math.abs(value - referenceQz[field][index]) > 1e-15 + 1e-10 * Math.abs(referenceQz[field][index])) throw new Error('Saved qz tensor differs from imported tensor reference')
@@ -840,12 +847,22 @@ try {
       })
       if (!retainedQz.reflectivityPlus.some((value, index) => Math.abs(value - rebuiltQz.reflectivityPlus[index]) > 1e-10)) throw new Error('Stored tensor fixture does not distinguish retained and rebuilt physics')
       if (JSON.stringify(savedQz) !== savedQzBefore) throw new Error('Saved qz tensor input changed')
-      tables = []
+      tables = tensorTables
       const savedScriptQz = JSON.parse(savedQzBefore)
       savedScriptQz.scripts.enabled = true
       savedScriptQz.scripts.beforeCalculation = 'assert(exx_r[0] == 0.96); print("saved-qz-script")'
       const scriptQz = await service.calcAsymmetry(savedScriptQz)
       if (scriptQz.scriptMessages[0] !== 'saved-qz-script') throw new Error('Saved qz tensor was not supplied to Lua')
+
+      const manualScriptQz = JSON.parse(savedQzBefore)
+      manualScriptQz.calculation.automaticOpticalConstants = false
+      manualScriptQz.scripts.enabled = true
+      manualScriptQz.scripts.beforeCalculation = 'SetDeltaBeta(0, 640); assert(exx_r[0] == 0.96); print("manual-table-qz")'
+      const manualScriptResult = await service.calcAsymmetry(manualScriptQz)
+      if (manualScriptResult.scriptMessages[0] !== 'manual-table-qz') throw new Error('Manual Lua qz could not access session tables')
+      manualScriptResult.reflectivityPlus.forEach((value, index) => {
+        if (Math.abs(value - referenceQz.reflectivityPlus[index]) > 1e-15 + 1e-10 * Math.abs(referenceQz.reflectivityPlus[index])) throw new Error('Manual Lua qz table reference mismatch')
+      })
 
       // Standalone energy scans strictly replace saved active tensors before
       // the constructor hook, including when automatic constants are disabled.
@@ -1191,7 +1208,6 @@ try {
   assert.equal(results.matrixUnchanged, true)
   assert.match(results.matrixProfileError, /profile/)
   assert.equal(results.refreshUnchanged, true)
-  results.missingRetained.reflectivity.forEach((value, index) => near(value, results.automaticBaseline.reflectivity[index]))
   assert.deepEqual(results.cancellations.map(result => [result.method, result.stopped]), [['calcReflectivity', 'ComputeCancelled'], ['calcChi2', 'ComputeCancelled'], ['startFit', 'ComputeCancelled']])
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)

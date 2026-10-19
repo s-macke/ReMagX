@@ -36,10 +36,12 @@ export function prepareProjectOptics(original: Project, tables: OpticalTable[], 
   } else {
     const tensor = project.calculation.tensorContribution === 'tetragonal' ? 1 : 0
     const magnetic = project.calculation.magnetization.mode === 'none' ? 0 : 1
-    opticalState.dielectricState = copyScriptTensors(project.sample.layers.map(layer => engine.dielectricTensor({
+    const dielectricState = copyScriptTensors(project.sample.layers.map(layer => engine.dielectricTensor({
       layer: [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag,
         layer.magnetization.gamma, layer.magnetization.phi], tensor, magnetic,
     })))
+    opticalState.dielectricState = dielectricState
+    opticalState.dielectricTensors = dielectricState.map(tensor => tensor.anisotropic ? tensor.values.slice() : null)
     opticalState.scatteringTensors = copyScatteringTensors(project.sample.elementProfiles.map(element => constructScattering({
       factors: [element.f1, element.f2, element.f1Mag, element.f2Mag], tensor, magnetic,
       gamma: project.calculation.magnetization.direction.gamma, phi: project.calculation.magnetization.direction.phi,

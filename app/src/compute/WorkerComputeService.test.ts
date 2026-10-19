@@ -611,3 +611,15 @@ it('uses the current UI table snapshot for manual execution instead of the facto
   const rejected = expect(request).rejects.toBeInstanceOf(ComputeCancelled)
   service.stop(); await rejected; service.dispose()
 })
+
+it.each(['calcReflectivity', 'calcAsymmetry'] as const)('supplies tables to manual %s scripts', async method => {
+  const worker = controlledWorker()
+  const tables = [{ name: 'A', kind: 'db' as const, energy: [100, 200], columns: [[.01, .02], [0, 0]], warnings: [] }]
+  const service = new WorkerComputeService(() => worker, () => tables), project = createDefaultProject()
+  project.calculation.automaticOpticalConstants = false
+  project.scripts.enabled = true; project.scripts.beforeCalculation = 'SetDeltaBeta(0, 150)'
+  const pending = service[method](project)
+  expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ project, tables }))
+  const rejected = expect(pending).rejects.toBeInstanceOf(ComputeCancelled)
+  service.stop(); await rejected; service.dispose()
+})
