@@ -1,3 +1,6 @@
+import { refreshElementOptics } from './refreshElementOptics'
+import type { ScatteringTensorCalculator } from './scatteringTensors'
+import { HC_EV_ANGSTROM } from './units'
 import type { ElementSpectrumQuery, LayerSpectrumQuery, LayerSpectrum } from '../compute/ComputeService'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
@@ -21,13 +24,20 @@ function grid(project: Project, tables: OpticalTable[], name: string, kind: Opti
 // OnZeigeDeltaBetaSpektrum, OnZeigeDeltaMBetaMSpektrum and
 // ShowScatteringFactorsClick ignore Filldb's range flag and keep partial updates.
 function evaluate(project: Project, tables: OpticalTable[], energy: number[], lookup: RealTableLookup,
-  read: (current: Project, energy: number) => [number, number]): LayerSpectrum {
+  read: (current: Project, energy: number) => [number, number], construct?: ScatteringTensorCalculator): LayerSpectrum {
   const cursors = new Map<OpticalTable, number>()
+  let scatteringTensors: Float64Array[] | undefined
   let current = project
   const first: number[] = [], second: number[] = []
   for (const value of energy) {
     current = { ...current, experiment: { ...current.experiment, energy: value } }
-    current = applyDatabaseValues(current, realDatabaseValues(current, tables, lookup, cursors))
+    if (current.sample.mode === 'element') {
+      if (!construct) throw new Error('Native element tensor construction is unavailable.')
+      const refreshed = refreshElementOptics(current, tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / value),
+        lookup, construct, cursors, scatteringTensors)
+      scatteringTensors = refreshed.scatteringTensors
+      current = { ...current, sample: { ...current.sample, elementProfiles: refreshed.elementProfiles } }
+    } else current = applyDatabaseValues(current, realDatabaseValues(current, tables, lookup, cursors))
     const pair = read(current, value)
     if (!pair.every(Number.isFinite)) throw new Error('Real spectrum exceeds the supported numerical range.')
     first.push(pair[0]); second.push(pair[1])
@@ -35,17 +45,17 @@ function evaluate(project: Project, tables: OpticalTable[], energy: number[], lo
   return { energy, first, second }
 }
 
-export function realScatteringFactors(project: Project, query: ElementSpectrumQuery, lookup: RealTableLookup): LayerSpectrum {
+export function realScatteringFactors(project: Project, query: ElementSpectrumQuery, lookup: RealTableLookup, construct?: ScatteringTensorCalculator): LayerSpectrum {
   const element = project.sample.elementProfiles[query.elementIndex]
   if (project.sample.mode !== 'element' || !element) throw new Error('Select an element to show its scattering factors.')
   const energy = grid(project, query.tables, element.element, 'ff', true)
   return evaluate(project, query.tables, energy, lookup, current => {
     const row = current.sample.elementProfiles[query.elementIndex]
     return [row.f1, row.f2]
-  })
+  }, construct)
 }
 
-export function realLayerSpectrum(project: Project, query: LayerSpectrumQuery, lookup: RealTableLookup): LayerSpectrum {
+export function realLayerSpectrum(project: Project, query: LayerSpectrumQuery, lookup: RealTableLookup, construct?: ScatteringTensorCalculator): LayerSpectrum {
   if (project.sample.mode === 'compound') {
     const layer = project.sample.layers[query.layerIndex]
     if (!layer) throw new Error('Select a layer to show its spectrum.')
@@ -73,5 +83,5 @@ export function realLayerSpectrum(project: Project, query: LayerSpectrumQuery, l
       beta += row.f2 * density / value / value * .0004151761541 * 1e6
     }
     return [delta, beta]
-  })
+  }, construct)
 }

@@ -1,3 +1,4 @@
+import { refreshElementOptics } from '../../src/model/refreshElementOptics'
 import { createElementDensitySampler } from '../../src/model/elementDensity'
 import { prepareElementLayers } from '../../src/model/elementLayers'
 import { HC_EV_ANGSTROM } from '../../src/model/units'
@@ -128,6 +129,18 @@ async function run() {
       { name: 'Fe', kind: 'ff', energy: [100, 200], columns: [[20, 40], [2, 4]], warnings: [] },
       { name: 'Fe', kind: 'ffm', energy: [120, 180], columns: [[1, 3], [2, 4]], warnings: [] },
     ]
+    const refreshProject = createDefaultProject(); refreshProject.sample.mode = 'element'
+    refreshProject.calculation.magnetization.mode = 'add'
+    refreshProject.calculation.magnetization.direction = { gamma: 0, phi: 0 }
+    refreshProject.sample.elementProfiles = ['Fe', 'missing'].map(element => ({ element, f1: 7, f2: 8, f1Mag: 9, f2Mag: 10, slabs: [] }))
+    const refreshed = refreshElementOptics(refreshProject, tables, 150, numerical.lookup, numerical.scatteringTensor!)
+    const retained = refreshElementOptics({ ...refreshProject, sample: { ...refreshProject.sample, elementProfiles: refreshed.elementProfiles } },
+      tables, 250, numerical.lookup, numerical.scatteringTensor!, new Map(), refreshed.scatteringTensors)
+    if (refreshed.elementProfiles[0].f1 !== 30 || refreshed.elementProfiles[0].f2 !== 3 ||
+        refreshed.scatteringTensors[0][0] !== 30 || refreshed.scatteringTensors[0][1] !== 3 ||
+        refreshed.scatteringTensors[0][2] !== -3 || refreshed.scatteringTensors[0][3] !== -2 ||
+        retained.scatteringTensors[0][0] !== 30 || retained.elementProfiles[1].f1 !== 7 ||
+        !retained.rangeError || refreshProject.sample.elementProfiles[0].f1 !== 7) throw new Error('Element native refresh/retention failed')
     const opticsProject = createDefaultProject()
     const opticsWorkspace = createScriptArrayWorkspace(opticsProject)
     const opticsTensors = createScriptTensorWorkspace(opticsProject.sample.layers.map(() => ({ values: new Float64Array(18), anisotropic: false })))

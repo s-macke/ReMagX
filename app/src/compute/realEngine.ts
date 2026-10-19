@@ -27,8 +27,8 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         return
       }
       if (message.kind === 'layerSpectrum' || message.kind === 'scatteringFactors') {
-        const result = message.kind === 'layerSpectrum' ? realLayerSpectrum(message.project, message.spectrum, engine.lookup)
-          : realScatteringFactors(message.project, message.spectrum, engine.lookup)
+        const result = message.kind === 'layerSpectrum' ? realLayerSpectrum(message.project, message.spectrum, engine.lookup, engine.scatteringTensor)
+          : realScatteringFactors(message.project, message.spectrum, engine.lookup, engine.scatteringTensor)
         send({ id: message.id, type: 'result', result })
         return
       }
