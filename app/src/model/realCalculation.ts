@@ -1,3 +1,4 @@
+import { storedOpticalState } from './storedOpticalState'
 import type { ScatteringTensorCalculator } from './scatteringTensors'
 import { prepareZakQzRequest, calculateZakEnergyScan, type PreparedZakQzRequest, type ZakEnergyCalculator } from './zakRequest'
 import { calculateVisnovskyEnergyScan, type VisnovskyEnergyCalculator } from './visnovskyEnergyScan'
@@ -47,6 +48,9 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
         ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous, beforeCalculation, scriptLifetime)
         : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous, beforeCalculation, scriptLifetime)
   }
+  // A fresh automatic qz request starts from stored film tensors. Serial
+  // callers supply their newer calculation state, which takes precedence.
+  previous ??= original.calculation.automaticOpticalConstants ? storedOpticalState(original) : undefined
   let scriptedProject: Project | undefined
   let project = original
   let cursors = new Map(previous?.cursors)

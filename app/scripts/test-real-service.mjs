@@ -803,6 +803,45 @@ try {
         await service.dielectricTensor(scripted, { ...query, spectrum: false })
       }
 
+      // Persisted anisotropic tensors in qz scans match an independently
+      // prepared imported-.e reference with identical scalar optical values.
+      const savedQz = createDefaultProject()
+      savedQz.calculation.algorithm = 'matrix'; savedQz.calculation.automaticOpticalConstants = true
+      savedQz.experiment.energy = 640; savedQz.experiment.qzScan.points = 8; savedQz.experiment.qzScan.qzMax = .1
+      const storedValues = [.96, .001, 0, .002, 0, 0, 0, -.002, .95, .002, 0, 0, 0, 0, 0, 0, .97, .001]
+      savedQz.sample.layers = [createLayer({ opticalTable: 'saved-qz', delta: .01, beta: .001,
+        dielectricTensor: { values: storedValues, anisotropic: true } }), createLayer({ opticalTable: 'vacuum' })]
+      const savedQzBefore = JSON.stringify(savedQz)
+      tables = []
+      const retainedQz = await service.calcAsymmetry(savedQz)
+      const tensorReference = JSON.parse(savedQzBefore)
+      delete tensorReference.sample.layers[0].dielectricTensor
+      tables = [
+        { name: 'saved-qz', kind: 'db', energy: [600, 900], columns: [[.01, .01], [.001, .001]], warnings: [] },
+        { name: 'saved-qz', kind: 'e', energy: [600, 900], columns: storedValues.map(value => [value, value]), warnings: [] },
+        { name: 'vacuum', kind: 'db', energy: [600, 900], columns: [[0, 0], [0, 0]], warnings: [] },
+      ]
+      const referenceQz = await service.calcAsymmetry(tensorReference)
+      for (const field of ['reflectivityPlus', 'reflectivityMinus', 'asymmetry']) retainedQz[field].forEach((value, index) => {
+        if (Math.abs(value - referenceQz[field][index]) > 1e-15 + 1e-10 * Math.abs(referenceQz[field][index])) throw new Error('Saved qz tensor differs from imported tensor reference')
+      })
+      // Successful scalar refresh must remove the saved tensor override.
+      tables = tables.filter(table => table.kind !== 'e')
+      const refreshedQz = await service.calcAsymmetry(savedQz)
+      const manualQz = JSON.parse(savedQzBefore); manualQz.calculation.automaticOpticalConstants = false
+      const rebuiltQz = await service.calcAsymmetry(manualQz)
+      for (const field of ['reflectivityPlus', 'reflectivityMinus', 'asymmetry']) refreshedQz[field].forEach((value, index) => {
+        if (Math.abs(value - rebuiltQz[field][index]) > 1e-15 + 1e-10 * Math.abs(rebuiltQz[field][index])) throw new Error('Saved qz tensor survived scalar refresh')
+      })
+      if (!retainedQz.reflectivityPlus.some((value, index) => Math.abs(value - rebuiltQz.reflectivityPlus[index]) > 1e-10)) throw new Error('Stored tensor fixture does not distinguish retained and rebuilt physics')
+      if (JSON.stringify(savedQz) !== savedQzBefore) throw new Error('Saved qz tensor input changed')
+      tables = []
+      const savedScriptQz = JSON.parse(savedQzBefore)
+      savedScriptQz.scripts.enabled = true
+      savedScriptQz.scripts.beforeCalculation = 'assert(exx_r[0] == 0.96); print("saved-qz-script")'
+      const scriptQz = await service.calcAsymmetry(savedScriptQz)
+      if (scriptQz.scriptMessages[0] !== 'saved-qz-script') throw new Error('Saved qz tensor was not supplied to Lua')
+
       // JSON-restored tensor state survives skipped automatic refresh in spectra.
       const storedSpectrum = createDefaultProject()
       storedSpectrum.experiment.energy = 90
