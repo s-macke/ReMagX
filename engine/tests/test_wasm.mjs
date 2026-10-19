@@ -5,7 +5,7 @@ import { checkOptimizer } from './optimizer_checks.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
+import { calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -54,14 +54,14 @@ assert.equal(tableValues, 14760)
 let energyValues = 0
 for (const item of input.energy) {
   const raw = new Float64Array(item.raw)
-  const actual = convolveEnergy(module, item.energy, raw, item.width)
+  const actual = (item.kind === 'fast-qz' ? convolveFastQz : convolveEnergy)(module, item.energy, raw, item.width)
   assert.deepEqual(Array.from(raw), item.raw)
   actual.forEach((value, index) => {
     assert.ok(Math.abs(value - item.expected[index]) <= 1e-15 + 1e-10 * Math.abs(item.expected[index]))
     energyValues++
   })
 }
-assert.equal(energyValues, 1680)
+assert.equal(energyValues, 3360)
 const energyRaw = new Float64Array([1, 2, 3, 4])
 const energyBefore = convolveEnergy(module, [1, 2], energyRaw, .1)
 for (const [energies, values, width] of [[[], energyRaw, 1], [new Array(2), energyRaw, 1], [[1, 2], [1, 2, 3, 4], 1], [[1, 2], energyRaw, -1]]) {
@@ -333,7 +333,7 @@ allocations = 0
 assert.throws(() => convolveEnergy(failingAllocator, [1, 2], energyRaw, .1), /allocation failed/)
 assert.equal(outstanding.size, 0)
 assert.deepEqual(convolveEnergy(module, [1, 2], energyRaw, .1), energyBefore)
-console.log(`WASM/native energy convolution: ${energyValues} values, validation and cleanup passed.`)
+console.log(`WASM/native energy/fast-qz convolution: ${energyValues} values, validation and cleanup passed.`)
 
 allocations = 0
 assert.throws(() => calculateParrattEnergyScan(failingAllocator, scanPrepared), /allocation failed/)
@@ -432,3 +432,21 @@ assert.throws(() => calculateGaussLorentzianReal(failingAllocator, [640, 640, .0
 assert.equal(outstanding.size, 0)
 assert.ok(Number.isFinite(calculateGaussLorentzianReal(module, [640, 640, .03, .1, 50])))
 console.log('WASM/native Gauss-Lorentzian real part: 588 values, validation and cleanup passed.')
+
+// Run after memory-growth checks; native errors and failed allocations must free
+// every temporary buffer without invalidating the next prepared-sample call.
+for (const [coordinates, values, width] of [[[], energyRaw, 1], [new Array(2), energyRaw, 1], [[1, 2], [1, 2, 3, 4], 1], [[1, 2], energyRaw, -1]])
+  assert.throws(() => convolveFastQz(module, coordinates, values, width), TypeError)
+for (const available of [0, 1, 2]) {
+  allocations = available
+  assert.throws(() => convolveFastQz(failingAllocator, [1, 2], energyRaw, .1), /allocation failed/)
+  assert.equal(outstanding.size, 0)
+}
+allocations = 5
+assert.throws(() => convolveFastQz(failingAllocator, [1, 2], new Float64Array([1e308, 0, -1e308, 0]), .1), { status: 2 })
+assert.equal(outstanding.size, 0)
+const retainedCase = input.energy.find(item => item.kind === 'fast-qz')
+assert.deepEqual(Array.from(convolveFastQz(module, retainedCase.energy, new Float64Array(retainedCase.raw), retainedCase.width)), retainedCase.expected)
+assert.deepEqual(Array.from(convolveFastQz(module, [-1], new Float64Array([7, 9]), 0)), [0, 0])
+assert.ok(convolveFastQz(module, [1, 2], energyRaw, 1e308).every(Number.isFinite))
+console.log('Prepared fast-qz convolution: 1,680 native values, memory growth, validation and cleanup passed.')

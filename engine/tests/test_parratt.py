@@ -199,6 +199,15 @@ class NativeParrattTest(unittest.TestCase):
             self.assertEqual(convolve((ctypes.c_double * 7)(*energies), source, 7, width, output), 0)
             energy_cases.append(dict(energy=energies, raw=raw, width=width,
                 expected=[value for row in output for value in (row.beam1, row.beam2)]))
+        convolve_fast = library.remagx_fast_qz_resolution
+        convolve_fast.argtypes = convolve.argtypes
+        for item in list(energy_cases):
+            coordinates = item['energy']
+            source = (Reflectivity * 7)(*(Reflectivity(*item['raw'][point:point+2]) for point in range(0, 14, 2)))
+            output = (Reflectivity * 7)()
+            self.assertEqual(convolve_fast((ctypes.c_double * 7)(*coordinates), source, 7, item['width'], output), 0)
+            energy_cases.append(dict(item, kind='fast-qz',
+                expected=[value for row in output for value in (row.beam1, row.beam2)]))
         scan_cases = []
         batch = library.remagx_parratt_energy_scan
         batch.argtypes = [ctypes.POINTER(Layer), ctypes.c_size_t, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double),

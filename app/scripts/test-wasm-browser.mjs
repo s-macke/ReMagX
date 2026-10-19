@@ -160,8 +160,8 @@ try {
     assert.ok(Math.abs(value - item.expected[point]) <= 1e-15 + 1e-10 * Math.abs(item.expected[point]))
     energyCount++
   }))
-  assert.equal(energyCount, 1680)
-  console.log(`Chromium energy convolution: ${energyCount} values matched native.`)
+  assert.equal(energyCount, 3360)
+  console.log(`Chromium energy/fast-qz convolution: ${energyCount} values matched native.`)
   let tableCount = 0
   assert.equal(result.tableResults.length, input.tables.length)
   input.tables.forEach((table, index) => {

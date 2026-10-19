@@ -142,6 +142,24 @@ export function convolveEnergy(module, energies, values, width) {
   })
 }
 
+// Prepared raw samples stay caller-owned; unlike energy convolution, zero
+// width still uses the original 19-node sum.
+export function convolveFastQz(module, coordinates, values, width) {
+  if (!validVector(coordinates) || !(values instanceof Float64Array) || values.length !== coordinates.length * 2 ||
+      !values.every(Number.isFinite) || !Number.isFinite(width) || width < 0) {
+    throw new TypeError('Invalid fast-qz resolution input')
+  }
+  return withBuffers(module, allocate => {
+    const coordinatePointer = allocate(coordinates.length)
+    const valuePointer = allocate(values.length)
+    const outputPointer = allocate(values.length)
+    module.HEAPF64.set(coordinates, coordinatePointer / 8)
+    module.HEAPF64.set(values, valuePointer / 8)
+    checkStatus(module._remagx_fast_qz_resolution(coordinatePointer, valuePointer, coordinates.length, width, outputPointer), 'Fast qz convolution')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + values.length)
+  })
+}
+
 // Optional rows: calculation energy, angular width, matrix epsilon. Measured
 // energy coordinates remain separate and are always used for convolution.
 function validEnergyPointSettings(settings, count) {
