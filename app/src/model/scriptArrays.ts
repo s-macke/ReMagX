@@ -39,12 +39,8 @@ export function createScriptArrayWorkspace(source: Project) {
   let renewOpticalConstants = 0
   const arrays = new Map<string, ScriptNumericArray>()
   function register(name: string, typeId: number, count: number,
-    read: (index: number) => number, write: (index: number, value: number) => void,
-    requiresCompound = false) {
+    read: (index: number) => number, write: (index: number, value: number) => void) {
     function checkIndex(index: number) {
-      if (requiresCompound && project.sample.mode !== 'compound') {
-        throw new Error(`${name}: element-mode active-film arrays are not supported yet`)
-      }
       if (!Number.isSafeInteger(index) || index < 0 || index >= count) {
         throw new Error(`${name}: index out of range`)
       }
@@ -63,12 +59,12 @@ export function createScriptArrayWorkspace(source: Project) {
   for (const [name, [field, typeId]] of Object.entries(layerFields)) {
     register(name, typeId, project.sample.layers.length,
       index => project.sample.layers[index][field],
-      (index, value) => { project.sample.layers[index][field] = value }, true)
+      (index, value) => { project.sample.layers[index][field] = value })
   }
   for (const [name, field, typeId] of [['maggamma', 'gamma', 38], ['magphi', 'phi', 39]] as const) {
     register(name, typeId, project.sample.layers.length,
       index => project.sample.layers[index].magnetization[field],
-      (index, value) => { project.sample.layers[index].magnetization[field] = value }, true)
+      (index, value) => { project.sample.layers[index].magnetization[field] = value })
   }
   for (const [name, [field, typeId]] of Object.entries(profileFields)) {
     register(name, typeId, project.sample.depthProfileFunctions.length,
@@ -142,7 +138,6 @@ export function createScriptArrayWorkspace(source: Project) {
       project.experiment.energyScan.qz = state.energyScanQz
     },
     setLayerText(index: number, field: 'material' | 'opticalTable', value: string): void {
-      if (project.sample.mode !== 'compound') throw new Error('Element-mode active-film names are not supported yet')
       if (!Number.isSafeInteger(index) || index < 0 || index >= project.sample.layers.length) {
         throw new Error('Layer index out of range')
       }

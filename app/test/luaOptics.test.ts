@@ -10,8 +10,8 @@ import type { OpticalTable } from '../src/import/tables'
 const runtime = createLuaRuntime(fileURLToPath(new URL('../node_modules/wasmoon/dist/glue.wasm', import.meta.url)))
 const table = (name: string, kind: OpticalTable['kind']): OpticalTable => ({ name, kind, energy: [100, 200], columns: [], warnings: [] })
 
-it('preserves SetDeltaBeta zero tensors, cached names, explicit FillTensors and live scalar/tensor aliases', async () => {
-  const source = createDefaultProject(); source.sample.layers = [createLayer({ opticalTable: 'A' }), createLayer({ opticalTable: 'B' })]
+it.each(['compound', 'element'] as const)('preserves stored-film optics and aliases in %s mode', async mode => {
+  const source = createDefaultProject(); source.sample.mode = mode; source.sample.layers = [createLayer({ opticalTable: 'A' }), createLayer({ opticalTable: 'B' })]
   const before = JSON.stringify(source)
   const workspace = createScriptArrayWorkspace(source)
   const tensors = createScriptTensorWorkspace(source.sample.layers.map(() => ({ values: new Float64Array(18).fill(9), anisotropic: true })))

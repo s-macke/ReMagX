@@ -10,11 +10,6 @@ export function createScriptOptics(workspace: ReturnType<typeof createScriptArra
   lookup: RealTableLookup, construct: DielectricTensorCalculator, cursors = new Map<OpticalTable, number>(),
   resolvedTables = new Map<number, OpticalTable>(),
   elements?: { workspace: ReturnType<typeof createScatteringTensorWorkspace>; construct: ScatteringTensorCalculator }) {
-  function compound() {
-    const project = workspace.snapshot()
-    if (project.sample.mode !== 'compound') throw new Error('Element active-film optics are not supported yet')
-    return project
-  }
   function read(table: OpticalTable, energy: number, width: number) {
     const result = lookup(table, [energy], cursors.get(table) ?? 0)
     if (result.values.length !== width || !result.values.every(Number.isFinite)) throw new Error(`Invalid ${table.name}.${table.kind} values`)
@@ -23,7 +18,7 @@ export function createScriptOptics(workspace: ReturnType<typeof createScriptArra
   }
   return {
     fillTensors(): void {
-      const project = compound()
+      const project = workspace.snapshot()
       if (project.sample.elementProfiles.length && !elements) throw new Error('FillTensors: native element scattering tensors are not available')
       const next = project.sample.layers.map(layer => construct({
         layer: [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag,
@@ -45,7 +40,7 @@ export function createScriptOptics(workspace: ReturnType<typeof createScriptArra
       tensors.replace(checked)
     },
     setDeltaBeta(index: number, energy: number): void {
-      const project = compound()
+      const project = workspace.snapshot()
       if (!Number.isSafeInteger(index) || index < 0 || index >= project.sample.layers.length) throw new Error('SetDeltaBeta: layer index out of range')
       if (!Number.isFinite(energy)) throw new Error('SetDeltaBeta: energy must be finite')
       const layer = project.sample.layers[index]

@@ -735,6 +735,33 @@ try {
       output.realFactors = await service.scatteringFactors(spectrumProject, { elementIndex: 0, tables: factorTables })
       output.realElementSpectrum = await service.layerSpectrum(spectrumProject, { elementIndex: 0, layerIndex: 0, magnetic: false, tables: factorTables })
       output.realSpectrumUnchanged = spectrumSnapshot === JSON.stringify(spectrumProject)
+      for (const automatic of [false, true]) {
+        const scripted = structuredClone(spectrumProject)
+        scripted.experiment.energy = 150
+        scripted.sample.layers[0].delta = .01
+        scripted.calculation.automaticOpticalConstants = automatic
+        scripted.scripts.enabled = true
+        scripted.scripts.beforeCalculation = 'calls = (calls or 0) + 1; assert(delta[0] == 0.01); thickness[0] = thickness[0] + 10; Fe:setdensity(0, Fe:getdensity(0) + 1); f1[0] = f1[0] + calls; FillTensors(); print(calls, ":", energy); energy = energy + 7'
+        const before = JSON.stringify(scripted)
+        for (const optical of [false, true]) {
+          const lines = []
+          const result = optical ? await service.layerSpectrum(scripted, { elementIndex: 0, layerIndex: 0, magnetic: false, tables: factorTables }, text => lines.push(...text))
+            : await service.scatteringFactors(scripted, { elementIndex: 0, tables: factorTables }, text => lines.push(...text))
+          const expected = [100, 150, 200].map((energy, index) => optical ? (index + 28) * (index + 4) / energy / energy * .0004151761541 * 1e6 : index + 28)
+          if (JSON.stringify(result.first) !== JSON.stringify(expected) || JSON.stringify(lines) !== '["1:150","2:100","3:150","4:200"]' ||
+              JSON.stringify(result.scriptMessages) !== JSON.stringify(lines) || JSON.stringify(scripted) !== before) throw new Error('Element spectrum Lua/native mismatch')
+        }
+        scripted.scripts.beforeCalculation = 'print("element error output")\nerror("element failed")'
+        for (const optical of [false, true]) {
+          const lines = []; let failed = false
+          try {
+            if (optical) await service.layerSpectrum(scripted, { elementIndex: 0, layerIndex: 0, magnetic: false, tables: factorTables }, text => lines.push(...text))
+            else await service.scatteringFactors(scripted, { elementIndex: 0, tables: factorTables }, text => lines.push(...text))
+          } catch (error) { failed = /BeforeCalculation:2/.test(String(error)) }
+          if (!failed || lines[0] !== 'element error output') throw new Error('Element spectrum error output missing')
+        }
+      }
+
       const tensorProject = createDefaultProject()
       tensorProject.experiment.energy = 150
       tensorProject.sample.layers = [createLayer({ opticalTable: 'tensor', delta: .01, beta: .002 })]

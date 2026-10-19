@@ -79,8 +79,8 @@ export class WorkerComputeService implements ComputeService {
     return worker
   }
 
-  scatteringFactors(project: Project, spectrum: ElementSpectrumQuery): Promise<LayerSpectrum> {
-    return this.request('scatteringFactors', project, undefined, spectrum)
+  scatteringFactors(project: Project, spectrum: ElementSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum> {
+    return this.request('scatteringFactors', project, undefined, spectrum, onScriptMessages)
   }
 
   layerSpectrum(project: Project, spectrum: LayerSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum> {

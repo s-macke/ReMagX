@@ -58,8 +58,8 @@ async function calculate(service: ComputeService, project: Project, request: Cal
     }
   }
   if (plotView === 'scatteringFactors') {
-    const spectrum = await service.scatteringFactors(project, { elementIndex: request.elementIndex ?? 0, tables: request.tables ?? [] })
-    return { axis: 'energy', x: spectrum.energy, series: [
+    const spectrum = await service.scatteringFactors(project, { elementIndex: request.elementIndex ?? 0, tables: request.tables ?? [] }, onScriptMessages)
+    return { scriptMessages: spectrum.scriptMessages, axis: 'energy', x: spectrum.energy, series: [
       { label: 'f1', y: spectrum.first }, { label: 'f2', y: spectrum.second },
     ], logScale: false, yLabel: 'f1 / f2 (table preview)' }
   }

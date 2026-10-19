@@ -64,10 +64,14 @@ it('isolates writes and snapshots, preserves signed values, and rejects nonfinit
   expect(JSON.stringify(source)).toBe(before)
 })
 
-it('does not mistake compound layer storage for the element-mode active film', () => {
+it('keeps stored layer arrays separate from element slabs in element mode', () => {
   const source = fixture(); source.sample.mode = 'element'
   const workspace = createScriptArrayWorkspace(source)
-  expect(() => workspace.arrays.get('delta')!.read(0)).toThrow('active-film arrays are not supported yet')
+  workspace.arrays.get('delta')!.write(0, .25)
+  workspace.arrays.get('thickness')!.write(0, 123)
+  workspace.setLayerText(0, 'opticalTable', 'stored-table')
+  expect(workspace.snapshot().sample.layers[0]).toMatchObject({ delta: .25, thickness: 123, opticalTable: 'stored-table' })
+  expect(workspace.snapshot().sample.elementProfiles[0].slabs).toEqual(source.sample.elementProfiles[0].slabs)
   workspace.arrays.get('f1')!.write(0, 12.5)
   expect(workspace.snapshot().sample.elementProfiles[0].f1).toBe(12.5)
 })

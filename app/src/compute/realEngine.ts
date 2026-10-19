@@ -36,8 +36,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         return
       }
       if (message.kind === 'layerSpectrum' || message.kind === 'scatteringFactors') {
-        const scripted = message.kind === 'layerSpectrum' && message.project.sample.mode === 'compound' &&
-          message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
+        const scripted = message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
         const session = scripted && createLuaSession ? await createLuaSession() : undefined
         const scriptMessages: string[] = []
         try {
@@ -45,7 +44,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
             scriptMessages.push(text); send({ id: message.id, type: 'scriptMessages', lines: [text] })
           }) : undefined
           const result = message.kind === 'layerSpectrum' ? realLayerSpectrum(message.project, message.spectrum, engine.lookup, engine.scatteringTensor, hook)
-            : realScatteringFactors(message.project, message.spectrum, engine.lookup, engine.scatteringTensor)
+            : realScatteringFactors(message.project, message.spectrum, engine.lookup, engine.scatteringTensor, hook)
           send({ id: message.id, type: 'result', result: { ...result, ...(session ? { scriptMessages } : {}) } })
         } finally { session?.close() }
         return

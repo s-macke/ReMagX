@@ -103,7 +103,7 @@ export interface ComputeService {
   dielectricTensor(project: Project, query: TensorQuery, onScriptMessages?: (lines: string[]) => void): Promise<TensorPreview>
   databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues>
   densityProfiles(project: Project): Promise<DensityProfiles>
-  scatteringFactors(project: Project, query: ElementSpectrumQuery): Promise<LayerSpectrum>
+  scatteringFactors(project: Project, query: ElementSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum>
   layerSpectrum(project: Project, query: LayerSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum>
   calcReflectivity(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<ReflectivityCurve>
   calcEnergyScan(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<EnergyScanCurve>
