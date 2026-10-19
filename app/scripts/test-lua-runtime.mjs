@@ -38,6 +38,7 @@ try {
   assert.equal(result.outputPassed, true)
   assert.equal(result.hooksPassed, true)
   assert.equal(result.nestedPassed, true)
+  assert.equal(result.childrenPassed, true)
   assert.match(result.diagnostic, /BeforeCalculation:3:.*KramersKronigRange: not supported yet/)
   assert.deepEqual(errors, [])
   assert.ok(requests.some(url => url.endsWith('.wasm')), 'Worker must load the local WASM asset')

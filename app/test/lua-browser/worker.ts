@@ -104,10 +104,27 @@ async function run() {
       try { failed.getGlobal('energy'); nestedPassed = false } catch { /* failed session is closed */ }
       failed.close()
     }
+    const parent = await runtime.createSession()
+    let childrenPassed = false
+    try {
+      parent.setGlobal('nestedChild', () => {
+        const child = parent.createChildSession()
+        try {
+          child.execute('counter = (counter or 0) + 1; assert(parentOnly == nil)', 'Default')
+          return child.getGlobal('counter')
+        } finally { child.close() }
+      })
+      parent.setGlobal('failedChild', () => {
+        const child = parent.createChildSession()
+        try { child.execute('error("child failure")', 'BeforeCalculation') } finally { child.close() }
+      })
+      parent.execute('parentOnly = 42; assert(nestedChild() == 1 and nestedChild() == 1); assert(not pcall(failedChild)); assert(nestedChild() == 1)', 'Default')
+      childrenPassed = parent.getGlobal('parentOnly') === 42 && parent.getGlobal('counter') === null
+    } finally { parent.close() }
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }

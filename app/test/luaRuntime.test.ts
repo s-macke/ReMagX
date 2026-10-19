@@ -119,3 +119,49 @@ it('defers explicit callback disposal until the outer hook returns', async () =>
   expect(aliveAfterClose).toBe(true)
   expect(engine.global.isClosed()).toBe(true)
 })
+
+
+it('creates synchronous isolated child VMs from a running hook using the local loaded module', async () => {
+  const parent = await runtime.createSession()
+  let executions = 0
+  parent.setGlobal('nested', () => {
+    const child = parent.createChildSession()
+    try {
+      expect(child.getGlobal('counter')).toBeNull()
+      expect(child.getGlobal('parentOnly')).toBeNull()
+      child.execute('counter = 1; childOnly = 99', 'BeforeCalculation')
+      const grandchild = child.createChildSession()
+      try {
+        expect(grandchild.getGlobal('childOnly')).toBeNull()
+        grandchild.execute('value = 7', 'Default')
+        expect(grandchild.getGlobal('value')).toBe(7)
+      } finally { grandchild.close() }
+      executions++
+      return child.getGlobal('counter')
+    } finally { child.close() }
+  })
+  try {
+    parent.execute('parentOnly = 42; counter = 100; assert(nested() == 1); assert(nested() == 1); assert(counter == 100)', 'Default')
+    expect(executions).toBe(2)
+    expect(parent.getGlobal('childOnly')).toBeNull()
+  } finally { parent.close() }
+  expect(() => parent.createChildSession()).toThrow('closed')
+})
+
+it('isolates failed child disposal from a parent that explicitly handles the failure', async () => {
+  const parent = await runtime.createSession()
+  parent.setGlobal('nestedFailure', () => {
+    const child = parent.createChildSession()
+    try { child.execute('local x = 1\nerror("child failure")', 'BeforeCalculation') }
+    finally { child.close() }
+  })
+  try {
+    parent.execute('local ok, message = pcall(nestedFailure); assert(not ok); assert(string.find(tostring(message), "BeforeCalculation:2:")); retained = 42', 'Default')
+    expect(parent.getGlobal('retained')).toBe(42)
+    const child = parent.createChildSession()
+    parent.close()
+    // Closing a parent cannot close an independently owned child VM.
+    try { child.execute('value = 9', 'Default'); expect(child.getGlobal('value')).toBe(9) }
+    finally { child.close() }
+  } finally { parent.close() }
+})

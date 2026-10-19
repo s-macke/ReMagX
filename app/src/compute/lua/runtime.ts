@@ -1,7 +1,7 @@
 import { installScriptOutput } from './output'
 import { installProjectFunctions, type ScriptProjectFunctions } from './functions'
 import type { ScriptFactorLookup } from '../../model/scriptFactors'
-import { LuaFactory, type LuaEngine } from 'wasmoon'
+import { LuaFactory, LuaEngine } from 'wasmoon'
 import type { ScriptHookState } from '../../model/scriptHookState'
 import type { ScriptNumericArray, ScriptElementBinding } from '../../model/scriptArrays'
 import { installScriptArrays } from './arrays'
@@ -13,14 +13,24 @@ export class LuaSession {
   private compiled = false
   private executionDepth = 0
   private closeRequested = false
+  private readonly childFactory?: () => LuaSession
 
-  constructor(engine: LuaEngine) {
+  constructor(engine: LuaEngine, childFactory?: () => LuaSession) {
     this.engine = engine
+    this.childFactory = childFactory
   }
 
   private activeEngine(): LuaEngine {
     if (!this.engine || this.closeRequested) throw new Error('Lua session is closed')
     return this.engine
+  }
+
+  /** Fresh globals for legacy temporary CScript calls inside a synchronous hook.
+   * The caller owns this child and must close it independently of its parent. */
+  createChildSession(): LuaSession {
+    this.activeEngine()
+    if (!this.childFactory) throw new Error('Synchronous child Lua sessions are unavailable')
+    return this.childFactory()
   }
 
   installArrays(arrays: ReadonlyMap<string, ScriptNumericArray>, dynamicMaximumIndex?: () => number): void {
@@ -156,7 +166,9 @@ export function createLuaRuntime(wasmLocation: string) {
   const factory = new LuaFactory(wasmLocation)
   return {
     async createSession(): Promise<LuaSession> {
-      return new LuaSession(await factory.createEngine({ injectObjects: false }))
+      const module = await factory.getLuaModule()
+      const create = (): LuaSession => new LuaSession(new LuaEngine(module, { injectObjects: false }), create)
+      return create()
     },
   }
 }
