@@ -34,14 +34,14 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
   let opticalState: SerialOpticalState = { layers: project.sample.layers,
     dielectricTensors: previous?.dielectricTensors ?? project.sample.layers.map(() => null),
     dielectricState: previous?.dielectricState, cursors: new Map(previous?.cursors) }
-  const runHook = () => {
+  const runHook = (nestedSession: ScriptSessionLifetime = 'existing') => {
     if (!scripted) return
-    const result = beforeCalculation!(current, opticalState)
+    const result = beforeCalculation!(current, opticalState, 0, nestedSession)
     current = result.project
     opticalState = result.opticalState
   }
   // A temporary CScript constructor executes once before the point loop.
-  if (scriptLifetime === 'temporary') runHook()
+  if (scriptLifetime === 'temporary') runHook('temporary')
   const local: Project = { ...current,
     calculation: { ...current.calculation, automaticOpticalConstants: false },
     scripts: scripted ? { ...current.scripts, enabled: false } : current.scripts,

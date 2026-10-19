@@ -76,7 +76,11 @@ it('invalidates only tensors whose optical tables were refreshed before the scri
   const tables: OpticalTable[] = [{ name: 'available', kind: 'db', energy: [100, 200], columns: [], warnings: [] }]
   const session = await runtime.createSession()
   try {
-    const result = calculateRealCurve(project, tables, engine, 'qz', 'monochromatic', state, createBeforeCalculation(session, engine, tables))
+    const hook = vi.fn(createBeforeCalculation(session, engine, tables))
+    const result = calculateRealCurve(project, tables, engine, 'qz', 'monochromatic', state, hook)
+    expect(hook.mock.calls[0][3]).toBe('temporary')
+    expect(hook.mock.calls[0][0].calculation.automaticOpticalConstants).toBe(true)
+    expect(result.scriptedProject!.calculation.automaticOpticalConstants).toBe(true)
     expect(session.getGlobal('retained')).toBe(7)
     expect(session.getGlobal('refreshed')).toBe(.02)
     expect(result.opticalState.dielectricState![0]!.anisotropic).toBe(true)

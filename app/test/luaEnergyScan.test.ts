@@ -40,8 +40,9 @@ it('initializes energy Lua once, refreshes before valid-point hooks and preserve
     const session = await runtime.createSession()
     const messages: string[] = []
     try {
-      const result = calculateRealCurve(project, tables, engine, 'energy', mode, undefined,
-        createBeforeCalculation(session, engine, tables, text => messages.push(text)))
+      const hook = vi.fn(createBeforeCalculation(session, engine, tables, text => messages.push(text)))
+      const result = calculateRealCurve(project, tables, engine, 'energy', mode, undefined, hook)
+      expect(hook.mock.calls.map(call => call[3])).toEqual(['temporary', 'existing', 'existing'])
       expect(messages).toEqual(['1:640:0', '2:650:0', '3:660:0'])
       expect(captured!.energy).toEqual([650, 900, 660])
       expect(captured!.qz).toEqual([.02, .03, .04])

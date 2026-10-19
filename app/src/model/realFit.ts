@@ -4,7 +4,7 @@ import type { Project } from './project'
 import { applyRealFitParameters } from './realFitParameters'
 import { prepareRealFitSimplex } from './realFitSimplex'
 import { evaluateProjectDatasetError, type FitErrorCalculator } from './projectDatasetError'
-import type { RealCalculationEngine, RealBeforeCalculation } from './realCalculation'
+import type { RealCalculationEngine, RealBeforeCalculation, ScriptSessionLifetime } from './realCalculation'
 import { refreshPartialCompoundOptics, type SerialOpticalState } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 
@@ -42,10 +42,10 @@ export function runRealFit(project: Project, tables: OpticalTable[],
   let current = project
   let opticalState: SerialOpticalState | undefined
   const scripted = project.scripts.enabled && project.scripts.beforeCalculation.trim()
-  const runHook = (renew: number) => {
+  const runHook = (renew: number, nestedSession: ScriptSessionLifetime = 'existing') => {
     if (!scripted || !beforeCalculation) return
     const result = beforeCalculation(current, opticalState ?? { layers: current.sample.layers,
-      dielectricTensors: current.sample.layers.map(() => null), cursors: new Map() }, renew)
+      dielectricTensors: current.sample.layers.map(() => null), cursors: new Map() }, renew, nestedSession)
     current = result.project
     opticalState = result.opticalState
   }
@@ -96,7 +96,7 @@ export function runRealFit(project: Project, tables: OpticalTable[],
     return evaluated.error
   }
   if (shouldStop()) throw new FitStoppedBeforeEvaluation('Stopped before evaluating a fit candidate.')
-  runHook(0) // The CMultiFit constructor compiles and executes the script once.
+  runHook(0, 'temporary') // The CMultiFit constructor compiles and executes the script once.
   if (!prepared.simplex.length) {
     objective(new Float64Array())
     const result = best.result!

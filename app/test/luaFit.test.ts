@@ -38,7 +38,7 @@ it('runs persistent Lua initialization, objective renewal and serial dataset hoo
   const session = await runtime.createSession()
   const messages: string[] = []
   try {
-    const hook = createBeforeCalculation(session, engine, [], text => messages.push(text))
+    const hook = vi.fn(createBeforeCalculation(session, engine, [], text => messages.push(text)))
     const minimize: RealMinimizer = ({ objective }) => {
       const value = objective(new Float64Array([0]))
       objective(new Float64Array([1]))
@@ -46,6 +46,7 @@ it('runs persistent Lua initialization, objective renewal and serial dataset hoo
     }
     const result = runRealFit(project, [], engine, minimize, vi.fn(), undefined, hook)
     expect(messages).toEqual(['1:0', '2:1', '3:0', '4:0', '5:1', '6:0', '7:0'])
+    expect(hook.mock.calls.map(call => call[3])).toEqual(['temporary', 'existing', 'existing', 'existing', 'existing', 'existing', 'existing'])
     expect(session.getGlobal('epsilon')).toBeCloseTo(initialEpsilon + .007, 14)
     expect(result.project.calculation.epsilon).toBeCloseTo(initialEpsilon + .004, 14)
     expect(result.project.sample.layers[0].delta).toBeCloseTo(.014, 14)

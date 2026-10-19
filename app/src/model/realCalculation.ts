@@ -29,7 +29,9 @@ export type RealCurve = ReturnType<typeof postprocessParrattResult> & { energy?:
 
 export type ScriptSessionLifetime = 'temporary' | 'existing'
 
-export type RealBeforeCalculation = (project: Project, opticalState: SerialOpticalState, renewOpticalConstants?: number) => {
+// nestedSession describes state.script at hook entry: constructor hooks run
+// before assignment, so nested calculations need fresh temporary sessions.
+export type RealBeforeCalculation = (project: Project, opticalState: SerialOpticalState, renewOpticalConstants?: number, nestedSession?: ScriptSessionLifetime) => {
   project: Project; opticalState: SerialOpticalState
 }
 
@@ -58,10 +60,15 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
       calculation: { ...project.calculation, automaticOpticalConstants: false } }
   }
   if (beforeCalculation && project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
-    const scripted = beforeCalculation(project, { layers: project.sample.layers, dielectricTensors, dielectricState, cursors })
+    // Packing suppresses a second refresh, but nested calls must still see the
+    // original automatic-constants setting in their shared project state.
+    const hookProject = { ...project, calculation: { ...project.calculation,
+      automaticOpticalConstants: original.calculation.automaticOpticalConstants } }
+    const scripted = beforeCalculation(hookProject, { layers: project.sample.layers, dielectricTensors, dielectricState, cursors }, 0, scriptLifetime)
     scriptedProject = { ...scripted.project, calculation: { ...scripted.project.calculation,
       automaticOpticalConstants: original.calculation.automaticOpticalConstants } }
-    project = { ...scripted.project, scripts: { ...scripted.project.scripts, enabled: false } }
+    project = { ...scripted.project, scripts: { ...scripted.project.scripts, enabled: false },
+      calculation: { ...scripted.project.calculation, automaticOpticalConstants: false } }
     dielectricTensors = scripted.opticalState.dielectricTensors
     dielectricState = scripted.opticalState.dielectricState
     cursors = scripted.opticalState.cursors
