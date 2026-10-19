@@ -169,3 +169,23 @@ in projects with no stored script parameters. The original loader also creates a
 empty parameter array for these inputs; the web error is not evidence of an import
 loss. Earlier finite-reference execution counts did not detect ignored script
 errors and must not be interpreted as counts of valid golden curves.
+
+
+A private adaptive-segmentation diagnostic compares the original lookup with
+standard `erf` samples on the identical lookup grid, preserving original lookup
+interpolation and the rest of the adaptive calculation. All 15 segmented corpus
+projects complete in both variants with matching output lengths. Fourteen exceed
+D-23, totaling 17,752 mismatches among 19,586 reflectivity points. Maximum absolute
+intensity difference is about 6.67095e-6; maximum log10 difference for positive
+pairs is 0.860779 decades. Three projects exceed 0.001 decades and seven exceed
+1e-6 decades. These differences are not evidence supporting a rounding-only
+tolerance exception. No production replacement or tolerance change is adopted.
+
+The diagnostic uses the hash-verified original source closure, with a temporary
+compiler wrapper substituting a translation unit that includes the original
+LayerSegmentation.cpp and overrides its initialized lookup samples using
+`std::erf`. A linker wrapper intercepts startup initialization. The candidate is
+an explicitly modified private diagnostic, not an original golden reference.
+Both variants run in a disposable corpus copy. No private source, lookup data or
+curves are committed. This measures combined adaptive-path impact; it does not
+isolate changes in slice selection from optical values.
