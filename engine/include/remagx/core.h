@@ -116,6 +116,18 @@ int remagx_parratt_energy_scan_points(const RemagxLayer* layers, size_t layer_co
 // failure and must not overlap each other or the input.
 int remagx_dielectric_tensor(const RemagxLayer* layer, int tensor,
                             int magnetization_enabled, double* output, int* anisotropic);
+// Optical constants at one depth from caller-prepared element densities.
+// elements has element_count rows: density, f1, f2, magnetic f1, magnetic f2.
+// factor is the caller's legacy energy factor (0.0004151761541*1e6)/(E*E).
+// optical_constants receives delta, beta, magnetic delta and magnetic beta.
+// Optional dielectric_tensor receives 18 row-major real/imag entries. When
+// requested, scattering_tensors supplies 18 entries per element. Otherwise
+// scattering_tensors is ignored and can be null. Empty input produces vacuum.
+// Inputs must be finite; outputs must not overlap inputs or each other and
+// remain unchanged on failure. No density sampling, table refresh or slicing.
+int remagx_element_optics(const double* elements, size_t element_count,
+                         double factor, const double* scattering_tensors,
+                         double* optical_constants, double* dielectric_tensor);
 // Element scattering tensor, row-major complex entries (18 real/imag doubles).
 // factors contains f1, f2, magnetic f1 and magnetic f2. Directions are degrees.
 // Tetragonal input replaces the third diagonal regardless of magnetization.
