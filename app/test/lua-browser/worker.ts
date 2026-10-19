@@ -1,3 +1,4 @@
+import { createElementDensitySampler } from '../../src/model/elementDensity'
 import { prepareElementLayers } from '../../src/model/elementLayers'
 import { HC_EV_ANGSTROM } from '../../src/model/units'
 import { createBeforeCalculation } from '../../src/compute/lua/beforeCalculation'
@@ -89,9 +90,12 @@ async function run() {
       prepared.experiment.energy = 700
       prepared.calculation.algorithm = algorithm
       prepared.calculation.segmentation.minThickness = 10
-      prepared.sample.elementProfiles = [{ element: 'Fe', f1: 2, f2: 0, f1Mag: 0, f2Mag: 0, slabs: [] }]
+      prepared.sample.elementProfiles = [{ element: 'Fe', f1: 2, f2: 0, f1Mag: 0, f2Mag: 0,
+        slabs: [{ thickness: 0, roughness: 0, density: 2 }, { thickness: 0, roughness: 0, density: 3 }] }]
       const scattering = new Float64Array(18); scattering[0] = scattering[8] = scattering[16] = 2
-      const generated = prepareElementLayers(prepared, (_profile, depth) => depth < 0 ? 2 : 3,
+      // Controlled step lookup only for this pipeline test; not a production erf choice.
+      const density = createElementDensitySampler(prepared.sample.elementProfiles, x => x < 0 ? -1 : 1)
+      const generated = prepareElementLayers(prepared, density,
         request => adapter.calculateElementOptics(instance, request), [scattering])
       const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / 700)
       const factor = (.0004151761541 * 1e6) / (energy * energy)
