@@ -116,6 +116,14 @@ int remagx_parratt_energy_scan_points(const RemagxLayer* layers, size_t layer_co
 // failure and must not overlap each other or the input.
 int remagx_dielectric_tensor(const RemagxLayer* layer, int tensor,
                             int magnetization_enabled, double* output, int* anisotropic);
+// Element scattering tensor, row-major complex entries (18 real/imag doubles).
+// factors contains f1, f2, magnetic f1 and magnetic f2. Directions are degrees.
+// Tetragonal input replaces the third diagonal regardless of magnetization.
+// Finite inputs required. Output remains untouched on failure and must not
+// overlap factors. Imported full scattering tensors bypass this construction.
+int remagx_scattering_tensor(const double* factors, double gamma_degrees,
+                            double phi_degrees, int tensor,
+                            int magnetization_enabled, double* output);
 // Visnovsky quartic primitive. Five complex coefficients (degree four to zero)
 // and four complex roots, each packed real/imag. Retains analytic branches,
 // guarded Newton refinement and legacy mode order (not a general sorted order).
