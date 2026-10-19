@@ -57,3 +57,23 @@ it.each(['Imag', 'Real'] as const)('preserves Gauss-Lorentzian %s Lua argument c
     expect(calls).toEqual([[640, 0, 0, 50]])
   } finally { session.close() }
 })
+
+
+it.each(['CalculateDicReflectivity', 'CalculateEnergyscan'])(
+  'preserves legacy no-op %s with zero return values and unchanged state', async name => {
+    const workspace = createScriptArrayWorkspace(createDefaultProject())
+    const before = workspace.snapshot()
+    const session = await runtime.createSession()
+    try {
+      session.installProjectFunctions(workspace)
+      session.execute(`
+        energy = 123
+        local retained = {}
+        assert(select("#", ${name}()) == 0)
+        assert(select("#", ${name}(false, nil, "ignored", retained)) == 0)
+        assert(${name}() == nil)
+        assert(energy == 123)
+      `, 'Default')
+      expect(workspace.snapshot()).toEqual(before)
+    } finally { session.close() }
+  })

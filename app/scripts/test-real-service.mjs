@@ -75,7 +75,7 @@ try {
         scripted.experiment.energy = 700
         scripted.experiment.qzScan.points = 12
         scripted.scripts.enabled = true
-        scripted.scripts.beforeCalculation = 'thickness[1] = 35; energy = 710; delta[1] = GetGaussLorentzianImag(700, 0.004, 1, 50); beta[1] = GetGaussLorentzianReal(700, 0.000003, 0.1, 25); resolution = 0.002; FillTensors(); print("script=", energy)'
+        scripted.scripts.beforeCalculation = 'assert(select("#", CalculateDicReflectivity()) == 0); assert(select("#", CalculateEnergyscan(false, nil, "ignored")) == 0); thickness[1] = 35; energy = 710; delta[1] = GetGaussLorentzianImag(700, 0.004, 1, 50); beta[1] = GetGaussLorentzianReal(700, 0.000003, 0.1, 25); resolution = 0.002; FillTensors(); print("script=", energy)'
         const before = JSON.stringify(scripted)
         const expected = structuredClone(scripted)
         expected.scripts.enabled = false

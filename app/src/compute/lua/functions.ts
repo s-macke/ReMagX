@@ -53,6 +53,12 @@ export function installProjectFunctions(global: LuaGlobal, project: ScriptProjec
     thread.lua.lua_pushnumber(thread.address, result)
     return new LuaRawResult(1)
   }))
+  // Both GUI and terminal implementations in scriptfunctions.cpp return zero
+  // results unconditionally; their former calculation bodies are commented out.
+  // Preserve these registered legacy no-ops, including ignored arguments.
+  for (const name of ['CalculateDicReflectivity', 'CalculateEnergyscan']) {
+    global.set(name, callback(() => new LuaRawResult(0)))
+  }
   // Explicit deferred-feature errors required by D-22 / AC-7a, not missing globals.
   for (const name of ['KramersKronigRange', 'ShowMatrixEigenvalues', 'ShowEScanEigenvalues']) {
     global.set(name, callback(() => { throw new Error(`${name}: not supported yet`) }))
