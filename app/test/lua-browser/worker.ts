@@ -1,3 +1,5 @@
+import { prepareElementLayers } from '../../src/model/elementLayers'
+import { HC_EV_ANGSTROM } from '../../src/model/units'
 import { createBeforeCalculation } from '../../src/compute/lua/beforeCalculation'
 import { calculatePreparedScriptReflectivity, prepareScriptReflectivityInput } from '../../src/model/scriptReflectivity'
 import { calculateRealCurve, type RealCalculationEngine } from '../../src/model/realCalculation'
@@ -81,6 +83,26 @@ async function run() {
           result.reflectivityPlus.every((value, index) => close(value, fast ? raw[index] : input.columns.reflectivityPlus?.[index] ?? 1)) &&
           JSON.stringify(result.reflectivityMinus) === JSON.stringify(input.columns.reflectivityMinus ?? []) && JSON.stringify(result.qz) === JSON.stringify(input.columns.qz)
       }
+    }
+    for (const algorithm of ['parratt', 'matrix'] as const) {
+      const prepared = createDefaultProject(); prepared.sample.mode = 'element'
+      prepared.experiment.energy = 700
+      prepared.calculation.algorithm = algorithm
+      prepared.calculation.segmentation.minThickness = 10
+      prepared.sample.elementProfiles = [{ element: 'Fe', f1: 2, f2: 0, f1Mag: 0, f2Mag: 0, slabs: [] }]
+      const scattering = new Float64Array(18); scattering[0] = scattering[8] = scattering[16] = 2
+      const generated = prepareElementLayers(prepared, (_profile, depth) => depth < 0 ? 2 : 3,
+        request => adapter.calculateElementOptics(instance, request), [scattering])
+      const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / 700)
+      const factor = (.0004151761541 * 1e6) / (energy * energy)
+      if (JSON.stringify(generated.positions) !== '[-10,30]' || generated.layers[1][0] !== 40) throw new Error('Element layer boundaries failed')
+      generated.layers.forEach((layer, index) => {
+        const dielectric = 1 - 2 * (index + 2) * 2 * factor
+        if (Math.abs(layer[2] - (1 - Math.sqrt(dielectric))) > 1e-15 ||
+            (algorithm === 'matrix' && Math.abs(generated.dielectricTensors[index]![0] - dielectric) > 1e-15)) {
+          throw new Error('Element layer WASM optics failed')
+        }
+      })
     }
     const elementProject = createDefaultProject()
     elementProject.sample.elementProfiles = [{ element: 'Fe', f1: 1, f2: 2, f1Mag: 3, f2Mag: 4, slabs: [] }]
