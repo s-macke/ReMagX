@@ -30,3 +30,32 @@ Fresnel interface comparison at D-23, suppressed missing-file diagnostics, and a
 optimizer linkage. These do not establish corpus-wide simulation goldens, a cleaned public
 native rebuild, WASM whole-project parity, or Wine cross-validation. Those checklist items
 remain open.
+
+## Whole-project Chromium diagnostic
+
+Run `node app/scripts/diagnose-project-reference.mjs` from the repository root after
+building the real WASM engine and installing Chromium. `LEGACY_ROOT` selects the original
+source tree; `WASM_DIRECTORY` selects the directory containing `remagx-core.mjs` and `.wasm`.
+The tool rebuilds the hash-gated original reference, generates only public-default-fixture
+variants, imports each through the web importer, and calculates through the actual
+ComputeService, worker and WASM in Chromium. It checks input immutability and compares
+both coordinates and reflectivity with unchanged D-23. Its 24 cases cover Parratt,
+Visnovsky and Zak, magnetic off/on, zero/nonzero angular resolution and exact/fast modes.
+It does not cover magnetic profiles, automatic tables, scripts, energy scans or private
+corpus acceptance.
+
+The JSON result explicitly reports `acceptancePassed`, mismatch counts per case, first
+mismatch indices, absolute-error maxima, log10 error for positive pairs and zero/nonpositive
+counts. A completed diagnostic exits successfully even when numerical acceptance is false;
+use `--require-parity` to require a zero-mismatch exit status. Build/runtime errors always
+fail. This is a diagnostic, not a replacement for the acceptance gate or a tolerance exception.
+
+On 2026-10-19 the 14,400 compared values contained 196 D-23 mismatches, all in four
+magnetic Visnovsky cases. The other 20 cases passed. Maximum log10 error was about
+6.12215e-6. In a separate local isolation probe, identical original-loaded tensors matched
+all 300 zero-resolution points in cleaned native C++, while Node/WASM failed 18 points,
+matching Chromium. Thus this case's discrepancy lies in native/WASM numerics, not importer
+preparation. Platform complex square-root rounding differences were observed at the mode
+level; they are not yet proven to explain every mismatch. No numerical implementation or
+tolerance change is included in this diagnostic step. Full matrix project acceptance remains
+open despite earlier prepared-stack component comparisons.
