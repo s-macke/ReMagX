@@ -716,3 +716,6 @@ D-36: [accepted] **Chromium headless is the automated browser-test target.** The
 
 
 - 2026-10-19: The split hosted run 39245200418 identifies the failure as native/WASM comparison, after successful toolchain setup, configuration and compilation. Added a bounded, escaped error annotation containing the last 12,000 characters of that public synthetic test output while preserving the nonzero exit and full normal log. No private source/corpus job uses this path. This makes failure details available through public check annotations when full action logs require authentication. Local Ubuntu 24.04 native payloads also pass with the SDK-bundled Node runtime and a fresh WASM build; hosted numerical acceptance remains unproven.
+
+
+- 2026-10-19: Hosted run 39245594413 passes the Node native/WASM comparison but fails the later Chromium WASM step. The earlier hosted cause is still unproven; do not claim a numerical fix. Extended the bounded public-fixture error annotation to the browser comparison, preserving its exit status and tolerances. An Ubuntu 24.04 native matrix probe with AVX/FMA dispatch disabled also passes all 18,000 tested intensities against WASM; this rules out only that local probe, not every runner/platform difference.
