@@ -251,6 +251,11 @@ int remagx_visnovsky_energy_scan_points(const RemagxMatrixLayer* layers, size_t 
                        double epsilon, const RemagxBeam* beam1, const RemagxBeam* beam2,
                        int analyzer, int scan_mode, double angular_width, double energy_width,
                        const RemagxEnergyPoint* settings, RemagxReflectivity* output);
+/* Real-part integral on the legacy 0.05 eV repeated-addition grid.
+ * Nonpositive widths produce zero; numerical errors leave output unchanged. */
+int remagx_gauss_lorentzian_real(double energy, double center, double area,
+                               double width, double mixing_percent, double* output);
+
 // Legacy Lua line-shape helper. Width below 1e-5 is clamped to 1e-5;
 // signed area and mixing percentages outside 0..100 are preserved.
 // Finite inputs; a nonfinite result fails without changing output.

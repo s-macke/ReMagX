@@ -125,3 +125,38 @@ extern "C" int remagx_gauss_lorentzian_imag(double energy, double center, double
     *output = result;
     return REMAGX_SUCCESS;
 }
+
+extern "C" int remagx_gauss_lorentzian_real(double energy, double center, double area,
+                                            double width, double mixing_percent, double* output) {
+    if (!output || !std::isfinite(energy) || !std::isfinite(center) || !std::isfinite(area) ||
+        !std::isfinite(width) || !std::isfinite(mixing_percent)) return REMAGX_INVALID_ARGUMENT;
+    const double minimum = center - width * 2.0;
+    const double maximum = center + width * 2.0;
+    const double shifted_energy = energy + 0.001234;
+    if (!std::isfinite(minimum) || !std::isfinite(maximum)) return REMAGX_NUMERICAL_ERROR;
+    double result = 0.0;
+    for (double position = minimum; position < maximum; position += 0.05) {
+        const double next = position + 0.05;
+        if (next <= position) return REMAGX_NUMERICAL_ERROR;
+        double left, right;
+        if (remagx_gauss_lorentzian_imag(position, center, area, width, mixing_percent, &left) ||
+            remagx_gauss_lorentzian_imag(next, center, area, width, mixing_percent, &right))
+            return REMAGX_NUMERICAL_ERROR;
+        const double step = next - position;
+        const double slope = (right - left) / step;
+        const double distance = shifted_energy - position;
+        const double ratio = -step / distance;
+        const double difference_log = std::abs(ratio) < 0.5 ? std::log1p(ratio) :
+            std::log(std::abs((shifted_energy - next) / distance));
+        const double sum_log = std::log1p(step / (shifted_energy + position));
+        // LocalKK's same analytic integral, with logarithms collected before
+        // evaluation to avoid cancellation of large intercept terms. Retain
+        // the original energy offset, double slope, and repeated-addition grid.
+        const double integral = 0.5 * (left + slope * distance) * difference_log +
+            0.5 * (left - slope * (shifted_energy + position)) * sum_log + slope * step;
+        result += -2.0 / 3.14159265358979323846 * integral;
+        if (!std::isfinite(result)) return REMAGX_NUMERICAL_ERROR;
+    }
+    *output = result;
+    return REMAGX_SUCCESS;
+}
