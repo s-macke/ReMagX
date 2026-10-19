@@ -135,7 +135,7 @@ it('strictly refreshes standalone chi2 at the GUI energy before dataset preparat
   calculateProjectDatasetError(project, tables, engine)
   const energy = 12398.326 / (12398.326 / 777.198)
   expect(vi.mocked(engine.lookup).mock.calls.map(([, queries, cursor]) => [queries[0], cursor])).toEqual([
-    [energy, 0], [energy, 1], [640, 2], [640, 3],
+    [energy, 0], [energy, 1], [energy, 2], [energy, 3], [640, 4], [640, 5],
   ])
   expect(project).toEqual(before)
   project.experiment.energy = 900 // Dataset energy is still valid; GUI preflight must fail first.
@@ -143,10 +143,33 @@ it('strictly refreshes standalone chi2 at the GUI energy before dataset preparat
   expect(() => calculateProjectDatasetError(project, tables, engine)).toThrow('outside')
   expect(engine.calculate).not.toHaveBeenCalled()
   project.experiment.energy = 640
-  expect(() => prepareStandaloneDatasetError(project, [], engine.lookup)).toThrow('missing optical table')
-  expect(() => prepareStandaloneDatasetError(project, [{ ...tables[0], energy: [] }], engine.lookup)).toThrow('missing optical table')
+  expect(() => prepareStandaloneDatasetError(project, [], engine)).toThrow('missing optical table')
+  expect(() => prepareStandaloneDatasetError(project, [{ ...tables[0], energy: [] }], engine)).toThrow('missing optical table')
   project.datasets = []
   expect(() => calculateProjectDatasetError(project, [], engine)).toThrow('missing optical table')
   project.calculation.automaticOpticalConstants = false
   expect(calculateProjectDatasetError(project, [], engine)).toBe(0)
+})
+
+
+it.each([false, true])('prepares stored and inactive tensors before chi2 datasets, automatic=%s', automatic => {
+  const { project, engine, tables } = fixture()
+  project.calculation.automaticOpticalConstants = automatic
+  project.experiment.energy = 640
+  project.sample.layers[0].dielectricTensor = { values: Array(18).fill(9), anisotropic: true }
+  project.sample.elementProfiles = [{ element: 'Fe', f1: 7, f2: 0, f1Mag: 0, f2Mag: 0,
+    slabs: [], scatteringTensor: Array(18).fill(8) }]
+  engine.scatteringTensor = request => new Float64Array(18).fill(request.factors[0])
+  const before = structuredClone(project)
+  const prepared = prepareStandaloneDatasetError(project, tables, engine)
+  expect(prepared.opticalState.dielectricTensors[0]).toBeNull()
+  if (automatic) {
+    expect(prepared.opticalState.scatteringTensors![0]).toEqual(new Float64Array(18).fill(8))
+    expect(engine.lookup).toHaveBeenCalledTimes(4)
+  } else {
+    expect(prepared.opticalState.dielectricState![0]!.values).toEqual(new Float64Array(18))
+    expect(prepared.opticalState.scatteringTensors![0][0]).toBe(7)
+    expect(engine.lookup).not.toHaveBeenCalled()
+  }
+  expect(project).toEqual(before)
 })

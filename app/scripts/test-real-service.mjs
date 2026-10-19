@@ -579,6 +579,26 @@ try {
         const actualError = await service.calcChi2(chiProject, messages => lines.push(...messages))
         if (Math.abs(actualError - expectedError) > 1e-15 + 1e-10 * Math.abs(expectedError)) throw new Error('Scripted chi2 state mismatch: ' + algorithm)
         if (JSON.stringify(lines) !== '["chi2:1","chi2:1"]' || JSON.stringify(chiProject) !== chiBefore) throw new Error('Scripted chi2 isolation failed')
+        // GetState must rebuild manual tensors and replace automatic tensors
+        // before the first dataset, even without a Lua hook to reconstruct them.
+        for (const automatic of [false, true]) {
+          const saved = structuredClone(expectedFirst)
+          saved.calculation.automaticOpticalConstants = automatic
+          const independent = structuredClone(saved)
+          saved.sample.layers[1].dielectricTensor = { values: Array(18).fill(7), anisotropic: true }
+          const prior = JSON.stringify(saved)
+          const referenceError = await service.calcChi2(independent)
+          const savedError = await service.calcChi2(saved)
+          if (Math.abs(savedError - referenceError) > 1e-15 + 1e-10 * Math.abs(referenceError)) throw new Error('Chi2 saved tensor initialization mismatch: ' + algorithm)
+          saved.scripts.enabled = true
+          saved.scripts.beforeCalculation = 'assert(exx_r[1] < 2); print("prepared-chi2")'
+          const messages = []
+          const scriptedError = await service.calcChi2(saved, lines => messages.push(...lines))
+          if (Math.abs(scriptedError - referenceError) > 1e-15 + 1e-10 * Math.abs(referenceError) || JSON.stringify(messages) !== '["prepared-chi2"]') throw new Error('Chi2 prepared Lua tensor mismatch: ' + algorithm)
+          saved.scripts.enabled = false
+          saved.scripts.beforeCalculation = expectedFirst.scripts.beforeCalculation
+          if (JSON.stringify(saved) !== prior) throw new Error('Chi2 preparation mutated its input')
+        }
         for (const failure of ['range', 'missing']) {
           const invalid = structuredClone(chiProject)
           if (failure === 'range') invalid.experiment.energy = 900

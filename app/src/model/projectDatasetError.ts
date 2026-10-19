@@ -1,6 +1,6 @@
 import type { OpticalTable } from '../import/tables'
-import { refreshCompoundOptics, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
-import { HC_EV_ANGSTROM } from './units'
+import type { SerialOpticalState } from './refreshOpticalConstants'
+import { prepareProjectOptics, refreshStrictProjectOptics } from './projectOptics'
 import type { Project } from './project'
 import { prepareFitDataset, type FitErrorMode } from './fitDataset'
 import { calculateRealCurve, type RealCalculationEngine, type RealCurve, type RealBeforeCalculation } from './realCalculation'
@@ -24,21 +24,16 @@ export type FitErrorCalculator = (request: FitErrorRequest) => { error: number; 
 // Zero-weight active datasets are still evaluated, as in legacy; inactive ones are untouched.
 export function calculateProjectDatasetError(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }): number {
-  const prepared = prepareStandaloneDatasetError(project, tables, engine.lookup)
+  const prepared = prepareStandaloneDatasetError(project, tables, engine)
   return evaluateProjectDatasetError(prepared.project, tables, engine, prepared.opticalState).error
 }
 
-// Button22Click calls SetOCStrict at the current GUI energy before entering
-// the dataset loop. Individual dataset calculations still use partial refresh.
-export function prepareStandaloneDatasetError(project: Project, tables: OpticalTable[], lookup: RealTableLookup): {
-  project: Project; opticalState?: SerialOpticalState
-} {
-  if (!project.calculation.automaticOpticalConstants) return { project }
-  const cursors = new Map<OpticalTable, number>()
-  const refreshed = refreshCompoundOptics(project, tables,
-    HC_EV_ANGSTROM / (HC_EV_ANGSTROM / project.experiment.energy), lookup, cursors)
-  return { project: { ...project, sample: { ...project.sample, layers: refreshed.layers } },
-    opticalState: { ...refreshed, cursors } }
+// Button22Click performs GetState, then conditional SetOCStrict at the GUI
+// energy. Individual dataset calculations still use partial refresh.
+export function prepareStandaloneDatasetError(project: Project, tables: OpticalTable[], engine: RealCalculationEngine) {
+  const prepared = prepareProjectOptics(project, tables, engine)
+  return project.calculation.automaticOpticalConstants
+    ? refreshStrictProjectOptics(prepared, tables, engine.lookup) : prepared
 }
 
 // Return the serial state as well as the objective for the optimizer's next candidate.

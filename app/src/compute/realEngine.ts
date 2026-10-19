@@ -87,7 +87,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       if (message.kind === 'chi2') {
         // Table resolution belongs to the film state, even across temporary Lua VMs.
         const resolvedTables = new Map<number, OpticalTable>()
-        const initial = prepareStandaloneDatasetError(message.project, message.tables ?? [], engine.lookup)
+        const initial = prepareStandaloneDatasetError(message.project, message.tables ?? [], engine)
         const result = await evaluateProjectDatasetErrorAsync(initial.project, engine.fitError, async (prepared, previous) => {
           const scripted = prepared.project.scripts.enabled && prepared.project.scripts.beforeCalculation.trim()
           const session = scripted && createLuaSession ? await createLuaSession() : undefined
