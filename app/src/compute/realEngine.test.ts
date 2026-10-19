@@ -85,26 +85,28 @@ it('routes matrix qz requests through tensor preparation and preserves asymmetry
   expect(send.mock.calls[0][0]).toMatchObject({ type: 'result', result: { asymmetry: [.5, 0] } })
 })
 
-it('routes Zak qz and energy requests without tensor construction or Parratt fallback', async () => {
+it('routes Zak requests to the scalar solver after standalone energy GetState preparation', async () => {
   const project = createDefaultProject()
   project.calculation.algorithm = 'zak'
   project.experiment.qzScan.points = 2
   project.experiment.energyScan.energyMin = 100
   project.experiment.energyScan.energyMax = 200
   project.sample.layers.forEach(layer => { layer.opticalTable = 'sample' })
-  const send = vi.fn(), calculate = vi.fn(), dielectricTensor = vi.fn(), matrixQz = vi.fn()
+  const send = vi.fn(), calculate = vi.fn(), dielectricTensor = vi.fn(() => ({ values: new Float64Array(18), anisotropic: false })), matrixQz = vi.fn()
   const zakQz = vi.fn(() => new Float64Array([3, 1, 2, 2]))
   const zakEnergy = vi.fn(() => new Float64Array([3, 1, 2, 2, 1, 3]))
   const lookup = vi.fn(() => ({ values: new Float64Array([.01, .002]), cursor: 0 }))
   const handle = createRealRequestHandler(send, async () => ({ calculate, dielectricTensor, matrixQz,
     zakQz, zakEnergy, lookup, fitError: vi.fn(), matrixEnergy: vi.fn(), energyScan: vi.fn() }))
   await handle({ id: 1, kind: 'asymmetry', project })
+  expect(dielectricTensor).not.toHaveBeenCalled()
+  project.experiment.energy = 150 // SetOCStrict validates the initial energy too.
   const tables = [{ name: 'sample', kind: 'db' as const, energy: [90, 210], columns: [[.01, .01], [.002, .002]], warnings: [] }]
   await handle({ id: 2, kind: 'energyAsymmetry', project, tables })
   expect(zakQz).toHaveBeenCalledTimes(1)
   expect(zakEnergy).toHaveBeenCalledTimes(1)
   expect(calculate).not.toHaveBeenCalled()
-  expect(dielectricTensor).not.toHaveBeenCalled()
+  expect(dielectricTensor).toHaveBeenCalledTimes(project.sample.layers.length)
   expect(matrixQz).not.toHaveBeenCalled()
   expect(send.mock.calls[0][0]).toMatchObject({ type: 'result', result: { asymmetry: [.5, 0] } })
   expect(send.mock.calls[1][0]).toMatchObject({ type: 'result', result: { asymmetry: [.5, 0, -.5] } })

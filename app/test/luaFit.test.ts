@@ -1,3 +1,4 @@
+import type { OpticalTable } from '../src/import/tables'
 import { createRealRequestHandler } from '../src/compute/realEngine'
 import { fileURLToPath } from 'node:url'
 import { expect, it, vi } from 'vitest'
@@ -157,11 +158,19 @@ it.each(['reflectivity', 'asymmetry', 'energyScan', 'energyAsymmetry', 'fit'] as
     project.scripts.beforeCalculation = 'print("before failure")\nerror("broken script")'
     engine.dielectricTensor = () => ({ values: new Float64Array(18), anisotropic: false })
     engine.minimize = vi.fn()
+    const tables: OpticalTable[] = []
+    if (kind === 'energyScan' || kind === 'energyAsymmetry') {
+      // Reach Lua only after the energy button's strict primary-table gate.
+      project.experiment.energy = 640
+      project.sample.layers.forEach(layer => { layer.opticalTable = 'script-input' })
+      tables.push({ name: 'script-input', kind: 'db', energy: [600, 700], columns: [], warnings: [] })
+      engine.lookup = (_table, _energy, cursor) => ({ values: new Float64Array([.01, 0]), cursor: cursor + 1 })
+    }
     const runtime = createLuaRuntime(fileURLToPath(new URL('../node_modules/wasmoon/dist/glue.wasm', import.meta.url)))
     const send = vi.fn()
     const before = structuredClone(project)
     const handle = createRealRequestHandler(send, async () => engine, () => runtime.createSession())
-    await handle({ id: 7, kind, project, tables: [] })
+    await handle({ id: 7, kind, project, tables })
     expect(send.mock.calls[0][0]).toEqual({ id: 7, type: 'scriptMessages', lines: ['before failure'] })
     expect(send.mock.calls[1][0]).toMatchObject({ id: 7, type: 'error' })
     expect(send.mock.calls[1][0].message).toMatch(/BeforeCalculation:2:.*broken script/)

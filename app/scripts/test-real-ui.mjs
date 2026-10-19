@@ -203,8 +203,8 @@ try {
   await page.waitForFunction(() => document.querySelector('.debug-log')?.textContent.includes('Fit error:'))
   await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
   assert.equal(await page.locator('.debug-log').evaluate(node => node.textContent.split('before-script-error').length), beforeFitError + 1)
-  // Missing energy tables skip each point but still execute the constructor
-  // hook; verify its output survives both energy display transformations.
+  // The energy button requires primary tables even in manual mode. Its strict
+  // gate runs before Lua; the qz redraw can still execute the same script.
   scripted.experiment.qzScan.useDatasetPoints = true
   scripted.datasets[0].columns.energy = [640, 641, 642, 643]
   scripted.scripts.beforeCalculation = 'print("energy-ui:", renewocs)'
@@ -216,8 +216,9 @@ try {
     await page.waitForTimeout(200)
     const count = await page.locator('.debug-log').evaluate(node => node.textContent.split('energy-ui:0').length)
     await page.getByRole('button', { name: 'Energy Scan', exact: true }).click()
-    await page.waitForFunction(count => document.querySelector('.debug-log')?.textContent.split('energy-ui:0').length > count, count)
+    await page.waitForFunction(() => document.querySelector('.status-bar__error')?.textContent.includes('missing optical table'))
     await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+    assert.equal(await page.locator('.debug-log').evaluate(node => node.textContent.split('energy-ui:0').length), count)
   }
   // Explicit Script Window execution, atomic publication and JSON/undo preservation.
   const manual = structuredClone(scripted)

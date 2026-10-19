@@ -322,11 +322,11 @@ try {
           polarization: missingEnergy.experiment.polarization, active: true,
           columns: { energy: [639.5, 640.5], qz: [.03, .03], reflectivity: [1, 1] } }]
         missingEnergy.activeDatasetIndex = 0
-        const mono = await service.calcEnergyScan(missingEnergy)
-        const dichroic = await service.calcEnergyAsymmetry(missingEnergy)
-        if (mono.reflectivity.some(value => value !== 1) || dichroic.reflectivityPlus.some(value => value !== 1) ||
-          dichroic.reflectivityMinus.some(value => value !== 1) || dichroic.asymmetry.some(value => value !== 0)) {
-          throw new Error(`Missing-primary energy skip mismatch for ${algorithm}`)
+        for (const method of ['calcEnergyScan', 'calcEnergyAsymmetry']) {
+          let rejected = false
+          try { await service[method](missingEnergy) }
+          catch (error) { rejected = /missing optical table/.test(String(error)) }
+          if (!rejected) throw new Error(`Standalone energy strict table gate failed for ${algorithm}`)
         }
       }
       tables = []
@@ -841,6 +841,35 @@ try {
       savedScriptQz.scripts.beforeCalculation = 'assert(exx_r[0] == 0.96); print("saved-qz-script")'
       const scriptQz = await service.calcAsymmetry(savedScriptQz)
       if (scriptQz.scriptMessages[0] !== 'saved-qz-script') throw new Error('Saved qz tensor was not supplied to Lua')
+
+      // Standalone energy scans strictly replace saved active tensors before
+      // the constructor hook, including when automatic constants are disabled.
+      for (const automatic of [false, true]) {
+        const savedEnergy = JSON.parse(savedQzBefore)
+        savedEnergy.calculation.automaticOpticalConstants = automatic
+        savedEnergy.sample.layers[0].dielectricTensor.values.fill(7)
+        savedEnergy.experiment.qzScan.points = 2
+        savedEnergy.experiment.energyScan = { energyMin: 630, energyMax: 650, fixed: 'qz', qz: .03, angle: 2 }
+        savedEnergy.scripts.enabled = true
+        savedEnergy.scripts.beforeCalculation = 'assert(exx_r[0] == 0.96); calls = (calls or 0) + 1; print(calls)'
+        tables = [
+          { name: 'saved-qz', kind: 'db', energy: [600, 900], columns: [[.01, .01], [.001, .001]], warnings: [] },
+          { name: 'saved-qz', kind: 'e', energy: [600, 900], columns: storedValues.map(value => [value, value]), warnings: [] },
+          { name: 'vacuum', kind: 'db', energy: [600, 900], columns: [[0, 0], [0, 0]], warnings: [] },
+        ]
+        const unchanged = JSON.stringify(savedEnergy)
+        const savedEnergyResult = await service.calcEnergyAsymmetry(savedEnergy)
+        if (JSON.stringify(savedEnergyResult.scriptMessages) !== '["1","2","3","4"]') throw new Error('Energy constructor did not follow strict refresh')
+        const energyReference = JSON.parse(unchanged)
+        energyReference.scripts.enabled = false
+        delete energyReference.sample.layers[0].dielectricTensor
+        const expectedEnergy = await service.calcEnergyAsymmetry(energyReference)
+        for (const field of ['reflectivityPlus', 'reflectivityMinus', 'asymmetry']) savedEnergyResult[field].forEach((value, index) => {
+          if (Math.abs(value - expectedEnergy[field][index]) > 1e-15 + 1e-10 * Math.abs(expectedEnergy[field][index])) throw new Error('Energy stored-state refresh changed native curves')
+        })
+        if (JSON.stringify(savedEnergy) !== unchanged) throw new Error('Energy initialization changed saved input')
+      }
+      tables = []
 
       // JSON-restored tensor state survives skipped automatic refresh in spectra.
       const storedSpectrum = createDefaultProject()

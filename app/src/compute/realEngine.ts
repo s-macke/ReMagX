@@ -1,3 +1,4 @@
+import { prepareStandaloneEnergyScan } from '../model/standaloneEnergyScan'
 import type { OpticalTable } from '../import/tables'
 import { prepareManualScript } from '../model/manualScript'
 import { createBeforeCalculation, createProjectScript } from './lua/beforeCalculation'
@@ -98,13 +99,14 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       }
       const energy = message.kind === 'energyScan' || message.kind === 'energyAsymmetry'
       const mode = message.kind === 'reflectivity' || message.kind === 'energyScan' ? 'monochromatic' : 'dichroic'
+      const preparedEnergy = energy ? prepareStandaloneEnergyScan(message.project, message.tables ?? [], engine) : undefined
       const hasScript = message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
       const session = hasScript && createLuaSession ? await createLuaSession() : undefined
       const scriptMessages: string[] = []
       let result
       try {
         const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], text => { scriptMessages.push(text); send({ id: message.id, type: 'scriptMessages', lines: [text] }) }) : undefined
-        result = calculateRealCurve(message.project, message.tables ?? [], engine, energy ? 'energy' : 'qz', mode, undefined, hook)
+        result = calculateRealCurve(preparedEnergy?.project ?? message.project, message.tables ?? [], engine, energy ? 'energy' : 'qz', mode, preparedEnergy?.opticalState, hook)
       } finally { session?.close() }
       if (energy) {
         if (!result.energy) throw new Error('Missing energy-scan coordinates.')
