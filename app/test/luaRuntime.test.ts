@@ -65,3 +65,57 @@ describe('calculation-owned Lua runtime', () => {
     expect(() => createLuaRuntime('')).toThrow('asset location')
   })
 })
+
+it('supports reentrant hooks with shared globals and restores the callback stack', async () => {
+  const engine = await new LuaFactory(wasmPath).createEngine()
+  const session = new LuaSession(engine)
+  const input = { energy: 700, epsilon: 1e-8, resolution: .01, energyScanQz: .1, renewOpticalConstants: 0 }
+  try {
+    session.setGlobal('nestedHook', () => session.runHook({ ...input, energy: 640 }).energy)
+    session.compile(`calls = (calls or 0) + 1
+      if calls % 2 == 1 then
+        energy = 900
+        local value = nestedHook()
+        assert(value == 641 and energy == 641)
+      else
+        energy = energy + 1
+      end
+      return "ignored", 42`, 'BeforeCalculation')
+    for (let iteration = 0; iteration < 20; iteration++) {
+      expect(session.runHook(input).energy).toBe(641)
+      expect(engine.global.getTop()).toBe(0)
+    }
+    expect(session.getGlobal('calls')).toBe(40)
+  } finally { session.close() }
+})
+
+it.each([false, true])('defers disposal until nested failure unwinds, even if Lua catches it (%s)', async caught => {
+  const engine = await new LuaFactory(wasmPath).createEngine()
+  const session = new LuaSession(engine)
+  let aliveAfterFailure = false
+  session.setGlobal('nestedFailure', () => {
+    try { session.execute('local value = 1\nerror("nested failure")', 'BeforeCalculation') }
+    finally { aliveAfterFailure = !engine.global.isClosed() }
+  })
+  expect(() => session.execute(caught ? 'pcall(nestedFailure)' : 'nestedFailure()', 'Default'))
+    .toThrow(caught ? /closed/ : /BeforeCalculation:2:.*nested failure/)
+  expect(aliveAfterFailure).toBe(true)
+  expect(engine.global.isClosed()).toBe(true)
+  expect(() => session.getGlobal('energy')).toThrow('closed')
+  session.close()
+  const replacement = await runtime.createSession()
+  try { replacement.execute('value = 42', 'Default'); expect(replacement.getGlobal('value')).toBe(42) }
+  finally { replacement.close() }
+})
+
+it('defers explicit callback disposal until the outer hook returns', async () => {
+  const engine = await new LuaFactory(wasmPath).createEngine()
+  const session = new LuaSession(engine)
+  let aliveAfterClose = false
+  session.setGlobal('dispose', () => { session.close(); session.close(); aliveAfterClose = !engine.global.isClosed() })
+  session.compile('dispose()', 'BeforeCalculation')
+  expect(() => session.runHook({ energy: 700, epsilon: 1e-8, resolution: 0, energyScanQz: .1, renewOpticalConstants: 0 }))
+    .toThrow('closed')
+  expect(aliveAfterClose).toBe(true)
+  expect(engine.global.isClosed()).toBe(true)
+})

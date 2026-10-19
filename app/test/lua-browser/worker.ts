@@ -87,10 +87,27 @@ async function run() {
     try {
       session.execute('local a = 1\na = a + 1\nKramersKronigRange()', 'BeforeCalculation')
     } catch (error) { diagnostic = String(error) }
+    const nested = await runtime.createSession()
+    const hookState = { energy: 700, epsilon: 1e-8, resolution: .01, energyScanQz: .1, renewOpticalConstants: 0 }
+    let nestedPassed = false
+    try {
+      nested.setGlobal('invoke', () => nested.runHook({ ...hookState, energy: 640 }).energy)
+      nested.compile('calls = (calls or 0) + 1; if calls % 2 == 1 then energy = 900; assert(invoke() == 641) else energy = energy + 1 end', 'BeforeCalculation')
+      nestedPassed = nested.runHook(hookState).energy === 641 && nested.runHook(hookState).energy === 641 && nested.getGlobal('calls') === 4
+    } finally { nested.close() }
+    for (const caught of [false, true]) {
+      const failed = await runtime.createSession()
+      failed.setGlobal('invoke', () => failed.execute('local x = 1\nerror("nested failure")', 'BeforeCalculation'))
+      let failure = ''
+      try { failed.execute(caught ? 'pcall(invoke)' : 'invoke()', 'Default') } catch (error) { failure = String(error) }
+      nestedPassed &&= caught ? failure.includes('closed') : /BeforeCalculation:2:.*nested failure/.test(failure)
+      try { failed.getGlobal('energy'); nestedPassed = false } catch { /* failed session is closed */ }
+      failed.close()
+    }
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }

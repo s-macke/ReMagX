@@ -11,13 +11,15 @@ import { installScriptElements } from './elements'
 export class LuaSession {
   private engine: LuaEngine | undefined
   private compiled = false
+  private executionDepth = 0
+  private closeRequested = false
 
   constructor(engine: LuaEngine) {
     this.engine = engine
   }
 
   private activeEngine(): LuaEngine {
-    if (!this.engine) throw new Error('Lua session is closed')
+    if (!this.engine || this.closeRequested) throw new Error('Lua session is closed')
     return this.engine
   }
 
@@ -79,6 +81,7 @@ export class LuaSession {
     if (!this.compiled) throw new Error('Lua script has not been compiled')
     const global = engine.global
     const stackTop = global.getTop()
+    this.executionDepth++
     try {
       for (const [name, value] of [['energy', state.energy], ['epsilon', state.epsilon],
         ['resolution', state.resolution], ['energyscan_qz', state.energyScanQz],
@@ -90,6 +93,7 @@ export class LuaSession {
       // Resolve Start each time, as legacy does; scripts can replace their entry function.
       global.lua.lua_getglobal(global.address, 'Start')
       global.runSync()
+      this.activeEngine() // A caught nested failure must not publish partial state.
       global.setTop(stackTop)
       const read = (name: string) => {
         global.lua.lua_getglobal(global.address, name)
@@ -106,7 +110,7 @@ export class LuaSession {
       this.close()
       throw error
     } finally {
-      if (this.engine) global.setTop(stackTop)
+      this.finishExecution(engine, stackTop)
     }
   }
 
@@ -114,20 +118,32 @@ export class LuaSession {
   execute(source: string, name: 'Default' | 'BeforeCalculation'): void {
     const engine = this.activeEngine()
     const stackTop = engine.global.getTop()
+    this.executionDepth++
     try {
       // No wrapper lines: Lua diagnostics refer to the user's actual source line.
       engine.global.loadString(source, `@${name}`)
       engine.global.runSync()
+      this.activeEngine()
     } catch (error) {
       // A failed script may have changed globals; never reuse that partial state.
       this.close()
       throw error
     } finally {
-      if (this.engine) engine.global.setTop(stackTop)
+      this.finishExecution(engine, stackTop)
+    }
+  }
+
+  private finishExecution(engine: LuaEngine, stackTop: number): void {
+    try { engine.global.setTop(stackTop) } finally {
+      this.executionDepth--
+      if (this.closeRequested && this.executionDepth === 0) this.close()
     }
   }
 
   close(): void {
+    this.closeRequested = true
+    // lua_close cannot run while a Lua -> JS -> Lua call is still unwinding.
+    if (this.executionDepth > 0) return
     const engine = this.engine
     this.engine = undefined
     engine?.global.close()
