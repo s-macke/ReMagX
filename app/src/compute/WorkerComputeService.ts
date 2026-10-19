@@ -83,8 +83,8 @@ export class WorkerComputeService implements ComputeService {
     return this.request('scatteringFactors', project, undefined, spectrum)
   }
 
-  layerSpectrum(project: Project, spectrum: LayerSpectrumQuery): Promise<LayerSpectrum> {
-    return this.request('layerSpectrum', project, undefined, spectrum)
+  layerSpectrum(project: Project, spectrum: LayerSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum> {
+    return this.request('layerSpectrum', project, undefined, spectrum, onScriptMessages)
   }
 
   calcReflectivity(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<ReflectivityCurve> {

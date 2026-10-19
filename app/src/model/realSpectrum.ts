@@ -1,15 +1,15 @@
+import { evaluateCompoundSpectrum } from './compoundSpectrum'
+import type { RealBeforeCalculation } from './realCalculation'
 import { refreshElementOptics } from './refreshElementOptics'
 import type { ScatteringTensorCalculator } from './scatteringTensors'
 import { HC_EV_ANGSTROM } from './units'
 import type { ElementSpectrumQuery, LayerSpectrumQuery, LayerSpectrum } from '../compute/ComputeService'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
-import { realDatabaseValues } from './realDatabaseValues'
-import { applyDatabaseValues } from './databaseValues'
 import type { RealTableLookup } from './refreshOpticalConstants'
 
-function grid(project: Project, tables: OpticalTable[], name: string, kind: OpticalTable['kind'], skipZero: boolean) {
-  if (project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
+function grid(project: Project, tables: OpticalTable[], name: string, kind: OpticalTable['kind'], skipZero: boolean, scripted = false) {
+  if (!scripted && project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
     throw new Error('BeforeCalculation Lua execution is not implemented in real spectra yet.')
   }
   const table = tables.find(table => name !== '' && table.name === name && table.kind === kind)
@@ -37,7 +37,7 @@ function evaluate(project: Project, tables: OpticalTable[], energy: number[], lo
         lookup, construct, cursors, scatteringTensors)
       scatteringTensors = refreshed.scatteringTensors
       current = { ...current, sample: { ...current.sample, elementProfiles: refreshed.elementProfiles } }
-    } else current = applyDatabaseValues(current, realDatabaseValues(current, tables, lookup, cursors))
+    } else throw new Error('Element spectrum preparation requires element mode.')
     const pair = read(current, value)
     if (!pair.every(Number.isFinite)) throw new Error('Real spectrum exceeds the supported numerical range.')
     first.push(pair[0]); second.push(pair[1])
@@ -55,15 +55,15 @@ export function realScatteringFactors(project: Project, query: ElementSpectrumQu
   }, construct)
 }
 
-export function realLayerSpectrum(project: Project, query: LayerSpectrumQuery, lookup: RealTableLookup, construct?: ScatteringTensorCalculator): LayerSpectrum {
+export function realLayerSpectrum(project: Project, query: LayerSpectrumQuery, lookup: RealTableLookup, construct?: ScatteringTensorCalculator, beforeCalculation?: RealBeforeCalculation): LayerSpectrum {
   if (project.sample.mode === 'compound') {
     const layer = project.sample.layers[query.layerIndex]
     if (!layer) throw new Error('Select a layer to show its spectrum.')
-    const energy = grid(project, query.tables, layer.opticalTable, query.magnetic ? 'm' : 'db', false)
-    return evaluate(project, query.tables, energy, lookup, current => {
+    const energy = grid(project, query.tables, layer.opticalTable, query.magnetic ? 'm' : 'db', false, !!beforeCalculation)
+    return evaluateCompoundSpectrum(project, query.tables, energy, lookup, current => {
       const row = current.sample.layers[query.layerIndex]
       return query.magnetic ? [row.deltaMag, row.betaMag] : [row.delta, row.beta]
-    })
+    }, beforeCalculation)
   }
   if (query.magnetic) throw new Error('Element magnetic spectra are not available.')
   const element = project.sample.elementProfiles[query.elementIndex ?? 0]

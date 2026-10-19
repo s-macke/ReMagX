@@ -705,6 +705,28 @@ try {
         { name: 'sample', kind: 'm', energy: [100, 150, 200], columns: [[3, 3, 3], [4, 4, 4]], warnings: [] },
       ]
       output.realMagneticSpectrum = await service.layerSpectrum(spectrumProject, { layerIndex: 0, magnetic: true, tables: spectrumTables })
+      for (const automatic of [false, true]) {
+        const scriptedSpectrum = structuredClone(spectrumProject)
+        scriptedSpectrum.experiment.energy = 150
+        scriptedSpectrum.calculation.automaticOpticalConstants = automatic
+        scriptedSpectrum.scripts.enabled = true
+        scriptedSpectrum.scripts.beforeCalculation = 'calls = (calls or 0) + 1; delta[0] = delta[0] + calls; deltam[0] = deltam[0] + calls; print(calls, ":", energy); energy = energy + 7'
+        const before = JSON.stringify(scriptedSpectrum)
+        for (const magnetic of [false, true]) {
+          const streamed = []
+          const result = await service.layerSpectrum(scriptedSpectrum, { layerIndex: 0, magnetic, tables: spectrumTables }, lines => streamed.push(...lines))
+          const expected = magnetic ? (automatic ? [6, 6, 10] : [12, 6, 10]) : [3, 4]
+          const messages = magnetic ? ['1:150', '2:100', '3:150', '4:200'] : ['1:150', '2:120', '3:180']
+          if (JSON.stringify(result.first) !== JSON.stringify(expected) || JSON.stringify(streamed) !== JSON.stringify(messages) ||
+              JSON.stringify(result.scriptMessages) !== JSON.stringify(messages) || JSON.stringify(scriptedSpectrum) !== before) throw new Error('Scripted compound spectrum mismatch')
+        }
+        const failureLines = []
+        scriptedSpectrum.scripts.beforeCalculation = 'print("spectrum failure output")\nerror("spectrum failed")'
+        let failed = false
+        try { await service.layerSpectrum(scriptedSpectrum, { layerIndex: 0, magnetic: true, tables: spectrumTables }, lines => failureLines.push(...lines)) }
+        catch (error) { failed = /BeforeCalculation:2/.test(String(error)) }
+        if (!failed || failureLines[0] !== 'spectrum failure output') throw new Error('Spectrum error/output handling failed')
+      }
       spectrumProject.sample.mode = 'element'
       spectrumProject.sample.elementProfiles = [{ element: 'Fe', f1: 7, f2: 8, f1Mag: 0, f2Mag: 0,
         slabs: [{ thickness: 1, roughness: 0, density: 2 }] }]

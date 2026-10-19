@@ -587,11 +587,11 @@ it('converts materials through the worker and reports unsupported formulas witho
 })
 
 
-it.each(['calcChi2', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'startFit'] as const)('routes %s script messages only to their pending request and rejects late output after cancellation', async method => {
+it.each(['calcChi2', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'startFit', 'layerSpectrum'] as const)('routes %s script messages only to their pending request and rejects late output after cancellation', async method => {
   const worker = controlledWorker()
   const service = new WorkerComputeService(() => worker)
   const lines = vi.fn()
-  const request = method === 'startFit' ? service.startFit(createDefaultProject(), vi.fn(), lines) : service[method](createDefaultProject(), lines)
+  const request = method === 'layerSpectrum' ? service.layerSpectrum(createDefaultProject(), { layerIndex: 0, magnetic: false, tables: [] }, lines) : method === 'startFit' ? service.startFit(createDefaultProject(), vi.fn(), lines) : service[method](createDefaultProject(), lines)
   const response = worker.onmessage!
   response({ data: { id: 1, type: 'scriptMessages', lines: ['running'] } } as MessageEvent<WorkerResponse>)
   response({ data: { id: 2, type: 'scriptMessages', lines: ['wrong request'] } } as MessageEvent<WorkerResponse>)

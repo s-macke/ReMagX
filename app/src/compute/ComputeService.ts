@@ -11,7 +11,7 @@ import type { Layer, Project } from '../model/project'
 export interface TensorQuery { layerIndex: number; tables: OpticalTable[]; spectrum: boolean }
 export interface ElementSpectrumQuery { elementIndex: number; tables: OpticalTable[] }
 export interface LayerSpectrumQuery { elementIndex?: number; layerIndex: number; magnetic: boolean; tables: OpticalTable[] }
-export interface LayerSpectrum { energy: number[]; first: number[]; second: number[] }
+export interface LayerSpectrum { scriptMessages?: string[]; energy: number[]; first: number[]; second: number[] }
 
 export interface DensityProfiles {
   z: number[]
@@ -104,7 +104,7 @@ export interface ComputeService {
   databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues>
   densityProfiles(project: Project): Promise<DensityProfiles>
   scatteringFactors(project: Project, query: ElementSpectrumQuery): Promise<LayerSpectrum>
-  layerSpectrum(project: Project, query: LayerSpectrumQuery): Promise<LayerSpectrum>
+  layerSpectrum(project: Project, query: LayerSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum>
   calcReflectivity(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<ReflectivityCurve>
   calcEnergyScan(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<EnergyScanCurve>
   calcEnergyAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<EnergyAsymmetryCurve>

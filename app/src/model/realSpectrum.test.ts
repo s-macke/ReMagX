@@ -52,5 +52,5 @@ it('rejects unsupported scripts, missing selections/tables and nonfinite results
   expect(() => realLayerSpectrum(project, { ...query, layerIndex: 2 }, lookup, construct)).toThrow('Select')
   expect(() => realLayerSpectrum(project, { ...query, tables: [] }, lookup, construct)).toThrow('Load')
   expect(() => realScatteringFactors(project, { elementIndex: 0, tables: [] }, lookup, construct)).toThrow('Select')
-  expect(() => realLayerSpectrum(project, query, () => ({ values: new Float64Array([Infinity, 2]), cursor: 0 }))).toThrow('Invalid scalar')
+  expect(() => realLayerSpectrum(project, query, () => ({ values: new Float64Array([Infinity, 2]), cursor: 0 }))).toThrow('Invalid optical constants')
 })
