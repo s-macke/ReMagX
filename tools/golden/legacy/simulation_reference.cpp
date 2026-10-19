@@ -18,11 +18,21 @@ int main(int argc, char** argv) {
     // Process ownership avoids unrelated destruction paths in the original code.
     auto* state = new CStateHandler;
     if (!state->LoadState(argv[1])) return 4;
-    if (state->numberofpoints <= 0 || state->numberofpoints > 1000000) return 5;
     if (state->ocautomatic && (!Getdblist(*state) || !Filldb(*state))) return 6;
     CDataSet data;
-    for (int index = 1; index <= state->numberofpoints; ++index)
-        data.qz.push_back(LinInterpolation(0, index, state->numberofpoints, state->qzmin, state->qzmax));
+    // Unit1.cpp Button3Click copies the selected dataset and adapts it once.
+    // The terminal front end adds qzshift a second time; do not reproduce that
+    // different entry path when validating the web application's GUI behavior.
+    if (state->usemeasurementqz) {
+        if (state->activedatasetindex < 0 || state->activedatasetindex >= state->datasets.size()) return 5;
+        data = state->datasets[state->activedatasetindex];
+        if (data.qz.empty() || data.qz.size() > 1000000) return 5;
+        data.Adapt(data.qzshift, data.energyshift, data.multiplicator, data.translation);
+    } else {
+        if (state->numberofpoints <= 0 || state->numberofpoints > 1000000) return 5;
+        for (int index = 1; index <= state->numberofpoints; ++index)
+            data.qz.push_back(LinInterpolation(0, index, state->numberofpoints, state->qzmin, state->qzmax));
+    }
     data.polarization = state->polarization;
     data.energy = state->Var.LambdaToEnergy();
     if (CalcReflectivity<double>(data, *state) != RX_SUCCESS) return 7;

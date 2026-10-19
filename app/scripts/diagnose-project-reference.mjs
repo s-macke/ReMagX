@@ -20,17 +20,36 @@ try {
     '--output', executable], { stdio: 'pipe', timeout: 180000 })
   const fixture = await readFile(resolve(root, 'app/test/fixtures/default.all'), 'utf8')
   const cases = []
+  async function addCase(source, settings) {
+    const path = resolve(temporary, 'project.all')
+    await writeFile(path, source)
+    const points = JSON.parse(execFileSync(executable, [path], { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString())
+    cases.push({ source, points, settings })
+  }
   for (const algorithm of [0, 1, 2]) for (const magnetic of [0, 1])
     for (const resolution of [0, .001]) for (const fast of [0, 1]) {
     const source = fixture.replace(/^(algorithm\s*=).*$/m, `$1 ${algorithm}`)
       .replace(/^(magnetizationmode\s*=).*$/m, `$1 ${magnetic}`)
       .replace(/^(resolution\s*=).*$/m, `$1 ${resolution}`)
       .replace(/^(fastresolution\s*=).*$/m, `$1 ${fast}`)
-    const path = resolve(temporary, 'project.all')
-    await writeFile(path, source)
-    const points = JSON.parse(execFileSync(executable, [path], { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString())
-    cases.push({ source, points, settings: { algorithm, magnetic, resolution, fast } })
+    await addCase(source, { algorithm, magnetic, resolution, fast, scan: 'generated' })
   }
+  for (const algorithm of [0, 1, 2]) for (const fast of [0, 1])
+    for (const shift of [0, 1e-10, 1.1e-10, .007, -.007]) {
+      const source = fixture.replace(/^(algorithm\s*=).*$/m, `$1 ${algorithm}`)
+        .replace(/^(magnetizationmode\s*=).*$/m, '$1 1')
+        .replace(/^(fastresolution\s*=).*$/m, `$1 ${fast}`)
+        .replace(/^(usemeasurementqz\s*=).*$/m, '$1 1') + '\n' + [
+          'datasetnumber = 1', 'dataset_qz = 0.4', 'dataset_R0 = 99',
+          'datasetnumber = 2', `datasetqztranslation = ${shift}`,
+          'datasetmultiplicator = 9', 'datasettranslator = 2',
+          'datasetresolution = 0.05', 'datasetenergyshift = 7',
+          'datasetray1sigmare = 0', 'datasetray1pire = 1',
+          ...[.1, .03, .1, .07].flatMap(value => [`dataset_qz = ${value}`, 'dataset_R0 = -7']),
+          'activedatasetindex = 2', '',
+        ].join('\n')
+      await addCase(source, { algorithm, magnetic: 1, fast, shift, scan: 'dataset' })
+    }
   await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' },
     build: { outDir: destination, emptyOutDir: true,
       rollupOptions: { input: resolve(root, 'app/test/real-service/entry.ts'), output: { entryFileNames: 'entry.js' } } } })

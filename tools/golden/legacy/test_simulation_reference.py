@@ -80,6 +80,38 @@ class SimulationReferenceTest(unittest.TestCase):
             expected = abs((incident - transmitted) / (incident + transmitted)) ** 2
             self.assertLessEqual(abs(actual - expected), 1e-15 + 1e-10 * abs(expected))
 
+    def test_selected_dataset_order_and_shift_threshold(self):
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        fixture = fixture.replace('usemeasurementqz = 0', 'usemeasurementqz = 1')
+        selected = [.1, .03, .1, .07]
+        for shift in [0, 1e-10, 1.1e-10, .007, -.007]:
+            content = fixture + '\n' + '\n'.join([
+                'datasetnumber = 1', 'dataset_qz = 0.4', 'dataset_R0 = 99',
+                'datasetnumber = 2', f'datasetqztranslation = {shift}',
+                'datasetmultiplicator = 9', 'datasettranslator = 2',
+                *[line for value in selected for line in [f'dataset_qz = {value}', 'dataset_R0 = -7']],
+                'activedatasetindex = 2', '',
+            ])
+            path = Path(self.directory.name) / 'dataset.all'
+            path.write_text(content)
+            points = self.run_fixture(path)
+            expected = [value + (shift if abs(shift) > 1e-10 else 0) for value in selected]
+            self.assertEqual([point[0] for point in points], expected)
+            self.assertEqual(points[0][0], points[2][0])
+            self.assertLessEqual(abs(points[0][1] - points[2][1]), 1e-15 + 1e-10 * abs(points[0][1]))
+            self.assertTrue(all(math.isfinite(value) and value >= 0 for _, value in points))
+
+    def test_dataset_selection_failure_publishes_no_curve(self):
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        fixture = fixture.replace('usemeasurementqz = 0', 'usemeasurementqz = 1')
+        for selected in [0, -1, 1000]:
+            path = Path(self.directory.name) / 'invalid-selection.all'
+            path.write_text(fixture + f'\nactivedatasetindex = {selected}\n')
+            result = subprocess.run([self.executable, path], capture_output=True, text=True, timeout=10)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            self.assertEqual(result.stderr, '')
+
     def test_missing_input_has_no_diagnostics_or_partial_curve(self):
         result = subprocess.run([self.executable, Path(self.directory.name) / 'PRIVATE_MARKER.all'],
                                 capture_output=True, text=True, timeout=10)

@@ -16,9 +16,9 @@ whole finite curve before publishing it. The caller must impose a timeout, parti
 for projects containing scripts. Original Lua retains filesystem/OS access: this is a
 local reference tool for trusted projects, not a sandbox or a web runtime.
 
-This stage calls original LoadState, optional Getdblist/Filldb, the generated qz grid,
+This stage calls original LoadState, optional Getdblist/Filldb, generated or selected-dataset qz coordinates,
 and CalcReflectivity<double>, including original preparation and postprocessing. It does
-not reconstruct every GUI GetState/SetOCStrict path, measured-point grids, energy scans,
+not reconstruct every GUI GetState/SetOCStrict path, energy scans,
 dichroic entry points, or fit workflows. Original non-Borland Lua callbacks retain their
 terminal stub behavior. The system FFTW library is not pinned; Fourier results have not
 been validated. Original segmentation helpers remain private reference dependencies,
@@ -27,7 +27,12 @@ private source, binary, lookup table or research curve is committed.
 
 Tests establish a finite default curve, a zero-contrast curve, an independent pure-sigma
 Fresnel interface comparison at D-23, suppressed missing-file diagnostics, and absence of
-optimizer linkage. These do not establish corpus-wide simulation goldens, a cleaned public
+optimizer linkage. Measured-grid checks cover dataset selection, original order, duplicate
+coordinates, the strict shift threshold and invalid/empty selections. Coordinates are checked
+exactly; duplicate intensities use D-23 because original fast convolution can differ by rounding.
+The adapter follows GUI Button3Click: adapt the selected dataset once, then apply experiment
+energy/polarization. It does not reproduce the terminal executable’s second shift.
+These do not establish corpus-wide simulation goldens, a cleaned public
 native rebuild, WASM whole-project parity, or Wine cross-validation. Those checklist items
 remain open.
 
@@ -39,8 +44,10 @@ source tree; `WASM_DIRECTORY` selects the directory containing `remagx-core.mjs`
 The tool rebuilds the hash-gated original reference, generates only public-default-fixture
 variants, imports each through the web importer, and calculates through the actual
 ComputeService, worker and WASM in Chromium. It checks input immutability and compares
-both coordinates and reflectivity with unchanged D-23. Its 24 cases cover Parratt,
+both coordinates and reflectivity with unchanged D-23. Its 24 generated-grid cases cover Parratt,
 Visnovsky and Zak, magnetic off/on, zero/nonzero angular resolution and exact/fast modes.
+Thirty additional measured-grid cases cover all three algorithms, exact/fast resolution,
+selected datasets, unordered/duplicate coordinates and five shifts around the threshold.
 It does not cover magnetic profiles, automatic tables, scripts, energy scans or private
 corpus acceptance.
 
