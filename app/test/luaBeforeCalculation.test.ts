@@ -85,13 +85,13 @@ it('invalidates only tensors whose optical tables were refreshed before the scri
 })
 
 
-it('line-shape helpers read stored state energy until hook globals are committed', async () => {
+it.each(['Imag', 'Real'] as const)('line-shape %s reads stored state energy until hook globals are committed', async part => {
   const project = createDefaultProject(); project.experiment.energy = 640
-  project.scripts.beforeCalculation = 'energy = 900; value = GetGaussLorentzianImag(640, 0.03, 0.1, 50)'
+  project.scripts.beforeCalculation = `energy = 900; value = GetGaussLorentzian${part}(640, 0.03, 0.1, 50)`
   const engine: RealCalculationEngine = { calculate: vi.fn(), energyScan: vi.fn(), zakQz: vi.fn(), zakEnergy: vi.fn(),
     matrixQz: vi.fn(), matrixEnergy: vi.fn(), lookup: vi.fn(),
     dielectricTensor: () => ({ values: new Float64Array(18), anisotropic: false }),
-    gaussLorentzianImag: vi.fn(energy => energy) }
+    [`gaussLorentzian${part}`]: vi.fn((energy: number) => energy) }
   const session = await runtime.createSession()
   try {
     const hook = createBeforeCalculation(session, engine, [])
@@ -99,6 +99,6 @@ it('line-shape helpers read stored state energy until hook globals are committed
     expect(session.getGlobal('value')).toBe(640)
     hook(first.project, first.opticalState)
     expect(session.getGlobal('value')).toBe(900)
-    expect(vi.mocked(engine.gaussLorentzianImag!).mock.calls.map(args => args.slice(1))).toEqual([[640, .03, .1, 50], [640, .03, .1, 50]])
+    expect(vi.mocked(engine[`gaussLorentzian${part}`]!).mock.calls.map(args => args.slice(1))).toEqual([[640, .03, .1, 50], [640, .03, .1, 50]])
   } finally { session.close() }
 })

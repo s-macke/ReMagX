@@ -14,7 +14,8 @@ const handle = createRealRequestHandler(response => self.postMessage(response), 
     import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl), import(/* @vite-ignore */ fitErrorUrl), import(/* @vite-ignore */ optimizerUrl),
   ])
   const instance = await core.default()
-  return { gaussLorentzianImag: (...parameters) => adapter.calculateGaussLorentzianImag(instance, parameters),
+  return { gaussLorentzianReal: (...parameters) => adapter.calculateGaussLorentzianReal(instance, parameters),
+    gaussLorentzianImag: (...parameters) => adapter.calculateGaussLorentzianImag(instance, parameters),
     minimize: request => optimizerAdapter.minimizeSimplex(instance, request),
     fitError: request => fitErrorAdapter.calculateFitError(instance, request),
     dielectricTensor: request => adapter.calculateDielectricTensor(instance, request),

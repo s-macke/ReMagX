@@ -459,3 +459,12 @@ export function calculateGaussLorentzianImag(module, parameters) {
     return module.HEAPF64[output / 8]
   })
 }
+
+export function calculateGaussLorentzianReal(module, parameters) {
+  if (!validVector(parameters, 5)) throw new TypeError('Invalid Gauss-Lorentzian input')
+  return withBuffers(module, allocate => {
+    const output = allocate(1)
+    checkStatus(module._remagx_gauss_lorentzian_real(...parameters, output), 'Gauss-Lorentzian real part')
+    return module.HEAPF64[output / 8]
+  })
+}

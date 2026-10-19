@@ -120,6 +120,14 @@ if __name__ == '__main__':
             status, value = evaluate(parameters)
             assert status == 0 and math.isfinite(value)
             payload.append(dict(parameters=parameters, expected=value))
+        for center in [100., 640., 8000.]:
+            for width in [-1., 0., 1e-6, .01, .1, 1., 10.]:
+                for mix in [0., 25., 50., 100.]:
+                    for offset in [-10., -2., -.1, 0., .1, 2., 10.]:
+                        parameters = [center + offset * max(width, .01), center, .03, width, mix]
+                        status, value = RealLineShapeTest().evaluate(parameters)
+                        assert status == 0 and math.isfinite(value)
+                        payload.append(dict(kind='real', parameters=parameters, expected=value))
         print(json.dumps(payload))
     else:
         unittest.main()

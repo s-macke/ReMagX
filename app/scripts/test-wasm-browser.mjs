@@ -122,9 +122,9 @@ try {
   })
   assert.equal(zakCount, 15552)
   console.log(`Chromium Zak: ${zakCount} intensities matched native.`)
-  assert.equal(result.lineShapeResults.length, 630)
+  assert.equal(result.lineShapeResults.length, 1218)
   input.lineShapes.forEach((item, index) => assert.ok(Math.abs(result.lineShapeResults[index] - item.expected) <= 1e-15 + 1e-10 * Math.abs(item.expected)))
-  console.log('Chromium Gauss-Lorentzian imaginary part: 630 values matched native.')
+  console.log('Chromium Gauss-Lorentzian helpers: 630 imaginary and 588 real values matched native.')
   let profileCount = 0
   input.profiles.forEach((item, index) => {
     assert.equal(result.profileResults[index].length, item.expected.length)

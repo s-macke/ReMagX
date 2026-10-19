@@ -13,6 +13,7 @@ export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Arr
 
 export interface RealCalculationEngine {
   gaussLorentzianImag?(energy: number, center: number, area: number, width: number, mixingPercent: number): number
+  gaussLorentzianReal?(energy: number, center: number, area: number, width: number, mixingPercent: number): number
   calculate: RealQzCalculator
   lookup: RealTableLookup
   energyScan: EnergyScanCalculator

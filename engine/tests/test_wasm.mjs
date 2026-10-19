@@ -5,7 +5,7 @@ import { checkOptimizer } from './optimizer_checks.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
+import { calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -406,9 +406,9 @@ for (const [calculate, request] of [
 console.log('Per-point energy settings: validation, memory growth, allocation cleanup and native failure recovery passed.')
 
 
-assert.equal(input.lineShapes.length, 630)
+assert.equal(input.lineShapes.length, 1218)
 for (const item of input.lineShapes) {
-  const actual = calculateGaussLorentzianImag(module, item.parameters)
+  const actual = (item.kind === 'real' ? calculateGaussLorentzianReal : calculateGaussLorentzianImag)(module, item.parameters)
   assert.ok(Math.abs(actual - item.expected) <= 1e-15 + 1e-10 * Math.abs(item.expected))
 }
 for (const parameters of [[], new Array(5), [640, 640, NaN, .1, 50]])
@@ -420,4 +420,15 @@ allocations = 2
 assert.throws(() => calculateGaussLorentzianImag(failingAllocator, [640, 640, .03, .1, 50]), /allocation failed/)
 assert.equal(outstanding.size, 0)
 assert.equal(calculateGaussLorentzianImag(module, [640, 640, .03, .1, 50]), .03 / .1)
-console.log('WASM/native Gauss-Lorentzian imaginary part: 630 values, validation and cleanup passed.')
+console.log('WASM/native Gauss-Lorentzian helpers: 1,218 values matched; imaginary validation and cleanup passed.')
+
+for (const parameters of [[], new Array(5), [640, 640, NaN, .1, 50]])
+  assert.throws(() => calculateGaussLorentzianReal(module, parameters), TypeError)
+allocations = 3
+assert.throws(() => calculateGaussLorentzianReal(failingAllocator, [-.001234, 0, .03, .1, 50]), { status: 2 })
+assert.equal(outstanding.size, 0)
+allocations = 2
+assert.throws(() => calculateGaussLorentzianReal(failingAllocator, [640, 640, .03, .1, 50]), /allocation failed/)
+assert.equal(outstanding.size, 0)
+assert.ok(Number.isFinite(calculateGaussLorentzianReal(module, [640, 640, .03, .1, 50])))
+console.log('WASM/native Gauss-Lorentzian real part: 588 values, validation and cleanup passed.')

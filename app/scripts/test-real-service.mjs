@@ -75,13 +75,15 @@ try {
         scripted.experiment.energy = 700
         scripted.experiment.qzScan.points = 12
         scripted.scripts.enabled = true
-        scripted.scripts.beforeCalculation = 'thickness[1] = 35; energy = 710; delta[1] = GetGaussLorentzianImag(700, 0.004, 1, 50); resolution = 0.002; FillTensors(); print("script=", energy)'
+        scripted.scripts.beforeCalculation = 'thickness[1] = 35; energy = 710; delta[1] = GetGaussLorentzianImag(700, 0.004, 1, 50); beta[1] = GetGaussLorentzianReal(700, 0.000003, 0.1, 25); resolution = 0.002; FillTensors(); print("script=", energy)'
         const before = JSON.stringify(scripted)
         const expected = structuredClone(scripted)
         expected.scripts.enabled = false
         expected.calculation.automaticOpticalConstants = false
         expected.sample.layers[1].thickness = 35
         expected.sample.layers[1].delta = .004
+        // Independent native helper result at stored energy 700, before Lua readback.
+        expected.sample.layers[1].beta = 1.3079915851729437e-6
         expected.experiment.energy = 710
         expected.experiment.resolution.angularFwhm = .002
         for (const method of ['calcReflectivity', 'calcAsymmetry']) {
@@ -109,7 +111,9 @@ try {
           tables.push({ name: 'lua-override', kind: 'db', energy: [600, 900], columns: [[.004, .004], [.001, .001]], warnings: [] })
           const renamed = structuredClone(scripted)
           renamed.scripts.beforeCalculation = 'thickness[1] = 35; energy = 710; resolution = 0.002; SetName(1, "lua-override"); SetDeltaBeta(1, 710); FillTensors()'
-          const renamedCurve = await service.calcReflectivity(renamed), renamedReference = await service.calcReflectivity(expected)
+          const renamedExpected = structuredClone(expected)
+          renamedExpected.sample.layers[1].beta = .001
+          const renamedCurve = await service.calcReflectivity(renamed), renamedReference = await service.calcReflectivity(renamedExpected)
           renamedCurve.reflectivity.forEach((value, index) => {
             if (Math.abs(value-renamedReference.reflectivity[index]) > 1e-15 + 1e-10*Math.abs(renamedReference.reflectivity[index])) throw new Error(`Lua first-table resolution ${algorithm} mismatch`)
           })
