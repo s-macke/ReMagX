@@ -197,3 +197,29 @@ before profile application in this configuration; Matrix/Zak preparation now
 preserves that behavior alongside Parratt. All 135 combined project variants and
 51,810 coordinate/intensity values pass D-23. This verifies the disabled-segmentation
 branch, not adaptive slicing or actual magnetic-profile application.
+
+
+## Repeatable private corpus capture
+
+Run `python3 tools/golden/legacy/capture_corpus.py --output build/private-reference-captures/<new-name>`
+from the repository root. The tool builds the hash-gated original adapter, copies
+the trusted private tree to temporary storage, fingerprints the input snapshot,
+and attempts qz reflectivity for every discovered `.all` project. The default
+per-project timeout is 120 seconds. It refuses symbolic links, empty input,
+nonfinite or malformed curves, existing output directories, and CLI destinations
+outside the git-ignored `build/` tree. It never writes into the original corpus.
+
+The private manifest records project IDs/paths and hashes, reference-binary and
+source-manifest hashes, curve hashes, point counts, errors and timeouts. Only
+aggregate counts appear on stdout. A failed reference has no curve file. A partial
+capture exits nonzero and keeps its manifest for diagnosis; `acceptancePassed`
+is always false because reference execution alone does not prove parity. Even a
+complete capture does not establish GUI scripting equivalence or Wine validation.
+The shared disposable input copy is for trusted legacy scripts, not isolation from
+filesystem/OS side effects; its fingerprint describes the initial snapshot.
+No capture or manifest containing private project details may be committed.
+
+Public runner tests use synthetic inputs and an independent stub executable:
+`python3 -m unittest discover -s tools/golden/legacy -p test_capture_corpus.py`.
+They also run with the ordinary public Python reference tests in CI; the private
+capture itself is local-only until corpus access in CI is resolved.
