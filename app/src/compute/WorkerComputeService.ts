@@ -107,8 +107,8 @@ export class WorkerComputeService implements ComputeService {
     return this.request('databaseValues', project, undefined, { tables })
   }
 
-  dielectricTensor(project: Project, query: TensorQuery): Promise<TensorPreview> {
-    return this.request('dielectricTensor', project, undefined, query)
+  dielectricTensor(project: Project, query: TensorQuery, onScriptMessages?: (lines: string[]) => void): Promise<TensorPreview> {
+    return this.request('dielectricTensor', project, undefined, query, onScriptMessages)
   }
 
   densityProfiles(project: Project): Promise<DensityProfiles> {

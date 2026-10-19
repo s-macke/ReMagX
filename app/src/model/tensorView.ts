@@ -3,10 +3,11 @@ import type { CalculatedCurve } from './plotCoordinates'
 export const tensorComponents = ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz'] as const
 export type TensorGroup = 'diagonal' | 'upper' | 'lower'
 export interface TensorPreview {
+  scriptMessages?: string[]
   engine?: 'real' | 'mock'
   energy: number[]
   tensors: { re: number; im: number }[][] // row-major 3×3 at each energy
-  source: 'table' | 'scalar'
+  source: 'table' | 'scalar' | 'script'
 }
 const groups = { diagonal: [0, 4, 8], upper: [1, 2, 5], lower: [3, 6, 7] } as const
 export function tensorPlot(preview: TensorPreview, group: TensorGroup): CalculatedCurve {

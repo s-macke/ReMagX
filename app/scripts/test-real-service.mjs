@@ -746,6 +746,36 @@ try {
         { name: 'tensor', kind: 'e', energy: [100, 150, 200], columns: tensorValues.map(value => [value, value, value]), warnings: [] },
       ] })
       output.realTensorUnchanged = nativeTensorSnapshot === JSON.stringify(tensorProject)
+      for (const automatic of [false, true]) {
+        const scripted = structuredClone(tensorProject)
+        scripted.calculation.automaticOpticalConstants = automatic
+        scripted.scripts.enabled = true
+        scripted.scripts.beforeCalculation = 'calls = (calls or 0) + 1; delta[0] = 100; exx_r[0] = exx_r[0] + calls; exy_i[0] = -calls; ezx_r[0] = calls / 10; print(calls, ":", energy); energy = energy + 7'
+        const query = { layerIndex: 0, spectrum: true, tables: [
+          { name: 'tensor', kind: 'db', energy: [120, 180], columns: [[.01, .01], [.002, .002]], warnings: [] },
+          { name: 'tensor', kind: 'e', energy: [100, 150, 200], columns: tensorValues.map(value => [value, value, value]), warnings: [] },
+        ] }
+        const snapshot = JSON.stringify(scripted), lines = []
+        const result = await service.dielectricTensor(scripted, query, text => lines.push(...text))
+        const expected = [automatic ? 3.01 : .99 * .99 - .002 * .002 + 3, 3.01, 7.01]
+        result.tensors.forEach((tensor, index) => {
+          if (Math.abs(tensor[0].re - expected[index]) > 1e-14 || tensor[1].im !== -(index + 2) || tensor[6].re !== (index + 2) / 10) throw new Error('Scripted tensor spectrum mismatch')
+        })
+        if (result.source !== 'script' || JSON.stringify(result.energy) !== '[100,150,200]' ||
+            JSON.stringify(lines) !== '["1:150","2:100","3:150","4:200"]' ||
+            JSON.stringify(result.scriptMessages) !== JSON.stringify(lines) || JSON.stringify(scripted) !== snapshot) throw new Error('Tensor spectrum script lifecycle mismatch')
+        scripted.scripts.beforeCalculation = 'delta[0] = 0.2; FillTensors()'
+        const rebuilt = await service.dielectricTensor(scripted, query)
+        if (rebuilt.tensors.some(tensor => Math.abs(tensor[0].re - (.8 * .8 - .002 * .002)) > 1e-14)) throw new Error('Explicit scripted tensor rebuild failed')
+        scripted.scripts.beforeCalculation = 'print("tensor error output")\nerror("tensor failed")'
+        const errors = []; let failed = false
+        try { await service.dielectricTensor(scripted, query, text => errors.push(...text)) }
+        catch (error) { failed = /BeforeCalculation:2/.test(String(error)) }
+        if (!failed || errors[0] !== 'tensor error output') throw new Error('Tensor script failure output missing')
+        // Single-energy Material Settings snapshots do not execute this spectrum hook.
+        await service.dielectricTensor(scripted, { ...query, spectrum: false })
+      }
+
       tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)

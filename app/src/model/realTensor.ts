@@ -1,3 +1,5 @@
+import { visitCompoundSpectrum } from './compoundSpectrum'
+import type { RealBeforeCalculation } from './realCalculation'
 import type { TensorQuery } from '../compute/ComputeService'
 import type { OpticalTable } from '../import/tables'
 import type { Project, Layer } from './project'
@@ -7,12 +9,12 @@ import { refreshCompoundOpticsState, type RealTableLookup } from './refreshOptic
 import { HC_EV_ANGSTROM } from './units'
 
 // Scalar and imported compound tensors; no segmentation or reflection solver is
-// involved in the legacy tensor viewer. BeforeCalculation remains unsupported.
+// involved in the legacy tensor viewer. Spectrum hooks read stored tensor state.
 export function realTensor(project: Project, query: TensorQuery, lookup: RealTableLookup,
-  construct: DielectricTensorCalculator): TensorPreview {
+  construct: DielectricTensorCalculator, beforeCalculation?: RealBeforeCalculation): TensorPreview {
   const selected = project.sample.layers[query.layerIndex]
   if (project.sample.mode !== 'compound' || !selected) throw new Error('Select a compound layer to show its dielectric tensor.')
-  if (query.spectrum && project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
+  if (!beforeCalculation && query.spectrum && project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
     throw new Error('BeforeCalculation Lua execution is not implemented in real tensor spectra yet.')
   }
   const table = (kind: OpticalTable['kind']) => query.tables.find(table => selected.opticalTable !== '' &&
@@ -21,6 +23,15 @@ export function realTensor(project: Project, query: TensorQuery, lookup: RealTab
   if (query.spectrum && !grid) throw new Error(`Load ${selected.opticalTable || 'the selected material'}.e or .db to show its tensor spectrum.`)
   const energy = query.spectrum ? grid!.energy.slice() : [project.experiment.energy]
   if (!energy.length || !energy.every(value => Number.isFinite(value) && value > 0)) throw new Error('Tensor energies must be positive and finite.')
+  if (query.spectrum && project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
+    const tensors: TensorPreview['tensors'] = []
+    visitCompoundSpectrum(project, query.tables, energy, lookup, (_current, state) => {
+      const values = state.dielectricState?.[query.layerIndex]?.values
+      if (!values || values.length !== 18 || !values.every(Number.isFinite)) throw new Error('Invalid scripted dielectric tensor.')
+      tensors.push(Array.from({ length: 9 }, (_, index) => ({ re: values[2 * index], im: values[2 * index + 1] })))
+    }, beforeCalculation)
+    return { engine: 'real', energy, tensors, source: 'script' }
+  }
   const build = (layer: Layer) => {
     const result = construct({ layer: [layer.thickness, layer.roughness, layer.delta, layer.beta,
       layer.deltaMag, layer.betaMag, layer.magnetization.gamma, layer.magnetization.phi],

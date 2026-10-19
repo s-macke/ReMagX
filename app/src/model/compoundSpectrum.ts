@@ -4,10 +4,10 @@ import type { RealBeforeCalculation } from './realCalculation'
 import { refreshPartialCompoundOptics, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
 import { HC_EV_ANGSTROM } from './units'
 
-// Scalar compound spectrum handlers: local CScript constructor, then Filldb and
+// Compound spectrum handlers: local CScript constructor, then Filldb and
 // StartScript for every table point. The local object never sets state.script.
-export function evaluateCompoundSpectrum(project: Project, tables: OpticalTable[], energy: number[],
-  lookup: RealTableLookup, read: (current: Project) => [number, number], beforeCalculation?: RealBeforeCalculation) {
+export function visitCompoundSpectrum(project: Project, tables: OpticalTable[], energy: number[],
+  lookup: RealTableLookup, visit: (current: Project, state: SerialOpticalState) => void, beforeCalculation?: RealBeforeCalculation) {
   let current = project
   let opticalState: SerialOpticalState = { layers: project.sample.layers,
     dielectricTensors: project.sample.layers.map(() => null), cursors: new Map(),
@@ -29,14 +29,21 @@ export function evaluateCompoundSpectrum(project: Project, tables: OpticalTable[
   }
   if (current.calculation.automaticOpticalConstants) refresh()
   runHook()
-  const first: number[] = [], second: number[] = []
   for (const value of energy) {
     current = { ...current, experiment: { ...current.experiment, energy: value } }
     refresh()
     runHook()
+    visit(current, opticalState)
+  }
+}
+
+export function evaluateCompoundSpectrum(project: Project, tables: OpticalTable[], energy: number[],
+  lookup: RealTableLookup, read: (current: Project) => [number, number], beforeCalculation?: RealBeforeCalculation) {
+  const first: number[] = [], second: number[] = []
+  visitCompoundSpectrum(project, tables, energy, lookup, current => {
     const pair = read(current)
     if (!pair.every(Number.isFinite)) throw new Error('Real spectrum exceeds the supported numerical range.')
     first.push(pair[0]); second.push(pair[1])
-  }
+  }, beforeCalculation)
   return { energy, first, second }
 }

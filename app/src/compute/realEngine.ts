@@ -23,7 +23,16 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
       if (message.kind === 'dielectricTensor') {
-        send({ id: message.id, type: 'result', result: realTensor(message.project, message.spectrum, engine.lookup, engine.dielectricTensor) })
+        const scripted = message.spectrum.spectrum && message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
+        const session = scripted && createLuaSession ? await createLuaSession() : undefined
+        const scriptMessages: string[] = []
+        try {
+          const hook = session ? createBeforeCalculation(session, engine, message.spectrum.tables, text => {
+            scriptMessages.push(text); send({ id: message.id, type: 'scriptMessages', lines: [text] })
+          }) : undefined
+          const result = realTensor(message.project, message.spectrum, engine.lookup, engine.dielectricTensor, hook)
+          send({ id: message.id, type: 'result', result: { ...result, ...(session ? { scriptMessages } : {}) } })
+        } finally { session?.close() }
         return
       }
       if (message.kind === 'layerSpectrum' || message.kind === 'scatteringFactors') {

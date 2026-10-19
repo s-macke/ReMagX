@@ -47,8 +47,8 @@ export function discardComputeService(): void {
 async function calculate(service: ComputeService, project: Project, request: CalculationRequest, onScriptMessages?: (lines: string[]) => void): Promise<CalculatedCurve & { scriptMessages?: string[] }> {
   const { scanKind, displayMode: mode, plotView } = request
   if (plotView === 'tensorDiagonal' || plotView === 'tensorUpper' || plotView === 'tensorLower') {
-    const tensor = await service.dielectricTensor(project, { layerIndex: request.layerIndex ?? 0, tables: request.tables ?? [], spectrum: true })
-    return tensorPlot(tensor, plotView === 'tensorDiagonal' ? 'diagonal' : plotView === 'tensorUpper' ? 'upper' : 'lower')
+    const tensor = await service.dielectricTensor(project, { layerIndex: request.layerIndex ?? 0, tables: request.tables ?? [], spectrum: true }, onScriptMessages)
+    return { ...tensorPlot(tensor, plotView === 'tensorDiagonal' ? 'diagonal' : plotView === 'tensorUpper' ? 'upper' : 'lower'), scriptMessages: tensor.scriptMessages }
   }
   if (plotView === 'densityProfiles') {
     const profiles = await service.densityProfiles(project)

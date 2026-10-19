@@ -100,7 +100,7 @@ export interface FitResult {
 
 export interface ComputeService {
   readonly providesFitPreviews?: boolean
-  dielectricTensor(project: Project, query: TensorQuery): Promise<TensorPreview>
+  dielectricTensor(project: Project, query: TensorQuery, onScriptMessages?: (lines: string[]) => void): Promise<TensorPreview>
   databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues>
   densityProfiles(project: Project): Promise<DensityProfiles>
   scatteringFactors(project: Project, query: ElementSpectrumQuery): Promise<LayerSpectrum>
