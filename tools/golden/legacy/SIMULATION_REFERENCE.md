@@ -155,3 +155,17 @@ failures; resolving one can expose another. Native reference calls used a dispos
 private-tree copy. Private inputs, curves and detailed error messages stay uncommitted.
 This diagnostic establishes neither all-project parity nor energy, asymmetry, Lua
 or fit acceptance, and it is not connected to CI.
+
+
+Reference output is now rejected with status 10 when a host-level Lua compilation
+or protected execution call fails. The original simulation may otherwise continue
+and return a finite curve after reporting a script error. Linker wrappers observe
+those statuses without editing the private Lua/legacy implementation; diagnostics
+and partial curves remain suppressed. Errors handled inside a running script with
+`pcall` or `loadstring` do not trigger rejection. Disabled scripts remain disabled.
+
+The four private `par` index failures above correspond to scripts accessing entries
+in projects with no stored script parameters. The original loader also creates an
+empty parameter array for these inputs; the web error is not evidence of an import
+loss. Earlier finite-reference execution counts did not detect ignored script
+errors and must not be interpreted as counts of valid golden curves.

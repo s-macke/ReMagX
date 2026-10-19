@@ -11,6 +11,25 @@
 #include "RechenHilfe.h"
 int memorycounterequal = 0, memorycounterassign = 0, memorycounterreserve = 0;
 pthread_mutex_t vectorcountermutex = PTHREAD_MUTEX_INITIALIZER;
+// Observe host Lua failures without modifying the private implementation. The
+// original simulation can continue after reporting one; such curves are not goldens.
+static bool script_failed = false;
+static unsigned protected_call_depth = 0;
+extern "C" int __real_lua_pcall(lua_State*, int, int, int);
+extern "C" int __wrap_lua_pcall(lua_State* state, int arguments, int results, int handler) {
+    ++protected_call_depth;
+    const int status = __real_lua_pcall(state, arguments, results, handler);
+    --protected_call_depth;
+    if (protected_call_depth == 0 && status != 0) script_failed = true;
+    return status;
+}
+extern "C" int __real_luaL_loadbuffer(lua_State*, const char*, size_t, const char*);
+extern "C" int __wrap_luaL_loadbuffer(lua_State* state, const char* text, size_t size, const char* name) {
+    const int status = __real_luaL_loadbuffer(state, text, size, name);
+    if (protected_call_depth == 0 && status != 0) script_failed = true;
+    return status;
+}
+
 int main(int argc, char** argv) {
     if (argc < 2 || argc > 5) return 2;
     bool asymmetry = false, energy_scan = false, fixed_angle = false;
@@ -75,6 +94,7 @@ int main(int argc, char** argv) {
     const int status = energy_scan
         ? (asymmetry ? CalcDicEScan<double>(data, *state) : CalcEScanEnergyResolution<double>(data, *state))
         : (asymmetry ? CalcAsymmetrie<double>(data, *state) : CalcReflectivity<double>(data, *state));
+    if (script_failed) return 10;
     if (status != RX_SUCCESS) return 7;
     if (asymmetry && (data.Rp.size() != data.qz.size() ||
         data.Rm.size() != data.qz.size() || data.A.size() != data.qz.size())) return 8;

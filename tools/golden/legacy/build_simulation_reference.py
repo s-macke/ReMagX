@@ -43,7 +43,7 @@ def build(legacy_root, output, compiler='g++', c_compiler='gcc'):
             subprocess.run([c_compiler, *c_flags, '-c', str(source), '-o', str(target)],
                            check=True, capture_output=True, text=True)
             objects.append(target)
-        subprocess.run([compiler, *cpp_flags, '-Wl,--gc-sections', *map(str, cpp_sources),
+        subprocess.run([compiler, *cpp_flags, '-Wl,--gc-sections', '-Wl,--wrap=lua_pcall', '-Wl,--wrap=luaL_loadbuffer', *map(str, cpp_sources),
                         *map(str, objects), '-lfftw3', '-ldl', '-lm', '-o', str(output)],
                        check=True, capture_output=True, text=True)
     return output

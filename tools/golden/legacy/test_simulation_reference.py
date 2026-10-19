@@ -111,6 +111,23 @@ class SimulationReferenceTest(unittest.TestCase):
             self.assertEqual(result.stdout, '')
             self.assertEqual(result.stderr, '')
 
+    def test_script_failures_do_not_publish_reference_curves(self):
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        path = Path(self.directory.name) / 'script.all'
+        for script in ['local missing = par[0]', 'error("private-script-marker")', 'local =']:
+            with self.subTest(script=script):
+                path.write_text(fixture + '\ndisablescript = 0\nscriptline = ' + script + '\n')
+                result = subprocess.run([self.executable, path], capture_output=True, text=True,
+                                        cwd=self.directory.name, timeout=30)
+                self.assertEqual(result.returncode, 10)
+                self.assertEqual(result.stdout, '')
+                self.assertEqual(result.stderr, '')
+        # A Lua error handled inside the script is not a failed host call.
+        path.write_text(fixture + '\ndisablescript = 0\nscriptline = local ok = pcall(function() error("handled") end); local fn, message = loadstring("local =")\n')
+        self.assertEqual(len(self.run_fixture(path)), 300)
+        path.write_text(fixture + '\ndisablescript = 1\nscriptline = error("disabled")\n')
+        self.assertEqual(len(self.run_fixture(path)), 300)
+
     def test_lookup_initialization_for_segmentation_and_elements(self):
         fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
         element = '\n'.join([
