@@ -249,7 +249,12 @@ export function importAllFile(input: string | ArrayBuffer | Uint8Array, fileName
   let energy = 0
   let precisionLine: number | null = null
 
-  for (const a of parseAssignments(content)) {
+  const assignments = parseAssignments(content)
+  const last = assignments.at(-1)
+  if (!content.endsWith('\n') && last?.line === content.split('\n').length) {
+    warn('The final assignment has no terminating newline. This importer processes it; legacy ReMagX 2.6 ignores this line.', last.line)
+  }
+  for (const a of assignments) {
     const number = (fallback: number): number => {
       const match = NUMBER_PREFIX.exec(a.value)
       if (!match) {

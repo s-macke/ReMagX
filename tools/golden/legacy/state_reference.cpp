@@ -51,7 +51,40 @@ int main(int argc, char** argv) {
             }
             json << ']';
         }
-        json << "],\"datasetCount\":" << state->datasets.size() << '}';
+        json << "],\"datasetCount\":" << state->datasets.size() << ",\"datasets\":[";
+        for (int index = 0; index < state->datasets.size(); ++index) {
+            if (index) json << ',';
+            const auto& data = state->datasets[index];
+            const auto& beam = data.polarization;
+            const double settings[] = {data.energy, data.energyshift, data.resolution,
+                data.multiplicator, data.translation, data.qzshift, data.errorweight,
+                double(data.active != 0)};
+            const double polarization[] = {beam.ray1sigmare, beam.ray1sigmaim, beam.ray1pire, beam.ray1piim,
+                beam.ray2sigmare, beam.ray2sigmaim, beam.ray2pire, beam.ray2piim};
+            json << "{\"settings\":[";
+            for (int column = 0; column < 8; ++column) {
+                if (column) json << ',';
+                number(settings[column]);
+            }
+            json << "],\"polarization\":[";
+            for (int column = 0; column < 8; ++column) {
+                if (column) json << ',';
+                number(polarization[column]);
+            }
+            json << "],\"columns\":[";
+            const CVector<double>* columns[] = {&data.qz, &data.R, &data.Rp, &data.Rm, &data.A, &data.eng, &data.tey};
+            for (int column = 0; column < 7; ++column) {
+                if (column) json << ',';
+                json << '[';
+                for (int point = 0; point < columns[column]->size(); ++point) {
+                    if (point) json << ',';
+                    number((*columns[column])[point]);
+                }
+                json << ']';
+            }
+            json << "]}";
+        }
+        json << "]}";
         if (fputs(json.str().c_str(), output) < 0 || fclose(output)) return 5;
         return 0;
     } catch (...) { return 6; }

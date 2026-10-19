@@ -117,3 +117,15 @@ activedatasetindex = 1
     expect(() => importAllFile('layerversion = 1\n')).toThrow(/Layer format version 1/)
   })
 })
+
+
+it('reports retained unterminated assignments that the original loader ignores', () => {
+  const prefix = 'fileversion = 1\nenergy = 640\n'
+  const { project, report } = importAllFile(prefix + 'energy = 700')
+  expect(project.experiment.energy).toBe(700)
+  expect(report.messages).toContainEqual(expect.objectContaining({ level: 'warning', line: 3,
+    text: expect.stringContaining('no terminating newline') }))
+  for (const suffix of ['energy = 700\n', '# energy = 700', '']) {
+    expect(importAllFile(prefix + suffix).report.messages.some(message => message.text.includes('no terminating newline'))).toBe(false)
+  }
+})

@@ -527,7 +527,8 @@ remaining work; testing prepared residuals does not establish full fit equivalen
 `tools/golden/legacy/state_reference.cpp` calls the original 2.6
 `CStateHandler::LoadState`, including its tensor construction and thickness
 conversion. It exports energy, per-film layer rows (thickness, roughness, delta,
-beta, delta-magnetic, beta-magnetic, gamma, phi) and dataset count as numeric JSON
+beta, delta-magnetic, beta-magnetic, gamma, phi), dataset settings, both complex
+beam polarizations, all seven measurement columns and dataset count as numeric JSON
 with 17 significant digits. It does not execute scripts, resolve optical tables,
 calculate reflectivity or run fits. This is a project-preparation reference stage,
 not a simulation golden-output generator.
@@ -552,10 +553,13 @@ LEGACY_ROOT=../old/reMagX3 CORPUS_DIR=../old/reMagX3 npm test -- --run test/stat
 ```
 
 Without `CORPUS_DIR`, the optional private-source comparison uses the four public
-fixtures. With it, the test compares the first film's eight exported layer values
-for every discovered project using unchanged D-23 tolerances. The 99 local corpus
-projects pass. It does not compare all project fields, datasets, tensors, or other
-films and must not be cited as full import or simulation acceptance. Errors use
+fixtures. With it, the test compares the first film's eight exported layer values,
+eight dataset settings, eight polarization components and every measurement-column
+value for every discovered project using unchanged D-23 tolerances. Empty original
+placeholder datasets are mapped separately; files with no datasets need no placeholder.
+Synthetic data additionally exercises settings, column order and default resets.
+It does not compare textual metadata, every project field, tensors, or other films
+and must not be cited as full import or simulation acceptance. Errors use
 numeric project IDs and suppress private diagnostics. The public suite skips this
 comparison unless `LEGACY_ROOT` is supplied; the manifest check runs in ordinary
 Python CI discovery.
@@ -565,3 +569,20 @@ A direct full-calculation include probe currently fails on the unused default
 source was patched in this step. A full rebuild still needs a reviewed build
 adaptation, complete dependency/licence review, project orchestration and golden
 validation; this loader adapter does not resolve those remaining requirements.
+
+
+### Dataset reference extension and EOF diagnosis (2026-10-19)
+
+The dataset comparison covers energy, energy shift, angular resolution, intensity
+scale/offset, qz shift, error weight, active flag, both complex beam vectors, and
+qz/R/Rp/Rm/asymmetry/energy/TEY arrays. A synthetic paired-dataset case exercises
+nondefault settings and the reset to legacy defaults. Private values stay inside
+captured subprocess output; failure reports include only project IDs and field groups.
+
+`LoadNextAssignment` checks EOF immediately after `GetLine`, so it ignores the
+last assignment if the file has no terminating newline. The web importer already
+retained that line. Its behavior is unchanged, but the import report now warns of
+this difference. The original-loader test explicitly demonstrates it with a
+synthetic final asymmetry value; ordinary parity fixtures use the legacy writer's
+newline-terminated format. This is a documented input-format difference, not a
+relaxed numerical tolerance or a claim of full parser equivalence.

@@ -40,6 +40,10 @@ class StateReferenceTest(unittest.TestCase):
         self.assertEqual(len(state['films'][0]), 14)
         self.assertEqual(state['films'][0][0], [0, 5, .00165, .00029911, 0, 0, 90, 90])
         self.assertAlmostEqual(state['energy'], 777.198)
+        self.assertEqual(state['datasetCount'], len(state['datasets']))
+        self.assertEqual(state['datasets'][0]['columns'], [[] for _ in range(7)])
+        self.assertEqual(state['datasets'][0]['polarization'], [1, 0, 0, 0, 0, 0, 1, 0])
+        self.assertEqual(len(state['datasets'][0]['settings']), 8)
         symbols = subprocess.run(['nm', '-C', self.executable], check=True, capture_output=True, text=True).stdout
         for forbidden in ['CChiSquareFit::', 'CMultiFit::', 'lua_close', 'fftw_execute', 'LayerSegmentation']:
             self.assertNotIn(forbidden, symbols)
