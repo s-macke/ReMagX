@@ -1,3 +1,4 @@
+import type { ScriptProgram, ScriptExecutionResult } from '../model/manualScript'
 import type { ElementConversion } from '../model/materialElements'
 // Messages between WorkerComputeService (UI thread) and the compute worker.
 
@@ -8,6 +9,7 @@ import type { Layer, Project } from '../model/project'
 import type { TensorQuery, AsymmetryCurve, EnergyAsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
+  executeScript: ScriptExecutionResult
   materialToElements: ElementConversion
   segmentLayers: Layer[]
   dielectricTensor: TensorPreview
@@ -24,9 +26,10 @@ export interface CalculationResults {
   fit: FitResult
 }
 
-export type CalculationKind = Exclude<keyof CalculationResults, 'fit' | 'layerSpectrum' | 'scatteringFactors' | 'databaseValues' | 'dielectricTensor'>
+export type CalculationKind = Exclude<keyof CalculationResults, 'executeScript' | 'fit' | 'layerSpectrum' | 'scatteringFactors' | 'databaseValues' | 'dielectricTensor'>
 
 export type WorkerRequest =
+  | { id: number; kind: 'executeScript'; project: Project; spectrum: { program: ScriptProgram; tables: OpticalTable[] } }
   | { id: number; kind: 'dielectricTensor'; project: Project; spectrum: TensorQuery }
   | { id: number; kind: 'databaseValues'; project: Project; spectrum: { tables: OpticalTable[] } }
   | { id: number; kind: 'scatteringFactors'; project: Project; spectrum: ElementSpectrumQuery }

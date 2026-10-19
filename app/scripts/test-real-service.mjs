@@ -803,6 +803,62 @@ try {
         await service.dielectricTensor(scripted, { ...query, spectrum: false })
       }
 
+      // Manual Execute uses its own real Lua session, even with automatic scripts off.
+      for (const mode of ['compound', 'element']) for (const automatic of [false, true]) {
+        const manual = createDefaultProject()
+        manual.sample.mode = mode; manual.experiment.energy = 150
+        manual.calculation.automaticOpticalConstants = automatic; manual.scripts.enabled = false
+        manual.sample.layers = [createLayer({ opticalTable: 'manual', delta: .01, beta: .002 }), createLayer()]
+        manual.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: 0, f2Mag: 0, slabs: [] }]
+        tables = [
+          { name: 'manual', kind: 'db', energy: [100, 200], columns: [[.02, .02], [.003, .003]], warnings: [] },
+          { name: 'Fe', kind: 'ff', energy: [100, 200], columns: [[28, 28], [2, 2]], warnings: [] },
+        ]
+        for (const program of ['Default', 'BeforeCalculation']) {
+          const key = program === 'Default' ? 'default' : 'beforeCalculation'
+          manual.scripts[key === 'default' ? 'beforeCalculation' : 'default'] = 'error("wrong program")'
+          manual.scripts[key] = 'print("manual run"); thickness[1] = 23; exx_r[1] = 7; energy = 750'
+          const before = JSON.stringify(manual), lines = []
+          const result = await service.executeScript(manual, program, messages => lines.push(...messages))
+          if (result.project.sample.layers[1].thickness !== 23 || result.project.experiment.energy !== 750 ||
+            result.project.scripts.enabled || result.opticalState.dielectricState[1].values[0] !== 7 ||
+            JSON.stringify(lines) !== '["manual run"]' || JSON.stringify(result.scriptMessages) !== JSON.stringify(lines) ||
+            JSON.stringify(manual) !== before) throw new Error('Manual script publication mismatch')
+          const expectedDelta = automatic && mode === 'compound' ? .02 : .01
+          const expectedFactor = automatic && mode === 'element' ? 28 : 26
+          if (result.project.sample.layers[0].delta !== expectedDelta || result.project.sample.elementProfiles[0].f1 !== expectedFactor) {
+            throw new Error('Manual script initial table refresh mismatch')
+          }
+          if (!automatic && Math.abs(result.opticalState.dielectricState[0].values[0] - (.99 * .99 - .002 * .002)) > 1e-14) {
+            throw new Error('Manual script native tensor construction mismatch')
+          }
+        }
+      }
+      const manual = createDefaultProject()
+      manual.calculation.automaticOpticalConstants = false; manual.scripts.enabled = false
+      manual.scripts.default = 'thickness[1] = 99\nprint("failure output")\nerror("manual failure")'
+      const manualBefore = JSON.stringify(manual), failureLines = []
+      let manualFailed = false
+      try { await service.executeScript(manual, 'Default', lines => failureLines.push(...lines)) }
+      catch (error) { manualFailed = /Default:3/.test(String(error)) }
+      if (!manualFailed || failureLines[0] !== 'failure output' || JSON.stringify(manual) !== manualBefore) throw new Error('Manual failure transaction mismatch')
+      manual.scripts.default = 'print("loop entered"); while true do end'
+      let enteredLoop, loopTimeout
+      const loopEntered = new Promise((resolve, reject) => {
+        enteredLoop = resolve; loopTimeout = setTimeout(() => reject(new Error('Lua loop did not start')), 10000)
+      })
+      const looping = service.executeScript(manual, 'Default', lines => {
+        if (lines.includes('loop entered')) enteredLoop()
+      }).then(() => 'finished', error => error.name)
+      try { await loopEntered } finally { clearTimeout(loopTimeout) }
+      const manualStopStart = performance.now()
+      service.stop()
+      if (await looping !== 'ComputeCancelled') throw new Error('Manual infinite loop was not cancelled')
+      if (performance.now() - manualStopStart >= 1000) throw new Error('Manual Lua Stop exceeded one second')
+      manual.scripts.default = 'assert(calls == nil); thickness[1] = 17'
+      const recoveredManual = await service.executeScript(manual, 'Default')
+      if (recoveredManual.project.sample.layers[1].thickness !== 17) throw new Error('Manual Lua recovery failed')
+
       tables = []
       // Queue a genuine large WASM request, then Stop using the production service lifecycle.
       const busy = structuredClone(project)

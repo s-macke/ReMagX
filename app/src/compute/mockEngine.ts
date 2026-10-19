@@ -68,6 +68,8 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
     try {
       let result
       switch (request.kind) {
+        case 'executeScript':
+          throw new ComputeError('Script execution is not available in the mock engine.')
         case 'scatteringFactors':
           result = mockScatteringFactors(project, request.spectrum)
           break

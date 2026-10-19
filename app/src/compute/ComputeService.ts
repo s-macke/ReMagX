@@ -1,3 +1,4 @@
+import type { ScriptProgram, ScriptExecutionResult } from '../model/manualScript'
 import type { ElementConversion } from '../model/materialElements'
 // The interface between the UI and the numerics (D-7, D-12, D-33). The UI depends only on
 // ComputeService; today it is backed by a Web Worker running the TypeScript mock engine, later
@@ -99,6 +100,7 @@ export interface FitResult {
 }
 
 export interface ComputeService {
+  executeScript(project: Project, program: ScriptProgram, onScriptMessages?: (lines: string[]) => void): Promise<ScriptExecutionResult>
   readonly providesFitPreviews?: boolean
   dielectricTensor(project: Project, query: TensorQuery, onScriptMessages?: (lines: string[]) => void): Promise<TensorPreview>
   databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues>

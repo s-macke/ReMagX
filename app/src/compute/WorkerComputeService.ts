@@ -1,3 +1,4 @@
+import type { ScriptProgram, ScriptExecutionResult } from '../model/manualScript'
 import type { ElementConversion } from '../model/materialElements'
 // ComputeService implementation that forwards requests to the compute worker.
 
@@ -77,6 +78,10 @@ export class WorkerComputeService implements ComputeService {
       if (this.worker === worker) this.failWorker('The compute worker returned an unreadable message.')
     }
     return worker
+  }
+
+  async executeScript(project: Project, program: ScriptProgram, onScriptMessages?: (lines: string[]) => void): Promise<ScriptExecutionResult> {
+    return this.request('executeScript', project, undefined, { program, tables: this.getTables?.() ?? [] }, onScriptMessages)
   }
 
   scatteringFactors(project: Project, spectrum: ElementSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum> {
@@ -191,7 +196,7 @@ export class WorkerComputeService implements ComputeService {
     kind: K,
     project: Project,
     onProgress?: (progress: FitProgress) => void,
-    spectrum?: TensorQuery | LayerSpectrumQuery | ElementSpectrumQuery | { tables: OpticalTable[] },
+    spectrum?: { program: ScriptProgram; tables: OpticalTable[] } | TensorQuery | LayerSpectrumQuery | ElementSpectrumQuery | { tables: OpticalTable[] },
     onScriptMessages?: (lines: string[]) => void,
   ): Promise<CalculationResults[K]> {
     if (this.disposed) return Promise.reject(new ComputeError('Compute service was shut down.'))

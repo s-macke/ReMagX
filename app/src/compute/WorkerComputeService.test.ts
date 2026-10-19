@@ -587,11 +587,11 @@ it('converts materials through the worker and reports unsupported formulas witho
 })
 
 
-it.each(['calcChi2', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'startFit', 'layerSpectrum', 'dielectricTensor', 'scatteringFactors'] as const)('routes %s script messages only to their pending request and rejects late output after cancellation', async method => {
+it.each(['executeScript', 'calcChi2', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'startFit', 'layerSpectrum', 'dielectricTensor', 'scatteringFactors'] as const)('routes %s script messages only to their pending request and rejects late output after cancellation', async method => {
   const worker = controlledWorker()
   const service = new WorkerComputeService(() => worker)
   const lines = vi.fn()
-  const request = method === 'scatteringFactors' ? service.scatteringFactors(createDefaultProject(), { elementIndex: 0, tables: [] }, lines) : method === 'dielectricTensor' ? service.dielectricTensor(createDefaultProject(), { layerIndex: 0, spectrum: true, tables: [] }, lines) : method === 'layerSpectrum' ? service.layerSpectrum(createDefaultProject(), { layerIndex: 0, magnetic: false, tables: [] }, lines) : method === 'startFit' ? service.startFit(createDefaultProject(), vi.fn(), lines) : service[method](createDefaultProject(), lines)
+  const request = method === 'executeScript' ? service.executeScript(createDefaultProject(), 'Default', lines) : method === 'scatteringFactors' ? service.scatteringFactors(createDefaultProject(), { elementIndex: 0, tables: [] }, lines) : method === 'dielectricTensor' ? service.dielectricTensor(createDefaultProject(), { layerIndex: 0, spectrum: true, tables: [] }, lines) : method === 'layerSpectrum' ? service.layerSpectrum(createDefaultProject(), { layerIndex: 0, magnetic: false, tables: [] }, lines) : method === 'startFit' ? service.startFit(createDefaultProject(), vi.fn(), lines) : service[method](createDefaultProject(), lines)
   const response = worker.onmessage!
   response({ data: { id: 1, type: 'scriptMessages', lines: ['running'] } } as MessageEvent<WorkerResponse>)
   response({ data: { id: 2, type: 'scriptMessages', lines: ['wrong request'] } } as MessageEvent<WorkerResponse>)

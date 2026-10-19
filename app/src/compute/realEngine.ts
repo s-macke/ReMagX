@@ -1,5 +1,6 @@
 import type { OpticalTable } from '../import/tables'
-import { createBeforeCalculation } from './lua/beforeCalculation'
+import { prepareManualScript } from '../model/manualScript'
+import { createBeforeCalculation, createProjectScript } from './lua/beforeCalculation'
 import type { LuaSession } from './lua/runtime'
 import { realTensor } from '../model/realTensor'
 import { realLayerSpectrum, realScatteringFactors } from '../model/realSpectrum'
@@ -17,11 +18,24 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
   return async (message: WorkerRequest): Promise<void> => {
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     try {
-      if (message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
+      if (message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }
       calculator ??= load().catch(error => { calculator = null; throw error })
       const engine = await calculator
+      if (message.kind === 'executeScript') {
+        if (!createLuaSession) throw new Error('Lua script execution is unavailable.')
+        const prepared = prepareManualScript(message.project, message.spectrum.tables, engine)
+        const session = await createLuaSession(), scriptMessages: string[] = []
+        try {
+          const execute = createProjectScript(message.spectrum.program, session, engine, message.spectrum.tables, text => {
+            scriptMessages.push(text); send({ id: message.id, type: 'scriptMessages', lines: [text] })
+          })
+          const result = execute(prepared.project, prepared.opticalState, 0, 'temporary')
+          send({ id: message.id, type: 'result', result: { ...result, scriptMessages } })
+        } finally { session.close() }
+        return
+      }
       if (message.kind === 'dielectricTensor') {
         const scripted = message.spectrum.spectrum && message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
         const session = scripted && createLuaSession ? await createLuaSession() : undefined
