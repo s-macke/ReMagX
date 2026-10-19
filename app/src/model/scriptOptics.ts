@@ -1,13 +1,15 @@
+import { copyScatteringTensors, type createScatteringTensorWorkspace, type ScatteringTensorCalculator } from './scatteringTensors'
 import type { OpticalTable } from '../import/tables'
 import type { createScriptArrayWorkspace } from './scriptArrays'
-import type { createScriptTensorWorkspace } from './scriptTensors'
+import { copyScriptTensors, type createScriptTensorWorkspace } from './scriptTensors'
 import type { DielectricTensorCalculator } from './visnovskyRequest'
 import type { RealTableLookup } from './refreshOpticalConstants'
 
 export function createScriptOptics(workspace: ReturnType<typeof createScriptArrayWorkspace>,
   tensors: ReturnType<typeof createScriptTensorWorkspace>, tables: readonly OpticalTable[],
   lookup: RealTableLookup, construct: DielectricTensorCalculator, cursors = new Map<OpticalTable, number>(),
-  resolvedTables = new Map<number, OpticalTable>()) {
+  resolvedTables = new Map<number, OpticalTable>(),
+  elements?: { workspace: ReturnType<typeof createScatteringTensorWorkspace>; construct: ScatteringTensorCalculator }) {
   function compound() {
     const project = workspace.snapshot()
     if (project.sample.mode !== 'compound') throw new Error('Element active-film optics are not supported yet')
@@ -22,14 +24,25 @@ export function createScriptOptics(workspace: ReturnType<typeof createScriptArra
   return {
     fillTensors(): void {
       const project = compound()
-      if (project.sample.elementProfiles.length) throw new Error('FillTensors: element scattering tensors are not supported yet')
+      if (project.sample.elementProfiles.length && !elements) throw new Error('FillTensors: native element scattering tensors are not available')
       const next = project.sample.layers.map(layer => construct({
         layer: [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag,
           layer.magnetization.gamma, layer.magnetization.phi],
         tensor: project.calculation.tensorContribution === 'tetragonal' ? 1 : 0,
         magnetic: project.calculation.magnetization.mode === 'none' ? 0 : 1,
       }))
-      tensors.replace(next)
+      // Validate both sets before publishing either, preserving atomic errors.
+      const checked = copyScriptTensors(next)
+      const scattering = copyScatteringTensors(project.sample.elementProfiles.map(element => elements!.construct({
+        factors: [element.f1, element.f2, element.f1Mag, element.f2Mag],
+        gamma: project.calculation.magnetization.direction.gamma,
+        phi: project.calculation.magnetization.direction.phi,
+        tensor: project.calculation.tensorContribution === 'tetragonal' ? 1 : 0,
+        magnetic: project.calculation.magnetization.mode === 'none' ? 0 : 1,
+      })))
+      if (checked.length !== tensors.snapshot().length) throw new Error('Script tensor layer count changed')
+      elements?.workspace.replace(scattering)
+      tensors.replace(checked)
     },
     setDeltaBeta(index: number, energy: number): void {
       const project = compound()

@@ -6,17 +6,18 @@ export interface ScriptDielectricTensor {
   anisotropic: boolean
 }
 
+export function copyScriptTensors(source: readonly ScriptDielectricTensor[]): ScriptDielectricTensor[] {
+  return source.map(tensor => {
+    if (tensor.values.length !== 18 || !tensor.values.every(Number.isFinite) || typeof tensor.anisotropic !== 'boolean') {
+      throw new Error('Invalid script dielectric tensor')
+    }
+    return { values: tensor.values.slice(), anisotropic: tensor.anisotropic }
+  })
+}
+
 /** Prepared active-film tensors; construction and table refresh remain engine operations. */
 export function createScriptTensorWorkspace(initial: readonly ScriptDielectricTensor[]) {
-  function copy(source: readonly ScriptDielectricTensor[]): ScriptDielectricTensor[] {
-    return source.map(tensor => {
-      if (tensor.values.length !== 18 || !tensor.values.every(Number.isFinite) || typeof tensor.anisotropic !== 'boolean') {
-        throw new Error('Invalid script dielectric tensor')
-      }
-      return { values: tensor.values.slice(), anisotropic: tensor.anisotropic }
-    })
-  }
-  let tensors = copy(initial)
+  let tensors = copyScriptTensors(initial)
   const layerCount = tensors.length
   const arrays = new Map<string, ScriptNumericArray>()
   // Names and IDs follow script.cpp; ID 24 has no initialized array or valid value accessor.
@@ -47,9 +48,9 @@ export function createScriptTensorWorkspace(initial: readonly ScriptDielectricTe
     arrays: arrays as ReadonlyMap<string, ScriptNumericArray>,
     replace(next: readonly ScriptDielectricTensor[]): void {
       if (next.length !== layerCount) throw new Error('Script tensor layer count changed')
-      tensors = copy(next)
+      tensors = copyScriptTensors(next)
     },
-    snapshot: (): ScriptDielectricTensor[] => copy(tensors),
+    snapshot: (): ScriptDielectricTensor[] => copyScriptTensors(tensors),
     /** Existing matrix preparation consumes anisotropic tensors as explicit overrides. */
     overrides: (): (Float64Array | null)[] => tensors.map(tensor => tensor.anisotropic ? tensor.values.slice() : null),
   }

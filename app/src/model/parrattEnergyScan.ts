@@ -33,7 +33,7 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
   let current = project
   let opticalState: SerialOpticalState = { layers: project.sample.layers,
     dielectricTensors: previous?.dielectricTensors ?? project.sample.layers.map(() => null),
-    dielectricState: previous?.dielectricState, cursors: new Map(previous?.cursors) }
+    scatteringTensors: previous?.scatteringTensors, dielectricState: previous?.dielectricState, cursors: new Map(previous?.cursors) }
   const runHook = (nestedSession: ScriptSessionLifetime = 'existing') => {
     if (!scripted) return
     const result = beforeCalculation!(current, opticalState, 0, nestedSession)
@@ -59,7 +59,7 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
     const cursors = opticalState.cursors
     const refreshed = refreshPartialCompoundOptics(current,
       tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors, opticalState.dielectricTensors)
-    opticalState = { layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
+    opticalState = { scatteringTensors: opticalState.scatteringTensors, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
       dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState.dielectricState?.[index] ?? null), cursors }
     current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
     if (refreshed.rangeError) {

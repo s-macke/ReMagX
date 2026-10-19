@@ -16,6 +16,7 @@ export interface SerialOpticalState extends CompoundOpticalState {
 export interface CompoundOpticalState {
   layers: Project['sample']['layers']
   dielectricTensors: (Float64Array | null)[]
+  scatteringTensors?: Float64Array[]
   dielectricState?: (ScriptDielectricTensor | null)[]
 }
 

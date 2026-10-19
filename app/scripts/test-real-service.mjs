@@ -70,6 +70,7 @@ try {
         scripted.sample.layers = [createLayer({ opticalTable: 'lua-film', delta: .006, beta: .001 }),
           createLayer({ opticalTable: 'lua-film', thickness: 20, delta: .006, beta: .001 }),
           createLayer({ opticalTable: 'lua-film', delta: .006, beta: .001 })]
+        scripted.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: 2, f2Mag: 3, slabs: [] }]
         scripted.calculation.algorithm = algorithm
         scripted.calculation.automaticOpticalConstants = automatic
         scripted.experiment.energy = 700
@@ -137,6 +138,7 @@ try {
       ]
       for (const algorithm of ['parratt', 'matrix', 'zak']) for (const dichroic of [false, true]) {
         const scripted = createDefaultProject()
+        scripted.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: 2, f2Mag: 3, slabs: [] }]
         scripted.calculation.algorithm = algorithm; scripted.calculation.automaticOpticalConstants = false
         scripted.calculation.magnetization.mode = 'add'
         scripted.experiment.energy = 640; scripted.experiment.resolution.energyFwhm = .4

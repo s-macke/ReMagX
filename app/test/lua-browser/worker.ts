@@ -1,3 +1,4 @@
+import { createBeforeCalculation } from '../../src/compute/lua/beforeCalculation'
 import { calculatePreparedScriptReflectivity, prepareScriptReflectivityInput } from '../../src/model/scriptReflectivity'
 import { calculateRealCurve, type RealCalculationEngine } from '../../src/model/realCalculation'
 import { createLayer } from '../../src/model/defaults'
@@ -37,6 +38,7 @@ async function run() {
       calculate: request => adapter.calculateParrattQz(instance, request),
       matrixQz: request => adapter.calculateVisnovskyQz(instance, request),
       zakQz: request => adapter.calculateZakQz(instance, request),
+      scatteringTensor: request => adapter.calculateScatteringTensor(instance, request),
       dielectricTensor: request => adapter.calculateDielectricTensor(instance, request),
       convolveFastQz: (qz, values, width) => adapter.convolveFastQz(instance, qz, values, width),
       energyScan: request => adapter.calculateParrattEnergyScan(instance, request),
@@ -80,6 +82,22 @@ async function run() {
           JSON.stringify(result.reflectivityMinus) === JSON.stringify(input.columns.reflectivityMinus ?? []) && JSON.stringify(result.qz) === JSON.stringify(input.columns.qz)
       }
     }
+    const elementProject = createDefaultProject()
+    elementProject.sample.elementProfiles = [{ element: 'Fe', f1: 1, f2: 2, f1Mag: 3, f2Mag: 4, slabs: [] }]
+    elementProject.calculation.magnetization.mode = 'add'
+    elementProject.calculation.magnetization.direction = { gamma: 0, phi: 0 }
+    elementProject.scripts.enabled = true
+    elementProject.scripts.beforeCalculation = 'calls = (calls or 0) + 1; f1[0] = calls; if calls == 1 then FillTensors() end'
+    const elementSession = await runtime.createSession()
+    try {
+      const hook = createBeforeCalculation(elementSession, numerical, [])
+      const first = hook(elementProject, { layers: elementProject.sample.layers,
+        dielectricTensors: elementProject.sample.layers.map(() => null), cursors: new Map() })
+      const second = hook(first.project, first.opticalState)
+      const expected = [1, 2, -4, -3, 0, 0, 4, 3, 1, 2, 0, 0, 0, 0, 0, 0, 1, 2]
+      if (!second.opticalState.scatteringTensors?.[0].every((value, index) => value === expected[index]) ||
+          second.project.sample.elementProfiles[0].f1 !== 2) throw new Error('Lua element tensor construction/retention failed')
+    } finally { elementSession.close() }
     const tables: OpticalTable[] = [
       { name: 'Fe', kind: 'ff', energy: [100, 200], columns: [[20, 40], [2, 4]], warnings: [] },
       { name: 'Fe', kind: 'ffm', energy: [120, 180], columns: [[1, 3], [2, 4]], warnings: [] },

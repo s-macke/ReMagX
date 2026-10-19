@@ -1,3 +1,4 @@
+import { createScatteringTensorWorkspace } from '../../model/scatteringTensors'
 import { createScriptArrayWorkspace } from '../../model/scriptArrays'
 import { createScriptTensorWorkspace } from '../../model/scriptTensors'
 import { createScriptSolutionWorkspace } from '../../model/scriptSolution'
@@ -12,7 +13,7 @@ import { runProjectHook } from './projectHook'
 export function createBeforeCalculation(session: LuaSession, engine: RealCalculationEngine,
   tables: OpticalTable[], emit: (message: string) => void = () => {},
   resolvedTables = new Map<number, OpticalTable>()): RealBeforeCalculation {
-  let context: { workspace: ReturnType<typeof createScriptArrayWorkspace>; tensors: ReturnType<typeof createScriptTensorWorkspace>; source: string } | undefined
+  let context: { scattering: ReturnType<typeof createScatteringTensorWorkspace>; workspace: ReturnType<typeof createScriptArrayWorkspace>; tensors: ReturnType<typeof createScriptTensorWorkspace>; source: string } | undefined
   const cursors = new Map<OpticalTable, number>()
   return (project, opticalState, renewOpticalConstants = 0) => {
     try {
@@ -31,11 +32,18 @@ export function createBeforeCalculation(session: LuaSession, engine: RealCalcula
           magnetic: project.calculation.magnetization.mode === 'none' ? 0 : 1,
         })
       })
+      const initialScattering = opticalState.scatteringTensors ?? project.sample.elementProfiles.map(() => new Float64Array(18))
+      if (initialScattering.length !== project.sample.elementProfiles.length) throw new Error('Scattering tensor element count changed')
       if (!context) {
         const workspace = createScriptArrayWorkspace(project)
         const tensors = createScriptTensorWorkspace(initial)
+        const scattering = createScatteringTensorWorkspace(initialScattering)
         const solution = createScriptSolutionWorkspace()
-        const optics = createScriptOptics(workspace, tensors, tables, engine.lookup, engine.dielectricTensor, cursors, resolvedTables)
+        const optics = createScriptOptics(workspace, tensors, tables, engine.lookup, engine.dielectricTensor, cursors, resolvedTables,
+          { workspace: scattering, construct: request => {
+            if (!engine.scatteringTensor) throw new Error('FillTensors: native element scattering tensors are not available')
+            return engine.scatteringTensor(request)
+          } })
         session.installOutput(emit)
         session.installElements(workspace.elements, createScriptFactorLookup(tables, engine.lookup, cursors))
         session.installArrays(new Map([...workspace.arrays, ...solution.arrays, ...tensors.arrays]), solution.dynamicMaximumIndex)
@@ -49,15 +57,16 @@ export function createBeforeCalculation(session: LuaSession, engine: RealCalcula
             return engine.gaussLorentzianImag(workspace.calculationEnergy(), center, area, width, mixingPercent)
           } })
         session.compile(project.scripts.beforeCalculation, 'BeforeCalculation')
-        context = { workspace, tensors, source: project.scripts.beforeCalculation }
+        context = { scattering, workspace, tensors, source: project.scripts.beforeCalculation }
       } else {
         if (project.scripts.beforeCalculation !== context.source) throw new Error('BeforeCalculation source changed; create a new session')
         context.tensors.replace(initial)
+        context.scattering.replace(initialScattering)
       }
       const { workspace, tensors } = context
       workspace.replace(project, renewOpticalConstants)
       const result = runProjectHook(session, workspace)
-      return { project: result, opticalState: { layers: result.sample.layers, dielectricTensors: tensors.overrides(), dielectricState: tensors.snapshot(), cursors: new Map(cursors) } }
+      return { project: result, opticalState: { layers: result.sample.layers, dielectricTensors: tensors.overrides(), dielectricState: tensors.snapshot(), scatteringTensors: context.scattering.snapshot(), cursors: new Map(cursors) } }
     } catch (error) {
       session.close()
       throw error

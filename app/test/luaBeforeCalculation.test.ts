@@ -106,3 +106,27 @@ it.each(['Imag', 'Real'] as const)('line-shape %s reads stored state energy unti
     expect(vi.mocked(engine[`gaussLorentzian${part}`]!).mock.calls.map(args => args.slice(1))).toEqual([[640, .03, .1, 50], [640, .03, .1, 50]])
   } finally { session.close() }
 })
+
+it('retains explicit element tensors across qz hooks without rebuilding them after factor-only edits', async () => {
+  const project = createDefaultProject()
+  project.sample.elementProfiles = [{ element: 'Fe', f1: 1, f2: 2, f1Mag: 3, f2Mag: 4, slabs: [] }]
+  project.calculation.automaticOpticalConstants = false
+  project.scripts.enabled = true
+  project.scripts.beforeCalculation = 'calls = (calls or 0) + 1; f1[0] = calls; if calls == 1 then FillTensors() end'
+  const engine: RealCalculationEngine = { calculate: request => new Float64Array(request.qz.length * 2),
+    lookup: vi.fn(), energyScan: vi.fn(), zakQz: vi.fn(), zakEnergy: vi.fn(), matrixQz: vi.fn(), matrixEnergy: vi.fn(),
+    dielectricTensor: () => ({ values: new Float64Array(18), anisotropic: false }),
+    scatteringTensor: vi.fn(request => new Float64Array(18).fill(request.factors[0])) }
+  const session = await runtime.createSession()
+  try {
+    const hook = createBeforeCalculation(session, engine, [])
+    const first = calculateRealCurve(project, [], engine, 'qz', 'monochromatic', undefined, hook)
+    const second = calculateRealCurve(first.scriptedProject!, [], engine, 'qz', 'monochromatic', first.opticalState, hook)
+    expect(second.scriptedProject!.sample.elementProfiles[0].f1).toBe(2)
+    expect(second.opticalState.scatteringTensors).toEqual([new Float64Array(18).fill(1)])
+    expect(engine.scatteringTensor).toHaveBeenCalledTimes(1)
+    second.opticalState.scatteringTensors![0].fill(99)
+    expect(first.opticalState.scatteringTensors![0][0]).toBe(1)
+    expect(project.sample.elementProfiles[0].f1).toBe(1)
+  } finally { session.close() }
+})

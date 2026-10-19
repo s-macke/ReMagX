@@ -32,13 +32,19 @@ it('runs persistent Lua initialization, objective renewal and serial dataset hoo
     epsilon = epsilon + 0.001
     delta[0] = delta[0] + 0.001`
   const initialEpsilon = project.calculation.epsilon
+  project.sample.elementProfiles = [{ element: 'Fe', f1: 1, f2: 2, f1Mag: 3, f2Mag: 4, slabs: [] }]
   const before = structuredClone(project)
   engine.dielectricTensor = () => ({ values: new Float64Array(18), anisotropic: false })
   const runtime = createLuaRuntime(fileURLToPath(new URL('../node_modules/wasmoon/dist/glue.wasm', import.meta.url)))
   const session = await runtime.createSession()
   const messages: string[] = []
   try {
-    const hook = vi.fn(createBeforeCalculation(session, engine, [], text => messages.push(text)))
+    const retained = [new Float64Array(18).fill(3)]
+    const innerHook = createBeforeCalculation(session, engine, [], text => messages.push(text))
+    const hook = vi.fn<typeof innerHook>((current, opticalState, renew, lifetime) => {
+      if (hook.mock.calls.length > 1) expect(opticalState.scatteringTensors).toEqual(retained)
+      return innerHook(current, { ...opticalState, scatteringTensors: retained }, renew, lifetime)
+    })
     const minimize: RealMinimizer = ({ objective }) => {
       const value = objective(new Float64Array([0]))
       objective(new Float64Array([1]))

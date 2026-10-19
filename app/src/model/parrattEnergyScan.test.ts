@@ -1,3 +1,4 @@
+import type { RealBeforeCalculation } from './realCalculation'
 import { expect, it, vi } from 'vitest'
 import { createDefaultProject } from './defaults'
 import { calculateParrattEnergyScan } from './parrattEnergyScan'
@@ -88,4 +89,18 @@ it('skips missing-primary dataset points but retains valid-layer updates and cur
   // GUI-generated scan preparation still requires complete primary tables.
   project.experiment.qzScan.useDatasetPoints = false
   expect(() => calculateParrattEnergyScan(project, tables, lookup, calculate)).toThrow('Missing')
+})
+
+it('retains stored element tensors across compound table refresh and every energy hook', () => {
+  const { project, tables, lookup, calculate } = setup()
+  project.scripts.enabled = true; project.scripts.beforeCalculation = 'retained'
+  const scatteringTensors = [new Float64Array(18).fill(3)]
+  const previous = { layers: project.sample.layers, dielectricTensors: project.sample.layers.map(() => null), scatteringTensors, cursors: new Map() }
+  const hook = vi.fn<RealBeforeCalculation>((current, opticalState) => {
+    expect(opticalState.scatteringTensors).toEqual(scatteringTensors)
+    return { project: current, opticalState }
+  })
+  const result = calculateParrattEnergyScan(project, tables, lookup, calculate, 'monochromatic', previous, hook)
+  expect(hook).toHaveBeenCalledTimes(4)
+  expect(result.opticalState.scatteringTensors).toEqual(scatteringTensors)
 })

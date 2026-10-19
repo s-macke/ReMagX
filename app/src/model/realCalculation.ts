@@ -1,3 +1,4 @@
+import type { ScatteringTensorCalculator } from './scatteringTensors'
 import { prepareZakQzRequest, calculateZakEnergyScan, type PreparedZakQzRequest, type ZakEnergyCalculator } from './zakRequest'
 import { calculateVisnovskyEnergyScan, type VisnovskyEnergyCalculator } from './visnovskyEnergyScan'
 import { prepareVisnovskyQzRequest, type PreparedVisnovskyQzRequest, type DielectricTensorCalculator } from './visnovskyRequest'
@@ -21,6 +22,7 @@ export interface RealCalculationEngine {
   zakQz: (request: PreparedZakQzRequest) => Float64Array
   zakEnergy: ZakEnergyCalculator
   matrixEnergy: VisnovskyEnergyCalculator
+  scatteringTensor?: ScatteringTensorCalculator
   dielectricTensor: DielectricTensorCalculator
   matrixQz: (request: PreparedVisnovskyQzRequest) => Float64Array
 }
@@ -48,6 +50,7 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   let scriptedProject: Project | undefined
   let project = original
   let cursors = new Map(previous?.cursors)
+  let scatteringTensors = previous?.scatteringTensors
   let dielectricState = previous?.dielectricState
   let dielectricTensors = previous?.dielectricTensors ?? project.sample.layers.map(() => null)
   if (project.calculation.automaticOpticalConstants) {
@@ -64,12 +67,13 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     // original automatic-constants setting in their shared project state.
     const hookProject = { ...project, calculation: { ...project.calculation,
       automaticOpticalConstants: original.calculation.automaticOpticalConstants } }
-    const scripted = beforeCalculation(hookProject, { layers: project.sample.layers, dielectricTensors, dielectricState, cursors }, 0, scriptLifetime)
+    const scripted = beforeCalculation(hookProject, { layers: project.sample.layers, dielectricTensors, dielectricState, scatteringTensors, cursors }, 0, scriptLifetime)
     scriptedProject = { ...scripted.project, calculation: { ...scripted.project.calculation,
       automaticOpticalConstants: original.calculation.automaticOpticalConstants } }
     project = { ...scripted.project, scripts: { ...scripted.project.scripts, enabled: false },
       calculation: { ...scripted.project.calculation, automaticOpticalConstants: false } }
     dielectricTensors = scripted.opticalState.dielectricTensors
+    scatteringTensors = scripted.opticalState.scatteringTensors
     dielectricState = scripted.opticalState.dielectricState
     cursors = scripted.opticalState.cursors
   }
@@ -88,6 +92,6 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     values = engine.calculate(request)
   }
   const result = postprocessParrattResult(project, qz, values, mode)
-  return { ...result, opticalState: { layers: project.sample.layers, dielectricTensors, dielectricState, cursors },
+  return { ...result, opticalState: { layers: project.sample.layers, dielectricTensors, dielectricState, scatteringTensors, cursors },
     finalEnergy: project.experiment.energy, ...(scriptedProject ? { scriptedProject } : {}) }
 }

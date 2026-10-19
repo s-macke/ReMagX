@@ -49,3 +49,34 @@ it('keeps scalar and tensor state intact when table or constructor results are i
   expect(workspace.snapshot()).toEqual(before)
   expect(tensors.snapshot()).toEqual(tensorBefore)
 })
+
+it('constructs stored element tensors from live factors and global directions atomically', async () => {
+  const { createScatteringTensorWorkspace } = await import('../src/model/scatteringTensors')
+  const source = createDefaultProject()
+  source.sample.elementProfiles = [{ element: 'Fe', f1: 1, f2: 2, f1Mag: 3, f2Mag: 4, slabs: [] }]
+  source.calculation.magnetization.direction = { gamma: 12, phi: 34 }
+  source.calculation.tensorContribution = 'tetragonal'
+  const workspace = createScriptArrayWorkspace(source)
+  const tensors = createScriptTensorWorkspace(source.sample.layers.map(() => ({ values: new Float64Array(18), anisotropic: false })))
+  const scattering = createScatteringTensorWorkspace([new Float64Array(18)])
+  const construct = vi.fn(() => new Float64Array(18).fill(6))
+  const optics = createScriptOptics(workspace, tensors, [], vi.fn(),
+    () => ({ values: new Float64Array(18).fill(7), anisotropic: true }), new Map(), new Map(), { workspace: scattering, construct })
+  const session = await runtime.createSession()
+  try {
+    session.installArrays(workspace.arrays)
+    session.installProjectFunctions({ ...workspace, ...optics })
+    session.execute('f1[0] = 20; FillTensors()', 'Default')
+    expect(construct).toHaveBeenCalledWith({ factors: [20, 2, 3, 4], gamma: 12, phi: 34, tensor: 1, magnetic: 0 })
+    expect(scattering.snapshot()).toEqual([new Float64Array(18).fill(6)])
+    const before = tensors.snapshot()
+    construct.mockReturnValue(new Float64Array(18).fill(NaN))
+    expect(() => optics.fillTensors()).toThrow('Invalid element scattering tensor')
+    expect(tensors.snapshot()).toEqual(before)
+    expect(scattering.snapshot()).toEqual([new Float64Array(18).fill(6)])
+    const copy = scattering.snapshot(); copy[0].fill(99)
+    expect(scattering.snapshot()[0][0]).toBe(6)
+    expect(() => scattering.replace([])).toThrow('count changed')
+    expect(source.sample.elementProfiles[0].f1).toBe(1)
+  } finally { session.close() }
+})
