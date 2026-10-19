@@ -66,7 +66,18 @@ jobs:
       - name: Compare WebAssembly numerical core with native
         run: |
           source "$RUNNER_TEMP/remagx-emsdk/emsdk_env.sh"
-          WASM_MODULE=../build/wasm/remagx-core.mjs python3 ../engine/tests/test_parratt.py ../build/engine/libremagx_core.so
+          comparison_log="$RUNNER_TEMP/remagx-wasm-comparison.log"
+          if WASM_MODULE=../build/wasm/remagx-core.mjs python3 ../engine/tests/test_parratt.py ../build/engine/libremagx_core.so 2>&1 | tee "$comparison_log"; then
+            exit 0
+          fi
+          # Public synthetic fixtures only; never add private-corpus output here.
+          python3 - "$comparison_log" <<'PYTHON'
+          import pathlib, sys
+          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-12000:]
+          message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print("::error title=Native/WASM comparison failed::" + message)
+          PYTHON
+          exit 1
 
       - run: npm ci
       - run: npm run lint
