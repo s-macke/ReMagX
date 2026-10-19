@@ -7,5 +7,5 @@ import { prepareProjectOptics, refreshStrictProjectOptics } from './projectOptic
 // constructing the scan/Lua session. This gate is not part of CalcEScan itself
 // and must not be repeated for internal fit/dataset calls.
 export function prepareStandaloneEnergyScan(project: Project, tables: OpticalTable[], engine: RealCalculationEngine) {
-  return refreshStrictProjectOptics(prepareProjectOptics(project, tables, engine), tables, engine.lookup)
+  return refreshStrictProjectOptics(prepareProjectOptics(project, tables, engine), tables, engine)
 }

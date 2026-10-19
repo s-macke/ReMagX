@@ -11,7 +11,7 @@ export function prepareStandaloneFit(project: Project, tables: OpticalTable[], e
   const active = prepared.project.datasets.filter(dataset => dataset.active)
   if (!active.length) throw new Error('Select at least one dataset for fitting.')
   if (active.some(dataset => dataset.columns.qz.length === 0)) throw new Error('An active fit dataset contains no data.')
-  if (project.calculation.automaticOpticalConstants) prepared = refreshStrictProjectOptics(prepared, tables, engine.lookup)
-  if (active.some(dataset => (dataset.columns.energy?.length ?? 0) > 0)) prepared = refreshStrictProjectOptics(prepared, tables, engine.lookup)
+  if (project.calculation.automaticOpticalConstants) prepared = refreshStrictProjectOptics(prepared, tables, engine)
+  if (active.some(dataset => (dataset.columns.energy?.length ?? 0) > 0)) prepared = refreshStrictProjectOptics(prepared, tables, engine)
   return prepared
 }

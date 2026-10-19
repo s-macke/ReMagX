@@ -9,5 +9,5 @@ import { prepareProjectOptics, refreshStrictProjectOptics } from './projectOptic
 export function prepareStandaloneQz(project: Project, tables: OpticalTable[], engine: RealCalculationEngine) {
   const prepared = prepareProjectOptics(project, tables, engine)
   return project.calculation.automaticOpticalConstants
-    ? refreshStrictProjectOptics(prepared, tables, engine.lookup) : prepared
+    ? refreshStrictProjectOptics(prepared, tables, engine) : prepared
 }

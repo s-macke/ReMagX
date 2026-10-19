@@ -331,6 +331,25 @@ try {
           if (!rejected) throw new Error(`Standalone energy strict table gate failed for ${algorithm}`)
         }
       }
+      // Element startup has the same strict primary-table gate, before Lua,
+      // even though element density/reflectivity preparation is not ported yet.
+      const missingElement = createDefaultProject()
+      missingElement.sample.mode = 'element'
+      missingElement.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: 0, f2Mag: 0, slabs: [] }]
+      missingElement.scripts.beforeCalculation = 'error("unexpected element hook")'
+      for (const automatic of [false, true]) {
+        missingElement.calculation.automaticOpticalConstants = automatic
+        const methods = automatic ? ['calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry']
+          : ['calcEnergyScan', 'calcEnergyAsymmetry']
+        const snapshot = JSON.stringify(missingElement)
+        for (const method of methods) {
+          let rejected = false
+          try { await service[method](missingElement, undefined, []) }
+          catch (error) { rejected = /missing Fe\.ff table/.test(String(error)) }
+          if (!rejected) throw new Error('Element strict table gate did not precede Lua/preparation')
+        }
+        if (JSON.stringify(missingElement) !== snapshot) throw new Error('Element strict table failure changed input')
+      }
       tables = []
       const matrix = createDefaultProject()
       matrix.calculation.algorithm = 'matrix'

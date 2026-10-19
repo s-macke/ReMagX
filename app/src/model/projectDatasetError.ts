@@ -33,7 +33,7 @@ export function calculateProjectDatasetError(project: Project, tables: OpticalTa
 export function prepareStandaloneDatasetError(project: Project, tables: OpticalTable[], engine: RealCalculationEngine) {
   const prepared = prepareProjectOptics(project, tables, engine)
   return project.calculation.automaticOpticalConstants
-    ? refreshStrictProjectOptics(prepared, tables, engine.lookup) : prepared
+    ? refreshStrictProjectOptics(prepared, tables, engine) : prepared
 }
 
 // Return the serial state as well as the objective for the optimizer's next candidate.

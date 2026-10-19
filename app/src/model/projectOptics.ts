@@ -2,7 +2,7 @@ import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
 import type { RealCalculationEngine } from './realCalculation'
 import { storedOpticalState } from './storedOpticalState'
-import { refreshCompoundOptics, refreshPartialCompoundOptics, type RealTableLookup, type SerialOpticalState } from './refreshOpticalConstants'
+import { refreshCompoundOptics, refreshPartialCompoundOptics, OpticalTableRangeError, type SerialOpticalState } from './refreshOpticalConstants'
 import { refreshElementOptics } from './refreshElementOptics'
 import { copyScatteringTensors } from './scatteringTensors'
 import { copyScriptTensors } from './scriptTensors'
@@ -54,9 +54,19 @@ export function prepareProjectOptics(original: Project, tables: OpticalTable[], 
 
 // SetOCStrict after GetState. Keep shared lookup cursors across repeated calls.
 export function refreshStrictProjectOptics(initial: { project: Project; opticalState: SerialOpticalState },
-  tables: OpticalTable[], lookup: RealTableLookup) {
+  tables: OpticalTable[], engine: Pick<RealCalculationEngine, 'lookup' | 'scatteringTensor'>) {
+  const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / initial.project.experiment.energy)
+  if (initial.project.sample.mode === 'element') {
+    const refreshed = refreshElementOptics(initial.project, tables, energy, engine.lookup, request => {
+      if (!engine.scatteringTensor) throw new Error('Native element scattering tensors are unavailable.')
+      return engine.scatteringTensor(request)
+    }, initial.opticalState.cursors, initial.opticalState.scatteringTensors)
+    if (refreshed.rangeError) throw new OpticalTableRangeError(refreshed.rangeError)
+    return { project: { ...initial.project, sample: { ...initial.project.sample, elementProfiles: refreshed.elementProfiles } },
+      opticalState: { ...initial.opticalState, scatteringTensors: refreshed.scatteringTensors } }
+  }
   const refreshed = refreshCompoundOptics(initial.project, tables,
-    HC_EV_ANGSTROM / (HC_EV_ANGSTROM / initial.project.experiment.energy), lookup, initial.opticalState.cursors)
+    energy, engine.lookup, initial.opticalState.cursors)
   return { project: { ...initial.project, sample: { ...initial.project.sample, layers: refreshed.layers } },
     opticalState: { ...initial.opticalState, ...refreshed,
       // Strict success refreshed every primary layer. The hook constructs new
