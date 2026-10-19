@@ -10,6 +10,7 @@ const modulePath = resolve(process.argv[2])
 const input = JSON.parse(readFileSync(0, 'utf8'))
 const cases = [...input.angular, ...input.qz.map(prepared => ({ ...prepared, kind: 'qz' }))]
 const assets = new Map([
+  ['/scattering_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/scattering_checks.mjs'))]],
   ['/remagx-core.mjs', ['text/javascript', readFileSync(modulePath)]],
   ['/remagx-core.wasm', ['application/wasm', readFileSync(modulePath.replace(/\.mjs$/, '.wasm'))]],
   ['/fit_error.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/wasm/fit_error.mjs'))]],
@@ -35,7 +36,7 @@ try {
   browser = await chromium.launch()
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
-  const result = await page.evaluate(async ({ lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors }) => {
+  const result = await page.evaluate(async ({ scattering, lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors }) => {
     const next = (worker, kind) => new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { cleanup(); reject(new Error(`Worker timeout: ${kind}`)) }, 10000)
       const cleanup = () => {
@@ -55,8 +56,8 @@ try {
     try {
       await next(worker, 'ready')
       const response = next(worker, 'results')
-      worker.postMessage({ lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors })
-      const { lineShapes: lineShapeResults, values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults, matrices: matrixResults, zak: zakResults, profiles: profileResults, optimizer: optimizerResults, fitErrors: fitErrorValues } = await response
+      worker.postMessage({ scattering, lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors })
+      const { scattering: scatteringCount, lineShapes: lineShapeResults, values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults, matrices: matrixResults, zak: zakResults, profiles: profileResults, optimizer: optimizerResults, fitErrors: fitErrorValues } = await response
       const entered = next(worker, 'entered')
       let finished = false
       worker.addEventListener('message', event => { if (event.data.kind === 'finished') finished = true })
@@ -73,11 +74,13 @@ try {
       const replacementResponse = next(worker, 'results')
       worker.postMessage({ cases: [cases[0]] })
       const replacement = (await replacementResponse).values[0]
-      return { lineShapeResults, fitErrorValues, optimizerResults, profileResults, zakResults, matrixResults, tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
+      return { scatteringCount, lineShapeResults, fitErrorValues, optimizerResults, profileResults, zakResults, matrixResults, tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
     } finally {
       worker.terminate()
     }
-  }, { lineShapes: input.lineShapes, cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors, matrices: input.matrices, zak: input.zak, profiles: input.profiles, optimizer: input.optimizer, fitErrors: input.fitErrors })
+  }, { scattering: input.scattering, lineShapes: input.lineShapes, cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors, matrices: input.matrices, zak: input.zak, profiles: input.profiles, optimizer: input.optimizer, fitErrors: input.fitErrors })
+  assert.equal(result.scatteringCount, 8640)
+  console.log('Chromium scattering tensors: 8,640 components, validation, growth and cleanup passed.')
   assert.equal(result.fitErrorValues, 12480)
   console.log(`Chromium dataset fit errors: ${result.fitErrorValues} native means/residuals, validation, growth and cleanup passed.`)
   assert.deepEqual(result.optimizerResults, { cases: input.optimizer.length, validation: true, stop: true, growth: true, cleanup: true, reflectivity: true })

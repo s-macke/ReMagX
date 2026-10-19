@@ -2,6 +2,7 @@ import cmath
 import ctypes
 import math
 import os
+import random
 from pathlib import Path
 import json
 from table_binding import NativeTable
@@ -242,6 +243,19 @@ class NativeParrattTest(unittest.TestCase):
                     self.assertEqual(tensor_function(ctypes.byref(layer), tensor, magnetic, output, ctypes.byref(kind)), 0)
                     tensor_cases.append(dict(layer=case['layers'][0], tensor=tensor, magnetic=magnetic,
                         expected=list(output), anisotropic=bool(kind.value)))
+        scattering_cases = []
+        scattering_function = library.remagx_scattering_tensor
+        scattering_function.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_double, ctypes.c_double,
+                                       ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_double)]
+        generator = random.Random(26023)
+        for index in range(480):
+            scale = (1e-12, 1, 1e12)[index % 3]
+            factors = [generator.uniform(-100, 100) * scale for _ in range(4)]
+            gamma, phi = [generator.uniform(-720, 720) for _ in range(2)]
+            tensor, magnetic = index % 2, (index // 2) % 2
+            output = (ctypes.c_double * 18)()
+            self.assertEqual(scattering_function((ctypes.c_double * 4)(*factors), gamma, phi, tensor, magnetic, output), 0)
+            scattering_cases.append(dict(factors=factors, gamma=gamma, phi=phi, tensor=tensor, magnetic=magnetic, expected=list(output)))
         matrix_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_visnovsky.py')),
             library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
         zak_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_zak.py')),
@@ -261,7 +275,7 @@ class NativeParrattTest(unittest.TestCase):
         zak_cases.extend(point_settings['zak'])
         line_shapes = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_line_shape.py')),
             library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout)
-        payload = json.dumps(dict(lineShapes=line_shapes, angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases, zak=zak_cases, profiles=profile_cases, optimizer=optimizer_cases, fitErrors=fit_error_cases))
+        payload = json.dumps(dict(scattering=scattering_cases, lineShapes=line_shapes, angular=cases, qz=qz_cases, tables=table_cases, energy=energy_cases, scans=scan_cases, tensors=tensor_cases, matrices=matrix_cases, zak=zak_cases, profiles=profile_cases, optimizer=optimizer_cases, fitErrors=fit_error_cases))
         subprocess.run(['node', str(Path(__file__).with_name('test_wasm.mjs')),
                         str(Path(os.environ['WASM_MODULE']).resolve())],
                        input=payload, text=True, check=True)

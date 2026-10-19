@@ -204,6 +204,21 @@ export function calculateParrattEnergyScan(module, { stacks, energy, qz, enabled
   })
 }
 
+// Element form factors to a row-major complex 3x3 scattering tensor.
+export function calculateScatteringTensor(module, { factors, gamma, phi, tensor = 0, magnetic = 1 }) {
+  if (!validVector(factors, 4) || !Number.isFinite(gamma) || !Number.isFinite(phi) ||
+      ![0, 1].includes(tensor) || ![0, 1].includes(magnetic)) {
+    throw new TypeError('Invalid scattering-tensor input')
+  }
+  return withBuffers(module, allocate => {
+    const factorsPointer = allocate(4)
+    const outputPointer = allocate(18)
+    module.HEAPF64.set(factors, factorsPointer / 8)
+    checkStatus(module._remagx_scattering_tensor(factorsPointer, gamma, phi, tensor, magnetic, outputPointer), 'Scattering tensor')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + 18)
+  })
+}
+
 // Scalar optical constants to a row-major complex 3x3 dielectric tensor.
 export function calculateDielectricTensor(module, { layer, tensor = 0, magnetic = 1 }) {
   if (!validVector(layer, 8) || ![0, 1].includes(tensor) || ![0, 1].includes(magnetic)) {
