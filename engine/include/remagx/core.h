@@ -326,6 +326,12 @@ int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profiles, size_t
 int remagx_table_lookup(const double* energies, const double* values, size_t row_count,
                        size_t column_count, const double* queries, size_t query_count,
                        size_t* cursor, double* output);
+// Original Fourier postprocessing of R only: qz^4, legacy window, forward DFT,
+// magnitudes with DC discarded. Outputs each have floor(count/2) entries.
+// Count must be 2..1,000,000; outputs must not overlap and are atomic on errors.
+// This stage follows any earlier dataset corrections and moving average.
+int remagx_fourier(const double* qz, const double* reflectivity, size_t count,
+                  double* depths, double* magnitudes);
 #ifdef __cplusplus
 }
 #endif
