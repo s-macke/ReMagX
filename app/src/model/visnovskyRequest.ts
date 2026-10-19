@@ -13,11 +13,11 @@ export interface PreparedVisnovskyQzRequest extends Omit<PreparedParrattQzReques
 // Worker-only preparation: numerical tensor construction is injected from WASM.
 // FillTensors uses per-layer directions and applies no second-beam reversal.
 export function prepareVisnovskyQzRequest(project: Project, mode: 'monochromatic' | 'dichroic',
-  constructTensor: DielectricTensorCalculator, dielectricTensors?: (Float64Array | null)[]): PreparedVisnovskyQzRequest {
+  constructTensor: DielectricTensorCalculator, dielectricTensors?: (Float64Array | null)[], coordinates?: readonly number[]): PreparedVisnovskyQzRequest {
   validateVisnovskyProject(project)
   if (dielectricTensors && dielectricTensors.length !== project.sample.layers.length) throw new Error('Invalid dielectric-tensor layer mapping.')
   const overrides = dielectricTensors && prepareCompoundLayerIndices(project).map(index => dielectricTensors[index])
-  const { layers, tensor, magnetic, ...scan } = prepareCompoundQzRequest(project, mode)
+  const { layers, tensor, magnetic, ...scan } = prepareCompoundQzRequest(project, mode, coordinates)
   return { ...scan, epsilon: project.calculation.epsilon, layers: prepareVisnovskyLayers(layers, tensor, magnetic, constructTensor, overrides) }
 }
 

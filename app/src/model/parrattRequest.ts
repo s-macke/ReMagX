@@ -44,7 +44,7 @@ function packBeam(beam: Polarization['beam1']): [number, number, number, number]
 
 // Shared real-worker compound scan preparation before algorithm-specific packing.
 // Requires refreshed scalar constants and rejects unimplemented preprocessing.
-export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic' | 'dichroic'): PreparedParrattQzRequest {
+export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]): PreparedParrattQzRequest {
   const calculation = project.calculation
   if (project.experiment.scattering !== 'reflection') throw new Error('Transmission is not available in this real-engine path.')
   if (calculation.automaticOpticalConstants) throw new Error('Automatic optical-table refresh is not implemented in real-engine preparation yet.')
@@ -53,7 +53,8 @@ export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic'
     throw new Error('Fourier postprocessing is not implemented in this real-engine path yet.')
   }
   const layers = prepareCompoundLayers(project)
-  const qz = prepareQzCoordinates(project)
+  const qz = coordinates === undefined ? prepareQzCoordinates(project) : [...coordinates]
+  if (!qz.every(Number.isFinite)) throw new Error('Prepared qz coordinates must be finite.')
   const energy = project.experiment.energy
   if (!Number.isFinite(energy) || energy <= 0) throw new Error('Calculation energy must be positive and finite.')
   // The native qz API preserves the non-fast boundary. Fast dichroic legacy scans
@@ -74,7 +75,7 @@ export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic'
     resolution: { width: experimentResolution.angularFwhm, fast: experimentResolution.fastConvolution } }
 }
 
-export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' | 'dichroic'): PreparedParrattQzRequest {
+export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]): PreparedParrattQzRequest {
   if (project.calculation.algorithm !== 'parratt') throw new Error('This real-engine path currently supports Parratt only.')
-  return prepareCompoundQzRequest(project, mode)
+  return prepareCompoundQzRequest(project, mode, coordinates)
 }

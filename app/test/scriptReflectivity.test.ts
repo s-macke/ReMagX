@@ -1,7 +1,8 @@
-import { expect, it } from 'vitest'
+import type { RealCalculationEngine } from '../src/model/realCalculation'
+import { expect, it, vi } from 'vitest'
 import { createDefaultProject } from '../src/model/defaults'
 import type { Dataset } from '../src/model/project'
-import { finishScriptReflectivityInput, prepareScriptReflectivityInput } from '../src/model/scriptReflectivity'
+import { calculatePreparedScriptReflectivity, finishScriptReflectivityInput, prepareScriptReflectivityInput } from '../src/model/scriptReflectivity'
 
 function fixture() {
   const project = createDefaultProject()
@@ -102,4 +103,41 @@ it('uses captured polarization and energy for correction after a hook changes gl
   const result = finishScriptReflectivityInput(project, input, [1, 1])
   expect(result.reflectivity).toEqual(expected)
   expect(result.reflectivityPlus).toEqual(expected)
+})
+
+it.each(['parratt', 'zak', 'matrix'] as const)('calculates captured coordinates with %s and preserves exact/fast solution columns', algorithm => {
+  const { project, dataset } = fixture()
+  project.calculation.algorithm = algorithm
+  project.calculation.postProcessing = { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false }
+  project.calculation.averaging = 0
+  dataset.columns = { qz: [.02, -.01, .03], reflectivityPlus: [7, 9, 11], reflectivityMinus: [4, 5, 6] }
+  dataset.qzShift = 0; dataset.intensityOffset = 0; dataset.intensityScale = 1
+  const input = prepareScriptReflectivityInput(project, 640)
+  project.experiment.energy = 800
+  const calculate = vi.fn((request: { qz: number[] }) => new Float64Array(request.qz.flatMap(value => [value * 10, 0])))
+  const engine: RealCalculationEngine = { calculate, matrixQz: calculate, zakQz: calculate,
+    energyScan: vi.fn(), matrixEnergy: vi.fn(), zakEnergy: vi.fn(), lookup: vi.fn(),
+    dielectricTensor: () => ({ values: new Float64Array(18), anisotropic: false }),
+    convolveFastQz: vi.fn((_qz, values) => values.map(value => value * 2)) }
+  project.experiment.resolution.fastConvolution = false
+  expect(calculatePreparedScriptReflectivity(project, input, engine)).toMatchObject({
+    qz: [.02, -.01, .03], reflectivity: [.2, -.1, .3], reflectivityPlus: [7, 9, 11], reflectivityMinus: [4, 5, 6] })
+  expect(calculate.mock.calls[0][0]).toMatchObject({ energy: 800, qz: [.02, -.01, .03] })
+  project.experiment.resolution.fastConvolution = true
+  const before = structuredClone({ input, project })
+  expect(calculatePreparedScriptReflectivity(project, input, engine)).toMatchObject({
+    reflectivity: [.4, 18, .6], reflectivityPlus: [.2, 9, .3], reflectivityMinus: [4, 5, 6] })
+  expect(calculate.mock.calls[1][0]).toMatchObject({ qz: [.02, .03], resolution: { width: 0, fast: false } })
+  expect(engine.convolveFastQz).toHaveBeenCalledWith([.02, -.01, .03], new Float64Array([.2, 0, 9, 0, .3, 0]), project.experiment.resolution.angularFwhm)
+  expect({ input, project }).toEqual(before)
+  const empty = { ...input, columns: { qz: [] } }
+  expect(calculatePreparedScriptReflectivity(project, empty, engine).reflectivity).toEqual([])
+  expect(calculate).toHaveBeenCalledTimes(2)
+  const outside = { ...input, columns: { qz: [-1e10] } }
+  expect(() => calculatePreparedScriptReflectivity(project, outside, engine)).toThrow('fast calculation boundary')
+  expect(calculate).toHaveBeenCalledTimes(2)
+  project.experiment.resolution.fastConvolution = false
+  calculate.mockReturnValueOnce(new Float64Array([NaN, 0, 0, 0, 0, 0]))
+  expect(() => calculatePreparedScriptReflectivity(project, input, engine)).toThrow('invalid native output')
+  expect(input).toEqual(before.input)
 })

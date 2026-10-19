@@ -9,16 +9,16 @@ export type PreparedZakQzRequest = Omit<PreparedParrattQzRequest, 'tensor'>
 export type PreparedZakEnergyScan = Omit<PreparedEnergyScan, 'tensor' | 'dielectricTensors'>
 export type ZakEnergyCalculator = (request: PreparedZakEnergyScan) => Float64Array
 
-function prepareZakTemplate(project: Project, mode: 'monochromatic' | 'dichroic') {
+function prepareZakTemplate(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]) {
   if (project.calculation.algorithm !== 'zak') throw new Error('This real-engine path requires the Zak algorithm.')
   if (project.calculation.magnetization.mode === 'profile') throw new Error('Magnetization-profile preparation is not implemented in the Zak path yet.')
-  return prepareCompoundQzRequest(project, mode)
+  return prepareCompoundQzRequest(project, mode, coordinates)
 }
 
 // CZak reads scalar optical constants and directions; it does not consume
 // epsilon, tensorContribution or imported dielectric tensors.
-export function prepareZakQzRequest(project: Project, mode: 'monochromatic' | 'dichroic'): PreparedZakQzRequest {
-  const { tensor: _tensor, ...request } = prepareZakTemplate(project, mode)
+export function prepareZakQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]): PreparedZakQzRequest {
+  const { tensor: _tensor, ...request } = prepareZakTemplate(project, mode, coordinates)
   return request
 }
 

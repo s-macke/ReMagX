@@ -1,3 +1,8 @@
+import { prepareParrattQzRequest } from './parrattRequest'
+import { prepareVisnovskyQzRequest } from './visnovskyRequest'
+import { prepareZakQzRequest } from './zakRequest'
+import type { RealCalculationEngine } from './realCalculation'
+import { HC_EV_ANGSTROM } from './units'
 import { postprocessDatasetColumns } from './datasetPostprocessing'
 import type { ScriptSolution } from './scriptSolution'
 import type { Dataset, Polarization, Project } from './project'
@@ -62,4 +67,57 @@ export function finishScriptReflectivityInput(project: Project, input: ScriptRef
     reflectivity: [...reflectivity], reflectivityPlus: plus })
   return { qz: columns.qz, energy: columns.energy ?? [], reflectivity: columns.reflectivity!,
     reflectivityPlus: columns.reflectivityPlus!, reflectivityMinus: columns.reflectivityMinus ?? [] }
+}
+
+
+/** Numerical stage after optical refresh and the nested BeforeCalculation hook.
+ * Inputs/metadata were captured earlier; the post-hook project supplies physics. */
+export function calculatePreparedScriptReflectivity(project: Project, input: ScriptReflectivityInput,
+  engine: RealCalculationEngine, dielectricTensors?: (Float64Array | null)[]): ScriptSolution {
+  const qz = input.columns.qz
+  const fast = project.experiment.resolution.fastConvolution
+  const local = { ...project, scripts: { ...project.scripts, enabled: false },
+    calculation: { ...project.calculation, automaticOpticalConstants: false } }
+  // Prepare even an empty scan so unsupported physics is never silently accepted.
+  const request = project.calculation.algorithm === 'matrix'
+    ? prepareVisnovskyQzRequest(local, 'monochromatic', engine.dielectricTensor, dielectricTensors, qz)
+    : project.calculation.algorithm === 'zak' ? prepareZakQzRequest(local, 'monochromatic', qz)
+      : prepareParrattQzRequest(local, 'monochromatic', qz)
+  const calculate = (coordinates: number[], unconvolved = false) => {
+    const prepared = { ...request, qz: coordinates,
+      resolution: unconvolved ? { width: 0, fast: false } : request.resolution }
+    const values = project.calculation.algorithm === 'matrix'
+      ? engine.matrixQz(prepared as ReturnType<typeof prepareVisnovskyQzRequest>)
+      : project.calculation.algorithm === 'zak' ? engine.zakQz(prepared as ReturnType<typeof prepareZakQzRequest>)
+        : engine.calculate(prepared as ReturnType<typeof prepareParrattQzRequest>)
+    if (values.length !== coordinates.length * 2 || !values.every(Number.isFinite)) {
+      throw new Error('CalculateReflectivity: invalid native output')
+    }
+    return values
+  }
+  if (!qz.length) return finishScriptReflectivityInput(project, input, [], fast ? [] : undefined)
+  if (!fast) {
+    const values = calculate(qz)
+    return finishScriptReflectivityInput(project, input, qz.map((_, index) => values[index * 2]))
+  }
+  if (!engine.convolveFastQz) throw new Error('CalculateReflectivity: native fast convolution is unavailable')
+  const wave = 2 * Math.PI / (HC_EV_ANGSTROM / request.energy)
+  if (qz.some(value => Math.abs(value / (2 * wave)) >= 1)) {
+    throw new Error('CalculateReflectivity: qz exceeds the legacy fast calculation boundary')
+  }
+  const previous = input.columns.reflectivityPlus
+  const samples = previous?.length === qz.length ? [...previous] : qz.map(() => 1)
+  const nonnegative = qz.filter(value => value >= 0)
+  if (nonnegative.length) {
+    const values = calculate(nonnegative, true)
+    let index = 0
+    qz.forEach((value, position) => { if (value >= 0) samples[position] = values[2 * index++] })
+  }
+  const raw = new Float64Array(qz.length * 2)
+  samples.forEach((value, index) => { raw[index * 2] = value })
+  const values = engine.convolveFastQz([...qz], raw, request.resolution.width)
+  if (values.length !== qz.length * 2 || !values.every(Number.isFinite)) {
+    throw new Error('CalculateReflectivity: invalid native convolution output')
+  }
+  return finishScriptReflectivityInput(project, input, qz.map((_, index) => values[index * 2]), samples)
 }
