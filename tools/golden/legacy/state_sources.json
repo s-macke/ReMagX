@@ -1,0 +1,32 @@
+{
+  "sha256": {
+    "fftw/fftw3.h": "6c82c7a451e74365684e12f3ded2e2f2acca936c7d2fef391e00d9001b1955ac",
+    "shared/CChiSquareFit.h": "6fa6e2c2d8e42f3d6ce99a6710b07a5d69540dfbdf563cb576cbc08da8475f8c",
+    "shared/CDataSet.h": "285cedb215072a381235625fbcd44697f9e9879783d859778675bc3914dcabcc",
+    "shared/CGaussFunc.h": "abf5239191e6da571900a281f04859a36583817093fb8a5539d3f3c053a3d06b",
+    "shared/CMap.h": "b9023560d1ec95104d0a550080c41c6f132ec4d8d0b0257606031dd250564585",
+    "shared/CMatrix.h": "ef096be3592ec586c4c10e27a1347e737a9ff452104def1199151e8fdab3ef5e",
+    "shared/CPolarization.cpp": "aee314d01a8c586a6f3288881c2eca1e65fdfdb2ea5b7696f209a63221bfcf50",
+    "shared/CPolarization.h": "6b31f19c59b980bcf8d4d6723fa660d63dcf80aa6b9e4fda086b51f05c5bf0b1",
+    "shared/CStateHandler.cpp": "d6d147c7647ea8749b5781f0b51509448af677c3cba0ae24be49615d22fa3a6f",
+    "shared/CStateHandler.h": "4aa10d355ad6d621a0bcaf0a8fca3ef61a6b770a8ea12a138b4f2beac04688bb",
+    "shared/CString.h": "1e905908293ce39709af893a2384efc247f83d28ddf362b60a2829a3fe9b3ef7",
+    "shared/CTable.cpp": "9bb120fd9bb4495d0262556c7c4b40549c3719f73a720cf7fc1ee67608186ddd",
+    "shared/CTable.h": "8eda6ac7752643db11e7489c68b3df42dbc31ff8a3b638ee76a37065f5c2a078",
+    "shared/CVector.h": "1824aaf04b4492f58478545ac3415e470fefebcdea2541ff410f53ce9d1e82be",
+    "shared/MaterialConstants.h": "cade8f592037f678c0f7477129ff1113e605440c4f8aacfeb21fa59051009841",
+    "shared/MaterialConstantsHelper.cpp": "86f72ad54fc45e58d0d825fca344f8301de4c7594fb320bcdcad1035235cf0ce",
+    "shared/MaterialConstantsHelper.h": "9ffece7ed2442a7df5b4dbc8f0303f7e8449f892aeca88af9022cf383307e2af",
+    "shared/Variablen.cpp": "8691e9f9e4663b53d82b7021272c47684df631fd69e9d30338ff6e6f8462e5e3",
+    "shared/Variablen.h": "33ac6b3e7a12760ccd5f5dee83e2f4877d66e85e02aa77c45a0395dea654d3de",
+    "shared/lua/include/lauxlib.h": "82d7bcc075308fd1dcee8a8766ab69cda6945624fc4899021e5e971717df1b59",
+    "shared/lua/include/lua.h": "9a8ee0cb834877ad723a6bd29f92385376dea5f012d32f9e181388c33820c5a3",
+    "shared/lua/include/lua.hpp": "fd83f7e823cfbb03ac2da937ec83f01b4a6ddaac220a4fa1ffd6c6c3842c5890",
+    "shared/lua/include/luaconf.h": "eb725f6b494149feec64749ea0ae3f6677dcc9c60c747526ca94ae6a8f4cbd6f",
+    "shared/lua/include/lualib.h": "fdc28369da6fffb836b744b8a6d4b78d386e2b7348247f5cf3246b421d9f0439",
+    "shared/periodic_table.h": "0b913c22e1a2f36b9c34dd40ef7e5dcaa11757113a4c7f481d3d81e0e4d304a4",
+    "shared/random/mtrand.h": "34d72c972e36d8ebed733f7dd9310bc9011af5efc0f9d482ea0bdcd4ad70f852",
+    "shared/schicht.h": "8ca05f10090bd0b3cfaa7c256a3456e65e7615f90716daaadf61b882813796fb",
+    "shared/script.h": "0579f69825bd6925ecef14c3d8fcb4a11e9ac233dda788af9066ee46be91b48a"
+  }
+}

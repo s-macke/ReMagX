@@ -520,3 +520,48 @@ applies postmodifications and installs its energy, resolution and polarization.
 The serial multi-dataset path sums `errorweight * dataset_error` for active datasets
 and adds Qerror regularization. Those preparation/aggregation stages are separate
 remaining work; testing prepared residuals does not establish full fit equivalence.
+
+
+## Original project-loader reference (2026-10-19)
+
+`tools/golden/legacy/state_reference.cpp` calls the original 2.6
+`CStateHandler::LoadState`, including its tensor construction and thickness
+conversion. It exports energy, per-film layer rows (thickness, roughness, delta,
+beta, delta-magnetic, beta-magnetic, gamma, phi) and dataset count as numeric JSON
+with 17 significant digits. It does not execute scripts, resolve optical tables,
+calculate reflectivity or run fits. This is a project-preparation reference stage,
+not a simulation golden-output generator.
+
+The Linux/POSIX builder verifies the complete compiler-reported dependency closure
+against `state_sources.json` (28 private files, including five translation units).
+Function/data sections and linker garbage collection omit unused methods;
+optimizer, Lua, FFT, built-in table and segmentation implementations are not linked.
+Only the original declarations needed by the state model are included. No private
+source or corpus values are copied into git. Each process owns one loaded state
+until exit; it deliberately does not invoke the legacy destructor, which would
+require Lua disposal. Reader stdout/stderr are suppressed before loading; failed
+loads publish no snapshot. Build failures also suppress compiler diagnostics.
+
+From the repository root:
+
+```sh
+python3 tools/golden/legacy/build_state_reference.py
+LEGACY_ROOT=old/reMagX3 python3 -m unittest discover -s tools/golden/legacy -p 'test_state_reference.py'
+cd app
+LEGACY_ROOT=../old/reMagX3 CORPUS_DIR=../old/reMagX3 npm test -- --run test/stateLoaderLegacy.test.ts
+```
+
+Without `CORPUS_DIR`, the optional private-source comparison uses the four public
+fixtures. With it, the test compares the first film's eight exported layer values
+for every discovered project using unchanged D-23 tolerances. The 99 local corpus
+projects pass. It does not compare all project fields, datasets, tensors, or other
+films and must not be cited as full import or simulation acceptance. Errors use
+numeric project IDs and suppress private diagnostics. The public suite skips this
+comparison unless `LEGACY_ROOT` is supplied; the manifest check runs in ordinary
+Python CI discovery.
+
+A direct full-calculation include probe currently fails on the unused default
+`CVisnovsky` constructor assigning its const `transmission` member. No private
+source was patched in this step. A full rebuild still needs a reviewed build
+adaptation, complete dependency/licence review, project orchestration and golden
+validation; this loader adapter does not resolve those remaining requirements.
