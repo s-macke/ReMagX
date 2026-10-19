@@ -13,6 +13,17 @@ import { runProjectHook } from './projectHook'
 export function createBeforeCalculation(session: LuaSession, engine: RealCalculationEngine,
   tables: OpticalTable[], emit: (message: string) => void = () => {},
   resolvedTables = new Map<number, OpticalTable>()): RealBeforeCalculation {
+  return createProjectScript('BeforeCalculation', session, engine, tables, emit, resolvedTables)
+}
+
+/** Bind one selected legacy program to caller-prepared project/optical state.
+ * The caller owns refresh, invocation and disposal. Explicit execution may run
+ * even when automatic scripts are disabled; the stored preference is preserved.
+ */
+export function createProjectScript(name: 'Default' | 'BeforeCalculation', session: LuaSession,
+  engine: RealCalculationEngine, tables: OpticalTable[], emit: (message: string) => void = () => {},
+  resolvedTables = new Map<number, OpticalTable>()): RealBeforeCalculation {
+  const scriptKey = name === 'Default' ? 'default' : 'beforeCalculation'
   let context: { scattering: ReturnType<typeof createScatteringTensorWorkspace>; workspace: ReturnType<typeof createScriptArrayWorkspace>; tensors: ReturnType<typeof createScriptTensorWorkspace>; source: string } | undefined
   const cursors = new Map<OpticalTable, number>()
   return (project, opticalState, renewOpticalConstants = 0) => {
@@ -56,10 +67,10 @@ export function createBeforeCalculation(session: LuaSession, engine: RealCalcula
             if (!engine.gaussLorentzianImag) throw new Error('GetGaussLorentzianImag: native line-shape calculation is not available')
             return engine.gaussLorentzianImag(workspace.calculationEnergy(), center, area, width, mixingPercent)
           } })
-        session.compile(project.scripts.beforeCalculation, 'BeforeCalculation')
-        context = { scattering, workspace, tensors, source: project.scripts.beforeCalculation }
+        session.compile(project.scripts[scriptKey], name)
+        context = { scattering, workspace, tensors, source: project.scripts[scriptKey] }
       } else {
-        if (project.scripts.beforeCalculation !== context.source) throw new Error('BeforeCalculation source changed; create a new session')
+        if (project.scripts[scriptKey] !== context.source) throw new Error(`${name} source changed; create a new session`)
         context.tensors.replace(initial)
         context.scattering.replace(initialScattering)
       }
