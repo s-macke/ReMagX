@@ -69,6 +69,7 @@ try {
   page.on('pageerror', error => failures.push(error.message))
   await page.addInitScript(() => {
     Object.defineProperty(window, 'showOpenFilePicker', { value: undefined })
+    Object.defineProperty(window, 'showSaveFilePicker', { value: undefined })
     localStorage.setItem('remagx.expandedSections', JSON.stringify({ 'fit-start-stop': true, 'fit-debug': true }))
     window.requests = []; window.workerBlocked = false; window.resultCount = 0
     const NativeWorker = window.Worker
@@ -218,8 +219,84 @@ try {
     await page.waitForFunction(count => document.querySelector('.debug-log')?.textContent.split('energy-ui:0').length > count, count)
     await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
   }
+  // Explicit Script Window execution, atomic publication and JSON/undo preservation.
+  const manual = structuredClone(scripted)
+  manual.scripts.enabled = false
+  manual.calculation.automaticOpticalConstants = false
+  manual.scripts.default = 'print("manual-default"); thickness[1] = 42; exx_r[1] = 7'
+  manual.scripts.beforeCalculation = 'print("manual-before"); thickness[1] = 43; exx_r[1] = 8'
+  await openProject(manual)
+  await page.getByRole('button', { name: 'Open script window', exact: true }).click()
+  const scriptWindow = page.getByRole('dialog', { name: 'Script Window', exact: true })
+  async function saveProject() {
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Save (Ctrl+S)', exact: true }).click()
+    return JSON.parse(await readFile(await (await download).path(), 'utf8'))
+  }
+  for (const [program, thickness, tensor] of [['Default', 42, 7], ['BeforeCalculation', 43, 8]]) {
+    await scriptWindow.getByRole('tab', { name: program, exact: true }).click()
+    const count = await scriptWindow.locator('pre').evaluate(node => node.textContent.split('Script finished.').length)
+    await scriptWindow.getByRole('button', { name: 'Execute', exact: true }).click()
+    await page.waitForFunction(count => document.querySelector('.script-window__output')?.textContent.split('Script finished.').length > count, count)
+    const saved = await saveProject()
+    assert.equal(saved.sample.layers[1].thickness, thickness)
+    assert.equal(saved.sample.layers[1].dielectricTensor.values[0], tensor)
+    assert.equal(saved.scripts.enabled, false)
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true }).click()
+    const undone = await saveProject()
+    assert.equal(undone.sample.layers[1].thickness, program === 'Default' ? manual.sample.layers[1].thickness : 42)
+    await page.getByRole('button', { name: 'Redo (Ctrl+Y)', exact: true }).click()
+    assert.deepEqual(await saveProject(), saved)
+  }
+  const savedManual = await saveProject()
+  await openProject(savedManual)
+  assert.deepEqual(await saveProject(), savedManual)
+  manual.scripts.default = 'thickness[1] = 99\nprint("manual failure output")\nerror("failure")'
+  await openProject(manual)
+  await scriptWindow.getByRole('tab', { name: 'Default', exact: true }).click()
+  await scriptWindow.getByRole('button', { name: 'Execute', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.script-window__output')?.textContent.includes('Default:3'))
+  assert.ok((await scriptWindow.locator('pre').textContent()).includes('manual failure output'))
+  assert.deepEqual(await saveProject(), manual)
+  manual.scripts.default = 'print("manual loop entered"); while true do end'
+  await openProject(manual)
+  await scriptWindow.getByRole('button', { name: 'Execute', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.script-window__output')?.textContent.includes('manual loop entered'))
+  const manualStopMilliseconds = await timedClick(page, scriptWindow.getByRole('button', { name: 'Stop', exact: true }), '.script-window__bar button:last-child:disabled')
+  assert.ok(manualStopMilliseconds < 1000)
+  assert.deepEqual(await saveProject(), manual)
+  // A held result cannot overwrite a newly loaded project or release old output.
+  manual.scripts.default = 'print("obsolete-manual"); thickness[1] = 999'
+  await openProject(manual)
+  await page.evaluate(() => { window.holdScriptResults = true; window.releaseScriptResult = undefined })
+  await scriptWindow.getByRole('button', { name: 'Execute', exact: true }).click()
+  await page.waitForFunction(() => !!window.releaseScriptResult)
+  manual.scripts.default = 'print("fresh-manual"); thickness[1] = 44'
+  await openProject(manual)
+  // setFiles resolves before the async JSON reader commits the loaded project.
+  await page.waitForFunction(() => document.querySelector('.script-window .cm-content')?.textContent.includes('fresh-manual'))
+  await page.waitForFunction(() => document.querySelector('.script-window__bar button:last-child')?.disabled)
+  await page.evaluate(() => { window.holdScriptResults = false; window.releaseScriptResult() })
+  assert.deepEqual(await saveProject(), manual)
+  assert.ok(!(await scriptWindow.locator('pre').textContent()).includes('obsolete-manual'))
+  await scriptWindow.getByRole('button', { name: 'Execute', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.script-window__output')?.textContent.includes('fresh-manual'))
+  await page.waitForFunction(() => document.querySelector('.script-window__bar button:last-child')?.disabled)
+  assert.equal((await saveProject()).sample.layers[1].thickness, 44)
+  manual.scripts.default = 'print("close-loop-entered"); while true do end'
+  await openProject(manual)
+  await scriptWindow.getByRole('button', { name: 'Execute', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.script-window__output')?.textContent.includes('close-loop-entered'))
+  await scriptWindow.getByRole('button', { name: 'Close script window', exact: true }).click()
+  manual.scripts.default = 'print("reopened-script"); thickness[1] = 45'
+  await openProject(manual)
+  await page.getByRole('button', { name: 'Open script window', exact: true }).click()
+  await scriptWindow.getByRole('tab', { name: 'Default', exact: true }).click()
+  await scriptWindow.getByRole('button', { name: 'Execute', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.script-window__output')?.textContent.includes('Script finished.'))
+  assert.equal((await saveProject()).sample.layers[1].thickness, 45)
   assert.deepEqual(failures, [])
-  console.log(JSON.stringify({ realUi: 'passed', points: 10000, layers: 102, tabMilliseconds, stopMilliseconds, blockedStops }))
+  console.log(JSON.stringify({ realUi: 'passed', points: 10000, layers: 102, tabMilliseconds, stopMilliseconds, blockedStops, manualStopMilliseconds }))
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

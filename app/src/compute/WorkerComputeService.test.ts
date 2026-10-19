@@ -603,3 +603,11 @@ it.each(['executeScript', 'calcChi2', 'calcReflectivity', 'calcAsymmetry', 'calc
   expect(lines).toHaveBeenCalledTimes(1)
   service.dispose()
 })
+
+it('uses the current UI table snapshot for manual execution instead of the factory snapshot', async () => {
+  const worker = controlledWorker(), service = new WorkerComputeService(() => worker, () => { throw new Error('stale factory tables') })
+  const request = service.executeScript(createDefaultProject(), 'BeforeCalculation', undefined, [])
+  expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ kind: 'executeScript', spectrum: { program: 'BeforeCalculation', tables: [] } }))
+  const rejected = expect(request).rejects.toBeInstanceOf(ComputeCancelled)
+  service.stop(); await rejected; service.dispose()
+})

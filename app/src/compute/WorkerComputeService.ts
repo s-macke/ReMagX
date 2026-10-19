@@ -80,8 +80,8 @@ export class WorkerComputeService implements ComputeService {
     return worker
   }
 
-  async executeScript(project: Project, program: ScriptProgram, onScriptMessages?: (lines: string[]) => void): Promise<ScriptExecutionResult> {
-    return this.request('executeScript', project, undefined, { program, tables: this.getTables?.() ?? [] }, onScriptMessages)
+  async executeScript(project: Project, program: ScriptProgram, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<ScriptExecutionResult> {
+    return this.request('executeScript', project, undefined, { program, tables: tables ?? this.getTables?.() ?? [] }, onScriptMessages)
   }
 
   scatteringFactors(project: Project, spectrum: ElementSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum> {

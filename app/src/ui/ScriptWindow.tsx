@@ -1,3 +1,4 @@
+import { useScriptExecution } from '../state/useScriptExecution'
 import { useState } from 'react'
 import { generateSnippet, snippetLabels, type SnippetKind } from '../model/scriptSnippets'
 import { useAppState } from '../state/context'
@@ -13,7 +14,7 @@ export function ScriptWindow({ onClose }: { onClose: () => void }) {
   const edit = useEditProject()
   const [tab, setTab] = useState<ScriptTab>('beforeCalculation')
   const [line, setLine] = useState(1)
-  const [output, setOutput] = useState<string[]>([])
+  const { execute, stop, busy, output, append, unavailable } = useScriptExecution()
 
   const code = tab === 'default' ? project.scripts.default : project.scripts.beforeCalculation
   const setCode = (text: string) =>
@@ -25,17 +26,11 @@ export function ScriptWindow({ onClose }: { onClose: () => void }) {
   const insertSnippet = (kind: SnippetKind) => {
     const lines = generateSnippet(kind, project)
     if (lines.length === 0) {
-      setOutput((o) => [...o, `Code generator: nothing to generate for “${snippetLabels[kind]}”.`])
+      append([`Code generator: nothing to generate for “${snippetLabels[kind]}”.`])
       return
     }
     setCode(`${code}${code === '' || code.endsWith('\n') ? '' : '\n'}${lines.join('\n')}\n`)
   }
-
-  const execute = () =>
-    setOutput((o) => [
-      ...o,
-      `Execute (${tab === 'default' ? 'Default' : 'BeforeCalculation'}): script execution comes with the Lua engine and is not available in the mock yet.`,
-    ])
 
   return (
     <section className="script-window" role="dialog" aria-label="Script Window">
@@ -79,9 +74,10 @@ export function ScriptWindow({ onClose }: { onClose: () => void }) {
             ))}
           </select>
         </label>
-        <button type="button" className="primary" onClick={execute}>
+        <button type="button" className="primary" disabled={busy || unavailable} onClick={() => execute(tab === 'default' ? 'Default' : 'BeforeCalculation')}>
           Execute
         </button>
+        <button type="button" disabled={!busy} onClick={stop}>Stop</button>
       </div>
       <pre className="script-window__output" aria-live="polite">
         {output.length ? output.join('\n') : 'Script output appears here.'}

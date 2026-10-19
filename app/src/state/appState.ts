@@ -1,3 +1,4 @@
+import { applyScriptExecution, type ScriptExecutionResult } from '../model/manualScript'
 import type { FitDatasetPreview } from '../compute/ComputeService'
 // Application state: the current project plus UI-only view settings. Components dispatch
 // actions; project changes go through the pure helpers in model/.
@@ -75,6 +76,7 @@ const COALESCE_MS = 1000
 export type FitEvent = Extract<Action, { type: 'setFitStatus' | 'updateProject' | 'setCalculationPaused' | 'appendDebug' }>
 
 export type Action =
+  | { type: 'applyScriptExecution'; source: Project; tables: OpticalTable[]; epoch: number; result: ScriptExecutionResult }
   | { type: 'applyElementConversion'; source: Project; epoch: number; result: ElementConversion }
   | { type: 'applyLayerConversion'; source: Project; epoch: number; tables: OpticalTable[]; layers: Layer[] }
   | { type: 'beginDatabaseUpdate'; id: number }
@@ -172,7 +174,7 @@ export function reducer(state: AppState, action: Action): AppState {
   let next = transition(state, action)
   if (action.type === 'loadProject') return { ...invalidateFit(next, 'Fit cancelled because a project was loaded.'), history: emptyHistory(), calculationPaused: false, valueSlider: null }
   if (next.project === state.project) return next
-  if (action.type === 'applyElementConversion' || action.type === 'applyLayerConversion' || fitStructureChanged(state.project, next.project)) next = { ...invalidateFit(next, 'Fit cancelled because project structure changed.'), valueSlider: null }
+  if (action.type === 'applyScriptExecution' || action.type === 'applyElementConversion' || action.type === 'applyLayerConversion' || fitStructureChanged(state.project, next.project)) next = { ...invalidateFit(next, 'Fit cancelled because project structure changed.'), valueSlider: null }
   if (next.valueSlider && action.type !== 'slideValue') {
     const value = readValueCell(next.project, next.valueSlider.target)
     if (value === undefined) next = { ...next, valueSlider: null }
@@ -188,6 +190,13 @@ export function reducer(state: AppState, action: Action): AppState {
 
 function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | { type: 'redo' }>): AppState {
   switch (action.type) {
+    case 'applyScriptExecution':
+      if (action.source !== state.project || action.epoch !== state.fitEpoch || action.tables !== state.opticalTables) {
+        return { ...state, notice: 'Script result discarded because the project, table library or calculation session changed.' }
+      }
+      try { return { ...state, project: applyScriptExecution(action.result) } }
+      catch { return { ...state, notice: 'Script result was invalid; the project was not changed.' } }
+
     case 'applyElementConversion':
       if (action.source !== state.project || action.epoch !== state.fitEpoch) return { ...state, notice: 'Element conversion discarded because the project or fit session changed.' }
       return { ...state, project: applyElementConversion(state.project, action.result).project, selectedElement: 0, selectedLayer: 1, plotView: 'densityProfiles' }

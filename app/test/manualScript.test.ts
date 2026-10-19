@@ -91,3 +91,23 @@ it('reports unavailable manual Lua explicitly in the mock and without a runtime'
   await createRealRequestHandler(send, async () => engine)(request)
   expect(send.mock.calls.at(-1)![0]).toMatchObject({ type: 'error', message: expect.stringContaining('unavailable') })
 })
+
+it('retains saved tensors at skipped automatic entries and replaces them in manual mode', () => {
+  const { project, engine } = fixture()
+  project.sample.layers[0].dielectricTensor = { values: Array(18).fill(7), anisotropic: true }
+  project.sample.elementProfiles[0].scatteringTensor = Array(18).fill(8)
+  project.calculation.automaticOpticalConstants = true
+  for (const mode of ['compound', 'element'] as const) {
+    project.sample.mode = mode
+    const prepared = prepareManualScript(project, [], engine)
+    expect(prepared.opticalState.dielectricState![0]!.values[0]).toBe(7)
+    expect(prepared.opticalState.dielectricTensors[0]![0]).toBe(7)
+    expect(prepared.opticalState.scatteringTensors![0][0]).toBe(8)
+    prepared.opticalState.dielectricState![0]!.values[0] = 99
+    expect(project.sample.layers[0].dielectricTensor.values[0]).toBe(7)
+  }
+  project.calculation.automaticOpticalConstants = false
+  const manual = prepareManualScript(project, [], engine)
+  expect(manual.opticalState.dielectricState![0]!.values[0]).toBe(3)
+  expect(manual.opticalState.scatteringTensors![0][0]).toBe(4)
+})

@@ -37,7 +37,15 @@ export const magnetizationDirectionSchema = z.object({
 
 // One layer in compound mode. Optical constants follow n = 1 - delta + i*beta; the magnetic
 // parts deltaMag/betaMag are the dichroic contributions.
+const tensorComponentsSchema = z.array(finite).length(18)
+export const storedDielectricTensorSchema = z.object({
+  values: tensorComponentsSchema,
+  anisotropic: z.boolean(),
+})
+
 export const layerSchema = z.object({
+  // Stored state from explicit script execution, separate from scalar constants.
+  dielectricTensor: storedDielectricTensorSchema.optional(),
   material: z.string(),
   opticalTable: z.string(), // name of the optical-constant table (legacy ".db" file), may be empty
   density: nonNegative, // g/cm³
@@ -59,6 +67,7 @@ export const elementSlabSchema = z.object({
 })
 
 export const elementProfileSchema = z.object({
+  scatteringTensor: tensorComponentsSchema.optional(),
   element: z.string(),
   f1: finite,
   f2: finite,

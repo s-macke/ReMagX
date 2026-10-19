@@ -100,7 +100,7 @@ export interface FitResult {
 }
 
 export interface ComputeService {
-  executeScript(project: Project, program: ScriptProgram, onScriptMessages?: (lines: string[]) => void): Promise<ScriptExecutionResult>
+  executeScript(project: Project, program: ScriptProgram, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<ScriptExecutionResult>
   readonly providesFitPreviews?: boolean
   dielectricTensor(project: Project, query: TensorQuery, onScriptMessages?: (lines: string[]) => void): Promise<TensorPreview>
   databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues>
