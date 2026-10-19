@@ -223,3 +223,16 @@ Public runner tests use synthetic inputs and an independent stub executable:
 `python3 -m unittest discover -s tools/golden/legacy -p test_capture_corpus.py`.
 They also run with the ordinary public Python reference tests in CI; the private
 capture itself is local-only until corpus access in CI is resolved.
+
+
+The error-function study now also reports an independent double-only gamma-based
+approximation against original direct-function values, separate from lookup-grid
+interpolation. Its series comes from [DLMF 8.7.1](https://dlmf.nist.gov/8.7.E1),
+and its backwards finite continued fractions use the even contraction of
+[DLMF 8.9.2](https://dlmf.nist.gov/8.9.E2), at a=1/2. The diagnostic stops at
+3e-7; it is not a production replacement or a relaxed golden gate. All original
+comparisons still use D-23. It fails 9,112/20,001 samples, with maximum absolute
+difference about 2.49e-7. Source inspection found single-precision internal state
+in the original series and continued-fraction helpers despite double interfaces.
+Whether to reproduce that rounding in a narrowly scoped compatibility step is a
+pending decision. No original NR code or generated lookup table is committed.

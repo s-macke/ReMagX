@@ -33,6 +33,39 @@ def summarize(rows, reference_column, candidate_column):
                 maximum_tolerance_ratio=maximum_scaled, worst_absolute_position=worst_position)
 
 
+
+def double_gamma_erf(position):
+    """Independent double-only diagnostic from DLMF 8.7.1 and 8.9.2, a=1/2.
+
+    The continued fraction is evaluated backwards at successive finite depths.
+    This is not an NR port and is not used by the production engine.
+    """
+    squared = position * position
+    if squared == 0:
+        return 0.0
+    scale = math.exp(.5 * math.log(squared) - squared - math.lgamma(.5))
+    if squared < 1.5:
+        term = total = 2.0
+        for order in range(1, 201):
+            term *= squared / (order + .5)
+            total += term
+            if abs(term) < abs(total) * 3e-7:
+                return math.copysign(total * scale, position)
+    else:
+        # Even contraction of DLMF 8.9.2: b_n=z+2n+1/2,
+        # a_n=-n(n-1/2), with the leading reciprocal.
+        previous = 1 / (squared + .5)
+        for depth in range(1, 201):
+            denominator = squared + .5 + 2 * depth
+            for level in range(depth, 0, -1):
+                denominator = squared + .5 + 2 * (level - 1) - level * (level - .5) / denominator
+            fraction = 1 / denominator
+            if abs(fraction - previous) < abs(fraction) * 3e-7:
+                return math.copysign(1 - scale * fraction, position)
+            previous = fraction
+    raise ValueError('Independent gamma diagnostic did not converge.')
+
+
 def reflectivity_diagnostics(rows, native_core):
     class Layer(ctypes.Structure):
         _fields_ = [(name, ctypes.c_double) for name in ['thickness', 'roughness', 'delta', 'beta',
@@ -100,7 +133,7 @@ void nrerror(const char*) {}
         const double position=-5.0+index/2000.0;
         table=original; const double reference=erfftable(position);
         table=replacement; const double interpolated=erfftable(position);
-        cout<<position<<' '<<reference<<' '<<interpolated<<' '<<std::erf(position)<<'\\n';
+        cout<<position<<' '<<reference<<' '<<interpolated<<' '<<std::erf(position)<<' '<<erff(position)<<'\\n';
     }
 }
 '''
@@ -111,13 +144,15 @@ void nrerror(const char*) {}
                         str(cpp), '-o', str(executable)], capture_output=True, check=True)
         output = subprocess.run([str(executable)], capture_output=True, text=True, check=True).stdout
     rows = [list(map(float, line.split())) for line in output.splitlines()]
-    if len(rows) != 20001 or any(len(row) != 4 or not all(map(math.isfinite, row)) for row in rows):
+    if len(rows) != 20001 or any(len(row) != 5 or not all(map(math.isfinite, row)) for row in rows):
         raise ValueError('Unexpected or nonfinite diagnostic output.')
     # Local optical profile for a single rough interface: delta=.01 in substrate,
     # delta=0 in ambient. This is GetOpticalConstant3's scalar two-medium formula,
     # evaluated at z=-sqrt(2)*sigma*x. No reflectivity accuracy claim follows.
-    optical = [[row[0], *[.5 * .01 * (1 + value) for value in row[1:]]] for row in rows]
-    return dict(reflectivity=reflectivity_diagnostics(rows, native_core), samples=len(rows), source_sha256=SOURCE_HASH,
+    optical = [[row[0], *[.5 * .01 * (1 + value) for value in row[1:4]]] for row in rows]
+    independent = [[row[0], row[4], double_gamma_erf(row[0])] for row in rows]
+    return dict(independent_double_gamma=summarize(independent, 1, 2),
+                reflectivity=reflectivity_diagnostics(rows, native_core), samples=len(rows), source_sha256=SOURCE_HASH,
                 same_grid_std_erf=summarize(rows, 1, 2), direct_std_erf=summarize(rows, 1, 3),
                 local_interface_delta_same_grid=summarize(optical, 1, 2),
                 local_interface_delta_direct=summarize(optical, 1, 3),
