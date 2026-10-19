@@ -1,3 +1,4 @@
+import { prepareStandaloneFit } from '../model/standaloneFit'
 import { prepareStandaloneEnergyScan } from '../model/standaloneEnergyScan'
 import type { OpticalTable } from '../import/tables'
 import { prepareManualScript } from '../model/manualScript'
@@ -70,13 +71,14 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       }
       if (message.kind === 'fit') {
         if (!engine.minimize) throw new Error('The real optimizer is unavailable.')
+        const prepared = prepareStandaloneFit(message.project, message.tables ?? [], engine)
         const hasScript = message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
         const session = hasScript && createLuaSession ? await createLuaSession() : undefined
         try {
           const scriptMessages: string[] = []
           const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], text => { scriptMessages.push(text); send({ id: message.id, type: 'scriptMessages', lines: [text] }) }) : undefined
-          const result = runRealFit(message.project, message.tables ?? [], engine, engine.minimize,
-            progress => send({ id: message.id, type: 'fitProgress', progress }), undefined, hook)
+          const result = runRealFit(prepared.project, message.tables ?? [], engine, engine.minimize,
+            progress => send({ id: message.id, type: 'fitProgress', progress }), undefined, hook, prepared.opticalState)
           send({ id: message.id, type: 'result', result: { ...result, ...(session ? { scriptMessages } : {}) } })
         } finally { session?.close() }
         return

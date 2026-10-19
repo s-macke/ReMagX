@@ -654,7 +654,12 @@ try {
           const initial = await service.calcChi2(scripted, messages => lines.push(...messages))
           if (Math.abs(initial - expectedInitial) > 1e-15 + 1e-10 * Math.abs(expectedInitial)) throw new Error('Energy chi2 script mismatch')
           if (lines.length !== scripted.datasets.filter(data => data.active).length || lines.some(line => line !== 'init')) throw new Error('Energy chi2 session lifetime mismatch')
-          const result = await service.startFit(scripted, () => {})
+          const fitting = structuredClone(scripted)
+          fitting.sample.layers[1].dielectricTensor = { values: Array(18).fill(7), anisotropic: true }
+          fitting.scripts.beforeCalculation = 'if calls == nil then assert(math.abs(delta[1] - 0.0054) < 1e-14); assert(math.abs(exx_r[1] - ((1 - 0.0054)^2 - 0.00088^2)) < 1e-14) end; ' + fitting.scripts.beforeCalculation
+          const fitBefore = JSON.stringify(fitting)
+          const result = await service.startFit(fitting, () => {})
+          if (JSON.stringify(fitting) !== fitBefore) throw new Error('Fit preparation changed saved tensor input')
           if (Math.abs(result.values[0] - 35) > 1e-6 || result.chi2 > 1e-16) throw new Error('Energy Lua fit recovery failed: ' + algorithm + '/' + selected)
           if (result.scriptMessages[0] !== 'init' || result.scriptMessages.length < 2 || result.scriptMessages.slice(1).some(line => line !== 'objective')) throw new Error('Energy fit session lifetime mismatch')
           if (JSON.stringify(scripted) !== before) throw new Error('Energy Lua fit mutated project')

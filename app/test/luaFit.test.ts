@@ -153,7 +153,7 @@ it.each(['reflectivity', 'asymmetry', 'energyScan', 'energyAsymmetry', 'fit'] as
     const { project, engine } = fixture()
     project.calculation.automaticOpticalConstants = false
     project.experiment.qzScan.useDatasetPoints = true
-    project.datasets[0].columns.energy = [640]
+    if (kind === 'energyScan' || kind === 'energyAsymmetry') project.datasets[0].columns.energy = [640]
     project.scripts.enabled = true
     project.scripts.beforeCalculation = 'print("before failure")\nerror("broken script")'
     engine.dielectricTensor = () => ({ values: new Float64Array(18), anisotropic: false })

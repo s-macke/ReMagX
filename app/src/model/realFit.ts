@@ -33,14 +33,14 @@ export class FitStoppedBeforeEvaluation extends Error {}
 // The fit state advances after each evaluation just as CMultiFit::Error does.
 export function runRealFit(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }, minimize: RealMinimizer,
-  onProgress: (progress: FitProgress) => void, shouldStop = () => false, beforeCalculation?: RealBeforeCalculation): FitResult {
+  onProgress: (progress: FitProgress) => void, shouldStop = () => false, beforeCalculation?: RealBeforeCalculation, initialOpticalState?: SerialOpticalState): FitResult {
   if (project.fit.algorithm !== 'simplex') throw new Error('Real annealing fits are not implemented yet.')
   if (project.fit.occamQ !== 0) throw new Error('Real fit regularization is not implemented yet.')
   if (!project.fit.parameters.length) throw new Error('Select at least one fit parameter.')
   if (!project.datasets.some(dataset => dataset.active)) throw new Error('Select at least one dataset for fitting.')
   const prepared = prepareRealFitSimplex(project.fit.parameters)
   let current = project
-  let opticalState: SerialOpticalState | undefined
+  let opticalState: SerialOpticalState | undefined = initialOpticalState
   const scripted = project.scripts.enabled && project.scripts.beforeCalculation.trim()
   const runHook = (renew: number, nestedSession: ScriptSessionLifetime = 'existing') => {
     if (!scripted || !beforeCalculation) return
