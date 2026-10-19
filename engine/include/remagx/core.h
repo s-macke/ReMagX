@@ -68,6 +68,12 @@ int remagx_parratt_qz_resolution(const RemagxLayer* layers, size_t layer_count,
                       const RemagxBeam* beam1, const RemagxBeam* beam2,
                       int tensor, int analyzer, int magnetization_enabled,
                       int scan_mode, double width, int fast, RemagxReflectivity* output);
+// Convolve prepared qz samples without replacing retained values at negative qz.
+// Always uses all 19 nodes, including at zero width; no energy-width bypass.
+// Input columns remain unchanged; output is atomic on failure.
+int remagx_fast_qz_resolution(const double* qz, const RemagxReflectivity* input,
+                      size_t point_count, double width, RemagxReflectivity* output);
+
 // Post-scan legacy energy convolution of both intensity columns, before asymmetry.
 // Preserves supplied point order, GetLinY boundary fallback and negative-sample
 // omission without renormalization. Width below 1e-10 eV copies inputs unchanged.

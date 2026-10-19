@@ -65,6 +65,7 @@ int angular_resolution(const double* qz, size_t point_count, double energy_ev,
                 if (scan_mode == REMAGX_DICHROIC && qz[index] / (wave * 2.0) >= 1.0) return REMAGX_QZ_ERROR;
                 if (qz[index] < 0.0) raw[index] = {1.0, scan_mode == REMAGX_DICHROIC ? 1.0 : 0.0};
             }
+            return remagx_fast_qz_resolution(qz, raw.data(), point_count, width, output);
         }
         std::vector<RemagxReflectivity> results(point_count, {0.0, 0.0});
         for (size_t index = 0; index < point_count; ++index) {
@@ -125,9 +126,10 @@ extern "C" int remagx_zak_qz_resolution(const RemagxLayer* layers, size_t layer_
 
 // CalcEScan / CalcDicEScan apply this interpolation kernel after the full scan,
 // before asymmetry and other postprocessing. It is independent of fast settings.
-extern "C" int remagx_energy_resolution(const double* energies,
+namespace {
+int sampled_resolution(const double* energies,
                       const RemagxReflectivity* input, size_t point_count,
-                      double width, RemagxReflectivity* output) {
+                      double width, RemagxReflectivity* output, bool skip_small_width) {
     if (!energies || !input || !output || !point_count || !std::isfinite(width) || width < 0.0)
         return REMAGX_INVALID_ARGUMENT;
     for (size_t index = 0; index < point_count; ++index)
@@ -136,11 +138,13 @@ extern "C" int remagx_energy_resolution(const double* energies,
     try {
         const std::vector<RemagxReflectivity> source(input, input + point_count);
         std::vector<RemagxReflectivity> results(point_count, {0.0, 0.0});
-        if (width < 1e-10) results = source;
+        if (skip_small_width && width < 1e-10) results = source;
         else for (size_t index = 0; index < point_count; ++index) {
             for (size_t sample = 0; sample < 19; ++sample) {
                 const double energy = energies[index] + offsets[sample] * width;
-                if (!std::isfinite(energy)) return REMAGX_NUMERICAL_ERROR;
+                // Fast qz historically lets overflowed shifted coordinates reach
+                // GetLinY fallback; energy convolution rejects them.
+                if (skip_small_width && !std::isfinite(energy)) return REMAGX_NUMERICAL_ERROR;
                 if (energy < 0.0) continue;
                 const auto value = interpolate(energies, source, index, energy);
                 results[index].beam1 += weights[sample] * value.beam1;
@@ -153,4 +157,16 @@ extern "C" int remagx_energy_resolution(const double* energies,
         return REMAGX_SUCCESS;
     } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
       catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
+}
+
+}
+
+extern "C" int remagx_energy_resolution(const double* energies, const RemagxReflectivity* input,
+                      size_t point_count, double width, RemagxReflectivity* output) {
+    return sampled_resolution(energies, input, point_count, width, output, true);
+}
+
+extern "C" int remagx_fast_qz_resolution(const double* qz, const RemagxReflectivity* input,
+                      size_t point_count, double width, RemagxReflectivity* output) {
+    return sampled_resolution(qz, input, point_count, width, output, false);
 }

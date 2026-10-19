@@ -70,4 +70,41 @@ class EnergyResolutionTest(unittest.TestCase):
         self.assertEqual(calculate([1, 2], [1, 2, 3, 4], 1e308), (2, sentinel))
         self.assertEqual(function(None, None, 0, 1, None), 1)
 
+class FastQzResolutionTest(unittest.TestCase):
+    def setUp(self):
+        global function
+        self.energy_function = function
+        function = library.remagx_fast_qz_resolution
+        function.argtypes = self.energy_function.argtypes
+        function.restype = ctypes.c_int
+
+    def tearDown(self):
+        global function
+        function = self.energy_function
+
+    def test_zero_width_has_no_energy_bypass_and_negative_samples_are_retained(self):
+        # At negative coordinates every convolution node is skipped, even at
+        # zero width. At zero, the sum of the original weights is not exactly 1.
+        self.assertEqual(calculate([-1], [7, 9], 0), (0, [0, 0]))
+        status, result = calculate([1], [2, 4], 0)
+        self.assertEqual(status, 0)
+        self.assertNotEqual(result, [2, 4])
+        self.assertAlmostEqual(result[0], 2, places=13)
+        # These caller-owned values must not be replaced by the normal scan's
+        # initial ones: nearby nonnegative interpolation can observe them.
+        first = calculate([0, -.1, .1, .2], [2, 4, 7, 9, 3, 6, 4, 8], .03)
+        second = calculate([0, -.1, .1, .2], [2, 4, 1, 1, 3, 6, 4, 8], .03)
+        self.assertEqual(first[0], 0)
+        self.assertNotEqual(first[1], second[1])
+
+    def test_reviewed_interpolation_and_atomic_errors(self):
+        EnergyResolutionTest.test_reviewed_interpolation_reference(self)
+        sentinel = [-123, -456, -123, -456]
+        self.assertEqual(calculate([1, math.nan], [1, 2, 3, 4], 1), (1, sentinel))
+        self.assertEqual(calculate([1, 2], [1, 2, 3, 4], -1), (1, sentinel))
+        self.assertEqual(function(None, None, 0, 1, None), 1)
+        self.assertEqual(calculate([1, 2], [1, 2, 3, 4], 1e308)[0], 0)
+        # Overflow within interpolation itself remains an atomic failure.
+        self.assertEqual(calculate([1, 2], [1e308, 0, -1e308, 0], .1), (2, sentinel))
+
 if __name__ == '__main__': unittest.main()
