@@ -60,6 +60,8 @@ export function prepareCompoundLayerIndices(project: Project): number[] {
 // Legacy FillLayers copies constants directly, without multiplying them by density.
 export function prepareCompoundLayers(project: Project): PreparedCompoundLayer[] {
   if (project.sample.mode !== 'compound') throw new Error('Element-mode preparation is not implemented yet.')
+  // Original CalcMagProfile returns before applying any profile when slicing is off.
+  // Profile mode therefore retains stored magnetic constants with Nevot–Croce.
   if (project.calculation.roughnessModel !== 'nevot-croce') throw new Error('Adaptive segmentation is not implemented in real-engine preparation yet.')
   const layers = project.sample.layers
   const indices = prepareCompoundLayerIndices(project)

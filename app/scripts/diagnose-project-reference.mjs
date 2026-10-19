@@ -41,12 +41,13 @@ try {
     const points = JSON.parse(execFileSync(executable, [path, ...(settings.asymmetry ? ['--asymmetry'] : []), ...(settings.scan === 'energy' ? ['--energy'] : []), ...(settings.fixedAngle ? ['--angle'] : [])], { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString())
     cases.push({ source, points, settings })
   }
-  for (const algorithm of [0, 1, 2]) for (const magnetic of [0, 1])
+  for (const algorithm of [0, 1, 2]) for (const magnetic of [0, 1, 2])
     for (const resolution of [0, .001]) for (const fast of [0, 1]) {
-    const source = fixture.replace(/^(algorithm\s*=).*$/m, `$1 ${algorithm}`)
+    let source = fixture.replace(/^(algorithm\s*=).*$/m, `$1 ${algorithm}`)
       .replace(/^(magnetizationmode\s*=).*$/m, `$1 ${magnetic}`)
       .replace(/^(resolution\s*=).*$/m, `$1 ${resolution}`)
       .replace(/^(fastresolution\s*=).*$/m, `$1 ${fast}`)
+    if (magnetic === 2) source += '\ngauss_function = 1\ngauss_delta = 0.01\ngauss_beta = 0.002\ngauss_variance = 3\ngauss_z = 10\n'
     await addCase(source, { algorithm, magnetic, resolution, fast, scan: 'generated' })
   }
   for (const algorithm of [0, 1, 2]) for (const fast of [0, 1])

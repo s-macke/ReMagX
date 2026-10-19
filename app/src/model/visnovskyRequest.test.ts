@@ -34,7 +34,7 @@ it('rejects incomplete preparation and malformed engine tensors', () => {
   project.calculation.algorithm = 'matrix'
   const construct = () => ({ values: new Float64Array(18), anisotropic: false })
   project.calculation.magnetization.mode = 'profile'
-  expect(() => prepareVisnovskyQzRequest(project, 'monochromatic', construct)).toThrow('profile')
+  expect(() => prepareVisnovskyQzRequest(project, 'monochromatic', construct)).not.toThrow()
   project.calculation.magnetization.mode = 'none'
   project.calculation.epsilon = NaN
   expect(() => prepareVisnovskyQzRequest(project, 'monochromatic', construct)).toThrow('epsilon')

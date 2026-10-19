@@ -51,7 +51,8 @@ it('skips tensor construction for range failures and validates unsupported setti
   expect(request.stacks[0][0]).toEqual({ values: [0, 0, 1, ...Array<number>(19).fill(0)], anisotropic: 0 })
   project.datasets[0].columns.energy = [10, 20, 30]
   project.calculation.magnetization.mode = 'profile'
-  expect(() => calculateVisnovskyEnergyScan(project, tables, lookup, construct, calculate)).toThrow('profile')
+  project.calculation.roughnessModel = 'segmentation'
+  expect(() => calculateVisnovskyEnergyScan(project, tables, lookup, construct, calculate)).toThrow('segmentation')
   expect(calculate).toHaveBeenCalledTimes(1)
 })
 

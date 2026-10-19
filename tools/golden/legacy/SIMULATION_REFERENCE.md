@@ -189,3 +189,11 @@ an explicitly modified private diagnostic, not an original golden reference.
 Both variants run in a disposable corpus copy. No private source, lookup data or
 curves are committed. This measures combined adaptive-path impact; it does not
 isolate changes in slice selection from optical values.
+
+
+The public diagnostic now includes 12 additional mode-2 qz variants with nonzero
+Gaussian amplitudes and segmentation disabled. Original CalcMagProfile returns
+before profile application in this configuration; Matrix/Zak preparation now
+preserves that behavior alongside Parratt. All 135 combined project variants and
+51,810 coordinate/intensity values pass D-23. This verifies the disabled-segmentation
+branch, not adaptive slicing or actual magnetic-profile application.

@@ -24,7 +24,7 @@ it('packs expanded Zak scalar layers and complex beams without matrix settings o
   project.calculation.magnetization.mode = 'none'
   expect(prepareZakQzRequest(project, 'monochromatic')).toMatchObject({ mode: 0, magnetic: 0, beam2: null })
   project.calculation.magnetization.mode = 'profile'
-  expect(() => prepareZakQzRequest(project, 'monochromatic')).toThrow('profile')
+  expect(prepareZakQzRequest(project, 'monochromatic').magnetic).toBe(1)
   project.calculation.algorithm = 'parratt'
   expect(() => prepareZakQzRequest(project, 'monochromatic')).toThrow('Zak algorithm')
 })
@@ -55,5 +55,7 @@ it('refreshes scalar energy stacks and full table cursors while discarding tenso
   project.calculation.asymmetryDefinition = 'difference'
   expect(calculateZakEnergyScan(project, tables, lookup, calculate, 'dichroic').asymmetry).toEqual([4, 4, 4])
   project.calculation.magnetization.mode = 'profile'
-  expect(() => calculateZakEnergyScan(project, tables, lookup, calculate)).toThrow('profile')
+  expect(() => calculateZakEnergyScan(project, tables, lookup, calculate)).not.toThrow()
+  project.calculation.roughnessModel = 'segmentation'
+  expect(() => calculateZakEnergyScan(project, tables, lookup, calculate)).toThrow('segmentation')
 })

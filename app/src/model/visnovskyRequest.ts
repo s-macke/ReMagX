@@ -23,7 +23,6 @@ export function prepareVisnovskyQzRequest(project: Project, mode: 'monochromatic
 
 export function validateVisnovskyProject(project: Project) {
   if (project.calculation.algorithm !== 'matrix') throw new Error('This real-engine path requires the matrix algorithm.')
-  if (project.calculation.magnetization.mode === 'profile') throw new Error('Magnetization-profile preparation is not implemented in the matrix path yet.')
   if (!Number.isFinite(project.calculation.epsilon)) throw new Error('Matrix epsilon must be finite.')
 }
 

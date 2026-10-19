@@ -11,7 +11,6 @@ export type ZakEnergyCalculator = (request: PreparedZakEnergyScan) => Float64Arr
 
 function prepareZakTemplate(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]) {
   if (project.calculation.algorithm !== 'zak') throw new Error('This real-engine path requires the Zak algorithm.')
-  if (project.calculation.magnetization.mode === 'profile') throw new Error('Magnetization-profile preparation is not implemented in the Zak path yet.')
   return prepareCompoundQzRequest(project, mode, coordinates)
 }
 
