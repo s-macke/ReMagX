@@ -130,3 +130,15 @@ failed strict table preparation and one exceeded the per-project 10-second limit
 Runs used a disposable copy of the private tree; no private curves were committed.
 This checks execution availability, not numerical accuracy or corpus golden acceptance.
 The 123 public-project Chromium cases still pass D-23 across 44,610 values.
+
+
+A follow-up with a 120-second per-project limit completed 94/99 projects with
+72,291 finite points and no crashes or timeouts. The previous 10-second timeout
+therefore does not establish a calculation failure. The five remaining projects
+fail strict table loading: four use element mode without local `.ff` inputs and
+omit `usechantlerdatabase`, whose original constructor default is zero; the fifth
+uses compound mode without its referenced local `.db` inputs. `ReadElement`
+only falls back to built-in Chantler data when that flag is enabled. The adapter
+does not enable it or substitute tables from another directory. Complete corpus
+references need those input gaps resolved, alongside the remaining preparation
+and numerical validation work. No private project names or curves are published.
