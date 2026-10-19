@@ -43,7 +43,14 @@ export function createProjectScript(name: 'Default' | 'BeforeCalculation', sessi
           magnetic: project.calculation.magnetization.mode === 'none' ? 0 : 1,
         })
       })
-      const initialScattering = opticalState.scatteringTensors ?? project.sample.elementProfiles.map(() => new Float64Array(18))
+      const initialScattering = opticalState.scatteringTensors ?? project.sample.elementProfiles.map(element => {
+        if (project.calculation.automaticOpticalConstants) return new Float64Array(18)
+        if (!engine.scatteringTensor) throw new Error('Native element scattering tensors are unavailable.')
+        return engine.scatteringTensor({ factors: [element.f1, element.f2, element.f1Mag, element.f2Mag],
+          gamma: project.calculation.magnetization.direction.gamma, phi: project.calculation.magnetization.direction.phi,
+          tensor: project.calculation.tensorContribution === 'tetragonal' ? 1 : 0,
+          magnetic: project.calculation.magnetization.mode === 'none' ? 0 : 1 })
+      })
       if (initialScattering.length !== project.sample.elementProfiles.length) throw new Error('Scattering tensor element count changed')
       if (!context) {
         const workspace = createScriptArrayWorkspace(project)

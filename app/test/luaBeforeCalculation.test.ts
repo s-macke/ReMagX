@@ -109,7 +109,7 @@ it.each(['Imag', 'Real'] as const)('line-shape %s reads stored state energy unti
 
 it('retains explicit element tensors across qz hooks without rebuilding them after factor-only edits', async () => {
   const project = createDefaultProject()
-  project.sample.elementProfiles = [{ element: 'Fe', f1: 1, f2: 2, f1Mag: 3, f2Mag: 4, slabs: [] }]
+  project.sample.elementProfiles = [{ element: 'Fe', f1: 7, f2: 2, f1Mag: 3, f2Mag: 4, slabs: [] }]
   project.calculation.automaticOpticalConstants = false
   project.scripts.enabled = true
   project.scripts.beforeCalculation = 'calls = (calls or 0) + 1; f1[0] = calls; if calls == 1 then FillTensors() end'
@@ -124,9 +124,10 @@ it('retains explicit element tensors across qz hooks without rebuilding them aft
     const second = calculateRealCurve(first.scriptedProject!, [], engine, 'qz', 'monochromatic', first.opticalState, hook)
     expect(second.scriptedProject!.sample.elementProfiles[0].f1).toBe(2)
     expect(second.opticalState.scatteringTensors).toEqual([new Float64Array(18).fill(1)])
-    expect(engine.scatteringTensor).toHaveBeenCalledTimes(1)
+    // GetState builds the initial tensor, then the script explicitly rebuilds it.
+    expect(vi.mocked(engine.scatteringTensor!).mock.calls.map(([request]) => request.factors[0])).toEqual([7, 1])
     second.opticalState.scatteringTensors![0].fill(99)
     expect(first.opticalState.scatteringTensors![0][0]).toBe(1)
-    expect(project.sample.elementProfiles[0].f1).toBe(1)
+    expect(project.sample.elementProfiles[0].f1).toBe(7)
   } finally { session.close() }
 })

@@ -1,3 +1,4 @@
+import { storedOpticalState } from './storedOpticalState'
 import { visitCompoundSpectrum } from './compoundSpectrum'
 import type { RealBeforeCalculation } from './realCalculation'
 import type { TensorQuery } from '../compute/ComputeService'
@@ -40,10 +41,11 @@ export function realTensor(project: Project, query: TensorQuery, lookup: RealTab
     if (result.values.length !== 18 || !result.values.every(Number.isFinite)) throw new Error('Invalid native dielectric tensor.')
     return result.values.slice()
   }
-  let values: Float64Array | undefined
-  let source: TensorPreview['source'] = 'scalar'
+  const stored = project.calculation.automaticOpticalConstants ? storedOpticalState(project) : undefined
+  let values = selected.dielectricTensor && stored ? stored.dielectricState![query.layerIndex]!.values.slice() : undefined
+  let source: TensorPreview['source'] = values ? 'stored' : 'scalar'
   let layers = project.sample.layers
-  let overrides: (Float64Array | null)[] = layers.map(() => null)
+  let overrides: (Float64Array | null)[] = stored?.dielectricTensors ?? layers.map(() => null)
   const cursors = new Map<OpticalTable, number>()
   const refresh = (value: number) => {
     const lookupEnergy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / value)
@@ -66,12 +68,13 @@ export function realTensor(project: Project, query: TensorQuery, lookup: RealTab
   }
   // GetState refreshes automatic constants before the spectrum's energy loop.
   if (project.calculation.automaticOpticalConstants) refresh(project.experiment.energy)
-  let usedTable = false
+  let usedTable = false, usedStored = false
   const tensors = energy.map(value => {
     if (query.spectrum) refresh(value)
     usedTable ||= source === 'table'
+    usedStored ||= source === 'stored'
     const tensor = values ??= build(selected)
     return Array.from({ length: 9 }, (_, index) => ({ re: tensor[2 * index], im: tensor[2 * index + 1] }))
   })
-  return { engine: 'real', energy, tensors, source: usedTable ? 'table' : 'scalar' }
+  return { engine: 'real', energy, tensors, source: usedTable ? 'table' : usedStored ? 'stored' : 'scalar' }
 }

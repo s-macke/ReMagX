@@ -19,7 +19,7 @@ export function MaterialTensorPreview({ index }: { index: number }) {
     return () => { active = false }
   }, [source, index])
   return <>
-    <Note>Mock tensor preview at {source.project.experiment.energy} eV. {result?.source === 'table' ? 'Linear interpolation of the imported .e table.' : 'Constructed from the current scalar optical values.'} BeforeCalculation is not executed.</Note>
+    <Note>{result?.engine === 'real' ? 'Real' : 'Mock'} tensor preview at {source.project.experiment.energy} eV. {result?.source === 'stored' ? 'Retained stored dielectric tensor.' : result?.source === 'table' ? (result.engine === 'real' ? 'Native interpolation of the imported .e table.' : 'Linear interpolation of the imported .e table.') : 'Constructed from the current scalar optical values.'} BeforeCalculation is not executed.</Note>
     {error ? <p role="alert">{error}</p> : !result ? <p>Loading tensor… <button type="button" onClick={() => computeService().stop()}>Stop calculation</button></p> : (['re', 'im'] as const).map(part => <table key={part} className="small-table tensor-preview">
       <caption>{part === 're' ? 'Real part' : 'Imaginary part'}</caption>
       <tbody>{[0, 1, 2].map(row => <tr key={row}>{[0, 1, 2].map(column => {

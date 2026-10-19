@@ -803,6 +803,33 @@ try {
         await service.dielectricTensor(scripted, { ...query, spectrum: false })
       }
 
+      // JSON-restored tensor state survives skipped automatic refresh in spectra.
+      const storedSpectrum = createDefaultProject()
+      storedSpectrum.experiment.energy = 90
+      storedSpectrum.calculation.automaticOpticalConstants = true
+      storedSpectrum.sample.layers = [createLayer({ opticalTable: 'stored', delta: .01, beta: .002,
+        dielectricTensor: { values: Array(18).fill(9), anisotropic: true } }), createLayer()]
+      const restoredSpectrum = JSON.parse(JSON.stringify(storedSpectrum))
+      const storedBefore = JSON.stringify(restoredSpectrum)
+      const retainedTensor = await service.dielectricTensor(restoredSpectrum, { layerIndex: 0, spectrum: false, tables: [] })
+      if (retainedTensor.source !== 'stored' || retainedTensor.tensors[0][0].re !== 9) throw new Error('Stored tensor snapshot was lost')
+      const storedTables = [
+        { name: 'stored', kind: 'db', energy: [120, 180], columns: [[.02, .02], [.003, .003]], warnings: [] },
+        { name: 'stored', kind: 'e', energy: [100, 150, 200], columns: Array.from({ length: 18 }, () => [2, 2, 2]), warnings: [] },
+      ]
+      const retainedSpectrum = await service.dielectricTensor(restoredSpectrum, { layerIndex: 0, spectrum: true, tables: storedTables })
+      if (JSON.stringify(retainedSpectrum.tensors.map(tensor => tensor[0].re)) !== '[9,2,2]') throw new Error('Stored tensor spectrum refresh order mismatch')
+      restoredSpectrum.scripts.enabled = true
+      restoredSpectrum.scripts.beforeCalculation = 'exx_r[0] = exx_r[0] + 1; print(exx_r[0])'
+      const retainedScripted = await service.dielectricTensor(restoredSpectrum, { layerIndex: 0, spectrum: true, tables: storedTables })
+      if (JSON.stringify(retainedScripted.tensors.map(tensor => tensor[0].re)) !== '[11,3,4]' ||
+        JSON.stringify(retainedScripted.scriptMessages) !== '["10","11","3","4"]') throw new Error('Stored tensor script lifecycle mismatch')
+      restoredSpectrum.scripts = storedSpectrum.scripts
+      if (JSON.stringify(restoredSpectrum) !== storedBefore) throw new Error('Stored spectrum input was mutated')
+      restoredSpectrum.calculation.automaticOpticalConstants = false
+      const rebuiltStored = await service.dielectricTensor(restoredSpectrum, { layerIndex: 0, spectrum: false, tables: [] })
+      if (Math.abs(rebuiltStored.tensors[0][0].re - (.99 * .99 - .002 * .002)) > 1e-14 || rebuiltStored.source !== 'scalar') throw new Error('Manual scalar rebuild retained obsolete tensor')
+
       // Manual Execute uses its own real Lua session, even with automatic scripts off.
       for (const mode of ['compound', 'element']) for (const automatic of [false, true]) {
         const manual = createDefaultProject()

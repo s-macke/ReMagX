@@ -1,3 +1,4 @@
+import { storedOpticalState } from './storedOpticalState'
 import type { OpticalTable } from '../import/tables'
 import { projectSchema, type Project } from './project'
 import type { RealCalculationEngine } from './realCalculation'
@@ -19,14 +20,7 @@ export interface ScriptExecutionResult {
 // GetState ignores Filldb's false return and retains each skipped entry.
 export function prepareManualScript(original: Project, tables: OpticalTable[], engine: RealCalculationEngine) {
   let project = structuredClone(original)
-  const opticalState: SerialOpticalState = {
-    layers: project.sample.layers, cursors: new Map(),
-    dielectricTensors: project.sample.layers.map(layer => layer.dielectricTensor?.anisotropic ? new Float64Array(layer.dielectricTensor.values) : null),
-    dielectricState: copyScriptTensors(project.sample.layers.map(layer => layer.dielectricTensor
-      ? { values: new Float64Array(layer.dielectricTensor.values), anisotropic: layer.dielectricTensor.anisotropic }
-      : { values: new Float64Array(18), anisotropic: false })),
-    scatteringTensors: copyScatteringTensors(project.sample.elementProfiles.map(element => element.scatteringTensor ? new Float64Array(element.scatteringTensor) : new Float64Array(18))),
-  }
+  const opticalState = storedOpticalState(project)
   const constructScattering = (request: Parameters<NonNullable<RealCalculationEngine['scatteringTensor']>>[0]) => {
     if (!engine.scatteringTensor) throw new Error('Native element scattering tensors are unavailable.')
     return engine.scatteringTensor(request)

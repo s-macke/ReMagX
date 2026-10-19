@@ -7,7 +7,7 @@ export interface TensorPreview {
   engine?: 'real' | 'mock'
   energy: number[]
   tensors: { re: number; im: number }[][] // row-major 3×3 at each energy
-  source: 'table' | 'scalar' | 'script'
+  source: 'table' | 'scalar' | 'script' | 'stored'
 }
 const groups = { diagonal: [0, 4, 8], upper: [1, 2, 5], lower: [3, 6, 7] } as const
 export function tensorPlot(preview: TensorPreview, group: TensorGroup): CalculatedCurve {

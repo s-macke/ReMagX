@@ -59,3 +59,24 @@ it('rejects unimplemented scripts and invalid selections/grids/native tensors', 
   construct.mockReturnValue({ values: new Float64Array([1]), anisotropic: false })
   expect(() => realTensor(project, query, lookup, construct)).toThrow('Invalid native')
 })
+
+it('retains saved tensors for skipped automatic refresh, replaces on valid tables and rebuilds in manual mode', () => {
+  const { project, construct, lookup } = fixture()
+  project.sample.layers[0].dielectricTensor = { values: Array(18).fill(9), anisotropic: true }
+  project.calculation.automaticOpticalConstants = true
+  const before = structuredClone(project)
+  const snapshot = { layerIndex: 0, spectrum: false, tables: [] }
+  const retained = realTensor(project, snapshot, lookup, construct)
+  expect(retained.source).toBe('stored')
+  expect(retained.tensors[0]).toEqual(Array(9).fill({ re: 9, im: 9 }))
+  expect(construct).not.toHaveBeenCalled()
+  project.experiment.energy = 90
+  const spectrum = { layerIndex: 0, spectrum: true, tables: [table('db', [120, 180]), table('e')] }
+  const result = realTensor(project, spectrum, lookup, construct)
+  expect(result.tensors.map(tensor => tensor[0].re)).toEqual([9, 3, 3])
+  expect(result.source).toBe('table')
+  project.calculation.automaticOpticalConstants = false
+  expect(realTensor(project, snapshot, lookup, construct).tensors[0][0].re).toBe(7)
+  project.calculation.automaticOpticalConstants = true; project.experiment.energy = 150
+  expect(project).toEqual(before)
+})
