@@ -9,7 +9,11 @@ The 99-file private include/source closure is hash checked before compilation.
 editing its source. Compiler diagnostics are captured and withheld from public output.
 
 The executable takes one `.all` path and emits a JSON array of `[qz, R]` pairs with
-17 significant digits. Run in the directory containing any required material tables;
+17 significant digits. Append `--asymmetry` to call the original two-beam routine and
+emit `[qz, Rplus, Rminus, asymmetry]` rows instead. The project selects normalized
+asymmetry or the beam difference. Both CLI modes initialize calculated columns as GUI
+Button3Click does, including when coordinates come from a measured dataset.
+Run in the directory containing any required material tables;
 use an absolute project path when changing directories. Outputs from research projects
 remain private. Standard legacy diagnostics are suppressed and the adapter buffers the
 whole finite curve before publishing it. The caller must impose a timeout, particularly
@@ -17,9 +21,10 @@ for projects containing scripts. Original Lua retains filesystem/OS access: this
 local reference tool for trusted projects, not a sandbox or a web runtime.
 
 This stage calls original LoadState, optional Getdblist/Filldb, generated or selected-dataset qz coordinates,
-and CalcReflectivity<double>, including original preparation and postprocessing. It does
+and CalcReflectivity<double> or CalcAsymmetrie<double>, including original preparation
+and postprocessing. It does
 not reconstruct every GUI GetState/SetOCStrict path, energy scans,
-dichroic entry points, or fit workflows. Original non-Borland Lua callbacks retain their
+energy-dependent dichroic entry points, or fit workflows. Original non-Borland Lua callbacks retain their
 terminal stub behavior. The system FFTW library is not pinned; Fourier results have not
 been validated. Original segmentation helpers remain private reference dependencies,
 not cleaned double-only production implementations. No original optimizer implementation,
@@ -48,6 +53,9 @@ both coordinates and reflectivity with unchanged D-23. Its 24 generated-grid cas
 Visnovsky and Zak, magnetic off/on, zero/nonzero angular resolution and exact/fast modes.
 Thirty additional measured-grid cases cover all three algorithms, exact/fast resolution,
 selected datasets, unordered/duplicate coordinates and five shifts around the threshold.
+Another 24 generated-grid cases compare both beam intensities and both asymmetry
+definitions across all three algorithms and zero/nonzero exact/fast angular resolution.
+Logarithmic diagnostics describe the first beam; every output column is checked by D-23.
 It does not cover magnetic profiles, automatic tables, scripts, energy scans or private
 corpus acceptance.
 
@@ -73,3 +81,11 @@ restore all 24 project variants at unchanged D-23. The quartic solver is unchang
 The expanded native/WASM tests include 4,800 intensities from the public magnetic stack
 and both beam modes. See `engine/third_party/glibc_math/README.md` for provenance and
 scope. This closes the observed regression, not full corpus or general engine acceptance.
+
+The two-beam extension on 2026-10-19 compares 78 cases/43,440 values. Coordinates
+and both beam intensities pass D-23, but 196 derived Visnovsky asymmetry values fail
+in eight cases; Parratt and Zak pass. Reports include per-column mismatch counts and
+the first differing value/reference. The small beam differences are amplified relative
+to the derived difference/asymmetry; their arithmetic origin remains under investigation.
+The diagnostic correctly reports `acceptancePassed=false` and exits nonzero with
+`--require-parity`. The earlier 24-case resolution does not establish asymmetry acceptance.

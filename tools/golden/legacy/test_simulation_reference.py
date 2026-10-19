@@ -33,8 +33,8 @@ class SimulationReferenceTest(unittest.TestCase):
         except (OSError, ValueError, subprocess.CalledProcessError):
             raise RuntimeError('Private simulation build failed; diagnostics withheld.') from None
 
-    def run_fixture(self, path):
-        result = subprocess.run([self.executable, path], capture_output=True, text=True,
+    def run_fixture(self, path, *options):
+        result = subprocess.run([self.executable, path, *options], capture_output=True, text=True,
                                 cwd=self.directory.name, timeout=30)
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stderr, '')
@@ -54,6 +54,20 @@ class SimulationReferenceTest(unittest.TestCase):
         self.assertIn('lua_newstate', symbols)
         libraries = subprocess.run(['ldd', self.executable], check=True, capture_output=True, text=True).stdout
         self.assertNotIn('liblua', libraries)
+
+    def test_two_beams_and_both_asymmetry_definitions(self):
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        for definition in [0, 1]:
+            path = Path(self.directory.name) / 'asymmetry.all'
+            path.write_text(fixture + f'\nmagnetizationmode = 1\nasymmetrydef = {definition}\n')
+            points = self.run_fixture(path, '--asymmetry')
+            self.assertEqual(len(points), 300)
+            self.assertTrue(all(len(point) == 4 for point in points))
+            self.assertTrue(any(abs(plus - minus) > 1e-12 for _, plus, minus, _ in points))
+            for coordinate, plus, minus, actual in points:
+                self.assertTrue(all(math.isfinite(value) for value in [coordinate, plus, minus, actual]))
+                expected = (plus - minus) / (plus + minus) if definition == 0 and plus + minus else plus - minus
+                self.assertLessEqual(abs(actual - expected), 1e-15 + 1e-10 * abs(expected))
 
     def test_zero_contrast_is_zero(self):
         content = (REPOSITORY / 'app/test/fixtures/default.all').read_text()

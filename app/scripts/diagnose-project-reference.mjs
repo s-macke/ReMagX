@@ -23,7 +23,7 @@ try {
   async function addCase(source, settings) {
     const path = resolve(temporary, 'project.all')
     await writeFile(path, source)
-    const points = JSON.parse(execFileSync(executable, [path], { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString())
+    const points = JSON.parse(execFileSync(executable, [path, ...(settings.asymmetry ? ['--asymmetry'] : [])], { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString())
     cases.push({ source, points, settings })
   }
   for (const algorithm of [0, 1, 2]) for (const magnetic of [0, 1])
@@ -49,6 +49,11 @@ try {
           'activedatasetindex = 2', '',
         ].join('\n')
       await addCase(source, { algorithm, magnetic: 1, fast, shift, scan: 'dataset' })
+    }
+  for (const algorithm of [0, 1, 2]) for (const definition of [0, 1])
+    for (const resolution of [0, .001]) for (const fast of [0, 1]) {
+      const source = fixture + `\nalgorithm = ${algorithm}\nmagnetizationmode = 1\nasymmetrydef = ${definition}\nresolution = ${resolution}\nfastresolution = ${fast}\n`
+      await addCase(source, { algorithm, definition, resolution, fast, asymmetry: true, scan: 'generated' })
     }
   await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' },
     build: { outDir: destination, emptyOutDir: true,
@@ -86,27 +91,35 @@ try {
     try {
       for (let index = 0; index < cases.length; ++index) {
         const { source, points, settings } = cases[index]
-        let caseMismatches = 0, firstMismatch = null, maxAbsoluteError = 0
+        let caseMismatches = 0, firstMismatch = null, firstMismatchDetail = null, maxAbsoluteError = 0
+        const columnNames = settings.asymmetry ? ['qz', 'plus', 'minus', 'asymmetry'] : ['qz', 'reflectivity']
+        const mismatchesByColumn = Object.fromEntries(columnNames.map(name => [name, 0]))
         const { project } = importAllFile(source)
         const snapshot = JSON.stringify(project)
-        const actual = await service.calcReflectivity(project)
-        if (actual.qz.length !== points.length || actual.reflectivity.length !== points.length)
+        const actual = settings.asymmetry ? await service.calcAsymmetry(project) : await service.calcReflectivity(project)
+        const columns = settings.asymmetry
+          ? [actual.reflectivityPlus, actual.reflectivityMinus, actual.asymmetry] : [actual.reflectivity]
+        if (actual.qz.length !== points.length || columns.some(column => column.length !== points.length))
           throw new Error(`Project ${index}: curve length mismatch`)
         for (let row = 0; row < points.length; ++row) {
-          for (const [value, reference] of [[actual.qz[row], points[row][0]], [actual.reflectivity[row], points[row][1]]]) {
+          for (const [columnIndex, column] of [actual.qz, ...columns].entries()) {
+            const value = column[row], reference = points[row][columnIndex]
             if (!Number.isFinite(value) || !Number.isFinite(reference)) throw new Error(`Project ${index}: nonfinite result`)
             maxAbsoluteError = Math.max(maxAbsoluteError, Math.abs(value - reference))
             if (Math.abs(value - reference) > 1e-15 + 1e-10 * Math.abs(reference)) {
               caseMismatches++; mismatches++; firstMismatch ??= row
+              mismatchesByColumn[columnNames[columnIndex]]++
+              firstMismatchDetail ??= { row, column: columnNames[columnIndex], value, reference }
             }
             values++
           }
-          if (actual.reflectivity[row] === 0 && points[row][1] === 0) zeroPairs++
-          else if (actual.reflectivity[row] <= 0 || points[row][1] <= 0) nonpositiveMismatches++
-          if (actual.reflectivity[row] > 0 && points[row][1] > 0)
-            maxLog10Error = Math.max(maxLog10Error, Math.abs(Math.log10(actual.reflectivity[row]) - Math.log10(points[row][1])))
+          const primary = columns[0]
+          if (primary[row] === 0 && points[row][1] === 0) zeroPairs++
+          else if (primary[row] <= 0 || points[row][1] <= 0) nonpositiveMismatches++
+          if (primary[row] > 0 && points[row][1] > 0)
+            maxLog10Error = Math.max(maxLog10Error, Math.abs(Math.log10(primary[row]) - Math.log10(points[row][1])))
         }
-        reports.push({ ...settings, mismatches: caseMismatches, firstMismatch, maxAbsoluteError })
+        reports.push({ ...settings, mismatches: caseMismatches, mismatchesByColumn, firstMismatch, firstMismatchDetail, maxAbsoluteError })
         if (JSON.stringify(project) !== snapshot) throw new Error(`Project ${index}: input mutated`)
       }
       return { acceptancePassed: mismatches === 0, projects: cases.length, values, mismatches, maxLog10Error, zeroPairs, nonpositiveMismatches, reports }
