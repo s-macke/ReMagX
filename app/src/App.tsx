@@ -333,6 +333,13 @@ function Workspace() {
             </a>{' '}
             for details.
           </p>
+          <p>
+            The numerical engine includes GNU C Library components under{' '}
+            <a href={`${import.meta.env.BASE_URL}licenses/glibc-LGPL-2.1.txt`} target="_blank" rel="noreferrer">
+              LGPL-2.1-or-later
+            </a>.{' '}
+            <a href={`${import.meta.env.BASE_URL}licenses/NOTICE.txt`} target="_blank" rel="noreferrer">Component notices and source</a>.
+          </p>
           <p>Please cite ReMagX and its authors in work that uses results obtained with this software.</p>
         </Dialog>
       )}

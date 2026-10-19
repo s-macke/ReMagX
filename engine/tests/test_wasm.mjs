@@ -183,7 +183,7 @@ for (const [caseIndex, prepared] of input.matrices.entries()) {
     matrixCount++
   })
 }
-assert.equal(matrixCount, 13344)
+assert.equal(matrixCount, 18144)
 const matrixPrepared = input.matrices[0]
 const matrixBefore = calculateVisnovsky(module, matrixPrepared)
 for (const change of [{ layers: new Array(2) }, { layers: [] }, { angle: NaN }, { analyzer: 3 }, { beam2: new Array(4) }]) {

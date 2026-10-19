@@ -1,3 +1,4 @@
+#include "complex_arithmetic.hpp"
 #include "remagx/core.h"
 #include "matrix_algebra.hpp"
 #include <cmath>
@@ -104,7 +105,7 @@ extern "C" int remagx_visnovsky_qz(const RemagxMatrixLayer* layers, size_t layer
             if ((scan_mode == REMAGX_MONOCHROMATIC && std::abs(ratio) >= 1.0) ||
                 (scan_mode == REMAGX_DICHROIC && ratio > 1.0)) return REMAGX_QZ_ERROR;
             if (ratio < 0.0) continue;
-            const int status = remagx_visnovsky(layers, layer_count, std::asin(ratio), wave_number, epsilon,
+            const int status = remagx_visnovsky(layers, layer_count, remagx::reference_inverse_sine(ratio), wave_number, epsilon,
                 beam1, scan_mode == REMAGX_DICHROIC ? beam2 : beam1, analyzer, &results[index]);
             if (status != REMAGX_SUCCESS) return status;
             if (scan_mode == REMAGX_MONOCHROMATIC) results[index].beam2 = 0.0;

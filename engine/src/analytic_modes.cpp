@@ -1,3 +1,4 @@
+#include "complex_arithmetic.hpp"
 #include "remagx/core.h"
 #include <algorithm>
 #include <cmath>
@@ -61,8 +62,8 @@ extern "C" int remagx_analytic_modes(int kind, const double* tensor, const doubl
         if (!finite(refractive_index, 2)) return REMAGX_INVALID_ARGUMENT;
         const Complex index(refractive_index[0], refractive_index[1]);
         if (angle < 1e-4) angle = 1e-4;
-        const Complex tangential = std::cos(angle);
-        modes[0] = std::sqrt(index * index - tangential * tangential);
+        const Complex tangential = remagx::reference_cosine(angle);
+        modes[0] = remagx::reference_complex_square_root(index * index - tangential * tangential);
         const Complex normal = modes[0] / index;
         modes[1] = modes[0]; modes[2] = -modes[0]; modes[3] = -modes[0];
         const Complex forward = thickness != 0.0 ?
@@ -76,11 +77,11 @@ extern "C" int remagx_analytic_modes(int kind, const double* tensor, const doubl
     } else {
         if (!finite(tensor, 18)) return REMAGX_INVALID_ARGUMENT;
         const Complex xx(tensor[0], tensor[1]), yy(tensor[8], tensor[9]), zz(tensor[16], tensor[17]);
-        const double tangential = std::cos(angle);
-        modes[0] = +std::sqrt(xx - tangential * tangential);
-        modes[1] = +std::sqrt(4.0 * yy * zz * (zz - tangential * tangential)) / (2.0 * zz);
-        modes[2] = -std::sqrt(xx - tangential * tangential);
-        modes[3] = -std::sqrt(4.0 * yy * zz * (zz - tangential * tangential)) / (2.0 * zz);
+        const double tangential = remagx::reference_cosine(angle);
+        modes[0] = +remagx::reference_complex_square_root(xx - tangential * tangential);
+        modes[1] = +remagx::reference_complex_square_root(4.0 * yy * zz * (zz - tangential * tangential)) / (2.0 * zz);
+        modes[2] = -remagx::reference_complex_square_root(xx - tangential * tangential);
+        modes[3] = -remagx::reference_complex_square_root(4.0 * yy * zz * (zz - tangential * tangential)) / (2.0 * zz);
         const Complex electric_x[4] = {1.0, 0.0, 1.0, 0.0};
         const Complex electric_y[4] = {0.0, zz - tangential * tangential, 0.0, zz - tangential * tangential};
         const Complex electric_z[4] = {0.0, -tangential * modes[1], 0.0, -tangential * modes[3]};
@@ -115,7 +116,7 @@ extern "C" int remagx_matrix_modes(int anisotropic, const double* tensor, const 
     int status = remagx_classify_tensor(tensor, epsilon, &kind);
     if (status != REMAGX_SUCCESS) return status;
     if (kind != REMAGX_MATRIX_ANISOTROPIC) {
-        const Complex index = std::sqrt(Complex(tensor[0], tensor[1]));
+        const Complex index = remagx::reference_complex_square_root(Complex(tensor[0], tensor[1]));
         const double packed_index[2] = {index.real(), index.imag()};
         return remagx_analytic_modes(kind, tensor, packed_index, angle, wave_number, thickness,
                                     roots, boundary, propagation);
@@ -125,7 +126,7 @@ extern "C" int remagx_matrix_modes(int anisotropic, const double* tensor, const 
     if (status != REMAGX_SUCCESS) return status;
     Complex entries[9], interface_matrix[16] = {}, propagation_matrix[16] = {};
     for (int entry = 0; entry < 9; ++entry) entries[entry] = {tensor[2 * entry], tensor[2 * entry + 1]};
-    const double tangential = std::cos(angle);
+    const double tangential = remagx::reference_cosine(angle);
     const Complex imaginary(0.0, 1.0);
     for (int mode = 0; mode < 4; ++mode) {
         const Complex root(packed_roots[2 * mode], packed_roots[2 * mode + 1]);

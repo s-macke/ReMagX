@@ -299,6 +299,42 @@ double first,second;engine.MatrixFormalism(angle,wave,false,second,first,beam,ep
                 self.assertTrue(math.isfinite(got) and math.isfinite(wanted) and abs(got-wanted) <= 1e-15+1e-10*abs(wanted), (case_number, got, wanted))
         print(f'Original Visnovsky stacks: {len(inputs)*2} intensities matched.', flush=True)
 
+def public_matrix_regression():
+    # Public default fixture: repeated Co/Cu interfaces expose nearly coincident
+    # magnetic modes that amplify a one-ULP scalar-library difference.
+    source = Path(__file__).resolve().parents[2] / 'app/test/fixtures/default.all'
+    rows = []
+    for line in source.read_text().splitlines():
+        if '=' not in line:
+            continue
+        key, value = (part.strip() for part in line.split('=', 1))
+        if key == 'layer':
+            rows.append({})
+        elif key in ['layer_d', 'layer_sigma', 'layer_delta', 'layer_beta',
+                     'layer_ddelta', 'layer_dbeta', 'layer_maggamma', 'layer_magphi']:
+            rows[-1][key] = float(value)
+    assert len(rows) == 14
+    library.remagx_dielectric_tensor.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int,
+        ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_int)]
+    layers = []
+    for row in rows:
+        scalar = (ctypes.c_double * 8)(*[row[key] for key in ['layer_d', 'layer_sigma',
+            'layer_delta', 'layer_beta', 'layer_ddelta', 'layer_dbeta', 'layer_maggamma', 'layer_magphi']])
+        tensor, kind = (ctypes.c_double * 18)(), ctypes.c_int()
+        assert library.remagx_dielectric_tensor(scalar, 0, 1, tensor, ctypes.byref(kind)) == 0
+        layers.append(Layer(scalar[0], scalar[1], 1-scalar[2], scalar[3], tensor, kind.value))
+    qz = [index / 300 * .6 for index in range(1, 301)]
+    for mode in [0, 1]:
+        for width, fast in [(0, 0), (0, 1), (.001, 0), (.001, 1)]:
+            options = dict(energy=777.198, epsilon=5e-5, analyzer=0, mode=mode,
+                           beam1=(.707107, 0, 0, .707107), beam2=(.707107, 0, 0, -.707107))
+            status, expected = evaluate_qz(layers, qz, resolution=(width, fast), **options)
+            assert status == 0
+            yield dict(kind='qz', layers=[dict(values=[entry.thickness, entry.roughness,
+                entry.index_real, entry.index_imaginary, *entry.dielectric], anisotropic=entry.anisotropic)
+                for entry in layers], qz=qz, expected=expected,
+                resolution=dict(width=width, fast=bool(fast)), **options)
+
 if __name__ == '__main__':
     if '--tensor-table-reference' in sys.argv:
         rows = [[.98, .002, .0002, .0001, 0, 0, -.0002, -.0001, .985, .003, 0, 0, 0, 0, 0, 0, .99, .001],
@@ -383,6 +419,7 @@ if __name__ == '__main__':
                 payload.append(dict(kind='energy', stacks=packed, energy=energy, qz=qz, enabled=enabled,
                     epsilon=epsilon, beam1=first, beam2=second, analyzer=number % 3, mode=mode,
                     angularWidth=angular, energyWidth=width, expected=expected))
+        payload.extend(public_matrix_regression())
         print(json.dumps(payload))
     else:
         unittest.main()

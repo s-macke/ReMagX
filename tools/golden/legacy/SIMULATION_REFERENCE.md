@@ -59,3 +59,10 @@ preparation. Platform complex square-root rounding differences were observed at 
 level; they are not yet proven to explain every mismatch. No numerical implementation or
 tolerance change is included in this diagnostic step. Full matrix project acceptance remains
 open despite earlier prepared-stack component comparisons.
+
+The observed discrepancy above was resolved later on 2026-10-19: pinned glibc scalar
+atan2/cos/asin in the WASM matrix path and C complex square-root/logarithm primitives
+restore all 24 project variants at unchanged D-23. The quartic solver is unchanged.
+The expanded native/WASM tests include 4,800 intensities from the public magnetic stack
+and both beam modes. See `engine/third_party/glibc_math/README.md` for provenance and
+scope. This closes the observed regression, not full corpus or general engine acceptance.

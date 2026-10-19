@@ -1,3 +1,4 @@
+#include "complex_arithmetic.hpp"
 #include "remagx/core.h"
 #include <algorithm>
 #include <cmath>
@@ -14,7 +15,7 @@ extern "C" int remagx_maxwell_polynomial(const double* tensor, double angle_radi
         if (!std::isfinite(tensor[index]) || !std::isfinite(tensor[index + 1])) return REMAGX_INVALID_ARGUMENT;
         dielectric[row][column] = Complex(tensor[index], tensor[index + 1]);
     }
-    const double tangential = std::cos(angle_radians);
+    const double tangential = remagx::reference_cosine(angle_radians);
     const Complex leading = dielectric[2][2];
     const Complex cubic = (dielectric[1][2] + dielectric[2][1])*tangential;
     const Complex quadratic = -(dielectric[1][1]*(dielectric[2][2] - tangential*tangential) +

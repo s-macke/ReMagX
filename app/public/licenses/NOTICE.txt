@@ -1,0 +1,8 @@
+ReMagX Web numerical engine includes mathematical library components from glibc.
+IBM Accurate Mathematical Library; Copyright Free Software Foundation, Inc.
+Licensed under GNU LGPL version 2.1 or any later version.
+See glibc-LGPL-2.1.txt in this directory for the licence.
+Complete corresponding component source and integration/build instructions:
+https://github.com/s-macke/ReMagX/tree/main/engine/third_party/glibc_math
+Upstream revision: 04e750e75b73957cf1c791535a3f4319534a52fc
+ReMagX Web remains GPL-3.0. No Numerical Recipes code is included.

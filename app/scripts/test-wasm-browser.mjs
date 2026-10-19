@@ -114,7 +114,7 @@ try {
       matrixCount++
     })
   })
-  assert.equal(matrixCount, 13344)
+  assert.equal(matrixCount, 18144)
   console.log(`Chromium Visnovsky: ${matrixCount} intensities matched native.`)
   let zakCount = 0
   input.zak.forEach((item, index) => {

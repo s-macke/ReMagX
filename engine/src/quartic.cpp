@@ -1,3 +1,4 @@
+#include "complex_arithmetic.hpp"
 #include "remagx/core.h"
 #include <algorithm>
 #include <cmath>
@@ -60,26 +61,26 @@ extern "C" int remagx_quartic_roots(const double* coefficients, double* output) 
         depressed_quadratic*depressed_constant/3.0 - depressed_linear*depressed_linear/8.0;
     Complex roots[4];
     if (depressed_linear == Complex(0.0, 0.0)) {
-        const Complex discriminant = std::sqrt(depressed_quadratic*depressed_quadratic - 4.0*depressed_constant);
+        const Complex discriminant = remagx::reference_complex_square_root(depressed_quadratic*depressed_quadratic - 4.0*depressed_constant);
         const Complex shift = -cubic/4.0/leading;
-        roots[0] = shift + std::sqrt((-depressed_quadratic + discriminant)/2.0);
-        roots[1] = shift + std::sqrt((-depressed_quadratic - discriminant)/2.0);
-        roots[2] = shift - std::sqrt((-depressed_quadratic + discriminant)/2.0);
-        roots[3] = shift - std::sqrt((-depressed_quadratic - discriminant)/2.0);
+        roots[0] = shift + remagx::reference_complex_square_root((-depressed_quadratic + discriminant)/2.0);
+        roots[1] = shift + remagx::reference_complex_square_root((-depressed_quadratic - discriminant)/2.0);
+        roots[2] = shift - remagx::reference_complex_square_root((-depressed_quadratic + discriminant)/2.0);
+        roots[3] = shift - remagx::reference_complex_square_root((-depressed_quadratic - discriminant)/2.0);
     } else {
         Complex resolvent_root;
         if (resolvent_linear == Complex(0.0, 0.0)) {
-            resolvent_root = -5.0*depressed_quadratic/6.0 - std::pow(resolvent_constant, 1.0/3.0);
+            resolvent_root = -5.0*depressed_quadratic/6.0 - remagx::reference_complex_power(resolvent_constant, 1.0/3.0);
         } else {
-            const Complex cube_root = std::pow(resolvent_constant/2.0 + std::sqrt(resolvent_constant*resolvent_constant/4.0 +
+            const Complex cube_root = remagx::reference_complex_power(resolvent_constant/2.0 + remagx::reference_complex_square_root(resolvent_constant*resolvent_constant/4.0 +
                 resolvent_linear*resolvent_linear*resolvent_linear/27.0), 1.0/3.0);
             resolvent_root = -5.0*depressed_quadratic/6.0 + native_divide(resolvent_linear/3.0, cube_root) - cube_root;
         }
-        const Complex radical = std::sqrt(depressed_quadratic + 2.0*resolvent_root);
+        const Complex radical = remagx::reference_complex_square_root(depressed_quadratic + 2.0*resolvent_root);
         const Complex shift = -cubic/4.0/leading;
         const Complex inner = -(depressed_quadratic + 2.0*resolvent_root) - 2.0*depressed_quadratic;
         const auto root = [&](Complex outer_sign, Complex radical_sign) {
-            return shift + 1.0/2.0*(radical_sign*radical + outer_sign*std::sqrt(inner + native_divide(2.0*radical_sign*depressed_linear, radical)));
+            return shift + 1.0/2.0*(radical_sign*radical + outer_sign*remagx::reference_complex_square_root(inner + native_divide(2.0*radical_sign*depressed_linear, radical)));
         };
         roots[1] = root(1.0, 1.0);
         roots[0] = root(1.0, -1.0);
