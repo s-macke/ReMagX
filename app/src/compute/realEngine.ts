@@ -42,7 +42,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         const session = hasScript && createLuaSession ? await createLuaSession() : undefined
         try {
           const scriptMessages: string[] = []
-          const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], text => scriptMessages.push(text)) : undefined
+          const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], text => { scriptMessages.push(text); send({ id: message.id, type: 'scriptMessages', lines: [text] }) }) : undefined
           const result = runRealFit(message.project, message.tables ?? [], engine, engine.minimize,
             progress => send({ id: message.id, type: 'fitProgress', progress }), undefined, hook)
           send({ id: message.id, type: 'result', result: { ...result, ...(session ? { scriptMessages } : {}) } })
@@ -72,7 +72,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       const scriptMessages: string[] = []
       let result
       try {
-        const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], message => scriptMessages.push(message)) : undefined
+        const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], text => { scriptMessages.push(text); send({ id: message.id, type: 'scriptMessages', lines: [text] }) }) : undefined
         result = calculateRealCurve(message.project, message.tables ?? [], engine, energy ? 'energy' : 'qz', mode, undefined, hook)
       } finally { session?.close() }
       if (energy) {

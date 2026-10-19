@@ -44,7 +44,7 @@ export function discardComputeService(): void {
   sharedService = null
 }
 
-async function calculate(service: ComputeService, project: Project, request: CalculationRequest): Promise<CalculatedCurve & { scriptMessages?: string[] }> {
+async function calculate(service: ComputeService, project: Project, request: CalculationRequest, onScriptMessages?: (lines: string[]) => void): Promise<CalculatedCurve & { scriptMessages?: string[] }> {
   const { scanKind, displayMode: mode, plotView } = request
   if (plotView === 'tensorDiagonal' || plotView === 'tensorUpper' || plotView === 'tensorLower') {
     const tensor = await service.dielectricTensor(project, { layerIndex: request.layerIndex ?? 0, tables: request.tables ?? [], spectrum: true })
@@ -76,20 +76,20 @@ async function calculate(service: ComputeService, project: Project, request: Cal
   }
   if (scanKind === 'energyScan') {
     if (mode !== 'monochromatic') {
-      const scan = await service.calcEnergyAsymmetry(project)
+      const scan = await service.calcEnergyAsymmetry(project, onScriptMessages)
       return mode === 'dichroic'
         ? { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated R+', y: scan.reflectivityPlus },
           { label: 'simulated R−', y: scan.reflectivityMinus }], logScale: true, yLabel: 'R' }
         : { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated asymmetry', y: scan.asymmetry }], logScale: false, yLabel: 'asymmetry' }
     }
-    const scan = await service.calcEnergyScan(project)
+    const scan = await service.calcEnergyScan(project, onScriptMessages)
     return { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated R', y: scan.reflectivity }], logScale: true, yLabel: 'R' }
   }
   if (mode === 'monochromatic') {
-    const curve = await service.calcReflectivity(project)
+    const curve = await service.calcReflectivity(project, onScriptMessages)
     return { scriptMessages: curve.scriptMessages, axis: 'qz', x: curve.qz, series: [{ label: 'simulated R', y: curve.reflectivity }], logScale: true, yLabel: 'R' }
   }
-  const curve = await service.calcAsymmetry(project)
+  const curve = await service.calcAsymmetry(project, onScriptMessages)
   if (mode === 'dichroic') {
     return {
       scriptMessages: curve.scriptMessages,
@@ -130,11 +130,18 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
       debounceTimer.current = null
       lastCalculation.current = performance.now()
       setState((s) => ({ ...s, busy: true, stopped: false, error: null }))
-      calculate(computeService(), project, { scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables })
+      let streamed = false
+      const receiveMessages = (lines: string[]) => {
+        if (active && id === requestId.current && lines.length) {
+          streamed = true
+          onScriptMessages?.(lines)
+        }
+      }
+      calculate(computeService(), project, { scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables }, receiveMessages)
         .then(({ scriptMessages, ...curve }) => {
           if (active && id === requestId.current) {
             setState({ curve, error: null, busy: false, stopped: false })
-            if (scriptMessages?.length) onScriptMessages?.(scriptMessages)
+            if (!streamed && scriptMessages?.length) onScriptMessages?.(scriptMessages)
           }
         })
         .catch((error: Error) => {

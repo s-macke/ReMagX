@@ -139,3 +139,26 @@ it('reuses the fit session for energy datasets but initializes a fresh energy se
     '1:0', '2:0', '3:0', '1:0', '2:0', '3:0', 1,
   ])
 })
+
+
+it.each(['reflectivity', 'asymmetry', 'energyScan', 'energyAsymmetry', 'fit'] as const)(
+  'streams Lua output before a %s failure without publishing a result', async kind => {
+    const { project, engine } = fixture()
+    project.calculation.automaticOpticalConstants = false
+    project.experiment.qzScan.useDatasetPoints = true
+    project.datasets[0].columns.energy = [640]
+    project.scripts.enabled = true
+    project.scripts.beforeCalculation = 'print("before failure")\nerror("broken script")'
+    engine.dielectricTensor = () => ({ values: new Float64Array(18), anisotropic: false })
+    engine.minimize = vi.fn()
+    const runtime = createLuaRuntime(fileURLToPath(new URL('../node_modules/wasmoon/dist/glue.wasm', import.meta.url)))
+    const send = vi.fn()
+    const before = structuredClone(project)
+    const handle = createRealRequestHandler(send, async () => engine, () => runtime.createSession())
+    await handle({ id: 7, kind, project, tables: [] })
+    expect(send.mock.calls[0][0]).toEqual({ id: 7, type: 'scriptMessages', lines: ['before failure'] })
+    expect(send.mock.calls[1][0]).toMatchObject({ id: 7, type: 'error' })
+    expect(send.mock.calls[1][0].message).toMatch(/BeforeCalculation:2:.*broken script/)
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(project).toEqual(before)
+  })

@@ -587,11 +587,11 @@ it('converts materials through the worker and reports unsupported formulas witho
 })
 
 
-it('routes script messages only to their pending request and rejects late output after cancellation', async () => {
+it.each(['calcChi2', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'startFit'] as const)('routes %s script messages only to their pending request and rejects late output after cancellation', async method => {
   const worker = controlledWorker()
   const service = new WorkerComputeService(() => worker)
   const lines = vi.fn()
-  const request = service.calcChi2(createDefaultProject(), lines)
+  const request = method === 'startFit' ? service.startFit(createDefaultProject(), vi.fn(), lines) : service[method](createDefaultProject(), lines)
   const response = worker.onmessage!
   response({ data: { id: 1, type: 'scriptMessages', lines: ['running'] } } as MessageEvent<WorkerResponse>)
   response({ data: { id: 2, type: 'scriptMessages', lines: ['wrong request'] } } as MessageEvent<WorkerResponse>)

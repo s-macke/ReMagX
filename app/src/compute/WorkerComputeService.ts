@@ -87,20 +87,20 @@ export class WorkerComputeService implements ComputeService {
     return this.request('layerSpectrum', project, undefined, spectrum)
   }
 
-  calcReflectivity(project: Project): Promise<ReflectivityCurve> {
-    return this.request('reflectivity', project)
+  calcReflectivity(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<ReflectivityCurve> {
+    return this.request('reflectivity', project, undefined, undefined, onScriptMessages)
   }
 
-  calcEnergyScan(project: Project): Promise<EnergyScanCurve> {
-    return this.request('energyScan', project)
+  calcEnergyScan(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<EnergyScanCurve> {
+    return this.request('energyScan', project, undefined, undefined, onScriptMessages)
   }
 
-  calcEnergyAsymmetry(project: Project): Promise<EnergyAsymmetryCurve> {
-    return this.request('energyAsymmetry', project)
+  calcEnergyAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<EnergyAsymmetryCurve> {
+    return this.request('energyAsymmetry', project, undefined, undefined, onScriptMessages)
   }
 
-  calcAsymmetry(project: Project): Promise<AsymmetryCurve> {
-    return this.request('asymmetry', project)
+  calcAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<AsymmetryCurve> {
+    return this.request('asymmetry', project, undefined, undefined, onScriptMessages)
   }
 
   databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues> {
@@ -131,8 +131,8 @@ export class WorkerComputeService implements ComputeService {
     return this.request('chi2', project, undefined, undefined, onScriptMessages)
   }
 
-  startFit(project: Project, onProgress: (progress: FitProgress) => void): Promise<FitResult> {
-    return this.request('fit', project, onProgress)
+  startFit(project: Project, onProgress: (progress: FitProgress) => void, onScriptMessages?: (lines: string[]) => void): Promise<FitResult> {
+    return this.request('fit', project, onProgress, undefined, onScriptMessages)
   }
 
   stopFit(): void {

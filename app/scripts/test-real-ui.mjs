@@ -76,9 +76,14 @@ try {
       constructor(url, options) {
         super(url, options)
         this.addEventListener('message', event => {
+          if (window.holdScriptResults && event.data.type === 'scriptMessages' && !event.data.released) {
+            event.stopImmediatePropagation()
+            ;(window.heldScriptMessages ??= []).push(() => this.dispatchEvent(new MessageEvent('message', { data: { ...event.data, released: true } })))
+            return
+          }
           if (window.holdScriptResults && event.data.type === 'result' && event.data.result?.scriptMessages && !event.data.released) {
             event.stopImmediatePropagation()
-            window.releaseScriptResult = () => this.dispatchEvent(new MessageEvent('message', { data: { ...event.data, released: true } }))
+            window.releaseScriptResult = () => { for (const release of window.heldScriptMessages ?? []) release(); window.heldScriptMessages = []; this.dispatchEvent(new MessageEvent('message', { data: { ...event.data, released: true } })) }
             return
           }
           if (event.data.browserTestBlocked) window.workerBlocked = true
@@ -159,6 +164,11 @@ try {
   await openProject(scripted)
   await page.waitForFunction(() => document.querySelector('.debug-log')?.textContent.includes('lua-ui:1:0'))
   await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  const beforeRepeat = await page.locator('.debug-log').evaluate(node => node.textContent.split('lua-ui:1:0').length)
+  await page.getByRole('button', { name: 'Reflectivity', exact: true }).click()
+  await page.waitForFunction(count => document.querySelector('.debug-log')?.textContent.split('lua-ui:1:0').length > count, beforeRepeat)
+  await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  assert.equal(await page.locator('.debug-log').evaluate(node => node.textContent.split('lua-ui:1:0').length), beforeRepeat + 1)
   for (const mode of ['Dichroic', 'Asymmetry']) {
     const count = await page.locator('.debug-log').evaluate(node => node.textContent.split('lua-ui:1:0').length)
     await page.getByRole('radio', { name: mode, exact: true }).check()
@@ -181,6 +191,17 @@ try {
   await page.evaluate(() => { window.holdScriptResults = false; window.releaseScriptResult() })
   await page.waitForTimeout(200)
   assert.ok(!(await page.locator('.debug-log').textContent()).includes('obsolete-lua-output'))
+  // Output preceding a Lua error is visible once, even though no curve/fit
+  // result carries the successful-result fallback transcript.
+  scripted.scripts.beforeCalculation = 'print("before-script-error"); error("script failure")'
+  await openProject(scripted)
+  await page.waitForFunction(() => document.querySelector('.debug-log')?.textContent.includes('before-script-error'))
+  await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  const beforeFitError = await page.locator('.debug-log').evaluate(node => node.textContent.split('before-script-error').length)
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.debug-log')?.textContent.includes('Fit error:'))
+  await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  assert.equal(await page.locator('.debug-log').evaluate(node => node.textContent.split('before-script-error').length), beforeFitError + 1)
   // Missing energy tables skip each point but still execute the constructor
   // hook; verify its output survives both energy display transformations.
   scripted.experiment.qzScan.useDatasetPoints = true
