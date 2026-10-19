@@ -173,6 +173,7 @@ export function reducer(state: AppState, action: Action): AppState {
 
   let next = transition(state, action)
   if (action.type === 'loadProject') return { ...invalidateFit(next, 'Fit cancelled because a project was loaded.'), history: emptyHistory(), calculationPaused: false, valueSlider: null }
+  if (next.opticalTables !== state.opticalTables) next = invalidateFit(next, 'Fit cancelled because the material library changed.')
   if (next.project === state.project) return next
   if (action.type === 'applyScriptExecution' || action.type === 'applyElementConversion' || action.type === 'applyLayerConversion' || fitStructureChanged(state.project, next.project)) next = { ...invalidateFit(next, 'Fit cancelled because project structure changed.'), valueSlider: null }
   if (next.valueSlider && action.type !== 'slideValue') {

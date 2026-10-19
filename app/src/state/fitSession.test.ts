@@ -125,3 +125,20 @@ it('clears worker previews on invalidation and ignores previews from old fit ses
   expect(next.fitStatus.datasetPreview).toBeUndefined()
   expect(next.fitStatus.workerPreviews).toBe(false)
 })
+
+
+it.each(['addOpticalTables', 'clearOpticalTables', 'restoreOpticalTables'] as const)('invalidates fit and chi2 callbacks on %s without project undo', type => {
+  for (const evaluating of [false, true]) {
+    const start = evaluating ? reducer(fitting(), { type: 'beginFit', parameters: null }) : fitting()
+    const action: Action = type === 'clearOpticalTables' ? { type } : type === 'restoreOpticalTables'
+      ? { type, tables: [], error: null } : { type, tables: [] }
+    const next = reducer(start, action)
+    expect(next.fitInvalidations).toBe(start.fitInvalidations + 1)
+    expect(next.fitStatus.running).toBe(false)
+    expect(next.fitStatus.evaluating).toBe(false)
+    expect(next.project).toBe(start.project)
+    expect(next.history).toBe(start.history)
+    expect(reducer(next, { type: 'fitEvent', epoch: start.fitEpoch,
+      event: { type: 'setFitStatus', fitStatus: { chi2: 999 } } })).toBe(next)
+  }
+})

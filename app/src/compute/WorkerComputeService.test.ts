@@ -623,3 +623,21 @@ it.each(['calcReflectivity', 'calcAsymmetry'] as const)('supplies tables to manu
   const rejected = expect(pending).rejects.toBeInstanceOf(ComputeCancelled)
   service.stop(); await rejected; service.dispose()
 })
+
+
+it.each(['calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcChi2', 'startFit'] as const)('uses explicit library replacements and clears for %s', async method => {
+  const worker = controlledWorker(), service = new WorkerComputeService(() => worker, () => { throw new Error('stale factory tables') })
+  const project = createDefaultProject()
+  for (const tables of [
+    [{ name: 'A', kind: 'db' as const, energy: [100], columns: [[.01], [0]], warnings: [] }],
+    [{ name: 'A', kind: 'db' as const, energy: [100], columns: [[.02], [0]], warnings: [] }], [],
+  ]) {
+    const pending = method === 'startFit' ? service.startFit(project, vi.fn(), undefined, tables) : service[method](project, undefined, tables)
+    const message = vi.mocked(worker.postMessage).mock.calls.at(-1)![0]
+    expect(message).toMatchObject({ tables })
+    if (!('id' in message)) throw new Error('Expected calculation request')
+    worker.onmessage!({ data: { id: message.id, type: 'result', result: 0 } } as MessageEvent<WorkerResponse>)
+    await pending
+  }
+  service.dispose()
+})

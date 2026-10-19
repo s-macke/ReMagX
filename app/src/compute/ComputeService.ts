@@ -107,16 +107,16 @@ export interface ComputeService {
   densityProfiles(project: Project): Promise<DensityProfiles>
   scatteringFactors(project: Project, query: ElementSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum>
   layerSpectrum(project: Project, query: LayerSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum>
-  calcReflectivity(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<ReflectivityCurve>
-  calcEnergyScan(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<EnergyScanCurve>
-  calcEnergyAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<EnergyAsymmetryCurve>
-  calcAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<AsymmetryCurve>
+  calcReflectivity(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<ReflectivityCurve>
+  calcEnergyScan(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<EnergyScanCurve>
+  calcEnergyAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<EnergyAsymmetryCurve>
+  calcAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<AsymmetryCurve>
   materialToElements(project: Project): Promise<ElementConversion>
   segmentLayers(project: Project): Promise<Layer[]>
   depthProfile(project: Project): Promise<DepthProfile>
   // Dataset-error statistic. The real engine sums all fit-enabled datasets, as the legacy χ² action does.
-  calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<number>
-  startFit(project: Project, onProgress: (progress: FitProgress) => void, onScriptMessages?: (lines: string[]) => void): Promise<FitResult>
+  calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<number>
+  startFit(project: Project, onProgress: (progress: FitProgress) => void, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<FitResult>
   // Stop all current work in the shared worker, including standalone calculations.
   stop(): void
   stopFit(): void

@@ -76,20 +76,20 @@ async function calculate(service: ComputeService, project: Project, request: Cal
   }
   if (scanKind === 'energyScan') {
     if (mode !== 'monochromatic') {
-      const scan = await service.calcEnergyAsymmetry(project, onScriptMessages)
+      const scan = await service.calcEnergyAsymmetry(project, onScriptMessages, request.tables ?? [])
       return mode === 'dichroic'
         ? { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated R+', y: scan.reflectivityPlus },
           { label: 'simulated R−', y: scan.reflectivityMinus }], logScale: true, yLabel: 'R' }
         : { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated asymmetry', y: scan.asymmetry }], logScale: false, yLabel: 'asymmetry' }
     }
-    const scan = await service.calcEnergyScan(project, onScriptMessages)
+    const scan = await service.calcEnergyScan(project, onScriptMessages, request.tables ?? [])
     return { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated R', y: scan.reflectivity }], logScale: true, yLabel: 'R' }
   }
   if (mode === 'monochromatic') {
-    const curve = await service.calcReflectivity(project, onScriptMessages)
+    const curve = await service.calcReflectivity(project, onScriptMessages, request.tables ?? [])
     return { scriptMessages: curve.scriptMessages, axis: 'qz', x: curve.qz, series: [{ label: 'simulated R', y: curve.reflectivity }], logScale: true, yLabel: 'R' }
   }
-  const curve = await service.calcAsymmetry(project, onScriptMessages)
+  const curve = await service.calcAsymmetry(project, onScriptMessages, request.tables ?? [])
   if (mode === 'dichroic') {
     return {
       scriptMessages: curve.scriptMessages,

@@ -71,12 +71,13 @@ try {
     Object.defineProperty(window, 'showOpenFilePicker', { value: undefined })
     Object.defineProperty(window, 'showSaveFilePicker', { value: undefined })
     localStorage.setItem('remagx.expandedSections', JSON.stringify({ 'fit-start-stop': true, 'fit-debug': true }))
-    window.requests = []; window.workerBlocked = false; window.resultCount = 0
+    window.tableRequests = []; window.tableReplies = {}; window.requests = []; window.workerBlocked = false; window.resultCount = 0
     const NativeWorker = window.Worker
     window.Worker = class extends NativeWorker {
       constructor(url, options) {
         super(url, options)
         this.addEventListener('message', event => {
+          if (event.data.type === 'result' || event.data.type === 'error') window.tableReplies[event.data.id] = event.data.type;
           if (window.holdScriptResults && event.data.type === 'scriptMessages' && !event.data.released) {
             event.stopImmediatePropagation()
             ;(window.heldScriptMessages ??= []).push(() => this.dispatchEvent(new MessageEvent('message', { data: { ...event.data, released: true } })))
@@ -92,7 +93,9 @@ try {
         })
       }
       postMessage(message) {
+        delete window.tableReplies[message.id]
         window.requests.push(message.kind)
+        window.tableRequests.push({ id: message.id, kind: message.kind, tables: structuredClone(message.tables) })
         super.postMessage({ ...message, browserTestBlock: message.kind === window.blockedKind })
       }
     }
@@ -296,6 +299,53 @@ try {
   await scriptWindow.getByRole('button', { name: 'Execute', exact: true }).click()
   await page.waitForFunction(() => document.querySelector('.script-window__output')?.textContent.includes('Script finished.'))
   assert.equal((await saveProject()).sample.layers[1].thickness, 45)
+  await scriptWindow.getByRole('button', { name: 'Close script window', exact: true }).click()
+  // Exercise actual library uploads through all UI calculation entry points.
+  const libraryProject = structuredClone(scripted)
+  libraryProject.calculation.automaticOpticalConstants = true
+  libraryProject.experiment.energy = 640
+  libraryProject.datasets[0].energy = 640
+  libraryProject.fit.errorFunction = 'lin-chi2'
+  libraryProject.sample.layers.forEach((layer, index) => { layer.opticalTable = `ui-${index}` })
+  libraryProject.scripts.beforeCalculation = 'assert(delta[1] > 0); print("library:", delta[1])'
+  await openProject(libraryProject)
+  await page.waitForFunction(() => document.querySelector('.status-bar__error')?.textContent.includes('missing optical table'))
+  await page.getByRole('tab', { name: 'Sample', exact: true }).click()
+  await page.getByRole('button', { name: 'Optical Constants Database', exact: true }).click()
+  async function loadLibrary(delta) {
+    const files = page.waitForEvent('filechooser')
+    await page.getByRole('button', { name: 'Load tables…', exact: true }).click()
+    await (await files).setFiles([.02, delta, 0].map((value, index) => ({ name: `ui-${index}.db`, mimeType: 'text/plain',
+      buffer: Buffer.from(`600 ${value} 0.0001\n800 ${value} 0.0001`) })))
+    await page.waitForFunction(value => window.tableRequests.some(request => request.tables?.find(table => table.name === 'ui-1')?.columns[0][0] === value), delta)
+    await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  }
+  await loadLibrary(.01)
+  async function checkRequest(kind, click, expectedDelta) {
+    const count = await page.evaluate(() => window.tableRequests.length)
+    await click()
+    await page.waitForFunction(({ count, kind }) => window.tableRequests.slice(count).some(request => request.kind === kind), { count, kind })
+    const request = await page.evaluate(({ count, kind }) => window.tableRequests.slice(count).find(request => request.kind === kind), { count, kind })
+    assert.equal(request.tables.find(table => table.name === 'ui-1').columns[0][0], expectedDelta)
+    await page.waitForFunction(id => window.tableReplies[id], request.id)
+    assert.equal(await page.evaluate(id => window.tableReplies[id], request.id), 'result')
+    await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  }
+  for (const [mode, qzKind, energyKind] of [['Monochromatic', 'reflectivity', 'energyScan'], ['Dichroic', 'asymmetry', 'energyAsymmetry']]) {
+    await page.getByRole('radio', { name: mode, exact: true }).check()
+    await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+    await checkRequest(qzKind, () => page.getByRole('button', { name: 'Reflectivity', exact: true }).click(), .01)
+    await checkRequest(energyKind, () => page.getByRole('button', { name: 'Energy Scan', exact: true }).click(), .01)
+  }
+  await loadLibrary(.015)
+  await page.getByRole('tab', { name: 'Fit', exact: true }).click()
+  await checkRequest('chi2', () => page.getByRole('button', { name: 'χ²', exact: true }).click(), .015)
+  await checkRequest('fit', () => page.getByRole('button', { name: 'Start', exact: true }).click(), .015)
+  await page.getByRole('tab', { name: 'Sample', exact: true }).click()
+  await page.getByRole('button', { name: 'Delete optical constants cache', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.status-bar__error')?.textContent.includes('missing optical table'))
+  const cleared = await page.evaluate(() => window.tableRequests.at(-1))
+  assert.deepEqual(cleared.tables, [])
   assert.deepEqual(failures, [])
   console.log(JSON.stringify({ realUi: 'passed', points: 10000, layers: 102, tabMilliseconds, stopMilliseconds, blockedStops, manualStopMilliseconds }))
 } finally {

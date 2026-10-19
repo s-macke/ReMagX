@@ -92,20 +92,20 @@ export class WorkerComputeService implements ComputeService {
     return this.request('layerSpectrum', project, undefined, spectrum, onScriptMessages)
   }
 
-  calcReflectivity(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<ReflectivityCurve> {
-    return this.request('reflectivity', project, undefined, undefined, onScriptMessages)
+  calcReflectivity(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<ReflectivityCurve> {
+    return this.request('reflectivity', project, undefined, undefined, onScriptMessages, tables)
   }
 
-  calcEnergyScan(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<EnergyScanCurve> {
-    return this.request('energyScan', project, undefined, undefined, onScriptMessages)
+  calcEnergyScan(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<EnergyScanCurve> {
+    return this.request('energyScan', project, undefined, undefined, onScriptMessages, tables)
   }
 
-  calcEnergyAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<EnergyAsymmetryCurve> {
-    return this.request('energyAsymmetry', project, undefined, undefined, onScriptMessages)
+  calcEnergyAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<EnergyAsymmetryCurve> {
+    return this.request('energyAsymmetry', project, undefined, undefined, onScriptMessages, tables)
   }
 
-  calcAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<AsymmetryCurve> {
-    return this.request('asymmetry', project, undefined, undefined, onScriptMessages)
+  calcAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<AsymmetryCurve> {
+    return this.request('asymmetry', project, undefined, undefined, onScriptMessages, tables)
   }
 
   databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues> {
@@ -132,12 +132,12 @@ export class WorkerComputeService implements ComputeService {
     return this.request('depthProfile', project)
   }
 
-  calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void): Promise<number> {
-    return this.request('chi2', project, undefined, undefined, onScriptMessages)
+  calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<number> {
+    return this.request('chi2', project, undefined, undefined, onScriptMessages, tables)
   }
 
-  startFit(project: Project, onProgress: (progress: FitProgress) => void, onScriptMessages?: (lines: string[]) => void): Promise<FitResult> {
-    return this.request('fit', project, onProgress, undefined, onScriptMessages)
+  startFit(project: Project, onProgress: (progress: FitProgress) => void, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<FitResult> {
+    return this.request('fit', project, onProgress, undefined, onScriptMessages, tables)
   }
 
   stopFit(): void {
@@ -198,6 +198,7 @@ export class WorkerComputeService implements ComputeService {
     onProgress?: (progress: FitProgress) => void,
     spectrum?: { program: ScriptProgram; tables: OpticalTable[] } | TensorQuery | LayerSpectrumQuery | ElementSpectrumQuery | { tables: OpticalTable[] },
     onScriptMessages?: (lines: string[]) => void,
+    explicitTables?: OpticalTable[],
   ): Promise<CalculationResults[K]> {
     if (this.disposed) return Promise.reject(new ComputeError('Compute service was shut down.'))
     if (this.stopping) return Promise.reject(new ComputeCancelled())
@@ -206,7 +207,7 @@ export class WorkerComputeService implements ComputeService {
       this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress, onScriptMessages })
       try {
         this.worker ??= this.connect()
-        const tables = (kind === 'fit' || kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || kind === 'reflectivity' || kind === 'asymmetry') ? this.getTables?.() : undefined
+        const tables = (kind === 'fit' || kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || kind === 'reflectivity' || kind === 'asymmetry') ? explicitTables ?? this.getTables?.() : undefined
         this.worker.postMessage({ id, kind, project, ...(tables ? { tables } : {}), ...(spectrum ? { spectrum } : {}) } as WorkerRequest)
       } catch (error) {
         this.failWorker(`Could not start the computation: ${String(error)}`)

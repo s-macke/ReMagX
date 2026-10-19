@@ -8,7 +8,7 @@ import { computeService } from './useCalculation'
 // Starts and stops fits in the compute worker and reports progress through the app state.
 // When a fit ends, only the fitted quantities are written back, so edits made meanwhile survive.
 export function useFitRunner() {
-  const { project, fitEpoch } = useAppState()
+  const { project, fitEpoch, opticalTables } = useAppState()
   const dispatch = useDispatch()
 
   const start = useCallback(() => {
@@ -26,7 +26,7 @@ export function useFitRunner() {
         report({ type: 'appendDebug', lines: [`Iteration: ${progress.iteration} Chi^2: ${progress.chi2.toPrecision(6)}`] })
       }, lines => {
         if (lines.length) { streamed = true; report({ type: 'appendDebug', lines }) }
-      })
+      }, opticalTables)
       .then((result) => {
         if (!streamed && result.scriptMessages?.length) report({ type: 'appendDebug', lines: result.scriptMessages })
         report({ type: 'updateProject', update: (current) => mergeFitResult(current, project, result) })
@@ -42,7 +42,7 @@ export function useFitRunner() {
         report({ type: 'setFitStatus', fitStatus: { running: false, datasetPreview: undefined, workerPreviews: false, message: error.message, parameters: null, values: null } })
         report({ type: 'appendDebug', lines: [error instanceof ComputeCancelled ? error.message : `Fit error: ${error.message}`] })
       })
-  }, [project, fitEpoch, dispatch])
+  }, [project, fitEpoch, opticalTables, dispatch])
 
   const stop = useCallback(() => {
     dispatch({ type: 'setCalculationPaused', paused: true })
@@ -54,13 +54,13 @@ export function useFitRunner() {
     const report = (event: FitEvent) => dispatch({ type: 'fitEvent', epoch, event })
     dispatch({ type: 'beginFit', parameters: null })
     computeService()
-      .calcChi2(project, lines => report({ type: 'appendDebug', lines }))
+      .calcChi2(project, lines => report({ type: 'appendDebug', lines }), opticalTables)
       .then((chi2) => {
         report({ type: 'setFitStatus', fitStatus: { evaluating: false, chi2, message: 'χ² of the current parameters.' } })
         report({ type: 'appendDebug', lines: [`Chi^2 of the current parameters: ${chi2.toPrecision(6)}`] })
       })
       .catch((error: Error) => report({ type: 'setFitStatus', fitStatus: { evaluating: false, message: error.message } }))
-  }, [project, fitEpoch, dispatch])
+  }, [project, fitEpoch, opticalTables, dispatch])
 
   return { start, stop, evaluate }
 }
