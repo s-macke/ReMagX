@@ -30,6 +30,15 @@ int main(int argc, char** argv) {
             if (!std::isfinite(value)) throw 1;
             json << value;
         };
+        const auto tensorJson = [&](const CMATRIX<double>& tensor) {
+            json << '[';
+            for (int row = 0; row < 3; ++row) for (int column = 0; column < 3; ++column) {
+                if (row || column) json << ',';
+                number(tensor.a[row][column].real()); json << ',';
+                number(tensor.a[row][column].imag());
+            }
+            json << ']';
+        };
         json << "{\"energy\":";
         number(state->Var.LambdaToEnergy());
         json << ",\"films\":[";
@@ -50,6 +59,32 @@ int main(int argc, char** argv) {
                 json << ']';
             }
             json << ']';
+        }
+        json << "],\"dielectricTensors\":[";
+        const auto* film = state->GetActiveFilm();
+        for (int index = 0; index < film->mfs.size(); ++index) {
+            if (index) json << ',';
+            json << "{\"anisotropic\":" << (film->mfs[index].oc.epsilontype != ISOTROPIC ? "true" : "false") << ",\"values\":";
+            tensorJson(film->mfs[index].oc.epsilon);
+            json << '}';
+        }
+        json << "],\"elements\":[";
+        for (int index = 0; index < film->el.size(); ++index) {
+            if (index) json << ',';
+            const auto& element = film->el[index];
+            json << "{\"factors\":[";
+            number(element.f1); json << ','; number(element.f2); json << ',';
+            number(element.f1m); json << ','; number(element.f2m);
+            json << "],\"tensor\":"; tensorJson(element.F);
+            json << ",\"slabs\":[";
+            for (int slab = 0; slab < element.mfs.size(); ++slab) {
+                if (slab) json << ',';
+                json << '[';
+                number(element.mfs[slab].d); json << ',';
+                number(element.mfs[slab].density); json << ',';
+                number(element.mfs[slab].sigma); json << ']';
+            }
+            json << "]}";
         }
         json << "],\"datasetCount\":" << state->datasets.size() << ",\"datasets\":[";
         for (int index = 0; index < state->datasets.size(); ++index) {

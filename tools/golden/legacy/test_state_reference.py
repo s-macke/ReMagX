@@ -18,6 +18,14 @@ class StateReferenceManifestTest(unittest.TestCase):
         self.assertNotIn('shared/LayerSegmentation.cpp', manifest)
         self.assertNotIn('shared/script.cpp', manifest)
 
+    def test_tensor_comparison_failure_hides_private_payload_and_paths(self):
+        for payload in ['PRIVATE_MARKER', '[]', '[{"layers":[],"elements":[]}]']:
+            result = subprocess.run(['node', HERE / 'check_state_tensors.mjs', '/PRIVATE_MARKER/missing.mjs'],
+                                    input=payload, text=True, capture_output=True, timeout=10)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            self.assertEqual(result.stderr, 'Original loaded-state tensor comparison failed; private diagnostics withheld.\n')
+
 
 @unittest.skipUnless(os.environ.get('LEGACY_ROOT'), 'private legacy sources not requested')
 class StateReferenceTest(unittest.TestCase):
@@ -44,6 +52,12 @@ class StateReferenceTest(unittest.TestCase):
         self.assertEqual(state['datasets'][0]['columns'], [[] for _ in range(7)])
         self.assertEqual(state['datasets'][0]['polarization'], [1, 0, 0, 0, 0, 0, 1, 0])
         self.assertEqual(len(state['datasets'][0]['settings']), 8)
+        self.assertEqual(len(state['dielectricTensors']), 14)
+        tensor = state['dielectricTensors'][0]['values']
+        self.assertEqual(len(tensor), 18)
+        self.assertAlmostEqual(tensor[0], (1 - .00165) ** 2 - .00029911 ** 2)
+        self.assertAlmostEqual(tensor[1], 2 * (1 - .00165) * .00029911)
+        self.assertTrue(all(len(element['tensor']) == 18 for element in state['elements']))
         symbols = subprocess.run(['nm', '-C', self.executable], check=True, capture_output=True, text=True).stdout
         for forbidden in ['CChiSquareFit::', 'CMultiFit::', 'lua_close', 'fftw_execute', 'LayerSegmentation']:
             self.assertNotIn(forbidden, symbols)

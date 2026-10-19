@@ -528,7 +528,8 @@ remaining work; testing prepared residuals does not establish full fit equivalen
 `CStateHandler::LoadState`, including its tensor construction and thickness
 conversion. It exports energy, per-film layer rows (thickness, roughness, delta,
 beta, delta-magnetic, beta-magnetic, gamma, phi), dataset settings, both complex
-beam polarizations, all seven measurement columns and dataset count as numeric JSON
+beam polarizations, all seven measurement columns, element factors/slabs, initial
+dielectric/scattering tensors and dataset count as numeric JSON
 with 17 significant digits. It does not execute scripts, resolve optical tables,
 calculate reflectivity or run fits. This is a project-preparation reference stage,
 not a simulation golden-output generator.
@@ -558,7 +559,8 @@ eight dataset settings, eight polarization components and every measurement-colu
 value for every discovered project using unchanged D-23 tolerances. Empty original
 placeholder datasets are mapped separately; files with no datasets need no placeholder.
 Synthetic data additionally exercises settings, column order and default resets.
-It does not compare textual metadata, every project field, tensors, or other films
+The importer-only stage does not compare textual metadata, every project field,
+tensors, or other films (the optional WASM tensor stage is described below)
 and must not be cited as full import or simulation acceptance. Errors use
 numeric project IDs and suppress private diagnostics. The public suite skips this
 comparison unless `LEGACY_ROOT` is supplied; the manifest check runs in ordinary
@@ -586,3 +588,34 @@ this difference. The original-loader test explicitly demonstrates it with a
 synthetic final asymmetry value; ordinary parity fixtures use the legacy writer's
 newline-terminated format. This is a documented input-format difference, not a
 relaxed numerical tolerance or a claim of full parser equivalence.
+
+
+### Element state and initial WASM tensor comparison (2026-10-19)
+
+The adapter also exports the first film's stored element factors, slab triples
+(thickness, density, roughness), full scattering tensors and dielectric tensors
+with their original classification. All numeric element factors/slabs are compared
+with imported project state; names and other textual metadata are not covered.
+
+To additionally compare original loaded tensors with the actual WASM constructors:
+
+```sh
+cd app
+LEGACY_ROOT=../old/reMagX3 CORPUS_DIR=../old/reMagX3 WASM_MODULE=../build/wasm/remagx-core.mjs npm test -- --run test/stateLoaderLegacy.test.ts
+```
+
+`check_state_tensors.mjs` receives captured snapshots on stdin. It derives both
+tensor kinds from the web-imported layer/factor values and calculation directions,
+magnetization and tensor settings. This exercises parsing plus native tensor
+preparation rather than comparing two calls to the same constructor. The 99 local
+projects and six synthetic compound/element-mode cases match 178,236 tensor
+components and all dielectric classifications at unchanged D-23 tolerances.
+Synthetic cases include all three stored magnetization modes and nonzero magnetic
+factors with nontrivial directions. Only aggregate counts are printed; numerical
+payloads, input paths and detailed failure diagnostics remain private. Malformed
+or empty input and missing-module errors fail without echoing the payload or path.
+
+This is initial state built by LoadState/FillTensors. It does not cover subsequent
+optical-table lookup, script mutations, density-profile evaluation, slicing, or
+full-project reflectivity. The WASM stage runs only when `WASM_MODULE` is supplied;
+it does not make ordinary public tests require a compiled numerical engine.
