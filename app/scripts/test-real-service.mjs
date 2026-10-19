@@ -449,11 +449,28 @@ try {
       output.zakUnchanged = zakSnapshot === JSON.stringify(zak)
       zak.calculation.asymmetryDefinition = 'difference'
       output.zakDifference = await service.calcEnergyAsymmetry(zak)
-      zak.calculation.magnetization.mode = 'profile'
-      try { await service.calcReflectivity(zak) } catch (error) { output.zakProfileError = error.message }
       tables = tables.filter(table => table.kind !== 'e')
-      matrix.calculation.magnetization.mode = 'profile'
-      try { await service.calcReflectivity(matrix) } catch (error) { output.matrixProfileError = error.message }
+      output.disabledProfileComparisons = []
+      output.profileSegmentationErrors = []
+      for (const original of [zak, matrix]) {
+        const candidate = structuredClone(original)
+        candidate.sample.depthProfileFunctions = [{ deltaAmplitude: .01, betaAmplitude: .002, center: 10, width: 3,
+          spline: { enabled: false, points: [] }, amplitudeCoupledTo: null, widthCoupledTo: null, boundToLayer: null }]
+        for (const method of ['calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry']) {
+          candidate.calculation.magnetization.mode = 'add'
+          const stored = await service[method](candidate)
+          candidate.calculation.magnetization.mode = 'profile'
+          const snapshot = JSON.stringify(candidate)
+          const profile = await service[method](candidate)
+          if (JSON.stringify(candidate) !== snapshot) throw new Error('Disabled segmentation profile request changed input')
+          output.disabledProfileComparisons.push({ stored, profile })
+        }
+        candidate.calculation.roughnessModel = 'segmentation'
+        for (const method of ['calcReflectivity', 'calcEnergyScan']) {
+          try { await service[method](candidate) }
+          catch (error) { output.profileSegmentationErrors.push(error.message) }
+        }
+      }
       output.datasetErrors = []
       tables = [
         { name: 'fit-bulk', kind: 'db', energy: [600, 800], columns: [[.01, .01], [.002, .002]], warnings: [] },
@@ -1243,9 +1260,16 @@ try {
     near(results.zakEnergyMono.reflectivity[index], plus)
   })
   assert.equal(results.zakUnchanged, true)
-  assert.match(results.zakProfileError, /profile/)
   assert.equal(results.matrixUnchanged, true)
-  assert.match(results.matrixProfileError, /profile/)
+  assert.equal(results.disabledProfileComparisons.length, 8)
+  for (const { stored, profile } of results.disabledProfileComparisons) {
+    for (const [name, values] of Object.entries(stored)) {
+      assert.equal(profile[name].length, values.length)
+      values.forEach((value, index) => near(profile[name][index], value))
+    }
+  }
+  assert.equal(results.profileSegmentationErrors.length, 4)
+  results.profileSegmentationErrors.forEach(message => assert.match(message, /segmentation/i))
   assert.equal(results.refreshUnchanged, true)
   assert.deepEqual(results.cancellations.map(result => [result.method, result.stopped]), [['calcReflectivity', 'ComputeCancelled'], ['calcChi2', 'ComputeCancelled'], ['startFit', 'ComputeCancelled']])
   assert.deepEqual(results.restarted, results.totalReflection)
