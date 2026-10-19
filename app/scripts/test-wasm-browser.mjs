@@ -1,3 +1,4 @@
+import { checkAsymmetry } from '../../engine/tests/asymmetry_checks.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
@@ -104,9 +105,10 @@ try {
     })
   }
   assert.equal(count, 14880)
-  let matrixCount = 0
+  let matrixCount = 0, asymmetryCount = 0
   input.matrices.forEach((item, index) => {
     assert.equal(result.matrixResults[index].length, item.expected.length)
+    if (item.verifyAsymmetry) asymmetryCount += checkAsymmetry(result.matrixResults[index], item.expected, `Visnovsky case ${index}`)
     result.matrixResults[index].forEach((value, beam) => {
       const target = item.expected[beam]
       assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
@@ -115,6 +117,8 @@ try {
     })
   })
   assert.equal(matrixCount, 18144)
+  assert.equal(asymmetryCount, 2400)
+  console.log(`Chromium derived matrix asymmetry: ${asymmetryCount} values matched.`)
   console.log(`Chromium Visnovsky: ${matrixCount} intensities matched native.`)
   let zakCount = 0
   input.zak.forEach((item, index) => {

@@ -16,6 +16,11 @@
     "root.tbl": "cda3d967322c7149efa37ac3eaca8610362d7670d03c1654d6ec1e1b3132be1c",
     "powtwo.tbl": "c949edd6cae6c2352c91c1a617a4d131415d66d3851682a23965568c468ea61f",
     "uasncs.h": "aef44df30be77b4587d6d6ee3b12218e200aeaa28cec0e3672687067bf6a10c2",
-    "COPYING.LIB": "9b2def8a1f95faf55a15ade459ba61d97183ebfb269b175e0e2eaed61bf9ebe3"
+    "COPYING.LIB": "9b2def8a1f95faf55a15ade459ba61d97183ebfb269b175e0e2eaed61bf9ebe3",
+    "e_hypot.c": "6b221ee15e8251ab8c5825464ef6c77fb614463cc453a7edf36c2febe831d158",
+    "s_csqrt_template.c": "ef2cefef15c10deaadda6354b2719e02bbbd268582ef733abf7ec9a717324bb7",
+    "s_clog_template.c": "c01142d4a4b09553c51acf40f8b784da41cb64f93aee47a45f4d70db99fa7c1c",
+    "x2y2m1.c": "d3e1cade509574dd72d0aab71cd8ce234666b96cdc36ec21e696fdbcbbcbda61",
+    "mul_split.h": "35a9f454e24c469142795fb370f239c7e4b4348fbf562b2cf7b0d9f4d5786c12"
   }
 }

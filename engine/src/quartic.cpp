@@ -5,35 +5,6 @@
 #include <complex>
 #include <limits>
 
-namespace {
-// Ratio-scaled complex division preserves the native compiler's arithmetic
-// sequence. WASM's compiler runtime otherwise uses squared-denominator scaling.
-std::complex<double> native_divide(std::complex<double> numerator, std::complex<double> denominator) {
-    const double real = denominator.real(), imaginary = denominator.imag();
-    // Leave exceptional and extreme-scale handling to the platform runtime.
-    const double magnitude = std::max(std::abs(real), std::abs(imaginary));
-    const double numerator_magnitude = std::max(std::abs(numerator.real()), std::abs(numerator.imag()));
-    const double lower = std::sqrt(std::numeric_limits<double>::min());
-    const double upper = std::sqrt(std::numeric_limits<double>::max());
-    if (!std::isfinite(magnitude) || !std::isfinite(numerator_magnitude) ||
-        magnitude < lower || magnitude > upper || numerator_magnitude > upper)
-        return numerator / denominator;
-    if (std::abs(real) >= std::abs(imaginary) && real != 0.0) {
-        const double ratio = imaginary / real;
-        const double divisor = imaginary * ratio + real;
-        return {(numerator.real() + numerator.imag() * ratio) / divisor,
-                (numerator.imag() - numerator.real() * ratio) / divisor};
-    }
-    if (imaginary != 0.0) {
-        const double ratio = real / imaginary;
-        const double divisor = real * ratio + imaginary;
-        return {(numerator.real() * ratio + numerator.imag()) / divisor,
-                (numerator.imag() * ratio - numerator.real()) / divisor};
-    }
-    return numerator / denominator;
-}
-}
-
 // CVisnovsky.h SolvePolynomial: analytic quartic branches followed by ten
 // guarded Newton passes and the legacy mode-ordering comparisons.
 extern "C" int remagx_quartic_roots(const double* coefficients, double* output) {
@@ -47,10 +18,10 @@ extern "C" int remagx_quartic_roots(const double* coefficients, double* output) 
     Complex quadratic(coefficients[4], coefficients[5]);
     Complex linear(coefficients[6], coefficients[7]);
     Complex constant(coefficients[8], coefficients[9]);
-    constant = native_divide(constant, leading);
-    linear = native_divide(linear, leading);
-    quadratic = native_divide(quadratic, leading);
-    cubic = native_divide(cubic, leading);
+    constant = remagx::reference_complex_divide(constant, leading);
+    linear = remagx::reference_complex_divide(linear, leading);
+    quadratic = remagx::reference_complex_divide(quadratic, leading);
+    cubic = remagx::reference_complex_divide(cubic, leading);
     leading = 1.0;
     const Complex depressed_quadratic = -3.0*cubic*cubic/8.0/(leading*leading) + quadratic/leading;
     const Complex depressed_linear = cubic*cubic*cubic/8.0/(leading*leading*leading) - cubic*quadratic/2.0/(leading*leading) + linear/leading;
@@ -74,13 +45,13 @@ extern "C" int remagx_quartic_roots(const double* coefficients, double* output) 
         } else {
             const Complex cube_root = remagx::reference_complex_power(resolvent_constant/2.0 + remagx::reference_complex_square_root(resolvent_constant*resolvent_constant/4.0 +
                 resolvent_linear*resolvent_linear*resolvent_linear/27.0), 1.0/3.0);
-            resolvent_root = -5.0*depressed_quadratic/6.0 + native_divide(resolvent_linear/3.0, cube_root) - cube_root;
+            resolvent_root = -5.0*depressed_quadratic/6.0 + remagx::reference_complex_divide(resolvent_linear/3.0, cube_root) - cube_root;
         }
         const Complex radical = remagx::reference_complex_square_root(depressed_quadratic + 2.0*resolvent_root);
         const Complex shift = -cubic/4.0/leading;
         const Complex inner = -(depressed_quadratic + 2.0*resolvent_root) - 2.0*depressed_quadratic;
         const auto root = [&](Complex outer_sign, Complex radical_sign) {
-            return shift + 1.0/2.0*(radical_sign*radical + outer_sign*remagx::reference_complex_square_root(inner + native_divide(2.0*radical_sign*depressed_linear, radical)));
+            return shift + 1.0/2.0*(radical_sign*radical + outer_sign*remagx::reference_complex_square_root(inner + remagx::reference_complex_divide(2.0*radical_sign*depressed_linear, radical)));
         };
         roots[1] = root(1.0, 1.0);
         roots[0] = root(1.0, -1.0);
@@ -94,8 +65,8 @@ extern "C" int remagx_quartic_roots(const double* coefficients, double* output) 
         const Complex derivative = (((4.0*leading*root + 3.0*cubic)*root) + 2.0*quadratic)*root + linear;
         if (std::abs(derivative) < 1e-13) continue;
         const Complex before = residual(root);
-        root -= native_divide(before, derivative);
-        if (std::abs(residual(root)) > std::abs(before)) root += native_divide(before, derivative);
+        root -= remagx::reference_complex_divide(before, derivative);
+        if (std::abs(residual(root)) > std::abs(before)) root += remagx::reference_complex_divide(before, derivative);
     }
     for (int pass = 0; pass < 3; ++pass) for (int index = 0; index < 3; ++index)
         if (roots[index].real() < roots[index + 1].real()) std::swap(roots[index], roots[index + 1]);

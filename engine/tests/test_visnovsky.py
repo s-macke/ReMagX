@@ -333,7 +333,7 @@ def public_matrix_regression():
             yield dict(kind='qz', layers=[dict(values=[entry.thickness, entry.roughness,
                 entry.index_real, entry.index_imaginary, *entry.dielectric], anisotropic=entry.anisotropic)
                 for entry in layers], qz=qz, expected=expected,
-                resolution=dict(width=width, fast=bool(fast)), **options)
+                resolution=dict(width=width, fast=bool(fast)), verifyAsymmetry=bool(mode), **options)
 
 if __name__ == '__main__':
     if '--tensor-table-reference' in sys.argv:

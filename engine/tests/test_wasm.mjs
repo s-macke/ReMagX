@@ -1,3 +1,4 @@
+import { checkAsymmetry } from './asymmetry_checks.mjs'
 import { checkElementOptics } from './element_optics_checks.mjs'
 import { checkScattering } from './scattering_checks.mjs'
 import { calculateFitError } from '../wasm/fit_error.mjs'
@@ -170,12 +171,13 @@ assert.throws(() => calculateZakEnergyScan(module, unequalZakStacks), TypeError)
 assert.throws(() => calculateZakEnergyScan(module, { ...zakEnergy, qz: [0, 0, 0, 1e10] }), { status: 4 })
 assert.deepEqual(Array.from(calculateZakEnergyScan(module, { ...zakEnergy, mode: 0, beam2: null,
   enabled: [0, 0, 0, 0], energyWidth: 0 })), [1, 0, 1, 0, 1, 0, 1, 0])
-let matrixCount = 0
+let matrixCount = 0, asymmetryCount = 0
 for (const [caseIndex, prepared] of input.matrices.entries()) {
   const snapshot = JSON.stringify(prepared)
   const actual = prepared.kind === 'energy' ? calculateVisnovskyEnergyScan(module, prepared) : prepared.kind === 'qz' ? calculateVisnovskyQz(module, prepared) : calculateVisnovsky(module, prepared)
   assert.equal(JSON.stringify(prepared), snapshot)
   assert.equal(actual.length, prepared.expected.length)
+  if (prepared.verifyAsymmetry) asymmetryCount += checkAsymmetry(actual, prepared.expected, `Visnovsky case ${caseIndex}`)
   actual.forEach((value, index) => {
     const target = prepared.expected[index]
     assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
@@ -184,6 +186,8 @@ for (const [caseIndex, prepared] of input.matrices.entries()) {
   })
 }
 assert.equal(matrixCount, 18144)
+assert.equal(asymmetryCount, 2400)
+console.log(`WASM/native derived matrix asymmetry: ${asymmetryCount} values matched.`)
 const matrixPrepared = input.matrices[0]
 const matrixBefore = calculateVisnovsky(module, matrixPrepared)
 for (const change of [{ layers: new Array(2) }, { layers: [] }, { angle: NaN }, { analyzer: 3 }, { beam2: new Array(4) }]) {

@@ -89,3 +89,12 @@ the first differing value/reference. The small beam differences are amplified re
 to the derived difference/asymmetry; their arithmetic origin remains under investigation.
 The diagnostic correctly reports `acceptancePassed=false` and exits nonzero with
 `--require-parity`. The earlier 24-case resolution does not establish asymmetry acceptance.
+
+The derived-asymmetry discrepancy was subsequently resolved on 2026-10-19. Identical
+original-loaded tensors first isolated it to WASM arithmetic: native matched all 300
+points while WASM failed 32. Matching complex division, sine/cosine reconstruction,
+and the pinned native hypot/complex sqrt/log path restores all 78 project variants
+(43,440 values) at unchanged D-23. Node and Chromium also check 2,400 derived
+asymmetry values independently of their 18,144 passing beam-intensity comparisons.
+No quartic branches, Newton steps or tolerance were changed. Full corpus acceptance
+remains open.

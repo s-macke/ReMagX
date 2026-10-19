@@ -1,5 +1,6 @@
 #pragma once
 #include "remagx/core.h"
+#include "complex_arithmetic.hpp"
 #include <cmath>
 #include <complex>
 
@@ -65,7 +66,7 @@ inline bool invert(Matrix& matrix) {
                      + minor[0][1]*minor[1][0]*minor[2][2] - minor[0][1]*minor[2][0]*minor[1][2]
                      - minor[0][2]*minor[1][0]*minor[2][1] + minor[0][2]*minor[2][0]*minor[1][1];
         }
-        result.entries[column][row] = cofactor / divisor;
+        result.entries[column][row] = remagx::reference_complex_divide(cofactor, divisor);
     }
     if (!finite_matrix(result)) return false;
     matrix = result;
@@ -88,10 +89,10 @@ inline double intensity(const Matrix& reflection, const RemagxBeam& beam, int an
     Complex divisor = -entries[0][1]*entries[1][0] + entries[1][1]*entries[0][0];
     if (clamp_divisor && std::abs(divisor) < 1e-10) divisor = 1e-10;
     const Complex sigma(beam.sigma_real, beam.sigma_imaginary), pi(beam.pi_real, beam.pi_imaginary);
-    const Complex reflected_sigma = (entries[0][0]*entries[1][2]*pi - entries[1][2]*entries[0][1]*sigma
-        - entries[0][2]*entries[1][0]*pi + entries[1][1]*entries[0][2]*sigma)/divisor;
-    const Complex reflected_pi = (entries[0][0]*entries[1][3]*pi - entries[1][3]*entries[0][1]*sigma
-        - entries[0][3]*entries[1][0]*pi + entries[1][1]*entries[0][3]*sigma)/divisor;
+    const Complex reflected_sigma = remagx::reference_complex_divide(entries[0][0]*entries[1][2]*pi - entries[1][2]*entries[0][1]*sigma
+        - entries[0][2]*entries[1][0]*pi + entries[1][1]*entries[0][2]*sigma, divisor);
+    const Complex reflected_pi = remagx::reference_complex_divide(entries[0][0]*entries[1][3]*pi - entries[1][3]*entries[0][1]*sigma
+        - entries[0][3]*entries[1][0]*pi + entries[1][1]*entries[0][3]*sigma, divisor);
     if (analyzer == REMAGX_SIGMA) return (reflected_sigma * std::conj(reflected_sigma)).real();
     if (analyzer == REMAGX_PI) return (reflected_pi * std::conj(reflected_pi)).real();
     return (reflected_sigma * std::conj(reflected_sigma)).real() + (reflected_pi * std::conj(reflected_pi)).real();

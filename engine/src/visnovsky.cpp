@@ -31,7 +31,7 @@ void roughen(Matrix& interface_matrix, double roughness, double wave_number,
     if (roughness == 0.0) return;
     for (int row = 0; row < 4; ++row) for (int column = 0; column < 4; ++column) {
         const Complex difference = previous_roots[column] - roots[row];
-        interface_matrix.entries[row][column] *= std::exp(-wave_number*wave_number*difference*difference*roughness*roughness/2.0);
+        interface_matrix.entries[row][column] *= remagx::reference_complex_exponential(-wave_number*wave_number*difference*difference*roughness*roughness/2.0);
     }
 }
 bool valid_stack(const RemagxMatrixLayer* layers, size_t layer_count) {

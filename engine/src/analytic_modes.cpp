@@ -64,12 +64,12 @@ extern "C" int remagx_analytic_modes(int kind, const double* tensor, const doubl
         if (angle < 1e-4) angle = 1e-4;
         const Complex tangential = remagx::reference_cosine(angle);
         modes[0] = remagx::reference_complex_square_root(index * index - tangential * tangential);
-        const Complex normal = modes[0] / index;
+        const Complex normal = remagx::reference_complex_divide(modes[0], index);
         modes[1] = modes[0]; modes[2] = -modes[0]; modes[3] = -modes[0];
         const Complex forward = thickness != 0.0 ?
-            std::exp(-imaginary * (wave_number * thickness * index * normal)) : Complex(1.0, 0.0);
+            remagx::reference_complex_exponential(-imaginary * (wave_number * thickness * index * normal)) : Complex(1.0, 0.0);
         propagation_matrix[0] = propagation_matrix[5] = forward;
-        propagation_matrix[10] = propagation_matrix[15] = 1.0 / forward;
+        propagation_matrix[10] = propagation_matrix[15] = remagx::reference_complex_divide(1.0, forward);
         interface_matrix[0] = interface_matrix[2] = 1.0;
         interface_matrix[5] = normal; interface_matrix[7] = -normal;
         interface_matrix[9] = interface_matrix[11] = -index;
@@ -79,9 +79,9 @@ extern "C" int remagx_analytic_modes(int kind, const double* tensor, const doubl
         const Complex xx(tensor[0], tensor[1]), yy(tensor[8], tensor[9]), zz(tensor[16], tensor[17]);
         const double tangential = remagx::reference_cosine(angle);
         modes[0] = +remagx::reference_complex_square_root(xx - tangential * tangential);
-        modes[1] = +remagx::reference_complex_square_root(4.0 * yy * zz * (zz - tangential * tangential)) / (2.0 * zz);
+        modes[1] = remagx::reference_complex_divide(+remagx::reference_complex_square_root(4.0 * yy * zz * (zz - tangential * tangential)), 2.0 * zz);
         modes[2] = -remagx::reference_complex_square_root(xx - tangential * tangential);
-        modes[3] = -remagx::reference_complex_square_root(4.0 * yy * zz * (zz - tangential * tangential)) / (2.0 * zz);
+        modes[3] = remagx::reference_complex_divide(-remagx::reference_complex_square_root(4.0 * yy * zz * (zz - tangential * tangential)), 2.0 * zz);
         const Complex electric_x[4] = {1.0, 0.0, 1.0, 0.0};
         const Complex electric_y[4] = {0.0, zz - tangential * tangential, 0.0, zz - tangential * tangential};
         const Complex electric_z[4] = {0.0, -tangential * modes[1], 0.0, -tangential * modes[3]};
@@ -90,7 +90,7 @@ extern "C" int remagx_analytic_modes(int kind, const double* tensor, const doubl
             interface_matrix[4 + mode] = electric_y[mode];
             interface_matrix[8 + mode] = tangential * electric_z[mode] - electric_y[mode] * modes[mode];
             interface_matrix[12 + mode] = modes[mode] * electric_x[mode];
-            propagation_matrix[mode * 5] = std::exp(-imaginary * wave_number * modes[mode] * thickness);
+            propagation_matrix[mode * 5] = remagx::reference_complex_exponential(-imaginary * wave_number * modes[mode] * thickness);
         }
     }
     transpose_boundary(interface_matrix);
@@ -149,7 +149,7 @@ extern "C" int remagx_matrix_modes(int anisotropic, const double* tensor, const 
         interface_matrix[4 + mode] = electric_y;
         interface_matrix[8 + mode] = tangential * electric_z - electric_y * root;
         interface_matrix[12 + mode] = root * electric_x;
-        propagation_matrix[mode * 5] = std::exp(-imaginary * wave_number * root * thickness);
+        propagation_matrix[mode * 5] = remagx::reference_complex_exponential(-imaginary * wave_number * root * thickness);
     }
     transpose_boundary(interface_matrix);
     double packed_boundary[32], packed_propagation[32];

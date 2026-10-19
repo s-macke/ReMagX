@@ -86,7 +86,9 @@ if(EMSCRIPTEN)
   add_library(remagx_reference_math STATIC
     ${reference_math_directory}/e_atan2.c ${reference_math_directory}/e_asin.c
     ${reference_math_directory}/s_sin.c ${reference_math_directory}/sincostab.c
-    ${reference_math_directory}/branred.c)
+    ${reference_math_directory}/branred.c ${reference_math_directory}/e_hypot.c
+    ${reference_math_directory}/s_csqrt_template.c
+    ${reference_math_directory}/s_clog_template.c ${reference_math_directory}/x2y2m1.c)
   target_compile_features(remagx_reference_math PRIVATE c_std_11)
   target_include_directories(remagx_reference_math PRIVATE
     ${reference_math_directory}/compat ${reference_math_directory})
