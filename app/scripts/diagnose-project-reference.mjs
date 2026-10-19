@@ -20,10 +20,25 @@ try {
     '--output', executable], { stdio: 'pipe', timeout: 180000 })
   const fixture = await readFile(resolve(root, 'app/test/fixtures/default.all'), 'utf8')
   const cases = []
+  const tables = []
+  for (const [name, minimum, maximum, delta, beta] of [
+    ['Cu', 710, 890, .0016, .0002], ['Co', 720, 880, .003, .001], ['vacuum', 700, 900, 0, 0],
+  ]) {
+    const magnetic = name === 'Co' ? .0001 : 0
+    for (const [kind, columns] of [
+      ['db', [[delta * .9, delta * 1.1], [beta * .9, beta * 1.1]]],
+      ['m', [[magnetic, magnetic * 2], [magnetic / 2, magnetic]]],
+    ]) {
+      const energy = [minimum, maximum]
+      await writeFile(resolve(temporary, `${name}.${kind}`), energy.map((value, index) =>
+        [value, ...columns.map(column => column[index])].join(' ')).join('\n') + '\n')
+      tables.push({ name, kind, energy, columns, warnings: [] })
+    }
+  }
   async function addCase(source, settings) {
     const path = resolve(temporary, 'project.all')
     await writeFile(path, source)
-    const points = JSON.parse(execFileSync(executable, [path, ...(settings.asymmetry ? ['--asymmetry'] : [])], { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString())
+    const points = JSON.parse(execFileSync(executable, [path, ...(settings.asymmetry ? ['--asymmetry'] : []), ...(settings.scan === 'energy' ? ['--energy'] : []), ...(settings.fixedAngle ? ['--angle'] : [])], { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString())
     cases.push({ source, points, settings })
   }
   for (const algorithm of [0, 1, 2]) for (const magnetic of [0, 1])
@@ -55,6 +70,17 @@ try {
       const source = fixture + `\nalgorithm = ${algorithm}\nmagnetizationmode = 1\nasymmetrydef = ${definition}\nresolution = ${resolution}\nfastresolution = ${fast}\n`
       await addCase(source, { algorithm, definition, resolution, fast, asymmetry: true, scan: 'generated' })
     }
+  for (const algorithm of [0, 1, 2]) for (const definition of [null, 0, 1])
+    for (const fixedAngle of [false, true]) for (const energyWidth of [0, 2]) {
+      const source = fixture + `\nalgorithm = ${algorithm}\nmagnetizationmode = 1\nasymmetrydef = ${definition ?? 0}\nnumberofpoints = 8\nengscanmin = 700\nengscanmax = 900\nenergyresolution = ${energyWidth}\n`
+      await addCase(source, { algorithm, definition, fixedAngle, energyWidth, asymmetry: definition !== null, scan: 'energy' })
+    }
+  for (const algorithm of [0, 1, 2]) for (const definition of [null, 0, 1]) {
+    const source = fixture + `\nalgorithm = ${algorithm}\nmagnetizationmode = 1\nasymmetrydef = ${definition ?? 0}\nenergyresolution = 2\nusemeasurementqz = 1\ndatasetnumber = 1\ndatasetqztranslation = 0.007\ndatasetenergyshift = 2\n` +
+      [[.1, 800], [.08, 760], [.1, 800]].map(([qz, energy]) => `dataset_qz = ${qz}\ndataset_eng = ${energy}\n`).join('') +
+      'activedatasetindex = 1\n'
+    await addCase(source, { algorithm, definition, energyWidth: 2, asymmetry: definition !== null, scan: 'energy', dataset: true })
+  }
   await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' },
     build: { outDir: destination, emptyOutDir: true,
       rollupOptions: { input: resolve(root, 'app/test/real-service/entry.ts'), output: { entryFileNames: 'entry.js' } } } })
@@ -83,7 +109,7 @@ try {
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
-  const result = await page.evaluate(async cases => {
+  const result = await page.evaluate(async ({ cases, tables }) => {
     const { importAllFile, createRealComputeService } = window.realServiceHarness
     const service = createRealComputeService()
     let values = 0, maxLog10Error = 0, mismatches = 0, zeroPairs = 0, nonpositiveMismatches = 0
@@ -92,17 +118,21 @@ try {
       for (let index = 0; index < cases.length; ++index) {
         const { source, points, settings } = cases[index]
         let caseMismatches = 0, firstMismatch = null, firstMismatchDetail = null, maxAbsoluteError = 0
-        const columnNames = settings.asymmetry ? ['qz', 'plus', 'minus', 'asymmetry'] : ['qz', 'reflectivity']
+        const columnNames = settings.asymmetry ? [settings.scan === 'energy' ? 'energy' : 'qz', 'plus', 'minus', 'asymmetry'] : [settings.scan === 'energy' ? 'energy' : 'qz', 'reflectivity']
         const mismatchesByColumn = Object.fromEntries(columnNames.map(name => [name, 0]))
         const { project } = importAllFile(source)
+        if (settings.fixedAngle) project.experiment.energyScan.fixed = 'angle'
         const snapshot = JSON.stringify(project)
-        const actual = settings.asymmetry ? await service.calcAsymmetry(project) : await service.calcReflectivity(project)
+        const actual = settings.scan === 'energy'
+          ? settings.asymmetry ? await service.calcEnergyAsymmetry(project, undefined, tables) : await service.calcEnergyScan(project, undefined, tables)
+          : settings.asymmetry ? await service.calcAsymmetry(project) : await service.calcReflectivity(project)
+        const coordinates = settings.scan === 'energy' ? actual.energy : actual.qz
         const columns = settings.asymmetry
           ? [actual.reflectivityPlus, actual.reflectivityMinus, actual.asymmetry] : [actual.reflectivity]
-        if (actual.qz.length !== points.length || columns.some(column => column.length !== points.length))
+        if (coordinates.length !== points.length || columns.some(column => column.length !== points.length))
           throw new Error(`Project ${index}: curve length mismatch`)
         for (let row = 0; row < points.length; ++row) {
-          for (const [columnIndex, column] of [actual.qz, ...columns].entries()) {
+          for (const [columnIndex, column] of [coordinates, ...columns].entries()) {
             const value = column[row], reference = points[row][columnIndex]
             if (!Number.isFinite(value) || !Number.isFinite(reference)) throw new Error(`Project ${index}: nonfinite result`)
             maxAbsoluteError = Math.max(maxAbsoluteError, Math.abs(value - reference))
@@ -124,7 +154,7 @@ try {
       }
       return { acceptancePassed: mismatches === 0, projects: cases.length, values, mismatches, maxLog10Error, zeroPairs, nonpositiveMismatches, reports }
     } finally { service.dispose() }
-  }, cases)
+  }, { cases, tables })
   console.log(JSON.stringify(result, null, 2))
   if (!result.acceptancePassed && process.argv.includes('--require-parity')) process.exitCode = 1
 } catch (error) {

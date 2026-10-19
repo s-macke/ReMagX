@@ -13,6 +13,14 @@ The executable takes one `.all` path and emits a JSON array of `[qz, R]` pairs w
 emit `[qz, Rplus, Rminus, asymmetry]` rows instead. The project selects normalized
 asymmetry or the beam difference. Both CLI modes initialize calculated columns as GUI
 Button3Click does, including when coordinates come from a measured dataset.
+Add `--energy` for energy scans; the first output column then contains energy rather
+than qz. Combine with `--asymmetry` for both beams and asymmetry. `--angle` selects the
+GUI fixed-angle energy option, which is not persisted in the legacy `.all` format;
+otherwise generated energy scans use fixed qz. Measured energy/qz columns retain their
+order and receive the legacy shifts once. Energy scans always perform strict initial
+table refresh, including with automatic constants disabled. Generated energy grids use
+the table-range intersection and minimum-inclusive repeated addition; invalid or
+nonadvancing grids fail instead of hanging.
 Run in the directory containing any required material tables;
 use an absolute project path when changing directories. Outputs from research projects
 remain private. Standard legacy diagnostics are suppressed and the adapter buffers the
@@ -21,10 +29,10 @@ for projects containing scripts. Original Lua retains filesystem/OS access: this
 local reference tool for trusted projects, not a sandbox or a web runtime.
 
 This stage calls original LoadState, optional Getdblist/Filldb, generated or selected-dataset qz coordinates,
-and CalcReflectivity<double> or CalcAsymmetrie<double>, including original preparation
-and postprocessing. It does
-not reconstruct every GUI GetState/SetOCStrict path, energy scans,
-energy-dependent dichroic entry points, or fit workflows. Original non-Borland Lua callbacks retain their
+and CalcReflectivity<double>/CalcAsymmetrie<double>, or the serial
+CalcEScanEnergyResolution<double>/CalcDicEScan<double> entry points, including original
+preparation and postprocessing. It does not reconstruct every GUI GetState/SetOCStrict
+path, GUI parallel scheduling or fit workflows. Original non-Borland Lua callbacks retain their
 terminal stub behavior. The system FFTW library is not pinned; Fourier results have not
 been validated. Original segmentation helpers remain private reference dependencies,
 not cleaned double-only production implementations. No original optimizer implementation,
@@ -56,7 +64,11 @@ selected datasets, unordered/duplicate coordinates and five shifts around the th
 Another 24 generated-grid cases compare both beam intensities and both asymmetry
 definitions across all three algorithms and zero/nonzero exact/fast angular resolution.
 Logarithmic diagnostics describe the first beam; every output column is checked by D-23.
-It does not cover magnetic profiles, automatic tables, scripts, energy scans or private
+Energy coverage adds 36 generated-grid cases and nine measured-grid cases with synthetic
+public db/m tables. These cover table-range intersection, per-energy refresh, fixed qz/angle,
+energy convolution, both beams/asymmetry definitions, shifted unordered/duplicate measured
+coordinates and all three algorithms. Logarithmic diagnostics still describe the first beam.
+It does not cover magnetic profiles, scripted scans, GUI parallel scheduling or private
 corpus acceptance.
 
 The JSON result explicitly reports `acceptancePassed`, mismatch counts per case, first
@@ -98,3 +110,9 @@ and the pinned native hypot/complex sqrt/log path restores all 78 project varian
 asymmetry values independently of their 18,144 passing beam-intensity comparisons.
 No quartic branches, Newton steps or tolerance were changed. Full corpus acceptance
 remains open.
+
+The energy-scan extension adds 45 public synthetic-table cases. All 123 combined
+qz/energy project variants pass unchanged D-23 across 44,610 values. Ten native adapter
+checks cover generated table-range intersection, fixed-angle and two-beam output,
+measured energy shifts and invalid/nonadvancing grid handling alongside the earlier
+qz checks. GUI parallel scheduling and general scripted/private-corpus scans remain open.

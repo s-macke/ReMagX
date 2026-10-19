@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a private original qz reflectivity/two-beam reference, without optimizers."""
+"""Build a private original qz/energy simulation reference, without optimizers."""
 import argparse
 import json
 from pathlib import Path
@@ -61,7 +61,7 @@ def main():
     except (ValueError, OSError, subprocess.CalledProcessError):
         print('Private simulation reference build failed; diagnostics withheld.', file=sys.stderr)
         return 1
-    print('Private qz simulation reference built; full-project acceptance remains open.')
+    print('Private simulation reference built; full-project acceptance remains open.')
     return 0
 
 

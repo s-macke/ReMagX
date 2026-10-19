@@ -69,6 +69,48 @@ class SimulationReferenceTest(unittest.TestCase):
                 expected = (plus - minus) / (plus + minus) if definition == 0 and plus + minus else plus - minus
                 self.assertLessEqual(abs(actual - expected), 1e-15 + 1e-10 * abs(expected))
 
+    def write_energy_tables(self):
+        for name, minimum, maximum, delta, beta in [
+                ('Cu', 710, 890, .0016, .0002), ('Co', 720, 880, .003, .001),
+                ('vacuum', 700, 900, 0, 0)]:
+            Path(self.directory.name, name + '.db').write_text(
+                f'{minimum} {delta * .9:.17g} {beta * .9:.17g}\n'
+                f'{maximum} {delta * 1.1:.17g} {beta * 1.1:.17g}\n')
+            magnetic = .0001 if name == 'Co' else 0
+            Path(self.directory.name, name + '.m').write_text(
+                f'{minimum} {magnetic:.17g} {magnetic / 2:.17g}\n'
+                f'{maximum} {magnetic * 2:.17g} {magnetic:.17g}\n')
+
+    def test_energy_grid_table_intersection_and_two_beams(self):
+        self.write_energy_tables()
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        path = Path(self.directory.name) / 'energy.all'
+        path.write_text(fixture + '\nnumberofpoints = 8\nengscanmin = 700\nengscanmax = 900\nmagnetizationmode = 1\n')
+        for options in [('--energy',), ('--energy', '--angle'), ('--energy', '--asymmetry')]:
+            rows = self.run_fixture(path, *options)
+            self.assertEqual([row[0] for row in rows], list(range(720, 881, 20)))
+            self.assertTrue(all(len(row) == (4 if '--asymmetry' in options else 2) for row in rows))
+            self.assertTrue(all(math.isfinite(value) for row in rows for value in row))
+            self.assertGreater(max(row[1] for row in rows), min(row[1] for row in rows))
+
+    def test_energy_dataset_shifts_and_invalid_grid(self):
+        self.write_energy_tables()
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        path = Path(self.directory.name) / 'energy-data.all'
+        path.write_text(fixture + '\nusemeasurementqz = 1\ndatasetnumber = 1\n'
+            'datasetqztranslation = 0.007\ndatasetenergyshift = 2\n'
+            'dataset_qz = 0.1\ndataset_eng = 800\n'
+            'dataset_qz = 0.08\ndataset_eng = 760\nactivedatasetindex = 1\n')
+        rows = self.run_fixture(path, '--energy')
+        self.assertEqual([row[0] for row in rows], [802, 762])
+        for settings in ['engscanmin = 800\nengscanmax = 800', 'numberofpoints = 0']:
+            path.write_text(fixture + '\n' + settings + '\n')
+            result = subprocess.run([self.executable, path, '--energy'], capture_output=True, text=True, timeout=10,
+                                    cwd=self.directory.name)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            self.assertEqual(result.stderr, '')
+
     def test_zero_contrast_is_zero(self):
         content = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
         content = re.sub(r'(?m)^(\s*layer_(?:delta|beta|ddelta|dbeta|sigma)\s*=).*$', r'\1 0', content)
