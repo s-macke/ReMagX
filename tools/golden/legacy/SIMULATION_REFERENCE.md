@@ -142,3 +142,16 @@ only falls back to built-in Chantler data when that flag is enabled. The adapter
 does not enable it or substitute tables from another directory. Complete corpus
 references need those input gaps resolved, alongside the remaining preparation
 and numerical validation work. No private project names or curves are published.
+
+
+An initial private Chromium diagnostic imports all 99 unchanged projects and the
+optical tables beside each project, then calls real ComputeService qz reflectivity.
+The 62 completed curves match the original native reference across 46,600 points
+(93,200 coordinate/intensity values) at unchanged D-23, without length mismatches.
+First failures for the remaining projects comprise 15 element refresh/preparation,
+15 adaptive segmentation, one magnetic profile, four script index errors, one
+missing-table input, and one algorithm deferred by D-25. These are first observed
+failures; resolving one can expose another. Native reference calls used a disposable
+private-tree copy. Private inputs, curves and detailed error messages stay uncommitted.
+This diagnostic establishes neither all-project parity nor energy, asymmetry, Lua
+or fit acceptance, and it is not connected to CI.
