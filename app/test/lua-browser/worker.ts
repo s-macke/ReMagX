@@ -1,3 +1,4 @@
+import { applySegmentedMagneticProfiles, type MagneticProfileEngine } from '../../src/model/segmentedMagneticProfiles'
 import { prepareSegmentedLayers } from '../../src/model/segmentedLayers'
 import type { PreparedCompoundLayer } from '../../src/model/compoundLayers'
 import { refreshElementOptics } from '../../src/model/refreshElementOptics'
@@ -80,7 +81,58 @@ async function run() {
           throw new Error('Prepared segmentation tensor state/classification failed')
         }
       })
+      const profiles = [null, 1, 0, 2].map((boundToLayer, index) => ({
+        center: 3, width: 9, deltaAmplitude: 0.2 + index * 0.1, betaAmplitude: -0.1 - index * 0.2,
+        boundToLayer, amplitudeCoupledTo: 0, widthCoupledTo: 0,
+        spline: { enabled: index === 1, points: [-100, -80, 80, 100].map(z => ({ z, value: 0.6 })) },
+      }))
+      const generatedBefore = JSON.stringify(generated)
+      const profilesBefore = JSON.stringify(profiles)
+      const profileEngine: MagneticProfileEngine = {
+        density: request => adapter.calculateLayerDensity(instance, request),
+        apply: request => adapter.applyMagneticProfiles(instance, request),
+      }
+      for (const additive of [true, false]) {
+        const applied = applySegmentedMagneticProfiles(generated.layers, generated.positions,
+          [0, 7, 7], segmentationLayers.map(layer => layer[1]), profiles, additive, Array(1001).fill(0), profileEngine)
+        applied.forEach((layer, index) => {
+          const expected = generated.layers[index].slice()
+          if (index > 0) {
+            const midpoint = (generated.positions[index - 1] + generated.positions[index]) * 0.5
+            profiles.forEach((profile, profileIndex) => {
+              // Controlled zero lookup: interior overlap is 1/4, outer media 1/2.
+              const weight = [1, 0.25, 0.5, 0.5][profileIndex]
+              const shape = profileIndex === 1 ? 0.6 : Math.exp(-((midpoint - 3) ** 2) / 2 / 81)
+              for (const [component, amplitude] of [[4, profile.deltaAmplitude], [5, profile.betaAmplitude]]) {
+                expected[component] += additive ? weight * amplitude * shape : weight * expected[component] * amplitude * shape
+              }
+            })
+          }
+          if (layer.some((value, component) => Math.abs(value - expected[component]) > 1e-15 + 1e-10 * Math.abs(expected[component]))) {
+            throw new Error('Prepared magnetic-profile WASM composition failed')
+          }
+        })
+      }
+      let rejected = false
+      try {
+        applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
+          [{ ...profiles[0], boundToLayer: 3 }], true, Array(1001).fill(0), profileEngine)
+      } catch (error) { rejected = error instanceof Error && error.message.includes('outside the original layer stack') }
+      let endpointRejected = false
+      try {
+        applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
+          [{ ...profiles[0], spline: { enabled: true, points: [-100, -23, 80, 100].map(z => ({ z, value: 1 })) } }],
+          true, Array(1001).fill(0), profileEngine)
+      } catch { endpointRejected = true }
+      const recovered = applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
+        profiles, true, Array(1001).fill(0), profileEngine)
+      if (!endpointRejected || !recovered.flat().every(Number.isFinite)) throw new Error('Magnetic-profile native-error recovery failed')
+      if (!rejected || JSON.stringify(generated) !== generatedBefore || JSON.stringify(profiles) !== profilesBefore) {
+        throw new Error('Magnetic-profile binding failure or input isolation failed')
+      }
+
     }
+    const preparedMagneticProfilesPassed = true
     const preparedSegmentationPassed = JSON.stringify(segmentationLayers) === segmentationBefore
     let preparedReflectionPassed = true
     for (const algorithm of ['parratt', 'zak', 'matrix'] as const) {
@@ -263,7 +315,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed, preparedMagneticProfilesPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }
