@@ -1,3 +1,4 @@
+import type { ScatteringTensorCalculator } from './scatteringTensors'
 import type { PrepareSegmentedStack } from './segmentedCompoundStack'
 import type { RealBeforeCalculation, ScriptSessionLifetime } from './realCalculation'
 import type { OpticalTable } from '../import/tables'
@@ -16,7 +17,7 @@ export type VisnovskyEnergyCalculator = (request: PreparedVisnovskyEnergyScan) =
 
 export function calculateVisnovskyEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
   constructTensor: DielectricTensorCalculator, calculate: VisnovskyEnergyCalculator,
-  mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack) {
+  mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack, constructScattering?: ScatteringTensorCalculator) {
   validateVisnovskyProject(project)
   return calculateCompoundEnergyScan(project, tables, lookup, prepared => {
     const { stacks, tensor, magnetic, dielectricTensors, preparedDielectricStates, ...scan } = prepared
@@ -27,5 +28,5 @@ export function calculateVisnovskyEnergyScan(project: Project, tables: OpticalTa
       return stack.map(() => ({ values: [0, 0, 1, ...Array<number>(19).fill(0)], anisotropic: 0 as const }))
     })
     return calculate({ ...scan, stacks: matrixStacks, epsilon: project.calculation.epsilon })
-  }, mode, prepareCompoundQzRequest, previous, beforeCalculation, scriptLifetime, prepareStack)
+  }, mode, prepareCompoundQzRequest, previous, beforeCalculation, scriptLifetime, prepareStack, constructScattering)
 }

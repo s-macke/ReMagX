@@ -24,3 +24,12 @@ export function prepareSampledElementLayers(project: Project, errorSamples: read
     return values[0]
   }, engine.optics, scatteringTensors, maximumSamples)
 }
+
+
+export function prepareElementCalculationStack(project: Project, errorSamples: readonly number[],
+  engine: ElementPreparationEngine, scatteringTensors?: readonly Float64Array[]) {
+  const prepared = prepareSampledElementLayers(project, errorSamples, engine, scatteringTensors)
+  // Element2oc marks every matrix layer anisotropic, including boundaries.
+  return { layers: prepared.layers, dielectricTensors: prepared.dielectricTensors.map(values =>
+    values ? { values, anisotropic: true } : null) }
+}

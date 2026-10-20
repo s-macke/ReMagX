@@ -1,3 +1,5 @@
+import { refreshElementOptics } from './refreshElementOptics'
+import type { ScatteringTensorCalculator } from './scatteringTensors'
 import type { PrepareSegmentedStack } from './segmentedCompoundStack'
 import type { SegmentationTensor } from './segmentedLayers'
 import { copyLayerDepths } from './layerDepths'
@@ -29,7 +31,7 @@ export type EnergyScanCalculator = (request: PreparedEnergyScan) => Float64Array
 // calls CalculateResolution (exact angular convolution, independent of fast flag).
 export function calculateCompoundEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
   calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic',
-  prepareTemplate: typeof prepareParrattQzRequest, previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack) {
+  prepareTemplate: typeof prepareParrattQzRequest, previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack, constructScattering?: ScatteringTensorCalculator) {
   const width = project.experiment.resolution.energyFwhm
   if (!Number.isFinite(width) || width < 0) throw new Error('Energy resolution must be finite and nonnegative.')
   const coordinates = prepareEnergyCoordinates(project, tables)
@@ -53,7 +55,10 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
       qzScan: { ...current.experiment.qzScan, useDatasetPoints: false, points: 2, qzMin: 0, qzMax: 0 },
       resolution: { ...current.experiment.resolution, fastConvolution: false } } }
   // Validate unsupported settings even when every dataset point lies outside the tables.
-  const template = prepareTemplate(local, mode, undefined, prepareStack && local.calculation.roughnessModel === 'segmentation' ? packCompoundLayers(local) : undefined)
+  if (local.sample.mode === 'element' && !prepareStack) throw new Error('Element energy scans require generated-stack preparation.')
+  const placeholder: PreparedCompoundLayer[] = [[0, 0, 0, 0, 0, 0, 90, 90], [0, 0, 0, 0, 0, 0, 90, 90]]
+  const template = prepareTemplate(local, mode, undefined, local.sample.mode === 'element' ? placeholder
+    : prepareStack && local.calculation.roughnessModel === 'segmentation' ? packCompoundLayers(local) : undefined)
   const stacks: PreparedCompoundLayer[][] = []
   const enabled: number[] = []
   const dielectricTensors: (Float64Array | null)[][] = []
@@ -62,12 +67,24 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
   coordinates.energy.forEach(energy => {
     current = { ...current, experiment: { ...current.experiment, energy } }
     const cursors = opticalState.cursors
-    const refreshed = refreshPartialCompoundOptics(current,
-      tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors, opticalState.dielectricTensors)
-    opticalState = { layerDepths: opticalState.layerDepths?.slice(), scatteringTensors: opticalState.scatteringTensors, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
-      dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState.dielectricState?.[index] ?? null), cursors }
-    current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
-    if (refreshed.rangeError) {
+    let rangeError: string | null
+    if (current.sample.mode === 'element') {
+      const refreshed = refreshElementOptics(current, tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, request => {
+        if (!constructScattering) throw new Error('Native element scattering tensors are unavailable.')
+        return constructScattering(request)
+      }, cursors, opticalState.scatteringTensors)
+      opticalState = { ...opticalState, scatteringTensors: refreshed.scatteringTensors, cursors }
+      current = { ...current, sample: { ...current.sample, elementProfiles: refreshed.elementProfiles } }
+      rangeError = refreshed.rangeError
+    } else {
+      const refreshed = refreshPartialCompoundOptics(current,
+        tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors, opticalState.dielectricTensors)
+      opticalState = { layerDepths: opticalState.layerDepths?.slice(), scatteringTensors: opticalState.scatteringTensors, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
+        dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState.dielectricState?.[index] ?? null), cursors }
+      current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
+      rangeError = refreshed.rangeError
+    }
+    if (rangeError) {
       stacks.push(template.layers)
       dielectricTensors.push(template.layers.map(() => null))
       preparedDielectricStates.push(undefined)
@@ -77,7 +94,8 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
       const segmented = prepareStack?.(current, opticalState)
       stacks.push(segmented?.layers ?? prepareCompoundLayers(current))
       preparedDielectricStates.push(segmented?.dielectricTensors)
-      dielectricTensors.push(prepareCompoundLayerIndices(current).map(index => opticalState.dielectricTensors[index]))
+      dielectricTensors.push(current.sample.mode === 'element' ? segmented!.layers.map(() => null)
+        : prepareCompoundLayerIndices(current).map(index => opticalState.dielectricTensors[index]))
       enabled.push(1)
     }
     // CalcDicEScan captures k0 before the hook; CalcEScan captures it afterwards.
@@ -90,13 +108,13 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
     magnetic: template.magnetic, mode: template.mode, angularWidth: template.resolution.width, energyWidth: width,
     ...(scripted ? { pointSettings } : {}) })
   const result = postprocessParrattResult(current, coordinates.qz, resolved, mode, coordinates.energy)
-  return { opticalState, finalEnergy: current.experiment.energy, ...(scripted ? { scriptedProject: current } : {}),
+  return { opticalState, finalEnergy: current.experiment.energy, ...((scripted || current.sample.mode === 'element') ? { scriptedProject: current } : {}),
     qz: coordinates.qz, energy: coordinates.energy, reflectivity: result.reflectivityPlus,
     reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry }
 
 }
 
 export function calculateParrattEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
-  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack) {
-  return calculateCompoundEnergyScan(project, tables, lookup, calculate, mode, prepareParrattQzRequest, previous, beforeCalculation, scriptLifetime, prepareStack)
+  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack, constructScattering?: ScatteringTensorCalculator) {
+  return calculateCompoundEnergyScan(project, tables, lookup, calculate, mode, prepareParrattQzRequest, previous, beforeCalculation, scriptLifetime, prepareStack, constructScattering)
 }

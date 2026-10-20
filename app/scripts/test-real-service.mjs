@@ -144,6 +144,59 @@ try {
   assert.equal(segmentedResults.comparisons, 12)
   assert.ok(segmentedResults.cancellations.every(result => result.stopped === 'ComputeCancelled' && result.milliseconds < 1000), JSON.stringify(segmentedResults.cancellations))
   console.log('Segmented ComputeService: 12 energy/per-point comparisons, explicit lookup guard, binding errors and four native Stop/recovery paths passed.')
+  const elementComparisons = await page.evaluate(async () => {
+    const { createReferenceComputeService, createDefaultProject } = window.realServiceHarness
+    const service = createReferenceComputeService(Array.from({ length: 1001 }, (_, index) => Math.tanh(-5 + 10 * index / 999)))
+    const tables = [{ name: 'Fe', kind: 'ff', energy: [700, 900], columns: [[20, 25], [1, 2]], warnings: [] },
+      { name: 'Fe', kind: 'ffm', energy: [720, 880], columns: [[.1, .2], [.01, .02]], warnings: [] }]
+    const same = (actual, expected) => {
+      if (actual.length !== expected.length || actual.some((value, index) => !Number.isFinite(value) ||
+        Math.abs(value - expected[index]) > 1e-15 + 1e-10 * Math.abs(expected[index]))) throw new Error('Element energy/qz service mismatch')
+    }
+    let comparisons = 0
+    try {
+      const project = createDefaultProject(); project.sample.mode = 'element'
+      project.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: .1, f2Mag: .01,
+        slabs: [{ thickness: 0, roughness: 2, density: .1 }, { thickness: 20, roughness: 3, density: .05 }, { thickness: 0, roughness: 0, density: 0 }] }]
+      project.calculation.automaticOpticalConstants = true
+      project.calculation.magnetization.mode = 'add'
+      project.calculation.segmentation.minThickness = 1
+      project.experiment.energy = 800
+      project.experiment.resolution.energyFwhm = 0
+      project.experiment.resolution.angularFwhm = .001
+      project.experiment.resolution.fastConvolution = false
+      project.experiment.qzScan.useDatasetPoints = true
+      project.datasets = [{ title: '', comment: '', sourceFile: '', active: true, errorWeight: 1, energy: 800, energyShift: 0, qzShift: 0,
+        angularResolution: .001, intensityScale: 1, intensityOffset: 0, polarization: project.experiment.polarization,
+        columns: { energy: [750, 950, 800, 750], qz: [.03, .02, .04, .03], reflectivity: [1, 1, 1, 1] } }]
+      project.activeDatasetIndex = 0
+      project.scripts.enabled = true
+      project.scripts.beforeCalculation = 'calls = (calls or 0) + 1; Fe:setthickness(1, energy / 25); FillTensors(); print("element-call:", calls)'
+      for (const algorithm of ['parratt', 'zak', 'matrix']) for (const dichroic of [false, true]) {
+        project.calculation.algorithm = algorithm
+        const before = JSON.stringify(project)
+        const scan = await service[dichroic ? 'calcEnergyAsymmetry' : 'calcEnergyScan'](project, undefined, tables)
+        same(scan.energy, [750, 950, 800, 750])
+        if (JSON.stringify(scan.scriptMessages) !== JSON.stringify(['element-call:1', 'element-call:2', 'element-call:3', 'element-call:4'])) throw new Error('Element energy hook lifecycle failed')
+        const plus = [], minus = [], asymmetry = []
+        for (let index = 0; index < scan.energy.length; index++) {
+          if (scan.energy[index] > 900) { plus.push(1); minus.push(1); asymmetry.push(0); continue }
+          const point = structuredClone(project); point.experiment.energy = scan.energy[index]
+          point.datasets[0].columns = { qz: [project.datasets[0].columns.qz[index]], reflectivity: [1] }
+          const curve = await service[dichroic ? 'calcAsymmetry' : 'calcReflectivity'](point, undefined, tables)
+          plus.push(dichroic ? curve.reflectivityPlus[0] : curve.reflectivity[0])
+          if (dichroic) { minus.push(curve.reflectivityMinus[0]); asymmetry.push(curve.asymmetry[0]) }
+        }
+        same(dichroic ? scan.reflectivityPlus : scan.reflectivity, plus)
+        if (dichroic) { same(scan.reflectivityMinus, minus); same(scan.asymmetry, asymmetry) }
+        if (JSON.stringify(project) !== before) throw new Error('Element energy calculation changed input')
+        comparisons++
+      }
+    } finally { service.dispose() }
+    return comparisons
+  })
+  assert.equal(elementComparisons, 6)
+  console.log('Element ComputeService: six scripted energy/per-point qz comparisons with skipped/repeated energies and input isolation passed.')
   const results = await page.evaluate(async () => {
     const { applyDatabaseValues, projectSchema, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve
@@ -454,7 +507,7 @@ try {
         }
       }
       // Element startup has the same strict primary-table gate, before Lua,
-      // even though element density/reflectivity preparation is not ported yet.
+      // before any explicit-lookup element stack preparation.
       const missingElement = createDefaultProject()
       missingElement.sample.mode = 'element'
       missingElement.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: 0, f2Mag: 0, slabs: [] }]

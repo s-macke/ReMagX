@@ -1,7 +1,7 @@
 import { copyLayerDepths } from './layerDepths'
 import type { SerialOpticalState } from './refreshOpticalConstants'
 import type { RealCalculationEngine } from './realCalculation'
-import { packCompoundLayers, prepareCompoundLayerIndices } from './compoundLayers'
+import { packCompoundLayers, prepareCompoundLayerIndices, type PreparedCompoundLayer } from './compoundLayers'
 import { applySegmentedMagneticProfiles, type MagneticProfileEngine } from './segmentedMagneticProfiles'
 import { prepareSegmentedLayers, type SegmentationEngine, type SegmentationTensor } from './segmentedLayers'
 import type { Project } from './project'
@@ -36,7 +36,7 @@ export function prepareSegmentedCompoundStack(project: Project, storedDepths: re
   return result
 }
 
-export type PrepareSegmentedStack = (project: Project, state: SerialOpticalState) => ReturnType<typeof prepareSegmentedCompoundStack> | undefined
+export type PrepareSegmentedStack = (project: Project, state: SerialOpticalState) => { layers: PreparedCompoundLayer[]; dielectricTensors: (SegmentationTensor | null)[] } | undefined
 
 // Resolve retained script/table tensor state before slicing; never reconstruct
 // tensors from the magnetic scalar changes applied to the generated slices.

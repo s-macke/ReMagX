@@ -1,3 +1,4 @@
+import type { ScatteringTensorCalculator } from './scatteringTensors'
 import type { PrepareSegmentedStack } from './segmentedCompoundStack'
 import type { PreparedCompoundLayer } from './compoundLayers'
 import type { RealBeforeCalculation, ScriptSessionLifetime } from './realCalculation'
@@ -24,9 +25,9 @@ export function prepareZakQzRequest(project: Project, mode: 'monochromatic' | 'd
 }
 
 export function calculateZakEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
-  calculate: ZakEnergyCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack) {
+  calculate: ZakEnergyCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack, constructScattering?: ScatteringTensorCalculator) {
   return calculateCompoundEnergyScan(project, tables, lookup, prepared => {
     const { tensor: _tensor, dielectricTensors: _dielectricTensors, preparedDielectricStates: _preparedDielectricStates, ...request } = prepared
     return calculate(request)
-  }, mode, prepareZakTemplate, previous, beforeCalculation, scriptLifetime, prepareStack)
+  }, mode, prepareZakTemplate, previous, beforeCalculation, scriptLifetime, prepareStack, constructScattering)
 }

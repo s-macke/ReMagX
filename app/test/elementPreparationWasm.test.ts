@@ -1,3 +1,6 @@
+import { refreshElementOptics } from '../src/model/refreshElementOptics'
+import { postprocessParrattResult } from '../src/model/parrattResult'
+import type { OpticalTable } from '../src/import/tables'
 import { calculateRealCurve, type RealCalculationEngine } from '../src/model/realCalculation'
 import { prepareParrattQzRequest } from '../src/model/parrattRequest'
 import { prepareZakQzRequest } from '../src/model/zakRequest'
@@ -64,7 +67,8 @@ it.skipIf(!process.env.WASM_MODULE)('composes actual WASM element density and op
         energyScan: request => adapter.calculateParrattEnergyScan(core, request),
         zakEnergy: request => adapter.calculateZakEnergyScan(core, request),
         matrixEnergy: request => adapter.calculateVisnovskyEnergyScan(core, request),
-        lookup: () => { throw new Error('Unexpected table lookup') },
+        lookup: (table, queries, cursor) => adapter.lookupTable(core, table, queries, cursor),
+        scatteringTensor: request => calculateScatteringTensor(core, request),
         elementPreparation: { errorSamples: samples, density: request => calculateElementDensity(core, request), optics },
       }
       const state = { ...storedOpticalState(project), scatteringTensors: tensors }
@@ -77,6 +81,43 @@ it.skipIf(!process.env.WASM_MODULE)('composes actual WASM element density and op
         curve.reflectivityPlus.forEach((value, index) => expect(Math.abs(value - raw[index * 2])).toBeLessThanOrEqual(1e-15 + 1e-10 * Math.abs(raw[index * 2])))
         if (mode === 'dichroic') curve.reflectivityMinus.forEach((value, index) => expect(Math.abs(value - raw[index * 2 + 1])).toBeLessThanOrEqual(1e-15 + 1e-10 * Math.abs(raw[index * 2 + 1])))
       }
+      const scanProject = structuredClone(project)
+      scanProject.calculation.magnetization.mode = 'add'
+      scanProject.experiment.energyScan = { energyMin: 650, energyMax: 950, fixed: 'qz', qz: .03, angle: 2 }
+      scanProject.experiment.resolution.energyFwhm = 10
+      scanProject.experiment.resolution.angularFwhm = .001
+      scanProject.experiment.resolution.fastConvolution = false
+      const tables: OpticalTable[] = [
+        { name: 'Fe', kind: 'ff', energy: [700, 900], columns: [[20, 25], [1, 2]], warnings: [] },
+        { name: 'Fe', kind: 'ffm', energy: [720, 880], columns: [[.1, .2], [.01, .02]], warnings: [] },
+      ]
+      const scanBefore = JSON.stringify(scanProject)
+      for (const mode of ['monochromatic', 'dichroic'] as const) {
+        const scan = calculateRealCurve(scanProject, tables, engine, 'energy', mode, state)
+        expect(scan.energy).toEqual([650, 700, 750, 800, 850, 900, 950])
+        expect(scan.scriptedProject!.sample.elementProfiles[0].f1).toBeCloseTo(25, 12)
+        expect(scan.scriptedProject!.calculation.automaticOpticalConstants).toBe(false)
+        const raw: number[] = []
+        for (const energy of scan.energy!) {
+          if (energy < 700 || energy > 900) { raw.push(1, mode === 'dichroic' ? 1 : 0); continue }
+          const point = structuredClone(scanProject); point.experiment.energy = energy
+          const refreshed = refreshElementOptics(point, tables, 12398.326 / (12398.326 / energy), engine.lookup, engine.scatteringTensor!)
+          point.sample.elementProfiles = refreshed.elementProfiles
+          const prepared = prepareElementLayers(point, createElementDensitySampler(point.sample.elementProfiles, lookup), optics, refreshed.scatteringTensors)
+          const qz = [.03]
+          const values = algorithm === 'matrix' ? engine.matrixQz(prepareVisnovskyQzRequest(point, mode, engine.dielectricTensor, undefined, qz,
+            { layers: prepared.layers, dielectricTensors: prepared.dielectricTensors.map(values => values ? { values, anisotropic: true } : null) }))
+            : algorithm === 'zak' ? engine.zakQz(prepareZakQzRequest(point, mode, qz, prepared.layers))
+              : engine.calculate(prepareParrattQzRequest(point, mode, qz, prepared.layers))
+          raw.push(...values)
+        }
+        const convolved = adapter.convolveEnergy(core, scan.energy, new Float64Array(raw), scanProject.experiment.resolution.energyFwhm)
+        const expectedScan = postprocessParrattResult(scanProject, scan.qz, convolved, mode, scan.energy)
+        for (const column of ['reflectivityPlus', 'reflectivityMinus', 'asymmetry'] as const) {
+          scan[column].forEach((value, index) => expect(Math.abs(value - expectedScan[column][index])).toBeLessThanOrEqual(1e-15 + 1e-10 * Math.abs(expectedScan[column][index])))
+        }
+      }
+      expect(JSON.stringify(scanProject)).toBe(scanBefore)
       expect(JSON.stringify(project)).toBe(before)
     }
   }

@@ -1,4 +1,4 @@
-import { prepareSampledElementLayers, type ElementPreparationEngine } from './sampledElementLayers'
+import { prepareElementCalculationStack, type ElementPreparationEngine } from './sampledElementLayers'
 import { refreshElementOptics } from './refreshElementOptics'
 import { prepareRealSegmentedStack } from './segmentedCompoundStack'
 import type { SegmentationEngine } from './segmentedLayers'
@@ -52,14 +52,19 @@ export type RealBeforeCalculation = (project: Project, opticalState: SerialOptic
 // Shared calculation preparation for plots and dataset objectives.
 export function calculateRealCurve(original: Project, tables: OpticalTable[], engine: RealCalculationEngine,
   scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary'): RealCurve {
+  const prepareStack = (project: Project, state: SerialOpticalState) => {
+    if (project.sample.mode !== 'element') return prepareRealSegmentedStack(project, state, engine)
+    if (!engine.elementPreparation) throw new Error('Element preparation requires an explicit error-function lookup and numerical engine.')
+    return prepareElementCalculationStack(project, engine.elementPreparation.errorSamples, engine.elementPreparation, state.scatteringTensors)
+  }
   if (scan === 'energy') {
-    if (original.calculation.roughnessModel === 'segmentation' && !engine.segmentation) throw new Error('Adaptive segmentation requires an explicit error-function lookup and numerical engine.')
-    const prepareStack = (project: Project, state: SerialOpticalState) => prepareRealSegmentedStack(project, state, engine)
+    if (original.sample.mode === 'compound' && original.calculation.roughnessModel === 'segmentation' && !engine.segmentation) throw new Error('Adaptive segmentation requires an explicit error-function lookup and numerical engine.')
+    if (original.sample.mode === 'element' && !engine.elementPreparation) throw new Error('Element preparation requires an explicit error-function lookup and numerical engine.')
     return original.calculation.algorithm === 'matrix'
-      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous, beforeCalculation, scriptLifetime, prepareStack)
+      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous, beforeCalculation, scriptLifetime, prepareStack, engine.scatteringTensor)
       : original.calculation.algorithm === 'zak'
-        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous, beforeCalculation, scriptLifetime, prepareStack)
-        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous, beforeCalculation, scriptLifetime, prepareStack)
+        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous, beforeCalculation, scriptLifetime, prepareStack, engine.scatteringTensor)
+        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous, beforeCalculation, scriptLifetime, prepareStack, engine.scatteringTensor)
   }
   // A fresh automatic qz request starts from stored film tensors. Serial
   // callers supply their newer calculation state, which takes precedence.
@@ -111,19 +116,10 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   // Fourier operates on the completed curve, never on individual kernel calls.
   const packedProject = transform ? { ...project, calculation: { ...project.calculation,
     postProcessing: { ...project.calculation.postProcessing, fourierTransform: false } } } : project
-  const elementStack = project.sample.mode === 'element' ? (() => {
-    if (!engine.elementPreparation) throw new Error('Element preparation requires an explicit error-function lookup and numerical engine.')
-    const prepared = prepareSampledElementLayers(packedProject, engine.elementPreparation.errorSamples,
-      engine.elementPreparation, scatteringTensors)
-    // Element2oc marks every generated matrix layer anisotropic, including boundaries.
-    // FillLayers bypasses compound segmentation/profile application in element mode.
-    return { layers: prepared.layers, dielectricTensors: prepared.dielectricTensors.map(values =>
-      values ? { values, anisotropic: true } : null) }
-  })() : undefined
-  const segmented = elementStack ?? prepareRealSegmentedStack(packedProject, { layers: project.sample.layers,
-    layerDepths, dielectricTensors, dielectricState, scatteringTensors, cursors }, engine)
+  const segmented = prepareStack(packedProject, { layers: project.sample.layers,
+    layerDepths, dielectricTensors, dielectricState, scatteringTensors, cursors })
   if (project.calculation.algorithm === 'matrix') {
-    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, elementStack ? undefined : dielectricTensors, undefined, segmented)
+    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, project.sample.mode === 'element' ? undefined : dielectricTensors, undefined, segmented)
     qz = request.qz
     values = engine.matrixQz(request)
   } else if (project.calculation.algorithm === 'zak') {
@@ -135,6 +131,10 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     qz = request.qz
     values = engine.calculate(request)
   }
+  // Serial dataset evaluation also needs refreshed element scalars when no Lua
+  // ran; opticalState retains tensors but does not contain element profiles.
+  if (!scriptedProject && project.sample.mode === 'element') scriptedProject = { ...project,
+    calculation: { ...project.calculation, automaticOpticalConstants: original.calculation.automaticOpticalConstants } }
   const result = postprocessParrattResult(project, qz, values, mode, undefined, engine.fourier)
   return { ...result, ...(transform ? { axis: 'depth' as const } : {}), opticalState: { layers: project.sample.layers, layerDepths: layerDepths.slice(), dielectricTensors, dielectricState, scatteringTensors, cursors },
     finalEnergy: project.experiment.energy, ...(scriptedProject ? { scriptedProject } : {}) }
