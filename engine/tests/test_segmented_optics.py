@@ -1,5 +1,6 @@
 import ctypes
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -138,4 +139,19 @@ for(int i=0;i<3;++i)for(int j=0;j<3;++j)cout<<' '<<sample.oc.epsilon.a[i][j].rea
 
 
 if __name__ == '__main__':
-    unittest.main()
+    if '--wasm-payload' in sys.argv:
+        # Analytic samples are test inputs, not a production erf policy.
+        samples = [math.erf(-5.0 + index*10.0/999.0) for index in range(1001)]
+        payload = []
+        for layers, boundaries, tensors, model, positions in cases():
+            state = [.25,-.5]*9
+            expected = []
+            for position in positions:
+                status, scalar, state = evaluate(layers, boundaries, tensors, model, position, samples, state)
+                assert status == 0
+                expected.extend(scalar+state)
+            payload.append(dict(kind='segmented-optics', layers=layers, boundaries=boundaries, tensors=tensors,
+                model=model, positions=positions, errorSamples=samples, tensorState=[.25,-.5]*9, expected=expected))
+        print(json.dumps(payload))
+    else:
+        unittest.main()

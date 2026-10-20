@@ -51,3 +51,53 @@ export function calculateAdaptiveSegments(module, {
     for (const pointer of allocations) module._free(pointer)
   }
 }
+
+// One depth sample. Caller retains the returned tensor separately for each
+// sampling slot; neither the supplied tensor state nor the input stack is edited.
+export function calculateSegmentedOptics(module, {
+  layers, boundaries = null, tensors = null, tensorState = null, model, position, errorSamples,
+}) {
+  const vector = (value, length) => (Array.isArray(value) || value instanceof Float64Array) &&
+    value.length === length && Array.from(value).every(Number.isFinite)
+  const rows = (value, length, width) => Array.isArray(value) && value.length === length &&
+    Array.from(value).every(row => vector(row, width))
+  if (!Array.isArray(layers) || layers.length < 2 || !rows(layers, layers.length, 8) ||
+      layers.some(row => row[0] < 0 || row[1] < 0) || ![0, 1, 2].includes(model) || !Number.isFinite(position) ||
+      !vector(errorSamples, 1001) || (model === 0 && boundaries === null) ||
+      (boundaries !== null && !vector(boundaries, layers.length)) ||
+      (tensors !== null && !rows(tensors, layers.length, 18)) ||
+      (tensorState !== null && (tensors === null || !vector(tensorState, 18)))) {
+    throw new TypeError('Invalid segmented optical input')
+  }
+  const allocations = []
+  const allocate = count => {
+    const bytes = count * 8
+    if (!Number.isSafeInteger(bytes) || bytes > 0x7fffffff) throw new RangeError('Segmented optical buffer too large')
+    const pointer = module._malloc(bytes)
+    if (!pointer) throw new Error('Segmented optical allocation failed')
+    allocations.push(pointer)
+    return pointer
+  }
+  try {
+    const stack = allocate(layers.length * 8)
+    const boundary = boundaries === null ? 0 : allocate(layers.length)
+    const tensor = tensors === null ? 0 : allocate(layers.length * 18)
+    const table = allocate(1001), output = allocate(4), state = tensors === null ? 0 : allocate(18)
+    module.HEAPF64.set(layers.flatMap(row => Array.from(row)), stack / 8)
+    if (boundary) module.HEAPF64.set(boundaries, boundary / 8)
+    if (tensor) module.HEAPF64.set(tensors.flatMap(row => Array.from(row)), tensor / 8)
+    module.HEAPF64.set(errorSamples, table / 8)
+    if (state) module.HEAPF64.set(tensorState ?? new Float64Array(18), state / 8)
+    const status = module._remagx_segmented_optics(stack, layers.length, boundary, tensor, model,
+      position, table, 1001, output, state)
+    if (status !== 0) {
+      const error = new Error(`Segmented optical sampling failed (status ${status})`)
+      error.status = status
+      throw error
+    }
+    return { opticalConstants: module.HEAPF64.slice(output / 8, output / 8 + 4),
+      dielectricTensor: state ? module.HEAPF64.slice(state / 8, state / 8 + 18) : null }
+  } finally {
+    for (const pointer of allocations) module._free(pointer)
+  }
+}
