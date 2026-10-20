@@ -3,11 +3,11 @@
 // termination fallback unless a synchronously readable stop flag is supplied.
 // Objective/progress receive owned copies. Callbacks may call other core APIs or
 // grow memory; no heap views survive a callback. Project objectives/bounds are separate.
-export function minimizeSimplex(module, {
+function minimize(module, {
   simplex, objective, shouldStop = () => false, onProgress = () => {},
   maxEvaluations = 10000, maxIterations = 5000,
   parameterTolerance = 1e-9, objectiveTolerance = 1e-14,
-}) {
+}, annealing) {
   const dimension = simplex?.[0]?.length
   const unsigned = value => Number.isInteger(value) && value > 0 && value <= 0xffffffff
   if (!Array.isArray(simplex) || !unsigned(dimension) || simplex.length !== dimension + 1 ||
@@ -36,13 +36,19 @@ export function minimizeSimplex(module, {
   }
   try {
     const initial = allocate(simplex.length * dimension * 8)
-    const options = allocate(24), best = allocate(dimension * 8), summary = allocate(24)
+    const optionsSize = annealing ? 48 : 24
+    const options = allocate(optionsSize), best = allocate(dimension * 8), summary = allocate(24)
     module.HEAPF64.set(simplex.flat(), initial / 8)
-    const settings = new DataView(module.HEAPF64.buffer, options, 24)
+    const settings = new DataView(module.HEAPF64.buffer, options, optionsSize)
     settings.setUint32(0, maxEvaluations, true)
     settings.setUint32(4, maxIterations, true)
     settings.setFloat64(8, parameterTolerance, true)
     settings.setFloat64(16, objectiveTolerance, true)
+    if (annealing) {
+      settings.setFloat64(24, annealing.temperature, true)
+      settings.setFloat64(32, annealing.temperatureStep, true)
+      settings.setUint32(40, annealing.seed, true)
+    }
     const evaluate = register((parameters, count, _context, output) => {
       try {
         const value = objective(module.HEAPF64.slice(parameters / 8, parameters / 8 + count))
@@ -66,7 +72,8 @@ export function minimizeSimplex(module, {
         if (result && typeof result.then === 'function') throw new TypeError('Progress callback must be synchronous')
       } catch (error) { rememberError(error) }
     }, 'viidiii')
-    const status = module._remagx_nelder_mead(initial, dimension, options, evaluate, stop, progress, 0, best, summary)
+    const invoke = annealing ? module._remagx_simplex_annealing : module._remagx_nelder_mead
+    const status = invoke(initial, dimension, options, evaluate, stop, progress, 0, best, summary)
     if (callbackFailed) throw callbackError
     if (status !== 0) {
       const error = new Error(`Simplex optimizer failed (status ${status})`)
@@ -83,4 +90,18 @@ export function minimizeSimplex(module, {
     for (const callback of callbacks) module.removeFunction(callback)
     for (const pointer of allocations) module._free(pointer)
   }
+}
+
+export function minimizeSimplex(module, request) {
+  return minimize(module, request)
+}
+
+// Explicit settings avoid an implicit temperature schedule or random seed.
+export function minimizeAnnealing(module, request) {
+  const { temperature, temperatureStep, seed } = request
+  if (!Number.isFinite(temperature) || temperature < 0 || !Number.isFinite(temperatureStep) ||
+      !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) {
+    throw new TypeError('Invalid annealing temperature, step or seed')
+  }
+  return minimize(module, request, { temperature, temperatureStep, seed })
 }

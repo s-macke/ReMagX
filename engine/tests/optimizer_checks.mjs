@@ -1,5 +1,5 @@
 // Shared checks run against actual WASM in Node and a Chromium module worker.
-export function checkOptimizer(module, minimize, cases, calculateParratt, calculateFitError) {
+export function checkOptimizer(module, minimize, cases, calculateParratt, calculateFitError, minimizeAnnealing) {
   const check = (condition, message) => { if (!condition) throw new Error(`Optimizer: ${message}`) }
   const close = (value, target) => Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target)
   const expectThrow = (run, matches) => {
@@ -9,6 +9,10 @@ export function checkOptimizer(module, minimize, cases, calculateParratt, calcul
   }
   const objectiveFor = kind => point => {
     if (kind === 'flat') return 1
+    if (kind === 'double-well') {
+      const squared = point[0] * point[0] - 4
+      return squared * squared + .3 * point[0]
+    }
     if (kind === 'rosenbrock') {
       const curved = point[1] - point[0] * point[0]
       return 100 * curved * curved + (1 - point[0]) * (1 - point[0])
@@ -23,7 +27,8 @@ export function checkOptimizer(module, minimize, cases, calculateParratt, calcul
   for (const item of cases) {
     const snapshot = JSON.stringify(item.simplex)
     let lastValue = Infinity, progressCount = 0, evaluations = 0
-    const result = minimize(module, { ...item, objective: point => {
+    const invoke = item.annealing ? minimizeAnnealing : minimize
+    const result = invoke(module, { ...item, objective: point => {
       evaluations++
       const value = objectiveFor(item.kind)(point)
       point.fill(123) // Callback copies must not corrupt the native simplex.
@@ -123,5 +128,18 @@ export function checkOptimizer(module, minimize, cases, calculateParratt, calcul
   }
   for (let repeat = 0; repeat < 5; repeat++) { minimize(tracked, request); clean() }
   check(grown.parameters[0] !== 123, 'output independence')
+  if (minimizeAnnealing) {
+    const cold = { temperature: 0, temperatureStep: 0, seed: 0 }
+    for (const change of [{ temperature: -1 }, { temperature: Infinity }, { temperatureStep: NaN },
+      { seed: -1 }, { seed: 2 ** 32 }, { seed: .5 }, { seed: undefined }]) {
+      expectThrow(() => minimizeAnnealing(module, { ...request, ...cold, ...change }), error => error instanceof TypeError)
+    }
+    expectThrow(() => minimizeAnnealing(tracked, { ...request, ...cold,
+      temperature: Number.MAX_VALUE, seed: 1, objective: () => Number.MAX_VALUE }), error => error.status === 2)
+    clean()
+    // Exercise the annealing ABI through all common Stop/callback/growth/cleanup paths.
+    checkOptimizer(module, (instance, options) => minimizeAnnealing(instance, { ...cold, ...options }),
+      [], calculateParratt, calculateFitError)
+  }
   return { cases: cases.length, validation: true, stop: true, growth: true, cleanup: true, reflectivity: true }
 }

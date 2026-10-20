@@ -24,3 +24,9 @@ static_assert(offsetof(RemagxFitSummary, has_best) == 4);
 static_assert(offsetof(RemagxFitSummary, iterations) == 8);
 static_assert(offsetof(RemagxFitSummary, evaluations) == 12);
 static_assert(offsetof(RemagxFitSummary, value) == 16);
+
+static_assert(sizeof(RemagxAnnealingOptions) == 48);
+static_assert(offsetof(RemagxAnnealingOptions, simplex) == 0);
+static_assert(offsetof(RemagxAnnealingOptions, temperature) == 24);
+static_assert(offsetof(RemagxAnnealingOptions, temperature_step) == 32);
+static_assert(offsetof(RemagxAnnealingOptions, seed) == 40);

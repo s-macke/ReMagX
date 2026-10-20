@@ -646,3 +646,12 @@ fixed seeds escape with the selected cooling schedule; the failed seed remains i
 This is evidence of exploration, not a global-convergence or AC-9 fit-quality guarantee.
 WASM export, worker fitting, public native-rebuild integration and original-optimizer
 reference comparisons remain open. The real worker still rejects annealing requests.
+
+The subsequent WASM increment exports `remagx_simplex_annealing` through
+`minimizeAnnealing` in `engine/wasm/optimizer.mjs`. Its 48-byte wasm32 options layout
+is checked at compile time (temperature offset 24, additive step 32, uint32 seed 40).
+It shares the existing optimizer's owned buffers, copied callback inputs and cleanup
+paths. Temperature, step and seed are explicit; no project seed/schedule policy is
+silently selected. The native reference generator supplies 16 annealing cases alongside
+six ordinary simplex cases. Node and Chromium compare termination, counters, parameters
+and true objective values using unchanged D-23. Worker project fitting remains separate.
