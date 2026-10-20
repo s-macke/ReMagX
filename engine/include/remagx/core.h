@@ -373,6 +373,19 @@ int remagx_adaptive_segments(double minimum_depth, double maximum_depth,
     double minimum_step, double maximum_step, double gradient_scale, size_t value_count,
     RemagxOpticalSampler sampler, void* context, size_t capacity,
     double* positions, double* thicknesses, double* values, size_t* count);
+// GetOpticalConstant1/2/3 at one depth, using an explicit 1001-value erf table.
+// model 0 uses caller-prepared boundaries; model 1 is normalized global overlap;
+// model 2 is the local interface sum. Layers are substrate-first, at least two.
+// Optional tensor_state is 18 in/out components of the reusable sample object:
+// model 2 accumulates, models 0/1 replace it only for nonzero total weight.
+// When tensor_state is supplied, tensors has 18 components per input layer.
+// output receives four scalar constants (always reset for each call). Finite
+// inputs, nonnegative thickness/roughness, disjoint outputs, atomic failures.
+// Angles and tensor classification are not evaluated here; no lookup generation.
+int remagx_segmented_optics(const RemagxLayer* layers, size_t layer_count,
+    const double* boundaries, const double* tensors, int model, double position,
+    const double* error_samples, size_t error_sample_count,
+    double* output, double* tensor_state);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.

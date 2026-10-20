@@ -1,4 +1,5 @@
 #include "remagx/core.h"
+#include "error_function_lookup.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -6,17 +7,6 @@
 #include <stdexcept>
 #include <vector>
 
-namespace {
-// Consume the original 1001-sample layout without choosing how its samples are
-// generated. Legacy initialization uses denominator 999, including a guard point.
-double errorFunction(double position, const double* samples) {
-    if (position < -5.0) return -1.0;
-    if (position > 5.0) return 1.0;
-    const double coordinate = 0.0 - (-5.0 - position) / (-5.0 - 5.0) * (0.0 - 999.0);
-    const int left = static_cast<int>(coordinate);
-    return samples[left] - (left - coordinate) / (left - (left + 1.0)) * (samples[left] - samples[left + 1]);
-}
-}
 
 extern "C" int remagx_layer_density(const double* boundaries, const double* roughness,
     size_t layer_count, size_t layer_index, const double* positions, size_t count,
