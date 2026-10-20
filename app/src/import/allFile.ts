@@ -820,9 +820,15 @@ export function importAllFile(input: string | ArrayBuffer | Uint8Array, fileName
       case 'segmentationerror':
         calculation.segmentation.tolerance = number(calculation.segmentation.tolerance)
         break
-      case 'segmentationmodel':
-        calculation.segmentation.scope = integer(2) === 1 ? 'local' : 'global'
+      case 'segmentationmodel': {
+        // Unit1 creates global/local in that order and saves ItemIndex + 1.
+        // LayerSegmentation2 dispatch agrees; CStateHandler's inverse comment is stale.
+        const model = integer(2)
+        calculation.segmentation.scope = model === 1 || model === 0 ? 'global' : 'local'
+        if (model === 0) warn('Legacy segmentation model 0 (interface-product sampling) is not represented by the project format; using global segmentation.', a.line)
+        else if (model !== 1 && model !== 2) warn(`Unknown segmentation model ${model}; using local segmentation, matching the legacy fallback.`, a.line)
         break
+      }
       case 'gausscoupling':
         calculation.profileCombination = flag(false) ? 'product' : 'sum'
         break

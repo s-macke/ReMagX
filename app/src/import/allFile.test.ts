@@ -37,6 +37,28 @@ describe('importAllFile', () => {
     expect(report.messages.some((m) => m.text.includes('precision'))).toBe(true)
   })
 
+  it('maps segmentation model IDs to the actual legacy UI and calculation order', () => {
+    expect(importAllFile(defaultAll).project.calculation.segmentation.scope).toBe('global')
+    for (const content of [tut1, tut2, tut3]) {
+      expect(importAllFile(content).project.calculation.segmentation.scope).toBe('local')
+    }
+    for (const [model, scope] of [[1, 'global'], [2, 'local']] as const) {
+      const result = importAllFile(`segmentationmodel = ${model}\n`)
+      expect(result.project.calculation.segmentation.scope).toBe(scope)
+      expect(result.report.messages.some(message => message.text.includes('segmentation model'))).toBe(false)
+    }
+  })
+
+  it('reports unrepresented segmentation models and retains explicit fallback behavior', () => {
+    const old = importAllFile('segmentationmodel = 0\n')
+    expect(old.project.calculation.segmentation.scope).toBe('global')
+    expect(old.report.messages.some(message => message.text.includes('model 0') && message.text.includes('interface-product'))).toBe(true)
+    const unknown = importAllFile('segmentationmodel = 17\n')
+    expect(unknown.project.calculation.segmentation.scope).toBe('local')
+    expect(unknown.report.messages.some(message => message.text.includes('model 17'))).toBe(true)
+    expect(importAllFile('segmentationmodel = invalid\n').project.calculation.segmentation.scope).toBe('local')
+  })
+
   it('imports the tutorial projects with their measurement data', () => {
     for (const [name, content] of [['Tut1.all', tut1], ['Tut2.all', tut2], ['Tut3.all', tut3]] as const) {
       const { project } = importAllFile(content, name)
