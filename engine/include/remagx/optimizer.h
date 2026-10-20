@@ -1,6 +1,7 @@
 #ifndef REMAGX_OPTIMIZER_H
 #define REMAGX_OPTIMIZER_H
 #include "remagx/core.h"
+#include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,6 +50,26 @@ int remagx_nelder_mead(const double* initial_simplex, size_t dimension,
                        const RemagxSimplexOptions* options, RemagxObjective objective,
                        RemagxShouldStop should_stop, RemagxFitProgress progress, void* context,
                        double* best_parameters, RemagxFitSummary* summary);
+// Thermal simplex comparisons follow Cardoso et al. (1996), equations 9-10.
+// True objective values determine reported best/progress, never perturbed scores.
+// Temperature advances by temperature_step after each completed simplex iteration,
+// clamped at zero. Both settings must be finite and initial temperature >= 0.
+// Positive/zero steps are allowed and remain subject to the hard work limits.
+// Convergence is tested only at zero temperature. Zero temperature and zero step
+// exactly reuse ordinary Nelder-Mead (including no random draws).
+// Seeded mt19937 draws map to the open interval (0,1) using (draw+0.5)/2^32.
+// This defines reproducibility, not equivalence to the legacy random sequence.
+// All callback, atomic-output and budget policies above also apply.
+typedef struct RemagxAnnealingOptions {
+    RemagxSimplexOptions simplex;
+    double temperature;
+    double temperature_step;
+    uint32_t seed;
+} RemagxAnnealingOptions;
+int remagx_simplex_annealing(const double* initial_simplex, size_t dimension,
+                            const RemagxAnnealingOptions* options, RemagxObjective objective,
+                            RemagxShouldStop should_stop, RemagxFitProgress progress, void* context,
+                            double* best_parameters, RemagxFitSummary* summary);
 #ifdef __cplusplus
 }
 #endif

@@ -619,3 +619,30 @@ This is initial state built by LoadState/FillTensors. It does not cover subseque
 optical-table lookup, script mutations, density-profile evaluation, slicing, or
 full-project reflectivity. The WASM stage runs only when `WASM_MODULE` is supplied;
 it does not make ordinary public tests require a compiled numerical engine.
+
+### Clean-room native annealing primitive (2026-10-20)
+
+`remagx_simplex_annealing` extends the existing independent Nelder–Mead implementation
+with thermal comparisons described by Cardoso, Salcedo and de Azevedo (1996), equations
+9–10 ([paper](https://doi.org/10.1016/0098-1354(95)00221-9),
+[author-hosted PDF](https://pages.up.pt/~up208839/Docs_SFA_Publica_Conferences/SFA_JP_19960101_CCE_The%20Simplex-Simulated%20Annealing.pdf)).
+It ranks existing vertices with upward perturbations and trial points with downward
+perturbations, while recording the best unperturbed objective. No NR implementation
+was read or translated for this addition. It does not implement the paper's additional
+adaptive cooling, constraint-replacement or restart schemes.
+
+The primitive accepts temperature, additive change per completed simplex iteration,
+and a seed. Temperature is clamped at zero; only zero-temperature states can declare
+simplex convergence. Constant/heating schedules remain bounded by iteration/evaluation
+limits. `std::mt19937` integer draws are explicitly mapped to the open unit interval;
+the sequence is reproducible but does not claim to reproduce the original RNG.
+The UI's temperature fields and default values were checked in `FitAlgorithmFrame.dfm`;
+its project-level schedule mapping has not yet been integrated or validated.
+
+Zero-temperature runs reproduce the ordinary simplex trajectory exactly. Tests cover
+seed replay, quadratic recovery, hard limits, Stop, numerical/argument errors and atomic
+outputs. In a tilted double-well test starting at the poorer local minimum, 11 of 12
+fixed seeds escape with the selected cooling schedule; the failed seed remains included.
+This is evidence of exploration, not a global-convergence or AC-9 fit-quality guarantee.
+WASM export, worker fitting, public native-rebuild integration and original-optimizer
+reference comparisons remain open. The real worker still rejects annealing requests.

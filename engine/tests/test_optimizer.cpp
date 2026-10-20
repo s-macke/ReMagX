@@ -210,8 +210,123 @@ void stop_and_errors() {
     const double huge[] = {-1e308, 1e308};
     failure(huge, 1, REMAGX_NUMERICAL_ERROR);
 }
+RemagxFitSummary run_annealing(const std::vector<double>& simplex, size_t dimension,
+    Harness& harness, std::vector<double>& best, RemagxAnnealingOptions options) {
+    auto unchanged = simplex;
+    RemagxFitSummary summary{};
+    require(remagx_simplex_annealing(simplex.data(), dimension, &options, objective, stop,
+        progress, &harness, best.data(), &summary) == REMAGX_SUCCESS, "annealing failed");
+    require(simplex == unchanged, "annealing changed initial simplex");
+    require(summary.evaluations == harness.visited.size(), "annealing evaluation count");
+    if (summary.has_best) require(summary.value == harness.function(best), "annealing reported thermal score");
+    return summary;
+}
+void annealing() {
+    const std::vector<double> initial{0, 0, 1, 0, 0, 1};
+    const auto quadratic = [](const std::vector<double>& point) {
+        return (point[0] - 3) * (point[0] - 3) + 2 * (point[1] + 2) * (point[1] + 2);
+    };
+    Harness cold, ordinary;
+    cold.function = ordinary.function = quadratic;
+    std::vector<double> cold_best(2), ordinary_best(2);
+    const auto plain = run(initial, 2, ordinary, ordinary_best);
+    const auto frozen = run_annealing(initial, 2, cold, cold_best, {defaults(), 0, 0, 42});
+    require(cold.visited == ordinary.visited && cold_best == ordinary_best &&
+        frozen.evaluations == plain.evaluations && frozen.iterations == plain.iterations &&
+        frozen.termination == plain.termination, "zero temperature changed ordinary simplex");
+
+    Harness first, replay, other_seed;
+    first.function = replay.function = other_seed.function = quadratic;
+    std::vector<double> best(2), again(2), other(2);
+    RemagxAnnealingOptions settings{defaults(), 2, -.02, 42};
+    const auto summary = run_annealing(initial, 2, first, best, settings);
+    const auto repeated = run_annealing(initial, 2, replay, again, settings);
+    require(first.visited == replay.visited && best == again && summary.value == repeated.value,
+        "seeded annealing did not replay");
+    require(summary.iterations >= 100 && summary.termination == REMAGX_FIT_CONVERGED,
+        "annealing converged before cooling");
+    require(summary.value < 1e-12, "annealing quadratic recovery");
+    settings.seed = 43;
+    run_annealing(initial, 2, other_seed, other, settings);
+    require(first.visited != other_seed.visited && first.visited != ordinary.visited,
+        "thermal search ignored random seed or temperature");
+
+    Harness bounded;
+    bounded.function = quadratic;
+    settings = {defaults(), 1, 0, 7};
+    settings.simplex.max_iterations = 5;
+    const auto limited = run_annealing(initial, 2, bounded, best, settings);
+    require(limited.termination == REMAGX_FIT_ITERATION_LIMIT && limited.iterations == 5,
+        "constant-temperature iteration budget");
+    Harness stopped;
+    stopped.function = quadratic;
+    stopped.stop_after = 4;
+    const auto interrupted = run_annealing(initial, 2, stopped, best, settings);
+    require(interrupted.termination == REMAGX_FIT_STOPPED && interrupted.evaluations == 4,
+        "annealing Stop during iteration");
+    Harness evaluation_limited;
+    evaluation_limited.function = quadratic;
+    settings.simplex.max_evaluations = 4;
+    const auto exhausted = run_annealing(initial, 2, evaluation_limited, best, settings);
+    require(exhausted.termination == REMAGX_FIT_EVALUATION_LIMIT && exhausted.evaluations == 4,
+        "annealing evaluation budget");
+
+    // The asymmetric double well has a positive local minimum near +2 and
+    // a lower one near -2. Keep the full seed set; do not select a winning seed.
+    const auto double_well = [](const std::vector<double>& point) {
+        const double squared = point[0] * point[0] - 4;
+        return squared * squared + .3 * point[0];
+    };
+    Harness local;
+    local.function = double_well;
+    std::vector<double> local_best(1);
+    const auto local_result = run({2, 2.2}, 1, local, local_best);
+    require(local_result.value > .5, "double-well baseline no longer tests a local trap");
+    size_t escaped = 0;
+    for (uint32_t seed = 0; seed < 12; ++seed) {
+        Harness global;
+        global.function = double_well;
+        const auto result = run_annealing({2, 2.2}, 1, global, local_best,
+            {defaults(), 10, -.01, seed});
+        if (result.value < -.5) ++escaped;
+    }
+    require(escaped > 0, "annealing never escaped the double-well local trap");
+    std::cout << "Annealing double-well escapes: " << escaped << "/12 seeds.\n";
+
+    Harness failed;
+    failed.function = quadratic;
+    auto invalid = [&](double temperature, double step, int expected) {
+        RemagxAnnealingOptions options{defaults(), temperature, step, 1};
+        double output[] = {123, 456};
+        RemagxFitSummary result{99, 99, 99, 99, 99};
+        const auto before = result;
+        require(remagx_simplex_annealing(initial.data(), 2, &options, objective, stop, progress,
+            &failed, output, &result) == expected, "annealing error classification");
+        require(output[0] == 123 && output[1] == 456 &&
+            std::memcmp(&before, &result, sizeof(result)) == 0, "annealing error changed output");
+    };
+    invalid(-1, -.01, REMAGX_INVALID_ARGUMENT);
+    invalid(std::numeric_limits<double>::infinity(), -.01, REMAGX_INVALID_ARGUMENT);
+    invalid(1, std::numeric_limits<double>::quiet_NaN(), REMAGX_INVALID_ARGUMENT);
+    require(failed.visited.empty(), "invalid temperature invoked objective");
+    failed.fail_at = 2;
+    invalid(1, -.01, REMAGX_NUMERICAL_ERROR);
+    failed.visited.clear();
+    failed.fail_at = std::numeric_limits<size_t>::max();
+    failed.function = [](const auto&) { return std::numeric_limits<double>::max(); };
+    invalid(std::numeric_limits<double>::max(), 0, REMAGX_NUMERICAL_ERROR);
+    Harness stopped_before_start;
+    stopped_before_start.function = quadratic;
+    stopped_before_start.stop_after = 0;
+    best = {123, 456};
+    const auto untouched = run_annealing(initial, 2, stopped_before_start, best,
+        {defaults(), 1, -.01, 1});
+    require(!untouched.has_best && untouched.evaluations == 0 &&
+        untouched.termination == REMAGX_FIT_STOPPED && best == std::vector<double>({123, 456}),
+        "annealing Stop before initialization changed parameters");
+}
 int main() {
-    try { convergence(); reflectivity_recovery(); moves_and_limits(); stop_and_errors(); }
+    try { convergence(); reflectivity_recovery(); moves_and_limits(); stop_and_errors(); annealing(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "Native simplex: recovery, deterministic moves, limits, Stop and atomic errors passed.\n";
 }
