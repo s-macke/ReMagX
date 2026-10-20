@@ -27,6 +27,15 @@ two preceding GUI corrections; averaging still comes from the project.
 These three checkbox settings are supplied explicitly because the original loader
 does not persist them. Fourier with energy scans or two-beam output is rejected by
 this adapter until its unequal output-column lengths are handled.
+
+`python3 tools/golden/legacy/diagnose_fourier_fit.py` reproduces a separate
+Fourier-fitting preparation problem with a public synthetic fixture. The reviewed
+original `CalcErrorOfDataset` transforms measurement coordinates before passing
+them to the reflectivity solver, then ignores the solver's return status. The probe
+hash-checks that source, builds the original simulation adapter, and demonstrates
+the rejected depth-as-qz input without linking an optimizer. A successful probe
+exits zero but reports `acceptancePassed=false`: it proves the failure, not a fit
+reference or permission to correct legacy behavior.
 Run in the directory containing any required material tables;
 use an absolute project path when changing directories. Outputs from research projects
 remain private. Standard legacy diagnostics are suppressed and the adapter buffers the
