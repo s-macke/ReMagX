@@ -172,3 +172,41 @@ it('normalizes saved signed or wide integer seeds to the Windows uint32 domain',
   expect(() => runRealFit(project, [], engine, minimize, vi.fn())).toThrow('seed')
   expect(minimize).toHaveBeenCalledTimes(4)
 })
+
+
+it('adds annealing Q after weighted dataset errors using the original unbounded parameter reference', () => {
+  const { project, engine } = fixture()
+  project.fit.algorithm = 'simplex-annealing'; project.fit.occamQ = 2
+  project.fit.parameters[0].value = 2 // saved reference lies outside [-1, 1]
+  const before = structuredClone(project)
+  const progress = vi.fn()
+  const minimize: RealMinimizer = ({ objective, onProgress }) => {
+    // Initial bounded candidate 1: weighted dataset error 2 + 2*(2-1)^2.
+    expect(objective(new Float64Array([0]))).toBe(4)
+    // Axis runs inward from the upper bound, scale -0.1: candidate 0.5.
+    expect(objective(new Float64Array([5]))).toBe(6.5)
+    // Strict legacy threshold omits the penalty at candidate zero.
+    expect(objective(new Float64Array([10]))).toBe(2)
+    onProgress({ parameters: new Float64Array([10]), value: 2, iterations: 1, evaluations: 3 })
+    return { termination: 'iteration-limit', parameters: new Float64Array([10]), value: 2, iterations: 1, evaluations: 3 }
+  }
+  const result = runRealFit(project, [], engine, minimize, progress)
+  expect(result.chi2).toBe(2)
+  expect(result.values[0]).toBeCloseTo(0, 14)
+  expect(progress.mock.calls[0][0].chi2).toBe(2)
+  expect(project).toEqual(before)
+})
+
+it('includes signed annealing regularization for fixed rows and rejects nonfinite weights', () => {
+  const { project, engine } = fixture()
+  project.fit.algorithm = 'simplex-annealing'; project.fit.occamQ = -2
+  project.fit.parameters[0].value = 2
+  project.fit.parameters[0].lowerBound = 1; project.fit.parameters[0].upperBound = 1
+  const minimize = vi.fn<RealMinimizer>()
+  expect(runRealFit(project, [], engine, minimize, vi.fn()).chi2).toBe(0)
+  expect(minimize).not.toHaveBeenCalled()
+  for (const weight of [NaN, Infinity, -Infinity]) {
+    project.fit.occamQ = weight
+    expect(() => runRealFit(project, [], engine, minimize, vi.fn())).toThrow('regularization weight')
+  }
+})

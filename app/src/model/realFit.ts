@@ -6,6 +6,7 @@ import { prepareRealFitSimplex } from './realFitSimplex'
 import { evaluateProjectDatasetError, type FitErrorCalculator } from './projectDatasetError'
 import type { RealCalculationEngine, RealBeforeCalculation, ScriptSessionLifetime } from './realCalculation'
 import { refreshPartialCompoundOptics, type SerialOpticalState } from './refreshOpticalConstants'
+import { addFitRegularization } from './fitRegularization'
 import { HC_EV_ANGSTROM } from './units'
 
 export interface SimplexProgress {
@@ -47,7 +48,11 @@ export function runRealFit(project: Project, tables: OpticalTable[],
       annealing.seed < 0 || annealing.seed > 0xffffffff)) {
     throw new Error('Annealing needs a nonnegative finite temperature, a finite temperature step and a uint32 seed.')
   }
-  if (project.fit.occamQ !== 0) throw new Error('Real fit regularization is not implemented yet.')
+  if (!Number.isFinite(project.fit.occamQ)) throw new Error('Invalid fit regularization weight.')
+  if (project.fit.occamQ !== 0 && !annealing) throw new Error('Ordinary Simplex regularization is not implemented yet.')
+  // Original Simplex2 retains constructor activevars, including unclipped saved
+  // values. Ordinary Simplex changes that reference and needs separate integration.
+  const regularizationReference = project.fit.parameters.map(parameter => parameter.value)
   if (!project.fit.parameters.length) throw new Error('Select at least one fit parameter.')
   if (!project.datasets.some(dataset => dataset.active)) throw new Error('Select at least one dataset for fitting.')
   const prepared = prepareRealFitSimplex(project.fit.parameters)
@@ -97,15 +102,16 @@ export function runRealFit(project: Project, tables: OpticalTable[],
     }, beforeCalculation)
     current = evaluated.project
     opticalState = evaluated.opticalState
-    if (!best.result || evaluated.error < best.result.chi2) {
+    const error = addFitRegularization(evaluated.error, project.fit.occamQ, regularizationReference, candidate.values)
+    if (!best.result || error < best.result.chi2) {
       // Retain the actual evaluated state. Replaying values against a later state
       // can change coordinate-shift targets or optical constants.
       best.preview = preview
       const datasetUpdates: FitDatasetUpdate[] = Array.from(touched, ([index, fields]) => ({ index,
         values: Object.fromEntries(Array.from(fields, field => [field, current.datasets[index][field]])) }))
-      best.result = { datasetUpdates, project: current, values: candidate.values.slice(), chi2: evaluated.error, iterations: 0, stopped: false }
+      best.result = { datasetUpdates, project: current, values: candidate.values.slice(), chi2: error, iterations: 0, stopped: false }
     }
-    return evaluated.error
+    return error
   }
   if (shouldStop()) throw new FitStoppedBeforeEvaluation('Stopped before evaluating a fit candidate.')
   runHook(0, 'temporary') // The CMultiFit constructor compiles and executes the script once.

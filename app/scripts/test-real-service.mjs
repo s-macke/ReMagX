@@ -565,6 +565,7 @@ try {
         aggregate.datasets.forEach(data => { data.active = false })
         output.datasetErrors.at(-1).empty = await service.calcChi2(aggregate)
       }
+      output.regularizedFits = []
       output.realFits = []
       for (const algorithm of ['parratt', 'matrix', 'zak']) for (const fitAlgorithm of ['simplex', 'simplex-annealing']) {
         const fit = createDefaultProject()
@@ -597,6 +598,18 @@ try {
         const replay = fitAlgorithm === 'simplex-annealing' ? await service.startFit(fit, () => {}) : result
         if (JSON.stringify(replay.values) !== JSON.stringify(result.values) || replay.chi2 !== result.chi2 || replay.iterations !== result.iterations)
           throw new Error('Annealing fit did not replay with the default seed')
+        if (fitAlgorithm === 'simplex-annealing') {
+          const regularized = structuredClone(fit)
+          regularized.fit.occamQ = .00001
+          const unchanged = JSON.stringify(regularized)
+          const initialError = await service.calcChi2(regularized)
+          const penalized = await service.startFit(regularized, () => {})
+          const dataError = await service.calcChi2(penalized.project)
+          const displacement = 30 - penalized.values[0]
+          output.regularizedFits.push({ algorithm, value: penalized.values[0], chi2: penalized.chi2,
+            expected: dataError + regularized.fit.occamQ * displacement * displacement,
+            initialError, unchanged: unchanged === JSON.stringify(regularized) })
+        }
         const completedCurve = await service.calcReflectivity(result.project)
         output.realFits.push({ algorithm, fitAlgorithm, value: result.values[0], chi2: result.chi2, iterations, preview, completedCurve, rendered, previewRequests, capability: service.providesFitPreviews,
           unchanged: before === JSON.stringify(fit) })
@@ -1145,6 +1158,13 @@ try {
     assert.ok(result.chi2 < 1e-16, `${label}: final error ${result.chi2}`)
   }
   assert.equal(results.datasetErrors.length, 3)
+  assert.equal(results.regularizedFits.length, 3)
+  for (const result of results.regularizedFits) {
+    assert.ok(result.unchanged)
+    assert.ok(result.value > 30 && result.value < 35, `${result.algorithm}: Q should pull the fitted thickness toward its initial value`)
+    assert.ok(result.chi2 < result.initialError)
+    assert.ok(Math.abs(result.chi2 - result.expected) <= 1e-15 + 1e-10 * Math.abs(result.expected), `${result.algorithm}: regularized objective`)
+  }
   assert.equal(results.realFits.length, 6)
   for (const result of results.realFits) {
     if (result.fitAlgorithm === 'simplex-annealing') assert.ok(Math.max(...result.iterations) >= 100)
