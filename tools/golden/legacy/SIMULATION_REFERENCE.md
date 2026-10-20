@@ -622,3 +622,33 @@ tables in the worker. The original adapter errors on nine other projects and
 times out on one; that same project also exceeds the worker's 120-second limit.
 All 99 projects remain included and acceptancePassed remains false. Production
 lookup policy and complete profile/corpus acceptance are still open.
+
+
+### Remaining profile timeout: expanded-stack workload
+
+A read-only preparation audit of numeric corpus ID 22 (the case timing out in
+both implementations) finds seven stored compound layers expanding to 80,162
+layers through the unchanged multilayer parser. Automatic optical refresh is
+disabled and BeforeCalculation is empty. Every packed value is finite, with
+nonnegative thickness and roughness. Both range-padding branches use 30 Å.
+The prepared depth extent and configured step limits imply approximately
+25,430–38,146 generated slices; these are workload estimates, not measured
+output counts or a completed profile comparison.
+
+`adaptive_segmentation.cpp` evaluates four optical samples per slice and then
+resamples all but the first. `segmented_optics.cpp` validates and traverses the
+whole expanded stack for every local-model sample. Thus this input implies
+roughly 10–15 billion layer visits for the optical traversal alone, in addition
+to validation. The original local sampler also traverses the expanded stack.
+The web subdivision has capacity and nonadvancing-depth guards; there is no
+unbounded inner refinement loop in that path. This identifies a substantial
+workload consistent with the observed timeouts, not a measured attribution of
+all elapsed time and not proof of invalid project data.
+
+Next optimization work should profile the large-stack sampler and investigate
+reusing validated immutable input and interface preparation. Any pruning,
+aggregation or changed summation order needs unchanged-D-23 evidence, including
+local tensor accumulation and duplicate/zero-thickness interfaces. Do not remove
+this project, change its multilayer pattern, loosen tolerances or interpret the
+120-second limit as a numerical mismatch. The existing full-run timeout remains
+the acceptance result; no new full corpus run was performed for this audit.
