@@ -79,9 +79,12 @@ template<class T> T GetDensity(CVector<Schicht<T>>& layers,int layer,T position)
 return binding[int(position)*profile_count+int(layers.size())-layer-1];}
 '''
         wrapper = r'''
-int main(){int count,coupled;cout<<setprecision(17);
+int main(int argc,char**){int count,coupled;cout<<setprecision(17);
 while(cin>>profile_count>>count>>coupled){CVector<CGaussFunc> profiles(profile_count);
-for(int j=0;j<profile_count;++j){auto& p=profiles[j];cin>>p.z>>p.Var>>p.delta>>p.beta;p.bindtolayer=j;}
+for(int j=0;j<profile_count;++j){auto& p=profiles[j];cin>>p.z>>p.Var>>p.delta>>p.beta;p.bindtolayer=j;
+// Stored per-profile references are distinct from the global coupled switch.
+p.Acoupling=argc>1 ? (j+1)%profile_count : -1;
+p.Varcoupling=argc>1 ? (j+profile_count-1)%profile_count : -1;}
 CVector<Schicht<double>> layers(count+1);layers[0].z=0;
 for(int i=1;i<=count;++i){layers[i].z=i;cin>>layers[i].oc.deltam>>layers[i].oc.betam;}
 binding.resize(count*profile_count);for(auto& value:binding)cin>>value;
@@ -99,6 +102,8 @@ for(int i=1;i<=count;++i)cout<<layers[i].oc.deltam<<' '<<layers[i].oc.betam<<' '
             cpp.write_text(header + scaffold + method + wrapper)
             subprocess.run(['g++', '-std=c++17', '-O2', '-fno-fast-math', '-ffp-contract=off', str(cpp), '-o', str(exe)], check=True, capture_output=True)
             lines = subprocess.run([str(exe)], input='\n'.join(payload), text=True, capture_output=True, check=True).stdout.splitlines()
+            referenced = subprocess.run([str(exe), 'stored-references'], input='\n'.join(payload), text=True, capture_output=True, check=True).stdout.splitlines()
+            self.assertEqual(referenced, lines, 'Original profile application must not resolve stored amplitude/width references')
         self.assertEqual(len(lines), len(cases))
         for arguments, line in zip(cases, lines):
             status, actual = evaluate(*arguments)
@@ -107,7 +112,7 @@ for(int i=1;i<=count;++i)cout<<layers[i].oc.deltam<<' '<<layers[i].oc.betam<<' '
             self.assertEqual(len(actual), len(expected))
             for value, reference in zip(actual, expected):
                 self.assertLessEqual(abs(value-reference), 1e-15+1e-10*abs(reference))
-        print('Original prepared Gaussian application: 3,840 magnetic values matched.')
+        print('Original prepared Gaussian application: 3,840 magnetic values matched; changing stored amplitude/width references leaves all values unchanged.')
 
 if __name__ == '__main__':
     if '--wasm-payload' in sys.argv:

@@ -77,7 +77,9 @@ export const elementProfileSchema = z.object({
 })
 
 // Additional depth profile (legacy "Gauss functions"): a Gaussian or spline-shaped
-// contribution to delta/beta. Coupling indices refer to other entries of the same list.
+// contribution to delta/beta. Stored coupling indices refer to this same list;
+// the active legacy 2.6 profile application does not resolve those references.
+// Preserve them for import/edit/save, independently of global profile coupling.
 export const depthProfileFunctionSchema = z.object({
   deltaAmplitude: finite,
   betaAmplitude: finite,
