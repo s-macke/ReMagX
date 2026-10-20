@@ -601,11 +601,12 @@ try {
         output.realFits.push({ algorithm, fitAlgorithm, value: result.values[0], chi2: result.chi2, iterations, preview, completedCurve, rendered, previewRequests, capability: service.providesFitPreviews,
           unchanged: before === JSON.stringify(fit) })
       }
+      output.scriptedFits = []
       // Persistent Lua fit hooks: the dataset hook adds five to each candidate.
       // The independently generated measurement above has thickness 35.
-      for (const algorithm of ['parratt', 'matrix', 'zak']) {
+      for (const algorithm of ['parratt', 'matrix', 'zak']) for (const fitAlgorithm of ['simplex', 'simplex-annealing']) {
         const fit = createDefaultProject()
-        fit.fit.algorithm = 'simplex'; fit.fit.occamQ = 0
+        fit.fit.algorithm = fitAlgorithm; fit.fit.occamQ = 0
         fit.calculation.algorithm = algorithm; fit.calculation.automaticOpticalConstants = true
         fit.sample.layers = [createLayer({ opticalTable: 'fit-bulk', delta: .01, beta: .002 }),
           createLayer({ opticalTable: 'fit-film', thickness: 35, delta: .006, beta: .001 }), createLayer({ opticalTable: 'fit-air' })]
@@ -621,7 +622,8 @@ try {
         fit.scripts.beforeCalculation = 'calls = (calls or 0) + 1; print(renewocs); if calls > 1 and renewocs == 0 then thickness[1] = thickness[1] + 5 end'
         const before = JSON.stringify(fit)
         const result = await service.startFit(fit, () => {})
-        if (Math.abs(result.values[0] - 30) > 1e-6 || result.chi2 > 1e-16) throw new Error('Scripted fit recovery failed: ' + algorithm)
+        if (Math.abs(result.values[0] - 30) > 1e-6 || result.chi2 > 1e-16) throw new Error('Scripted fit recovery failed: ' + algorithm + '/' + fitAlgorithm)
+        output.scriptedFits.push({ algorithm, fitAlgorithm, kind: 'qz-offset-hook', value: result.values[0], chi2: result.chi2 })
         if (result.scriptMessages.length < 5 || result.scriptMessages.some((value, index) => value !== (index % 2 ? '1' : '0'))) throw new Error('Incorrect fit hook lifecycle')
         if (before !== JSON.stringify(fit)) throw new Error('Scripted fit mutated input')
         const chiProject = structuredClone(fit)
@@ -685,9 +687,9 @@ try {
         { name: 'fit-film', kind: 'm', energy: [600, 800], columns: [[.0003, .0005], [.00003, .00005]], warnings: [] },
         { name: 'fit-air', kind: 'db', energy: [600, 800], columns: [[0, 0], [0, 0]], warnings: [] },
       ]
-      for (const algorithm of ['parratt', 'matrix', 'zak']) {
+      for (const algorithm of ['parratt', 'matrix', 'zak']) for (const fitAlgorithm of ['simplex', 'simplex-annealing']) {
         const fit = createDefaultProject()
-        fit.fit.algorithm = 'simplex'; fit.fit.occamQ = 0
+        fit.fit.algorithm = fitAlgorithm; fit.fit.occamQ = 0
         fit.calculation.algorithm = algorithm; fit.calculation.automaticOpticalConstants = true
         fit.calculation.magnetization.mode = 'add'
         fit.sample.layers = [createLayer({ opticalTable: 'fit-bulk' }),
@@ -719,7 +721,7 @@ try {
           const before = JSON.stringify(fit)
           const initial = await service.calcChi2(fit)
           const result = await service.startFit(fit, () => {})
-          output.mixedFits.push({ algorithm, kind: labels[selected] ?? 'weighted-mixed', initial,
+          output.mixedFits.push({ algorithm, fitAlgorithm, kind: labels[selected] ?? 'weighted-mixed', initial,
             value: result.values[0], chi2: result.chi2, unchanged: before === JSON.stringify(fit) })
         }
         // Fit a Lua par[] value against independently generated thickness-35
@@ -742,15 +744,16 @@ try {
           const fitBefore = JSON.stringify(fitting)
           const result = await service.startFit(fitting, () => {})
           if (JSON.stringify(fitting) !== fitBefore) throw new Error('Fit preparation changed saved tensor input')
-          if (Math.abs(result.values[0] - 35) > 1e-6 || result.chi2 > 1e-16) throw new Error('Energy Lua fit recovery failed: ' + algorithm + '/' + selected)
+          if (Math.abs(result.values[0] - 35) > 1e-6 || result.chi2 > 1e-16) throw new Error('Energy Lua fit recovery failed: ' + algorithm + '/' + fitAlgorithm + '/' + selected)
+          output.scriptedFits.push({ algorithm, fitAlgorithm, kind: labels[selected] ?? 'weighted-mixed', value: result.values[0], chi2: result.chi2 })
           if (result.scriptMessages[0] !== 'init' || result.scriptMessages.length < 2 || result.scriptMessages.slice(1).some(line => line !== 'objective')) throw new Error('Energy fit session lifetime mismatch')
           if (JSON.stringify(scripted) !== before) throw new Error('Energy Lua fit mutated project')
         }
       }
       // Native dataset-wide fit results merge into metadata edited during fitting.
-      for (const algorithm of ['parratt', 'matrix', 'zak']) {
+      for (const algorithm of ['parratt', 'matrix', 'zak']) for (const fitAlgorithm of ['simplex', 'simplex-annealing']) {
         const source = createDefaultProject()
-        source.fit.algorithm = 'simplex'; source.fit.occamQ = 0
+        source.fit.algorithm = fitAlgorithm; source.fit.occamQ = 0
         source.calculation.algorithm = algorithm
         source.sample.layers = [createLayer({ delta: .01, beta: .002 }), createLayer()]
         source.experiment.qzScan.points = 20
@@ -767,7 +770,7 @@ try {
         const before = JSON.stringify(current)
         const result = await service.startFit(source, () => {})
         const merged = mergeFitResult(current, source, result)
-        output.fitMerges.push({ algorithm, values: merged.datasets.map(data => data.intensityScale),
+        output.fitMerges.push({ algorithm, fitAlgorithm, values: merged.datasets.map(data => data.intensityScale),
           updates: result.datasetUpdates.length, active: merged.datasets[1].active, comment: merged.datasets[1].comment,
           selection: merged.activeDatasetIndex, unchanged: before === JSON.stringify(current) })
       }
@@ -1118,7 +1121,7 @@ try {
     assert.ok(result.warnings.some(warning => warning.includes('values kept')))
     assert.ok(result.warnings.some(warning => warning.includes('magnetic values set to zero')))
   }
-  assert.equal(results.fitMerges.length, 3)
+  assert.equal(results.fitMerges.length, 6)
   for (const result of results.fitMerges) {
     assert.ok(result.values.every(value => Math.abs(value - 2) < 1e-8), `${result.algorithm} dataset-wide fit merge`)
     assert.equal(result.updates, 2)
@@ -1127,9 +1130,15 @@ try {
     assert.equal(result.selection, 0)
     assert.ok(result.unchanged)
   }
-  assert.equal(results.mixedFits.length, 21)
+  assert.equal(results.scriptedFits.length, 30)
+  for (const result of results.scriptedFits) {
+    const target = result.kind === 'qz-offset-hook' ? 30 : 35
+    assert.ok(Math.abs(result.value - target) < 1e-6, `${result.algorithm}/${result.fitAlgorithm}/${result.kind} scripted recovery`)
+    assert.ok(result.chi2 < 1e-16)
+  }
+  assert.equal(results.mixedFits.length, 42)
   for (const result of results.mixedFits) {
-    const label = `${result.algorithm} ${result.kind}`
+    const label = `${result.algorithm}/${result.fitAlgorithm} ${result.kind}`
     assert.ok(result.unchanged, label)
     assert.ok(result.initial > 1e-10, `${label}: insensitive synthetic fixture (${result.initial})`)
     assert.ok(Math.abs(result.value - 35) < 1e-6, `${label}: recovered ${result.value}`)
@@ -1326,7 +1335,7 @@ try {
   assert.deepEqual(results.restarted, results.totalReflection)
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
-  console.log(`Real ComputeService in Chromium: seeded Simplex/annealing qz recovery and replay, native thickness recovery for qz/energy reflectivity/asymmetry/dichroic and weighted mixed fits with automatic tables and blocked-fit Stop, weighted multi-dataset Chi² for Parratt/matrix/Zak, prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  console.log(`Real ComputeService in Chromium: Simplex/annealing qz/energy/mixed/Lua recovery, seeded replay, native thickness recovery for qz/energy reflectivity/asymmetry/dichroic and weighted mixed fits with automatic tables and blocked-fit Stop, weighted multi-dataset Chi² for Parratt/matrix/Zak, prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

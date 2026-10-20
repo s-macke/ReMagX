@@ -675,3 +675,13 @@ Chromium verifies annealing qz thickness recovery for Parratt, Visnovsky and Zak
 seed replay, best-curve previews, unchanged inputs and forced-worker Stop/recovery.
 Original-optimizer quality comparisons and broader energy/mixed/scripted annealing
 validation remain open; the deployed app still uses the mock worker.
+
+The expanded Chromium service suite now runs both optimizers against the same
+synthetic individual qz/energy reflectivity, asymmetry and dichroic datasets, weighted
+mixed datasets, persistent Lua hooks and concurrent metadata merges. Across the three
+solvers it checks 42 ordinary/mixed fits, 30 scripted fits and six merges. Generating
+thickness/script parameters recover within 1e-6 with objective below 1e-16; dataset-wide
+intensity scale recovers within 1e-8. These unchanged thresholds are fixture assertions,
+not new corpus-golden tolerances. All cases pass without further production changes.
+This remains one-parameter synthetic evidence, not original-optimizer or general
+multi-parameter fit acceptance.
