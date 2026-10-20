@@ -565,6 +565,7 @@ try {
         aggregate.datasets.forEach(data => { data.active = false })
         output.datasetErrors.at(-1).empty = await service.calcChi2(aggregate)
       }
+      output.multiParameterFits = []
       output.regularizedFits = []
       output.realFits = []
       for (const algorithm of ['parratt', 'matrix', 'zak']) for (const fitAlgorithm of ['simplex', 'simplex-annealing']) {
@@ -610,6 +611,28 @@ try {
             expected: dataError + regularized.fit.occamQ * displacement * displacement,
             initialError, unchanged: unchanged === JSON.stringify(regularized) })
         }
+        const multiple = structuredClone(fit)
+        multiple.datasets[0].columns.reflectivity = reference.reflectivity.map(value => value / 2)
+        multiple.datasets[0].intensityScale = 1.8
+        multiple.fit.parameters = [
+          { ...fit.fit.parameters[0], lowerBound: 30, upperBound: 45 },
+          { target: 'beta', index: 0, elementIndex: null, value: .002, step: 0, lowerBound: .002, upperBound: .002 },
+          { target: 'intensityScale', index: null, elementIndex: null, value: 1.8, step: 0, lowerBound: 1, upperBound: 3 },
+        ]
+        const multipleBefore = JSON.stringify(multiple)
+        // Each parameter must independently affect the error at the known solution.
+        const thicknessOnly = structuredClone(multiple)
+        thicknessOnly.datasets[0].intensityScale = 2
+        const scaleOnly = structuredClone(multiple)
+        scaleOnly.sample.layers[1].thickness = 35
+        const sensitivity = [await service.calcChi2(thicknessOnly), await service.calcChi2(scaleOnly)]
+        let finalProgress
+        const recovered = await service.startFit(multiple, progress => { finalProgress = progress })
+        output.multiParameterFits.push({ algorithm, fitAlgorithm, values: recovered.values, chi2: recovered.chi2,
+          dataError: await service.calcChi2(recovered.project), sensitivity,
+          thickness: recovered.project.sample.layers[1].thickness, scale: recovered.project.datasets[0].intensityScale,
+          progressValues: finalProgress.values, progressError: finalProgress.chi2,
+          unchanged: multipleBefore === JSON.stringify(multiple) })
         const completedCurve = await service.calcReflectivity(result.project)
         output.realFits.push({ algorithm, fitAlgorithm, value: result.values[0], chi2: result.chi2, iterations, preview, completedCurve, rendered, previewRequests, capability: service.providesFitPreviews,
           unchanged: before === JSON.stringify(fit) })
@@ -1158,6 +1181,21 @@ try {
     assert.ok(result.chi2 < 1e-16, `${label}: final error ${result.chi2}`)
   }
   assert.equal(results.datasetErrors.length, 3)
+  assert.equal(results.multiParameterFits.length, 6)
+  for (const result of results.multiParameterFits) {
+    const label = `${result.algorithm}/${result.fitAlgorithm} simultaneous thickness/scale`
+    assert.ok(result.unchanged, label)
+    assert.ok(result.sensitivity.every(error => error > 1e-10), `${label}: both parameters must affect the objective`)
+    assert.ok(Math.abs(result.values[0] - 35) < 1e-6, `${label}: thickness ${result.values[0]}`)
+    assert.equal(result.values[1], .002, `${label}: fixed row`)
+    assert.ok(Math.abs(result.values[2] - 2) < 1e-8, `${label}: intensity scale ${result.values[2]}`)
+    assert.equal(result.thickness, result.values[0])
+    assert.equal(result.scale, result.values[2])
+    assert.deepEqual(result.progressValues, result.values)
+    assert.equal(result.progressError, result.chi2)
+    assert.ok(result.chi2 < 1e-16, `${label}: error ${result.chi2}`)
+    assert.ok(Math.abs(result.chi2 - result.dataError) <= 1e-15 + 1e-10 * Math.abs(result.dataError), `${label}: saved fit objective`)
+  }
   assert.equal(results.regularizedFits.length, 3)
   for (const result of results.regularizedFits) {
     assert.ok(result.unchanged)
