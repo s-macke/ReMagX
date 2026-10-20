@@ -10,11 +10,12 @@ import { prepareParrattQzRequest, type PreparedParrattQzRequest } from './parrat
 import { postprocessParrattResult } from './parrattResult'
 import type { Project } from './project'
 import type { OpticalTable } from '../import/tables'
+import type { FourierCalculator } from './datasetPostprocessing'
 
 export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Array
 
 export interface RealCalculationEngine {
-  fourier?(qz: number[], reflectivity: number[]): { depths: Float64Array; magnitudes: Float64Array }
+  fourier?: FourierCalculator
   convolveFastQz?(qz: number[], values: Float64Array, width: number): Float64Array
   gaussLorentzianImag?(energy: number, center: number, area: number, width: number, mixingPercent: number): number
   gaussLorentzianReal?(energy: number, center: number, area: number, width: number, mixingPercent: number): number
