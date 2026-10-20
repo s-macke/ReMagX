@@ -1,3 +1,4 @@
+import { checkVariableEnergy } from './variable_energy_checks.mjs'
 import { checkSegmentedOptics, sampleSegmentedOptics } from './segmented_optics_checks.mjs'
 import { calculateAdaptiveSegments, calculateSegmentedOptics } from '../wasm/segmentation.mjs'
 import { checkAdaptiveSegments, sampleAdaptiveSegments } from './adaptive_segments_checks.mjs'
@@ -21,6 +22,9 @@ import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzia
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
 const input = JSON.parse(readFileSync(0, 'utf8'))
+checkVariableEnergy(module, calculateParrattEnergyScan, input.scans)
+checkVariableEnergy(module, calculateZakEnergyScan, input.zak)
+checkVariableEnergy(module, calculateVisnovskyEnergyScan, input.matrices)
 const fourierCount = checkFourier(module, calculateFourier, input.fourier)
 assert.equal(fourierCount, 75658)
 console.log(`WASM/native Fourier: ${fourierCount} values, validation, growth and cleanup passed.`)
@@ -92,7 +96,7 @@ for (const item of input.scans) {
     scanValues++
   })
 }
-assert.equal(scanValues, 1584)
+assert.equal(scanValues, 1728)
 const scanPrepared = input.scans[1]
 const scanBefore = calculateParrattEnergyScan(module, scanPrepared)
 for (const change of [{ stacks: [] }, { stacks: new Array(3) }, { enabled: [1, 2, 1] }, { energy: [] }, { angularWidth: -1 }]) {
@@ -168,7 +172,7 @@ for (const [caseIndex, prepared] of input.zak.entries()) {
     zakCount++
   })
 }
-assert.equal(zakCount, 15552)
+assert.equal(zakCount, 15696)
 const zakSingle = input.zak[0]
 const zakQz = input.zak.find(item => item.kind === 'qz' && item.mode === 1 && item.resolution?.width > 1e-10)
 const zakEnergy = input.zak.find(item => item.kind === 'energy' && item.mode === 1 && item.energyWidth > 1e-10)
@@ -189,7 +193,7 @@ assert.equal(calculateZakQz(module, { ...zakQz, mode: 0, beam2: null })[1], 0)
 for (const change of [{ stacks: new Array(4) }, { enabled: [1, 1, 1, 2] }, { energy: [640] }, { energyWidth: -1 }, { angularWidth: NaN }])
   assert.throws(() => calculateZakEnergyScan(module, { ...zakEnergy, ...change }), TypeError)
 const unequalZakStacks = structuredClone(zakEnergy)
-unequalZakStacks.stacks[1].pop()
+unequalZakStacks.stacks[1] = unequalZakStacks.stacks[1].slice(0, 1)
 assert.throws(() => calculateZakEnergyScan(module, unequalZakStacks), TypeError)
 assert.throws(() => calculateZakEnergyScan(module, { ...zakEnergy, qz: [0, 0, 0, 1e10] }), { status: 4 })
 assert.deepEqual(Array.from(calculateZakEnergyScan(module, { ...zakEnergy, mode: 0, beam2: null,
@@ -208,7 +212,7 @@ for (const [caseIndex, prepared] of input.matrices.entries()) {
     matrixCount++
   })
 }
-assert.equal(matrixCount, 18144)
+assert.equal(matrixCount, 18288)
 assert.equal(asymmetryCount, 2400)
 console.log(`WASM/native derived matrix asymmetry: ${asymmetryCount} values matched.`)
 const matrixPrepared = input.matrices[0]
@@ -238,7 +242,7 @@ for (const change of [{ stacks: new Array(4) }, { stacks: [] }, { energy: [0, 1,
   assert.throws(() => calculateVisnovskyEnergyScan(module, { ...matrixEnergyPrepared, ...change }), TypeError)
 }
 const shortStack = structuredClone(matrixEnergyPrepared)
-shortStack.stacks[1].pop()
+shortStack.stacks[1] = shortStack.stacks[1].slice(0, 1)
 assert.throws(() => calculateVisnovskyEnergyScan(module, shortStack), TypeError)
 assert.throws(() => calculateVisnovskyEnergyScan(module, { ...matrixEnergyPrepared, qz: [0, 0, 0, 1e10] }), { status: 4 })
 assert.deepEqual(Array.from(calculateVisnovskyEnergyScan(module, { ...matrixEnergyPrepared,

@@ -1,3 +1,4 @@
+import { checkVariableEnergy } from './variable_energy_checks.mjs'
 import { checkSegmentedOptics, sampleSegmentedOptics } from './segmented_optics_checks.mjs'
 import { calculateAdaptiveSegments, calculateSegmentedOptics } from './segmentation.mjs'
 import { checkAdaptiveSegments, sampleAdaptiveSegments } from './adaptive_segments_checks.mjs'
@@ -37,6 +38,9 @@ self.onmessage = ({ data }) => {
       checkSegmentedOptics(core, calculateSegmentedOptics, calculateAdaptiveSegments)
       checkAdaptiveSegments(core, calculateAdaptiveSegments)
       checkLayerDensity(core, calculateLayerDensity)
+      if (data.scans) checkVariableEnergy(core, calculateParrattEnergyScan, data.scans)
+      if (data.zak) checkVariableEnergy(core, calculateZakEnergyScan, data.zak)
+      if (data.matrices) checkVariableEnergy(core, calculateVisnovskyEnergyScan, data.matrices)
       checkElementDensity(core, calculateElementDensity)
       checkSpline(core, calculateSplineProfile)
       checkMagneticApplication(core, applyMagneticProfiles)

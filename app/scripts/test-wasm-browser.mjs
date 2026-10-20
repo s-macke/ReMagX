@@ -11,6 +11,7 @@ const modulePath = resolve(process.argv[2])
 const input = JSON.parse(readFileSync(0, 'utf8'))
 const cases = [...input.angular, ...input.qz.map(prepared => ({ ...prepared, kind: 'qz' }))]
 const assets = new Map([
+  ['/variable_energy_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/variable_energy_checks.mjs'))]],
   ['/segmented_optics_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/segmented_optics_checks.mjs'))]],
   ['/segmentation.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/wasm/segmentation.mjs'))]],
   ['/adaptive_segments_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/adaptive_segments_checks.mjs'))]],
@@ -126,7 +127,7 @@ try {
       matrixCount++
     })
   })
-  assert.equal(matrixCount, 18144)
+  assert.equal(matrixCount, 18288)
   assert.equal(asymmetryCount, 2400)
   console.log(`Chromium derived matrix asymmetry: ${asymmetryCount} values matched.`)
   console.log(`Chromium Visnovsky: ${matrixCount} intensities matched native.`)
@@ -140,7 +141,7 @@ try {
       zakCount++
     })
   })
-  assert.equal(zakCount, 15552)
+  assert.equal(zakCount, 15696)
   console.log(`Chromium Zak: ${zakCount} intensities matched native.`)
   assert.equal(result.lineShapeResults.length, 1218)
   input.lineShapes.forEach((item, index) => assert.ok(Math.abs(result.lineShapeResults[index] - item.expected) <= 1e-15 + 1e-10 * Math.abs(item.expected)))
@@ -173,7 +174,7 @@ try {
     assert.ok(Math.abs(value - item.expected[point]) <= 1e-15 + 1e-10 * Math.abs(item.expected[point]))
     scanCount++
   }))
-  assert.equal(scanCount, 1584)
+  assert.equal(scanCount, 1728)
   console.log(`Chromium prepared energy scans: ${scanCount} intensities matched native.`)
   let energyCount = 0
   input.energy.forEach((item, index) => result.energyResults[index].forEach((value, point) => {

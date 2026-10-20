@@ -23,14 +23,14 @@ tensor = library.remagx_dielectric_tensor
 tensor.argtypes = [P(Layer), I, I, P(D), P(I)]
 
 
-def run(algorithm, mode, analyzer, angular, invalid=None):
+def run(algorithm, mode, analyzer, angular, invalid=None, variable=False, invalid_counts=None, late_error=False):
     matrix = algorithm == 'visnovsky'
     layer_type = MatrixLayer if matrix else Layer
-    scan = getattr(library, f'remagx_{algorithm}_energy_scan_points')
+    scan = getattr(library, f'remagx_{algorithm}_energy_scan_' + ('stacks' if variable else 'points'))
     point = getattr(library, f'remagx_{algorithm}_qz_resolution')
     common = [P(layer_type), N, P(D), P(D), P(I), N]
     tail = [D, P(Beam), P(Beam), I, I] if matrix else [I, P(Beam), P(Beam), I, I] if algorithm == 'zak' else [P(Beam), P(Beam), I, I, I, I]
-    scan.argtypes = common + tail + [D, D, P(Settings), P(Result)]
+    scan.argtypes = (common[:2] + [P(N)] + common[2:] if variable else common) + tail + [D, D, P(Settings), P(Result)]
     point.argtypes = [P(layer_type), N, P(D), N, D] + tail + [D, I, P(Result)]
     energies, coordinates = [640., 643., 641., 648.], [.02, .03, .04, .06]
     mask = [1, analyzer % 2, 1, 1]
@@ -40,6 +40,7 @@ def run(algorithm, mode, analyzer, angular, invalid=None):
         scalar = [[0, 1, .01, .002, .001, .0001, 30, 60],
                   [35, 1, .006 + index * .0001, .001, .0004, .00004, 45, 70],
                   [0, 0, 0, 0, 0, 0, 90, 90]]
+        if variable: scalar = [scalar[0], *([scalar[1]] * index), scalar[-1]]
         stack, packed = [], []
         for row in scalar:
             if matrix:
@@ -53,14 +54,16 @@ def run(algorithm, mode, analyzer, angular, invalid=None):
                 packed.append(row)
         stacks.append(stack)
         packed_stacks.append(packed)
-    source = (layer_type * 12)(*(item for stack in stacks for item in stack))
+    counts = [len(stack) for stack in stacks]
+    total = sum(counts)
+    source = (layer_type * total)(*(item for stack in stacks for item in stack))
     energy, qz, enabled = (D * 4)(*energies), (D * 4)(*coordinates), (I * 4)(*mask)
     first, second = Beam((D * 4)(1, .2, .3, -.1)), Beam((D * 4)(.2, -.3, .4, .1))
     raw, expected = (Result * 4)(*(Result(1, mode) for _ in range(4))), (Result * 4)()
     for index in range(4):
         if not mask[index]: continue
         extra = [settings[index][2], c.byref(first), c.byref(second), analyzer, mode] if matrix else [1, c.byref(first), c.byref(second), analyzer, mode] if algorithm == 'zak' else [c.byref(first), c.byref(second), 0, analyzer, 1, mode]
-        assert point((layer_type * 3)(*stacks[index]), 3, c.byref(D(qz[index])), 1, settings[index][0],
+        assert point((layer_type * counts[index])(*stacks[index]), counts[index], c.byref(D(qz[index])), 1, settings[index][0],
                      *extra, settings[index][1], 0, c.byref(raw[index])) == 0
     assert convolve(energy, raw, 4, .5, expected) == 0
     configured = (Settings * 4)(*(Settings(*row) for row in settings))
@@ -69,11 +72,17 @@ def run(algorithm, mode, analyzer, angular, invalid=None):
     extra = [1e-8, c.byref(first), c.byref(second), analyzer, mode] if matrix else [1, c.byref(first), c.byref(second), analyzer, mode] if algorithm == 'zak' else [c.byref(first), c.byref(second), 0, analyzer, 1, mode]
     actual = (Result * 4)(*(Result(-123, -456) for _ in range(4)))
     before = bytes(actual)
+    descriptor = (N * 4)(*counts)
+    if invalid_counts is not None and invalid_counts != 'null': descriptor[3] = invalid_counts
+    if late_error: qz[3] = 1e4
     inputs = [bytes(item) for item in (source, energy, qz, enabled, configured)]
-    status = scan(source, 3, energy, qz, enabled, 4, *extra, 0, .5, configured, actual)
+    status = scan(source, *([total, None if invalid_counts == 'null' else descriptor] if variable else [3]), energy, qz, enabled, 4, *extra, 0, .5, configured, actual)
     assert inputs == [bytes(item) for item in (source, energy, qz, enabled, configured)]
-    if invalid:
+    if invalid or invalid_counts is not None:
         assert status == 1 and bytes(actual) == before
+        return
+    if late_error:
+        assert status != 0 and bytes(actual) == before
         return
     assert status == 0 and bytes(actual) == bytes(expected)
     return dict(kind='energy', stacks=packed_stacks, energy=energies, qz=coordinates, enabled=mask,
@@ -83,7 +92,7 @@ def run(algorithm, mode, analyzer, angular, invalid=None):
 
 
 def payload():
-    return {key: [run(algorithm, mode, analyzer, width) for mode in [0, 1]
+    return {key: [run(algorithm, mode, analyzer, width, variable=variable) for variable in [False, True] for mode in [0, 1]
                   for analyzer in [0, 1, 2] for width in [0, .001, .01]]
             for key, algorithm in [('scans', 'parratt'), ('matrices', 'visnovsky'), ('zak', 'zak')]}
 
@@ -91,12 +100,19 @@ def payload():
 class EnergyPointSettingsTest(unittest.TestCase):
     def test_independent_points_and_measured_grid_convolution(self):
         cases = payload()
-        self.assertEqual(sum(len(items) for items in cases.values()), 54)
+        self.assertEqual(sum(len(items) for items in cases.values()), 108)
+
+    def test_variable_count_validation_and_late_numerical_errors(self):
+        for algorithm in ['parratt', 'visnovsky', 'zak']:
+            for count in [0, 1, 4, 6, 100, N(-1).value, 'null']:
+                run(algorithm, 1, 0, .001, variable=True, invalid_counts=count)
+            run(algorithm, 1, 0, .001, variable=True, late_error=True)
 
     def test_invalid_late_settings_leave_output_untouched(self):
         for algorithm in ['parratt', 'visnovsky', 'zak']:
             for invalid in [('energy', 0), ('energy', math.inf), ('width', -1), ('width', math.nan), ('epsilon', math.inf)]:
                 run(algorithm, 1, 0, .001, invalid)
+                run(algorithm, 1, 0, .001, invalid, variable=True)
 
 
 if __name__ == '__main__':

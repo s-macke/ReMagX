@@ -108,6 +108,15 @@ int remagx_parratt_energy_scan_points(const RemagxLayer* layers, size_t layer_co
                       int tensor, int analyzer, int magnetization_enabled, int scan_mode,
                       double angular_width, double energy_width, const RemagxEnergyPoint* settings,
                       RemagxReflectivity* output);
+// Variable-size stacks concatenated in point order. layer_counts has point_count
+// entries, each >=2, summing exactly to total_layer_count; it must not be NULL.
+// Disabled stack contents are skipped, but their counts still advance storage.
+int remagx_parratt_energy_scan_stacks(const RemagxLayer* layers, size_t total_layer_count, const size_t* layer_counts,
+                      const double* energies, const double* qz, const int* enabled, size_t point_count,
+                      const RemagxBeam* beam1, const RemagxBeam* beam2,
+                      int tensor, int analyzer, int magnetization_enabled, int scan_mode,
+                      double angular_width, double energy_width, const RemagxEnergyPoint* settings,
+                      RemagxReflectivity* output);
 // Scalar FillEpsilonTensor construction, with 18 row-major real/imag doubles.
 // Uses delta/beta, magnetic constants and per-layer angles; ignores thickness and
 // roughness. anisotropic receives 0 for nonmagnetic isotropic input, otherwise 1
@@ -226,6 +235,14 @@ int remagx_zak_energy_scan_points(const RemagxLayer* layers, size_t layer_count,
                   int magnetic_enabled, const RemagxBeam* beam1, const RemagxBeam* beam2,
                   int analyzer, int scan_mode, double angular_width, double energy_width,
                   const RemagxEnergyPoint* settings, RemagxReflectivity* output);
+// Variable-size stacks concatenated in point order. layer_counts has point_count
+// entries, each >=2, summing exactly to total_layer_count; it must not be NULL.
+// Disabled stack contents are skipped, but their counts still advance storage.
+int remagx_zak_energy_scan_stacks(const RemagxLayer* layers, size_t total_layer_count, const size_t* layer_counts,
+                  const double* energies, const double* qz, const int* enabled, size_t point_count,
+                  int magnetic_enabled, const RemagxBeam* beam1, const RemagxBeam* beam2,
+                  int analyzer, int scan_mode, double angular_width, double energy_width,
+                  const RemagxEnergyPoint* settings, RemagxReflectivity* output);
 // Prepared substrate-first matrix stack, including ambient as the last layer.
 // Tensor entries are packed row-major complex real/imag; anisotropic is 0/1.
 // Scalars supply the isotropic index directly. Tensors are already constructed
@@ -273,6 +290,14 @@ int remagx_visnovsky_energy_scan(const RemagxMatrixLayer* layers, size_t layer_c
                        int analyzer, int scan_mode, double angular_width, double energy_width,
                        RemagxReflectivity* output);
 int remagx_visnovsky_energy_scan_points(const RemagxMatrixLayer* layers, size_t layer_count,
+                       const double* energies, const double* qz, const int* enabled, size_t point_count,
+                       double epsilon, const RemagxBeam* beam1, const RemagxBeam* beam2,
+                       int analyzer, int scan_mode, double angular_width, double energy_width,
+                       const RemagxEnergyPoint* settings, RemagxReflectivity* output);
+// Variable-size stacks concatenated in point order. layer_counts has point_count
+// entries, each >=2, summing exactly to total_layer_count; it must not be NULL.
+// Disabled stack contents are skipped, but their counts still advance storage.
+int remagx_visnovsky_energy_scan_stacks(const RemagxMatrixLayer* layers, size_t total_layer_count, const size_t* layer_counts,
                        const double* energies, const double* qz, const int* enabled, size_t point_count,
                        double epsilon, const RemagxBeam* beam1, const RemagxBeam* beam2,
                        int analyzer, int scan_mode, double angular_width, double energy_width,
