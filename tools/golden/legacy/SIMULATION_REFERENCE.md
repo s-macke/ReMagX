@@ -277,3 +277,35 @@ It also verifies that ordinary output still rejects these combinations. Run with
 ```sh
 LEGACY_ROOT=old/reMagX3 python3 -m unittest discover -s tools/golden/legacy -p test_simulation_reference.py
 ```
+
+
+## Private segmented-project worker comparison
+
+With the native reference prerequisites, built WASM and Chromium installed, run:
+
+```sh
+node app/scripts/diagnose-private-corpus.mjs
+```
+
+`LEGACY_ROOT` defaults to `old/reMagX3`; `WASM_DIRECTORY` defaults to `build/wasm`.
+The runner builds the hash-gated original reference, copies the private tree to a
+disposable directory, and compares unchanged imported projects with same-directory
+optical tables through Chromium and the real ComputeService. A test-only worker
+receives 1001 original error-function samples in memory. No samples or private
+project/curve data are committed or included in the public browser bundle. The
+production worker remains unconfigured pending the lookup precision decision.
+
+The 2026-10-20 local run matched 78 of 99 projects across 66,390 points (132,780
+coordinate/intensity values), including all 16 segmented projects that completed
+comparison. First worker failures were 16 element/scattering, one table and four
+script errors. Maximum absolute difference across compared values was
+3.6012859361278515e-14; maximum positive-pair log10 difference was
+8.972023124442785e-11. D-23 remains the acceptance test; the logarithmic metric is
+supplementary. The runner exits nonzero unless every project matches, and this
+run reported `acceptancePassed=false`.
+
+Only numeric project IDs, categories and aggregate metrics are printed. IDs follow
+sorted local paths and are stable only for an unchanged tree. Raw reference/browser
+errors and paths are withheld. This diagnostic covers qz reflectivity with an
+explicit original lookup, not production lookup generation, energy/asymmetry/fit
+acceptance or the complete engine. Earlier 62-curve evidence remains historical.

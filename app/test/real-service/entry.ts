@@ -1,3 +1,4 @@
+import { parseOpticalTable } from '../../src/import/tables'
 import { WorkerComputeService, type WorkerPort } from '../../src/compute/WorkerComputeService'
 import type { OpticalTable } from '../../src/import/tables'
 import { applyDatabaseValues } from '../../src/model/databaseValues'
@@ -12,4 +13,12 @@ import { createDefaultProject, createLayer } from '../../src/model/defaults'
 import { createRealComputeService } from '../../src/compute/realComputeService'
 const createSegmentedComputeService = (getTables: () => OpticalTable[] = () => []) => new WorkerComputeService(
   () => new Worker(new URL('./segmentedWorker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerPort, getTables, true)
-Object.assign(window, { realServiceHarness: { createSegmentedComputeService, applyDatabaseValues, projectSchema, renderFourierPlot, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } })
+const createReferenceComputeService = (samples: readonly number[]) => {
+  const lookup = Array.from(samples)
+  return new WorkerComputeService(() => {
+    const worker = new Worker(new URL('./referenceWorker.ts', import.meta.url), { type: 'module' })
+    worker.postMessage({ kind: 'referenceLookup', samples: lookup })
+    return worker as unknown as WorkerPort
+  }, undefined, true)
+}
+Object.assign(window, { realServiceHarness: { createReferenceComputeService, parseOpticalTable, createSegmentedComputeService, applyDatabaseValues, projectSchema, renderFourierPlot, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } })
