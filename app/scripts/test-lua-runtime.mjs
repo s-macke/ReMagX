@@ -12,6 +12,7 @@ await mkdir(resolve(outDir, 'assets'), { recursive: true })
 const coreDirectory = fileURLToPath(new URL('../../build/wasm/', import.meta.url))
 for (const name of ['remagx-core.mjs', 'remagx-core.wasm']) await copyFile(resolve(coreDirectory, name), resolve(outDir, 'assets', name))
 await copyFile(fileURLToPath(new URL('../../engine/wasm/parratt.mjs', import.meta.url)), resolve(outDir, 'assets/parratt.mjs'))
+await copyFile(fileURLToPath(new URL('../../engine/wasm/segmentation.mjs', import.meta.url)), resolve(outDir, 'assets/segmentation.mjs'))
 const server = await preview({ root, configFile: false, build: { outDir }, preview: { host: '127.0.0.1', port: 0 } })
 let browser
 try {
@@ -40,6 +41,7 @@ try {
   assert.equal(result.nestedPassed, true)
   assert.equal(result.childrenPassed, true)
   assert.equal(result.preparedReflectionPassed, true)
+  assert.equal(result.preparedSegmentationPassed, true)
   assert.match(result.diagnostic, /BeforeCalculation:3:.*KramersKronigRange: not supported yet/)
   assert.deepEqual(errors, [])
   assert.ok(requests.some(url => url.endsWith('.wasm')), 'Worker must load the local WASM asset')

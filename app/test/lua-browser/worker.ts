@@ -1,3 +1,5 @@
+import { prepareSegmentedLayers } from '../../src/model/segmentedLayers'
+import type { PreparedCompoundLayer } from '../../src/model/compoundLayers'
 import { refreshElementOptics } from '../../src/model/refreshElementOptics'
 import { createElementDensitySampler } from '../../src/model/elementDensity'
 import { prepareElementLayers } from '../../src/model/elementLayers'
@@ -50,6 +52,36 @@ async function run() {
       zakEnergy: request => adapter.calculateZakEnergyScan(instance, request),
       lookup: (table, energy, cursor) => adapter.lookupTable(instance, table, energy, cursor),
     }
+    const segmentationUrl = new URL('./segmentation.mjs', self.location.href).href
+    const segmentation = await import(/* @vite-ignore */ segmentationUrl)
+    const segmentationLayers: PreparedCompoundLayer[] = [[999, 11, 1, 2, 3, 4, 12, 34],
+      [7, 12, 1, 2, 3, 4, 56, 78], [999, 100, 1, 2, 3, 4, 0, 0]]
+    const segmentationBefore = JSON.stringify(segmentationLayers)
+    for (const scope of ['global', 'local'] as const) for (const matrix of [false, true]) {
+      const generated = prepareSegmentedLayers(segmentationLayers,
+        { ...createDefaultProject().calculation.segmentation, scope, minThickness: 10, maxThickness: 10 },
+        Array(1001).fill(0), {
+          sample: request => segmentation.calculateSegmentedOptics(instance, request),
+          subdivide: request => segmentation.calculateAdaptiveSegments(instance, request),
+        }, matrix ? segmentationLayers.map((_, index) => ({ values: new Float64Array(18).fill(2), anisotropic: index === 1 })) : undefined)
+      if (generated.layers.length !== 8 || JSON.stringify(generated.positions) !== '[-28,-18,-8,2,12,22,32,42]') {
+        throw new Error('Prepared segmentation depth geometry failed')
+      }
+      generated.layers.forEach((layer, index) => {
+        const expected = [index ? 10 : 0, 0, 1, 2, 3, 4, 90, 90]
+        if (layer.some((value, component) => Math.abs(value - expected[component]) > 1e-15 + 1e-10 * Math.abs(expected[component]))) {
+          throw new Error('Prepared segmentation scalar metadata failed')
+        }
+        const tensor = generated.dielectricTensors[index]
+        if (!matrix) { if (tensor !== null) throw new Error('Unexpected scalar segmentation tensor'); return }
+        const expectedTensor = scope === 'local' && index > 0 ? 2 * (8 + index) : 2
+        if (!tensor || tensor.anisotropic !== (index > 0 && index < 7) ||
+            tensor.values.some(value => Math.abs(value - expectedTensor) > 1e-15 + 1e-10 * Math.abs(expectedTensor))) {
+          throw new Error('Prepared segmentation tensor state/classification failed')
+        }
+      })
+    }
+    const preparedSegmentationPassed = JSON.stringify(segmentationLayers) === segmentationBefore
     let preparedReflectionPassed = true
     for (const algorithm of ['parratt', 'zak', 'matrix'] as const) {
       const project = createDefaultProject()
@@ -231,7 +263,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }
