@@ -27,12 +27,19 @@ it.skipIf(!process.env.LEGACY_ROOT || !process.env.WASM_MODULE)('matches origina
   const depth = layerSource.match(/template<class T>\s*inline void ztod\(CVector<Schicht<T> > &mfs\)\s*\{[^}]+\}/)?.[0]
   if (!depth) throw new Error('Original depth conversion missing')
   expect(hash(depth)).toBe('9e328f1166cfa3e7e42573755c55eb0edc9145f9b2b9e75db758f3137b7aa218')
+  const profileSource = readFileSync(join(root, 'CGaussFunc.h'), 'latin1').replace(/\r\n?/g, '\n')
+  expect(hash(profileSource)).toBe('602ae8b0a3766fd5f36eff64734fd66f032289007d174ada841c0171a7e28bbf')
+  const helper = readFileSync(join(root, 'RechenHilfe.h'), 'latin1').replace(/\r\n?/g, '\n')
+  const densityStart = helper.lastIndexOf('template<class T>', helper.indexOf('T GetDensity(CVector<Schicht<T> >'))
+  const application = helper.slice(densityStart, helper.indexOf('// --------------------------------------------------------------------', helper.indexOf('void CalcMagProfile(', densityStart)))
+  expect(hash(application)).toBe('038e11fe5fd1f11418b221dd610b81fbdbb40f14adadb0072200940193468216')
   const scaffold = `#include <cmath>
 #include <vector>
 #include <complex>
 #include <iostream>
 #include <iomanip>
 using namespace std;
+class CDataSet;
 const int ISOTROPIC=0,ANISOTROPIC=1;
 template<class T>struct CVector:vector<T>{using vector<T>::vector;using Iterator=typename vector<T>::iterator;void clear_but_dont_destroy(){this->clear();}void Reserve(int n){this->reserve(n);}};
 template<class T>struct CMATRIX{complex<T>a[4][4]{};};
@@ -43,18 +50,29 @@ ${constructor}
 void nrerror(const char*){}
 `
   const main = `int main(){erffinit();cout<<setprecision(17);for(double value:table)cout<<value<<' ';cout<<'\\n';
-int count,model,matrix;double minimum,maximum,scale;while(cin>>count>>model>>matrix>>minimum>>maximum>>scale){
+int count,model,matrix,profileCount,additive;double minimum,maximum,scale;while(cin>>count>>model>>matrix>>minimum>>maximum>>scale>>profileCount>>additive){
 CVector<Schicht<double>> layers(count),output;
 for(auto& row:layers){cin>>row.d>>row.sigma>>row.oc.delta>>row.oc.beta>>row.oc.deltam>>row.oc.betam>>row.maggamma>>row.magphi>>row.oc.epsilontype;
 for(int i=0;i<3;++i)for(int j=0;j<3;++j){double re,im;cin>>re>>im;row.oc.epsilon.a[i][j]={re,im};}}
-LayerSegmentation2(layers,matrix,model,minimum,maximum,scale,output);cout<<output.size();
+for(int i=1;i<count;++i)layers[i].z=layers[i-1].z+layers[i].d;
+CVector<CGaussFunc> profiles(profileCount);
+for(auto& profile:profiles){int knots;cin>>profile.z>>profile.Var>>profile.delta>>profile.beta>>profile.bindtolayer>>knots;profile.usespline=knots>=0;
+for(int i=0;i<knots;++i){double x,y;cin>>x>>y;profile.sf.Add(x,y);}}
+if(profileCount){CSlicing slicing{1,model,minimum,maximum,scale};output=layers;CalcMagProfile(output,profiles,matrix,2,slicing,additive);}
+else LayerSegmentation2(layers,matrix,model,minimum,maximum,scale,output);cout<<output.size();
 for(auto& row:output){cout<<' '<<row.z<<' '<<row.d<<' '<<row.sigma<<' '<<row.oc.delta<<' '<<row.oc.beta<<' '<<row.oc.deltam<<' '<<row.oc.betam<<' '<<row.maggamma<<' '<<row.magphi;
 if(matrix){cout<<' '<<row.oc.epsilontype;for(int i=0;i<3;++i)for(int j=0;j<3;++j)cout<<' '<<row.oc.epsilon.a[i][j].real()<<' '<<row.oc.epsilon.a[i][j].imag();}}
 cout<<'\\n';}}
 `
-  const cases = Array.from({ length: 24 }, (_, index) => {
+  const cases = Array.from({ length: 48 }, (_, index) => {
     const count = 3 + index % 3
     return {
+      additive: Math.floor(index / 4) % 2 === 0,
+      profiles: index < 24 ? [] : [null, 0, 1, count - 1].map((boundToLayer, profileIndex) => ({
+        center: 2, width: 7 + profileIndex, deltaAmplitude: (profileIndex + 1) * 1e-5, betaAmplitude: -(profileIndex + 1) * 2e-5,
+        boundToLayer, amplitudeCoupledTo: null, widthCoupledTo: null,
+        spline: { enabled: profileIndex === 1, points: [-1000, -900, 900, 1000].map((z, knot) => ({ z, value: [.2, .8, .4, .9][knot] })) },
+      })),
       matrix: index % 2 === 0,
       settings: { scope: index % 4 < 2 ? 'global' : 'local', minThickness: [.4, 1, 2][index % 3],
         maxThickness: [3, 5, 7][index % 3], gradientScale: [.1, 1, 0][index % 3], tolerance: 1e-6 },
@@ -65,12 +83,16 @@ cout<<'\\n';}}
     }
   })
   const payload = cases.map(item => [item.layers.length, item.settings.scope === 'global' ? 1 : 2, Number(item.matrix),
-    item.settings.minThickness, item.settings.maxThickness, item.settings.gradientScale,
-    ...item.layers.flatMap((layer, index) => [...layer, Number(item.anisotropic[index]), ...item.tensors[index]])].join(' ')).join('\n') + '\n'
+    item.settings.minThickness, item.settings.maxThickness, item.settings.gradientScale, item.profiles.length, Number(item.additive),
+    ...item.layers.flatMap((layer, index) => [...layer, Number(item.anisotropic[index]), ...item.tensors[index]]),
+    ...item.profiles.flatMap(profile => [profile.center, profile.width, profile.deltaAmplitude, profile.betaAmplitude,
+      profile.boundToLayer ?? -1, profile.spline.enabled ? profile.spline.points.length : -1,
+      ...(profile.spline.enabled ? profile.spline.points.flatMap(point => [point.z, point.value]) : [])])].join(' ')).join('\n') + '\n'
   const directory = mkdtempSync(join(tmpdir(), 'remagx-segmentation-reference-'))
   try {
     const path = join(directory, 'reference.cpp'), binary = join(directory, 'reference')
-    writeFileSync(path, scaffold + lookup + depth + samplers + subdivision + main)
+    writeFileSync(path, scaffold + profileSource.replace('#include"CVector.h"', '').replaceAll('LinInterpolation', 'ProfileLinInterpolation') + lookup + depth + samplers + subdivision +
+      'struct CSlicing{int layersegmentationmode,segmentationmodel;double minlayerthickness,maxlayerthickness,gradientscale;};\n' + application + main)
     const build = spawnSync('g++', ['-std=c++17', '-O2', '-fno-fast-math', '-ffp-contract=off', path, '-o', binary], { encoding: 'utf8', timeout: 30000 })
     if (build.status !== 0) throw new Error('Private segmentation reference compilation failed; diagnostics withheld')
     const run = spawnSync(binary, [], { input: payload, encoding: 'utf8', timeout: 30000, maxBuffer: 32 * 1024 * 1024 })

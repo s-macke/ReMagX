@@ -2,6 +2,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { applySegmentedMagneticProfiles } from '../src/model/segmentedMagneticProfiles.ts'
+import { calculateLayerDensity, applyMagneticProfiles } from '../../engine/wasm/parratt.mjs'
 import { prepareSegmentedLayers } from '../src/model/segmentedLayers.ts'
 import { calculateAdaptiveSegments, calculateSegmentedOptics } from '../../engine/wasm/segmentation.mjs'
 
@@ -16,6 +18,15 @@ for (const [index, item] of payload.cases.entries()) {
     sample: request => calculateSegmentedOptics(core, request),
     subdivide: request => calculateAdaptiveSegments(core, request),
   }, tensors, 10000)
+  if (item.profiles.length) {
+    let depth = 0
+    const boundaries = item.layers.map((layer, index) => { if (index) depth += layer[0]; return depth })
+    generated.layers = applySegmentedMagneticProfiles(generated.layers, generated.positions, boundaries,
+      item.layers.map(layer => layer[1]), item.profiles, item.additive, payload.samples, {
+        density: request => calculateLayerDensity(core, request),
+        apply: request => applyMagneticProfiles(core, request),
+      })
+  }
   if (before !== JSON.stringify(item)) throw new Error(`Segmentation case ${index}: input changed`)
   const actual = generated.layers.flatMap((layer, row) => [generated.positions[row], ...layer,
     ...(item.matrix ? [Number(generated.dielectricTensors[row].anisotropic), ...generated.dielectricTensors[row].values] : [])])
