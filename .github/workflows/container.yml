@@ -17,6 +17,9 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - name: Build and export with the pinned toolchain
@@ -36,11 +39,18 @@ jobs:
           exit 1
       - name: Check exported artifacts
         run: |
-          test -s build/container/site/index.html
-          test -s build/container/native/libremagx_core.so
-          test -s build/container/wasm/remagx-core.wasm
-          test -s build/container/wasm/remagx-core.mjs
-          test -s build/container/toolchain.json
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          root = Path("build/container")
+          required = ["site/index.html", "native/libremagx_core.so",
+                      "wasm/remagx-core.wasm", "wasm/remagx-core.mjs", "toolchain.json"]
+          missing = [name for name in required if not (root / name).is_file() or not (root / name).stat().st_size]
+          if missing:
+              inventory = [str(path.relative_to(root)) for path in root.rglob("*")][:100]
+              print("::error title=Container artifact layout::Missing " + ", ".join(missing)
+                    + "; exported paths: " + ", ".join(inventory))
+              raise SystemExit(1)
+          PYTHON
       - uses: actions/upload-artifact@v4
         with:
           name: container-build
