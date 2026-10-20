@@ -19,8 +19,7 @@ for (const [index, item] of payload.cases.entries()) {
     subdivide: request => calculateAdaptiveSegments(core, request),
   }, tensors, 10000)
   if (item.profiles.length) {
-    let depth = 0
-    const boundaries = item.layers.map((layer, index) => { if (index) depth += layer[0]; return depth })
+    const boundaries = item.depths
     generated.layers = applySegmentedMagneticProfiles(generated.layers, generated.positions, boundaries,
       item.layers.map(layer => layer[1]), item.profiles, item.additive, payload.samples, {
         density: request => calculateLayerDensity(core, request),

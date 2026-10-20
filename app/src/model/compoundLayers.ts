@@ -63,6 +63,12 @@ export function prepareCompoundLayers(project: Project): PreparedCompoundLayer[]
   // Original CalcMagProfile returns before applying any profile when slicing is off.
   // Profile mode therefore retains stored magnetic constants with Nevot–Croce.
   if (project.calculation.roughnessModel !== 'nevot-croce') throw new Error('Adaptive segmentation is not implemented in real-engine preparation yet.')
+  return packCompoundLayers(project)
+}
+
+// FillLayers packing before optional slicing. The caller owns subsequent preparation.
+export function packCompoundLayers(project: Project): PreparedCompoundLayer[] {
+  if (project.sample.mode !== 'compound') throw new Error('Compound packing requires compound mode.')
   const layers = project.sample.layers
   const indices = prepareCompoundLayerIndices(project)
   return indices.map(index => {

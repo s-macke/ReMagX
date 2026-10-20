@@ -1,3 +1,4 @@
+import { prepareSegmentedCompoundStack } from '../../src/model/segmentedCompoundStack'
 import { applySegmentedMagneticProfiles, type MagneticProfileEngine } from '../../src/model/segmentedMagneticProfiles'
 import { prepareSegmentedLayers } from '../../src/model/segmentedLayers'
 import type { PreparedCompoundLayer } from '../../src/model/compoundLayers'
@@ -95,6 +96,25 @@ async function run() {
       for (const additive of [true, false]) {
         const applied = applySegmentedMagneticProfiles(generated.layers, generated.positions,
           [0, 7, 7], segmentationLayers.map(layer => layer[1]), profiles, additive, Array(1001).fill(0), profileEngine)
+        const stackProject = createDefaultProject()
+        stackProject.sample.layers = segmentationLayers.map(row => createLayer({ thickness: row[0], roughness: row[1],
+          delta: row[2], beta: row[3], deltaMag: row[4], betaMag: row[5], magnetization: { gamma: row[6], phi: row[7] } }))
+        stackProject.sample.multilayer.enabled = false
+        stackProject.sample.depthProfileFunctions = profiles
+        stackProject.calculation.algorithm = matrix ? 'matrix' : 'parratt'
+        stackProject.calculation.roughnessModel = 'segmentation'
+        stackProject.calculation.magnetization.mode = 'profile'
+        stackProject.calculation.profileCombination = additive ? 'sum' : 'product'
+        stackProject.calculation.segmentation = { ...stackProject.calculation.segmentation, scope, minThickness: 10, maxThickness: 10 }
+        const combined = prepareSegmentedCompoundStack(stackProject, [0, 7, 7], Array(1001).fill(0), {
+          ...profileEngine,
+          sample: request => segmentation.calculateSegmentedOptics(instance, request),
+          subdivide: request => segmentation.calculateAdaptiveSegments(instance, request),
+        }, matrix ? segmentationLayers.map((_, index) => ({ values: new Float64Array(18).fill(2), anisotropic: index === 1 })) : undefined)
+        if (JSON.stringify(combined.layers) !== JSON.stringify(applied) ||
+            JSON.stringify(combined.dielectricTensors) !== JSON.stringify(generated.dielectricTensors)) {
+          throw new Error('Combined compound stack preparation differs from staged application')
+        }
         applied.forEach((layer, index) => {
           const expected = generated.layers[index].slice()
           if (index > 0) {

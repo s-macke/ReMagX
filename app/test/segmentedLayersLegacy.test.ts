@@ -52,9 +52,8 @@ void nrerror(const char*){}
   const main = `int main(){erffinit();cout<<setprecision(17);for(double value:table)cout<<value<<' ';cout<<'\\n';
 int count,model,matrix,profileCount,additive;double minimum,maximum,scale;while(cin>>count>>model>>matrix>>minimum>>maximum>>scale>>profileCount>>additive){
 CVector<Schicht<double>> layers(count),output;
-for(auto& row:layers){cin>>row.d>>row.sigma>>row.oc.delta>>row.oc.beta>>row.oc.deltam>>row.oc.betam>>row.maggamma>>row.magphi>>row.oc.epsilontype;
+for(auto& row:layers){cin>>row.z>>row.d>>row.sigma>>row.oc.delta>>row.oc.beta>>row.oc.deltam>>row.oc.betam>>row.maggamma>>row.magphi>>row.oc.epsilontype;
 for(int i=0;i<3;++i)for(int j=0;j<3;++j){double re,im;cin>>re>>im;row.oc.epsilon.a[i][j]={re,im};}}
-for(int i=1;i<count;++i)layers[i].z=layers[i-1].z+layers[i].d;
 CVector<CGaussFunc> profiles(profileCount);
 for(auto& profile:profiles){int knots;cin>>profile.z>>profile.Var>>profile.delta>>profile.beta>>profile.bindtolayer>>knots;profile.usespline=knots>=0;
 for(int i=0;i<knots;++i){double x,y;cin>>x>>y;profile.sf.Add(x,y);}}
@@ -67,6 +66,9 @@ cout<<'\\n';}}
   const cases = Array.from({ length: 48 }, (_, index) => {
     const count = 3 + index % 3
     return {
+      depths: Array.from({ length: count }, (_, layer) => index < 24
+        ? Array.from({ length: layer }, (_, offset) => offset + 1 === count - 1 ? 777 : 3 + (index + offset + 1) % 7).reduce((a, b) => a + b, 0)
+        : [0, 7, 7, 3, 11][layer]),
       additive: Math.floor(index / 4) % 2 === 0,
       profiles: index < 24 ? [] : [null, 0, 1, count - 1].map((boundToLayer, profileIndex) => ({
         center: 2, width: 7 + profileIndex, deltaAmplitude: (profileIndex + 1) * 1e-5, betaAmplitude: -(profileIndex + 1) * 2e-5,
@@ -84,7 +86,7 @@ cout<<'\\n';}}
   })
   const payload = cases.map(item => [item.layers.length, item.settings.scope === 'global' ? 1 : 2, Number(item.matrix),
     item.settings.minThickness, item.settings.maxThickness, item.settings.gradientScale, item.profiles.length, Number(item.additive),
-    ...item.layers.flatMap((layer, index) => [...layer, Number(item.anisotropic[index]), ...item.tensors[index]]),
+    ...item.layers.flatMap((layer, index) => [item.depths[index], ...layer, Number(item.anisotropic[index]), ...item.tensors[index]]),
     ...item.profiles.flatMap(profile => [profile.center, profile.width, profile.deltaAmplitude, profile.betaAmplitude,
       profile.boundToLayer ?? -1, profile.spline.enabled ? profile.spline.points.length : -1,
       ...(profile.spline.enabled ? profile.spline.points.flatMap(point => [point.z, point.value]) : [])])].join(' ')).join('\n') + '\n'
