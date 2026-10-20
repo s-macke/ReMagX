@@ -139,11 +139,12 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       }
     } catch (error) {
       const status = (error as { status?: number })?.status
-      const text = status === 4 ? 'Qz exceeds the legacy calculation boundary.'
+      const detail = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
+      const text = status === 4 ? 'Qz exceeds the legacy calculation boundary. Check the qz values and energy; the incident angle cannot exceed 90 degrees.'
         : status === 3 ? 'The real engine could not allocate calculation memory.'
         : status === 2 ? 'The real engine produced a nonfinite numerical result.'
         : status === 1 ? 'The real engine rejected invalid calculation inputs.'
-        : error instanceof Error ? error.message : 'The real engine calculation failed.'
+        : detail.trim() ? detail : 'The real engine calculation failed.'
       send({ id: message.id, type: 'error', message: text })
     }
   }

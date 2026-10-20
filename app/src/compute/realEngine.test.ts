@@ -43,7 +43,7 @@ it('rejects unsupported work before loading, retries failed initialization, and 
   expect(messages).toEqual([
     { id: 1, type: 'error', message: 'The real engine does not support depthProfile yet.' },
     { id: 2, type: 'error', message: 'Module load failed' },
-    { id: 3, type: 'error', message: 'Qz exceeds the legacy calculation boundary.' },
+    { id: 3, type: 'error', message: 'Qz exceeds the legacy calculation boundary. Check the qz values and energy; the incident angle cannot exceed 90 degrees.' },
   ])
 })
 
@@ -133,4 +133,33 @@ it('reports deferred algorithms before loading physics or running scripts across
   }
   expect(load).not.toHaveBeenCalled()
   expect(createLuaSession).not.toHaveBeenCalled()
+})
+
+
+it.each([
+  [Object.assign(new Error('native status'), { status: 1 }), 'The real engine rejected invalid calculation inputs.'],
+  [Object.assign(new Error('native status'), { status: 2 }), 'The real engine produced a nonfinite numerical result.'],
+  [Object.assign(new Error('native status'), { status: 3 }), 'The real engine could not allocate calculation memory.'],
+  [new Error(''), 'The real engine calculation failed.'],
+  [new Error('  \n '), 'The real engine calculation failed.'],
+  [null, 'The real engine calculation failed.'],
+  [{ status: 99 }, 'The real engine calculation failed.'],
+  ['Calculation interrupted by the module loader.', 'Calculation interrupted by the module loader.'],
+  [new Error('BeforeCalculation:12: invalid layer index'), 'BeforeCalculation:12: invalid layer index'],
+])('reports calculation failures and allows the next request to recover: %s', async (failure, expected) => {
+  const project = createDefaultProject()
+  project.experiment.qzScan.points = 2
+  const original = structuredClone(project)
+  const calculate = vi.fn<RealQzCalculator>()
+    .mockImplementationOnce(() => { throw failure })
+    .mockReturnValue(new Float64Array([1, 1, .5, .5]))
+  const send = vi.fn()
+  const handle = createRealRequestHandler(send, async () => ({ calculate, fitError: vi.fn(), lookup: vi.fn(),
+    energyScan: vi.fn(), matrixEnergy: vi.fn(), zakQz: vi.fn(), zakEnergy: vi.fn(),
+    dielectricTensor: vi.fn(() => ({ values: new Float64Array(18), anisotropic: false })), matrixQz: vi.fn() }))
+  await handle({ id: 1, kind: 'reflectivity', project })
+  expect(send.mock.calls.at(-1)?.[0]).toEqual({ id: 1, type: 'error', message: expected })
+  await handle({ id: 2, kind: 'reflectivity', project })
+  expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ id: 2, type: 'result', result: { reflectivity: [1, .5] } })
+  expect(project).toEqual(original)
 })
