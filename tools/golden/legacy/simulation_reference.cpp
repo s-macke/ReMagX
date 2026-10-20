@@ -31,11 +31,12 @@ extern "C" int __wrap_luaL_loadbuffer(lua_State* state, const char* text, size_t
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2 || argc > 8) return 2;
+    if (argc < 2 || argc > 9) return 2;
     bool asymmetry = false, energy_scan = false, fixed_angle = false;
-    bool fourier = false, multiply = false, divide = false;
+    bool fourier = false, multiply = false, divide = false, column_layout = false;
     for (int index = 2; index < argc; ++index) {
-        if (std::strcmp(argv[index], "--asymmetry") == 0 && !asymmetry) asymmetry = true;
+        if (std::strcmp(argv[index], "--column-layout") == 0 && !column_layout) column_layout = true;
+        else if (std::strcmp(argv[index], "--asymmetry") == 0 && !asymmetry) asymmetry = true;
         else if (std::strcmp(argv[index], "--energy") == 0 && !energy_scan) energy_scan = true;
         else if (std::strcmp(argv[index], "--angle") == 0 && !fixed_angle) fixed_angle = true;
         else if (std::strcmp(argv[index], "--fourier") == 0 && !fourier) fourier = true;
@@ -44,7 +45,7 @@ int main(int argc, char** argv) {
         else return 2;
     }
     if (fixed_angle && !energy_scan) return 2;
-    if (fourier && (energy_scan || asymmetry)) return 2;
+    if (fourier && (energy_scan || asymmetry) && !column_layout) return 2;
     FILE* output = fdopen(dup(STDOUT_FILENO), "w");
     if (!output) return 3;
     if (!freopen("/dev/null", "w", stdout) || !freopen("/dev/null", "w", stderr)) return 3;
@@ -105,6 +106,16 @@ int main(int argc, char** argv) {
         : (asymmetry ? CalcAsymmetrie<double>(data, *state) : CalcReflectivity<double>(data, *state));
     if (script_failed) return 10;
     if (status != RX_SUCCESS) return 7;
+    // Diagnostic metadata only: do not index mismatched columns or publish a curve.
+    // This mode intentionally bypasses the ordinary curve-shape rejection below.
+    if (column_layout) {
+        const int written = fprintf(output,
+            "{\"acceptancePassed\":false,\"qz\":%zu,\"energy\":%zu,"
+            "\"reflectivity\":%zu,\"plus\":%zu,\"minus\":%zu,\"asymmetry\":%zu}\n",
+            data.qz.size(), data.eng.size(), data.R.size(), data.Rp.size(), data.Rm.size(), data.A.size());
+        if (written < 0) return 9;
+        return fclose(output) == 0 ? 0 : 9;
+    }
     if (asymmetry && (data.Rp.size() != data.qz.size() ||
         data.Rm.size() != data.qz.size() || data.A.size() != data.qz.size())) return 8;
     if (data.R.size() != data.qz.size()) return 8;

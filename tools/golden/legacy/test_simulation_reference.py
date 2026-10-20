@@ -89,6 +89,33 @@ class SimulationReferenceTest(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertEqual(result.stdout, b'')
 
+    def test_fourier_column_layout_diagnostic_does_not_publish_curves(self):
+        self.write_energy_tables()
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        path = Path(self.directory.name) / 'fourier-layout.all'
+        for algorithm in [0, 1, 2]:
+            path.write_text(fixture + f'\nalgorithm = {algorithm}\nnumberofpoints = 8\n'
+                            'engscanmin = 700\nengscanmax = 900\nmagnetizationmode = 1\n')
+            for options in [('--asymmetry',), ('--energy',), ('--energy', '--asymmetry')]:
+                with self.subTest(algorithm=algorithm, options=options):
+                    baseline = self.run_fixture(path, *options, '--column-layout')
+                    transformed = self.run_fixture(path, *options, '--fourier', '--column-layout')
+                    self.assertEqual(set(transformed), {'acceptancePassed', 'qz', 'energy',
+                                                       'reflectivity', 'plus', 'minus', 'asymmetry'})
+                    self.assertFalse(transformed['acceptancePassed'])
+                    self.assertEqual(transformed['qz'], baseline['qz'] // 2)
+                    self.assertEqual(transformed['reflectivity'], baseline['reflectivity'] // 2)
+                    for column in ['energy', 'plus', 'minus', 'asymmetry']:
+                        self.assertEqual(transformed[column], baseline[column])
+                    if '--asymmetry' in options:
+                        self.assertGreater(transformed['plus'], transformed['qz'])
+                    if '--energy' in options:
+                        self.assertGreater(transformed['energy'], transformed['reflectivity'])
+                    rejected = subprocess.run([self.executable, path, *options, '--fourier'],
+                                              capture_output=True, timeout=30)
+                    self.assertEqual(rejected.returncode, 2)
+                    self.assertEqual(rejected.stdout, b'')
+
     def write_energy_tables(self):
         for name, minimum, maximum, delta, beta in [
                 ('Cu', 710, 890, .0016, .0002), ('Co', 720, 880, .003, .001),

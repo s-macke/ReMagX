@@ -169,8 +169,8 @@ and this checklist for implementation status; the external Steps 0–8 have not 
 
 ### Current backlog
 
-This is the authoritative list of remaining requirements. There are 34 open requirements:
-17 implementation, eight validation and nine decisions. They overlap and differ in size;
+This is the authoritative list of remaining requirements. There are 35 open requirements:
+17 implementation, eight validation and ten decisions. They overlap and differ in size;
 the counts are not a completion percentage. Completed increments and their historical
 limitations are recorded separately below.
 
@@ -221,6 +221,7 @@ Full-engine/corpus acceptance is still open.
 - [ ] **Decision:** Connect private-corpus access in CI and require the strict runner (D-17.3, D-20, AC-4). The choice of a private repository/read-only credential or a self-hosted runner is pending; Pages still does not supply the corpus. No private data may enter public logs or artifacts.
 - [ ] **Decision:** Resolve the legacy error-function's single-precision intermediates versus the double-only requirement: narrowly scoped legacy-rounding compatibility, or a separately reviewed full-double numerical deviation. Neither option nor a golden-tolerance exception has been approved; see the compatibility study above.
 - [ ] **Decision:** Decide nested Lua CalculateReflectivity numerical-failure behavior: preserve legacy partially computed solution arrays, or raise a source-line error and leave arrays unchanged. The latter changes Lua semantics and requires D-29 approval; no exception has been accepted.
+- [ ] **Decision:** Resolve remaining Fourier plot semantics: monochromatic energy scans retain a full energy array after Fourier halves R/qz; two-beam paths transform placeholder R/qz while retaining untransformed Rp/Rm/A. Decide whether to use depth coordinates for monochromatic energy Fourier and ignore Fourier for two-beam displays, or retain explicit unavailability. Neither correction is approved (D-29); see the column-layout diagnostic in `tools/golden/legacy/SIMULATION_REFERENCE.md`.
 - [ ] **Decision:** Resolve Fourier fitting semantics: the original dataset-error path transforms measured qz into depths before calling the reflectivity solver and ignores its error status. Choose a separately validated correction (calculate on original qz, transform both curves once, compare in depth coordinates) or retain explicit unavailability for now. No deviation is approved; see `tools/golden/legacy/diagnose_fourier_fit.py` and D-29.
 
 ### Initial implementation evidence
@@ -429,6 +430,7 @@ Quality gates:
 - [x] Fourier WASM adapter: owned buffers and independent depth/magnitude arrays, exposed on the real-worker engine interface. All 75,658 values across 49 synthetic cases match native results in Node and Chromium at D-23, including a 65,537-point transform; malformed inputs, allocation failures, native errors, memory growth and recovery pass. Calculation orchestration and legacy output-column semantics remain open; public Fourier requests are not enabled.
 - [x] Prepared dataset Fourier stage: optional engine callback runs after qz^4/polarization corrections, asymmetry and averaging, replaces only ordinary reflectivity and qz, and retains other columns at their original lengths as legacy FFT does. Empty ordinary reflectivity skips the transform. Unit checks cover order, ownership, unchanged inputs and invalid/failing engine outputs. Plot/fit callers still reject Fourier until their result and axis handling is integrated; this is not full Fourier acceptance.
 - [x] Real monochromatic qz Fourier integration for Parratt, Matrix/Visnovsky and Zak: postprocessing after complete scans, active measured R adaptation/transform in the worker, depth-axis response metadata and plotted/exported depth units. The plot uses transformed measurements and bypasses theta conversion. Twelve original-reference cases cover exact/fast resolution and prior corrections/averaging; all 147 public variants/52,002 values pass D-23. Chromium verifies generated/dataset points, unordered shifted measurements against a direct DFT, input preservation, native-error recovery and the rendered depth plot. Fourier fit/chi-square, energy and dichroic paths remain rejected; public calculations still use the mock.
+- [x] Original Fourier column-layout diagnostic: metadata-only output with acceptancePassed=false exposes shortened R/qz and retained energy/beam/asymmetry columns without publishing an invalid curve. Nine public synthetic combinations across Parratt, Visnovsky and Zak verify the mismatch and continued rejection by ordinary reference output; all 14 native adapter tests pass. Full legacy preparation initializes placeholder R in two-beam paths, so the empty-R early return does not make their Fourier behavior a no-op. Plot corrections remain a separate explicit decision.
 
 ### Later (agreed, not scheduled)
 - Transmission, 2D maps (legacy MapFrame, "Map Calculations"), TEY, "Parratt without multiple scattering" (PHASE), Kramers-Kronig fitting, evolution fit with its section (D-25, D-11)

@@ -251,3 +251,29 @@ difference about 2.49e-7. Source inspection found single-precision internal stat
 in the original series and continued-fraction helpers despite double interfaces.
 Whether to reproduce that rounding in a narrowly scoped compatibility step is a
 pending decision. No original NR code or generated lookup table is committed.
+
+## Fourier column-layout diagnostic
+
+`reference public-project.all --fourier --column-layout` reports only column lengths,
+with `acceptancePassed: false`. Combine it with `--asymmetry` and/or `--energy` to
+inspect combinations that ordinary curve output intentionally rejects. Run from a
+folder containing the project's optical tables for energy scans. This diagnostic
+never indexes mismatched output columns or publishes a numerical reference curve.
+
+The full legacy preparation initializes ordinary R even for two-beam calculations.
+Consequently, FFT's empty-R early return does not make the Fourier flag a no-op for
+those calculations: it transforms the placeholder R and halves qz while retaining
+Rp/Rm/A and energy at their original lengths. The GUI energy plot loops over the
+energy array and indexes R, so monochromatic energy Fourier output can index beyond
+R. The qz two-beam plot instead uses the shortened, transformed qz with untransformed
+beam/asymmetry values. These behaviors are not meaningful evidence for a corrected
+Fourier display. The real worker continues rejecting those combinations pending an
+explicit decision; Fourier fitting has its own separate preparation defect.
+
+The private-source regression uses the public default fixture and synthetic tables
+for Parratt, Visnovsky and Zak, comparing baseline and transformed column lengths.
+It also verifies that ordinary output still rejects these combinations. Run with:
+
+```sh
+LEGACY_ROOT=old/reMagX3 python3 -m unittest discover -s tools/golden/legacy -p test_simulation_reference.py
+```
