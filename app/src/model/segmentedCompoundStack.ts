@@ -1,3 +1,6 @@
+import { copyLayerDepths } from './layerDepths'
+import type { SerialOpticalState } from './refreshOpticalConstants'
+import type { RealCalculationEngine } from './realCalculation'
 import { packCompoundLayers, prepareCompoundLayerIndices } from './compoundLayers'
 import { applySegmentedMagneticProfiles, type MagneticProfileEngine } from './segmentedMagneticProfiles'
 import { prepareSegmentedLayers, type SegmentationEngine, type SegmentationTensor } from './segmentedLayers'
@@ -31,4 +34,26 @@ export function prepareSegmentedCompoundStack(project: Project, storedDepths: re
       project.calculation.profileCombination === 'sum', errorSamples, engine)
   }
   return result
+}
+
+export type PrepareSegmentedStack = (project: Project, state: SerialOpticalState) => ReturnType<typeof prepareSegmentedCompoundStack> | undefined
+
+// Resolve retained script/table tensor state before slicing; never reconstruct
+// tensors from the magnetic scalar changes applied to the generated slices.
+export function prepareRealSegmentedStack(project: Project, state: SerialOpticalState,
+  engine: Pick<RealCalculationEngine, 'segmentation' | 'dielectricTensor'>) {
+  if (project.calculation.roughnessModel !== 'segmentation') return undefined
+  if (!engine.segmentation) throw new Error('Adaptive segmentation requires an explicit error-function lookup and numerical engine.')
+  const tensors = project.calculation.algorithm === 'matrix' ? project.sample.layers.map((layer, index) => {
+    const retained = state.dielectricState?.[index]
+    if (retained) return retained
+    const override = state.dielectricTensors[index]
+    return override ? { values: override, anisotropic: true } : engine.dielectricTensor({
+      layer: [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag,
+        layer.magnetization.gamma, layer.magnetization.phi],
+      tensor: project.calculation.tensorContribution === 'tetragonal' ? 1 : 0,
+      magnetic: project.calculation.magnetization.mode === 'none' ? 0 : 1,
+    })
+  }) : undefined
+  return prepareSegmentedCompoundStack(project, copyLayerDepths(project, state.layerDepths), engine.segmentation.errorSamples, engine.segmentation, tensors)
 }

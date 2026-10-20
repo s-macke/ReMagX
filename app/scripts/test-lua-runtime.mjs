@@ -45,6 +45,7 @@ try {
   assert.equal(result.preparedMagneticProfilesPassed, true)
   assert.equal(result.storedDepthsPassed, true)
   assert.equal(result.segmentedQzPassed, true)
+  assert.equal(result.segmentedEnergyPassed, true)
   assert.match(result.diagnostic, /BeforeCalculation:3:.*KramersKronigRange: not supported yet/)
   assert.deepEqual(errors, [])
   assert.ok(requests.some(url => url.endsWith('.wasm')), 'Worker must load the local WASM asset')

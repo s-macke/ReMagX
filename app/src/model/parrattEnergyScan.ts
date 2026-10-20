@@ -1,7 +1,9 @@
+import type { PrepareSegmentedStack } from './segmentedCompoundStack'
+import type { SegmentationTensor } from './segmentedLayers'
 import { copyLayerDepths } from './layerDepths'
 import type { RealBeforeCalculation, ScriptSessionLifetime } from './realCalculation'
 import type { OpticalTable } from '../import/tables'
-import { prepareCompoundLayers, prepareCompoundLayerIndices, type PreparedCompoundLayer } from './compoundLayers'
+import { packCompoundLayers, prepareCompoundLayers, prepareCompoundLayerIndices, type PreparedCompoundLayer } from './compoundLayers'
 import type { Project } from './project'
 import { prepareEnergyCoordinates } from './energyScanCoordinates'
 import { prepareParrattQzRequest, type PreparedParrattQzRequest } from './parrattRequest'
@@ -12,6 +14,7 @@ import { HC_EV_ANGSTROM } from './units'
 export interface PreparedEnergyScan extends Pick<PreparedParrattQzRequest, 'beam1' | 'beam2' | 'tensor' | 'analyzer' | 'magnetic' | 'mode'> {
   stacks: PreparedCompoundLayer[][]
   dielectricTensors?: (Float64Array | null)[][]
+  preparedDielectricStates?: ((SegmentationTensor | null)[] | undefined)[]
   energy: number[]
   qz: number[]
   enabled: number[]
@@ -26,7 +29,7 @@ export type EnergyScanCalculator = (request: PreparedEnergyScan) => Float64Array
 // calls CalculateResolution (exact angular convolution, independent of fast flag).
 export function calculateCompoundEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
   calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic',
-  prepareTemplate: typeof prepareParrattQzRequest, previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary') {
+  prepareTemplate: typeof prepareParrattQzRequest, previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack) {
   const width = project.experiment.resolution.energyFwhm
   if (!Number.isFinite(width) || width < 0) throw new Error('Energy resolution must be finite and nonnegative.')
   const coordinates = prepareEnergyCoordinates(project, tables)
@@ -50,10 +53,11 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
       qzScan: { ...current.experiment.qzScan, useDatasetPoints: false, points: 2, qzMin: 0, qzMax: 0 },
       resolution: { ...current.experiment.resolution, fastConvolution: false } } }
   // Validate unsupported settings even when every dataset point lies outside the tables.
-  const template = prepareTemplate(local, mode)
+  const template = prepareTemplate(local, mode, undefined, prepareStack && local.calculation.roughnessModel === 'segmentation' ? packCompoundLayers(local) : undefined)
   const stacks: PreparedCompoundLayer[][] = []
   const enabled: number[] = []
   const dielectricTensors: (Float64Array | null)[][] = []
+  const preparedDielectricStates: ((SegmentationTensor | null)[] | undefined)[] = []
   const pointSettings: [number, number, number][] = []
   coordinates.energy.forEach(energy => {
     current = { ...current, experiment: { ...current.experiment, energy } }
@@ -66,10 +70,13 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
     if (refreshed.rangeError) {
       stacks.push(template.layers)
       dielectricTensors.push(template.layers.map(() => null))
+      preparedDielectricStates.push(undefined)
       enabled.push(0)
     } else {
       runHook()
-      stacks.push(prepareCompoundLayers(current))
+      const segmented = prepareStack?.(current, opticalState)
+      stacks.push(segmented?.layers ?? prepareCompoundLayers(current))
+      preparedDielectricStates.push(segmented?.dielectricTensors)
       dielectricTensors.push(prepareCompoundLayerIndices(current).map(index => opticalState.dielectricTensors[index]))
       enabled.push(1)
     }
@@ -77,7 +84,8 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
     pointSettings.push([mode === 'dichroic' ? energy : current.experiment.energy,
       current.experiment.resolution.angularFwhm, current.calculation.epsilon])
   })
-  const resolved = calculate({ stacks, dielectricTensors, enabled, energy: coordinates.energy, qz: coordinates.qz,
+  const resolved = calculate({ stacks, dielectricTensors,
+    ...(preparedDielectricStates.some(Boolean) ? { preparedDielectricStates } : {}), enabled, energy: coordinates.energy, qz: coordinates.qz,
     beam1: template.beam1, beam2: template.beam2, tensor: template.tensor, analyzer: template.analyzer,
     magnetic: template.magnetic, mode: template.mode, angularWidth: template.resolution.width, energyWidth: width,
     ...(scripted ? { pointSettings } : {}) })
@@ -89,6 +97,6 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
 }
 
 export function calculateParrattEnergyScan(project: Project, tables: OpticalTable[], lookup: RealTableLookup,
-  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary') {
-  return calculateCompoundEnergyScan(project, tables, lookup, calculate, mode, prepareParrattQzRequest, previous, beforeCalculation, scriptLifetime)
+  calculate: EnergyScanCalculator, mode: 'monochromatic' | 'dichroic' = 'monochromatic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary', prepareStack?: PrepareSegmentedStack) {
+  return calculateCompoundEnergyScan(project, tables, lookup, calculate, mode, prepareParrattQzRequest, previous, beforeCalculation, scriptLifetime, prepareStack)
 }

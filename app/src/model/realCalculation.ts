@@ -1,4 +1,4 @@
-import { prepareSegmentedCompoundStack } from './segmentedCompoundStack'
+import { prepareRealSegmentedStack } from './segmentedCompoundStack'
 import type { SegmentationEngine } from './segmentedLayers'
 import type { MagneticProfileEngine } from './segmentedMagneticProfiles'
 import { copyLayerDepths } from './layerDepths'
@@ -50,11 +50,13 @@ export type RealBeforeCalculation = (project: Project, opticalState: SerialOptic
 export function calculateRealCurve(original: Project, tables: OpticalTable[], engine: RealCalculationEngine,
   scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary'): RealCurve {
   if (scan === 'energy') {
+    if (original.calculation.roughnessModel === 'segmentation' && !engine.segmentation) throw new Error('Adaptive segmentation requires an explicit error-function lookup and numerical engine.')
+    const prepareStack = (project: Project, state: SerialOpticalState) => prepareRealSegmentedStack(project, state, engine)
     return original.calculation.algorithm === 'matrix'
-      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous, beforeCalculation, scriptLifetime)
+      ? calculateVisnovskyEnergyScan(original, tables, engine.lookup, engine.dielectricTensor, engine.matrixEnergy, mode, previous, beforeCalculation, scriptLifetime, prepareStack)
       : original.calculation.algorithm === 'zak'
-        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous, beforeCalculation, scriptLifetime)
-        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous, beforeCalculation, scriptLifetime)
+        ? calculateZakEnergyScan(original, tables, engine.lookup, engine.zakEnergy, mode, previous, beforeCalculation, scriptLifetime, prepareStack)
+        : calculateParrattEnergyScan(original, tables, engine.lookup, engine.energyScan, mode, previous, beforeCalculation, scriptLifetime, prepareStack)
   }
   // A fresh automatic qz request starts from stored film tensors. Serial
   // callers supply their newer calculation state, which takes precedence.
@@ -96,22 +98,8 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   // Fourier operates on the completed curve, never on individual kernel calls.
   const packedProject = transform ? { ...project, calculation: { ...project.calculation,
     postProcessing: { ...project.calculation.postProcessing, fourierTransform: false } } } : project
-  let segmented: ReturnType<typeof prepareSegmentedCompoundStack> | undefined
-  if (project.calculation.roughnessModel === 'segmentation') {
-    if (!engine.segmentation) throw new Error('Adaptive segmentation requires an explicit error-function lookup and numerical engine.')
-    const tensors = project.calculation.algorithm === 'matrix' ? project.sample.layers.map((layer, index) => {
-      const retained = dielectricState?.[index]
-      if (retained) return retained
-      const override = dielectricTensors[index]
-      return override ? { values: override, anisotropic: true } : engine.dielectricTensor({
-        layer: [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag,
-          layer.magnetization.gamma, layer.magnetization.phi],
-        tensor: project.calculation.tensorContribution === 'tetragonal' ? 1 : 0,
-        magnetic: project.calculation.magnetization.mode === 'none' ? 0 : 1,
-      })
-    }) : undefined
-    segmented = prepareSegmentedCompoundStack(packedProject, layerDepths, engine.segmentation.errorSamples, engine.segmentation, tensors)
-  }
+  const segmented = prepareRealSegmentedStack(packedProject, { layers: project.sample.layers,
+    layerDepths, dielectricTensors, dielectricState, scatteringTensors, cursors }, engine)
   if (project.calculation.algorithm === 'matrix') {
     const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, dielectricTensors, undefined, segmented)
     qz = request.qz

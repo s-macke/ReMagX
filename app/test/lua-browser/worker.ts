@@ -203,6 +203,72 @@ async function run() {
         }
       }
     const segmentedQzPassed = true
+    for (const algorithm of ['parratt', 'zak', 'matrix'] as const) for (const scope of ['local', 'global'] as const)
+      for (const mode of ['monochromatic', 'dichroic'] as const) {
+        const project = createDefaultProject()
+        project.sample.layers = [createLayer({ opticalTable: 'substrate', roughness: 20 }),
+          createLayer({ opticalTable: 'film', thickness: 7, roughness: 20 }), createLayer({ opticalTable: 'air' })]
+        project.sample.multilayer.enabled = false
+        project.sample.depthProfileFunctions = [{ center: 2, width: 5, deltaAmplitude: 1e-6, betaAmplitude: 2e-7,
+          boundToLayer: 1, amplitudeCoupledTo: null, widthCoupledTo: null, spline: { enabled: false, points: [] } }]
+        project.calculation.algorithm = algorithm
+        project.calculation.automaticOpticalConstants = false
+        project.calculation.roughnessModel = 'segmentation'
+        project.calculation.magnetization.mode = 'profile'
+        project.calculation.profileCombination = mode === 'monochromatic' ? 'sum' : 'product'
+        project.calculation.segmentation = { ...project.calculation.segmentation, scope, minThickness: 10, maxThickness: 10 }
+        project.experiment.energy = 640
+        project.experiment.qzScan.useDatasetPoints = true
+        project.experiment.resolution.angularFwhm = .0001
+        project.experiment.resolution.energyFwhm = .75
+        project.experiment.resolution.fastConvolution = false
+        const energies = [640, 900, 660, 640], coordinates = [.02, .03, .04, .02]
+        project.datasets = [{ title: '', comment: '', sourceFile: '', active: true, errorWeight: 1, energy: 640, energyShift: 0, qzShift: 0,
+          angularResolution: 0, intensityScale: 1, intensityOffset: 0, polarization: project.experiment.polarization,
+          columns: { energy: energies, qz: coordinates, reflectivity: [1, 1, 1, 1] } }]
+        project.activeDatasetIndex = 0
+        project.scripts.enabled = true
+        project.scripts.beforeCalculation = 'thickness[1] = (energy - 600) * 2'
+        const scanTables: OpticalTable[] = ['substrate', 'film', 'air'].map((name, index) => ({ name, kind: 'db', energy: [600, 700],
+          columns: index === 2 ? [[0, 0], [0, 0]] : [[.01 - index * .002, .012 - index * .002], [.001, .002]], warnings: [] }))
+        const sliceCounts: number[] = []
+        const scanEngine: RealCalculationEngine = { ...segmentedNumerical, segmentation: { ...segmentedNumerical.segmentation!,
+          subdivide: request => { const result = segmentation.calculateAdaptiveSegments(instance, request); sliceCounts.push(result.positions.length); return result },
+        } }
+        const before = JSON.stringify(project)
+        const scanSession = await runtime.createSession()
+        let actual
+        try { actual = calculateRealCurve(project, scanTables, scanEngine, 'energy', mode, undefined,
+          createBeforeCalculation(scanSession, scanEngine, scanTables)) } finally { scanSession.close() }
+        const raw = new Float64Array(energies.length * 2)
+        for (let point = 0; point < energies.length; ++point) {
+          if (energies[point] > 700) { raw[point * 2] = 1; raw[point * 2 + 1] = mode === 'dichroic' ? 1 : 0; continue }
+          const single = structuredClone(project)
+          single.scripts.enabled = false
+          single.experiment.energy = energies[point]
+          single.sample.layers[1].thickness = (energies[point] - 600) * 2
+          single.datasets[0].columns = { qz: [coordinates[point]], reflectivity: [1] }
+          single.sample.layers.forEach((layer, index) => {
+            const lookup = numerical.lookup(scanTables[index], [HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energies[point])], 0)
+            layer.delta = lookup.values[0]; layer.beta = lookup.values[1]
+          })
+          const one = calculateRealCurve(single, [], segmentedNumerical, 'qz', mode,
+            { layers: single.sample.layers, layerDepths: [0, 7, 7], dielectricTensors: [null, null, null], cursors: new Map() })
+          raw[point * 2] = one.reflectivityPlus[0]; raw[point * 2 + 1] = one.reflectivityMinus[0]
+        }
+        const reference = postprocessParrattResult(project, coordinates, adapter.convolveEnergy(instance, energies, raw, .75), mode, energies)
+        for (const column of ['reflectivityPlus', 'reflectivityMinus', 'asymmetry'] as const) {
+          if (actual[column].length !== reference[column].length || actual[column].some((value, index) => !Number.isFinite(value) ||
+              Math.abs(value - reference[column][index]) > 1e-15 + 1e-10 * Math.abs(reference[column][index]))) {
+            throw new Error('Segmented energy routing differs from independent per-energy qz calculations')
+          }
+        }
+        if (sliceCounts.length !== 3 || new Set(sliceCounts).size < 2 || JSON.stringify(actual.opticalState.layerDepths) !== '[0,7,7]' ||
+            actual.opticalState.layers[1].thickness !== 80 || JSON.stringify(project) !== before) {
+          throw new Error('Segmented energy preparation lost variable geometry or original state')
+        }
+      }
+    const segmentedEnergyPassed = true
     const depthProject = createDefaultProject()
     depthProject.sample.layers = [createLayer({ thickness: 999, delta: .01 }), createLayer({ thickness: 7 }), createLayer({ thickness: 999 })]
     depthProject.calculation.automaticOpticalConstants = false
@@ -402,7 +468,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed, preparedMagneticProfilesPassed, storedDepthsPassed, segmentedQzPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed, preparedMagneticProfilesPassed, storedDepthsPassed, segmentedQzPassed, segmentedEnergyPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }
