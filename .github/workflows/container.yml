@@ -20,7 +20,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build and export with the pinned toolchain
-        run: docker buildx build --platform linux/amd64 --file docker/Dockerfile --output type=local,dest=build/container .
+        run: |
+          build_log="$RUNNER_TEMP/container-build.log"
+          if docker buildx build --progress plain --platform linux/amd64 --file docker/Dockerfile --output type=local,dest=build/container . 2>&1 | tee "$build_log"; then
+            exit 0
+          fi
+          # Only the public allowlisted context enters this build. Bound diagnostic
+          # size and escape workflow-command characters as in the numerical jobs.
+          python3 - "$build_log" <<'PYTHON'
+          import pathlib, sys
+          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-12000:]
+          message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print("::error title=Optional container build failed::" + message)
+          PYTHON
+          exit 1
       - name: Check exported artifacts
         run: |
           test -s build/container/site/index.html
