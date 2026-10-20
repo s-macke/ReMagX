@@ -55,6 +55,22 @@ def profile_cases():
         cases.append((profile, positions, [0, 1, 4, 16][number % 4]))
     return cases
 
+def spline_cases():
+    generator = random.Random(26034)
+    cases = []
+    for number in range(240):
+        count = 4 + number % 13
+        coordinates = [generator.uniform(-20, 20)]
+        for index in range(1, count):
+            coordinates.append(coordinates[-1] + generator.uniform(.1, 5))
+        values = [generator.uniform(-3, 3) for _ in coordinates]
+        positions = [coordinates[0], coordinates[-1], coordinates[-2]]
+        positions += [coordinates[1] + (coordinates[-2] - coordinates[1]) * generator.random() for _ in range(20)]
+        positions += coordinates[2:-1]
+        profile = Profile(0, 1, generator.uniform(-.1, .1), generator.uniform(-.1, .1))
+        cases.append((profile, coordinates, values, positions))
+    return cases
+
 class GaussianProfileTest(unittest.TestCase):
     def test_gaussian_shape_and_signed_width(self):
         profile = Profile(10, 2, .03, -.02)
@@ -136,19 +152,7 @@ for(int i=0;i<count;++i){double value;std::cin>>value;profile.sf.y.push_back(val
 for(int i=0;i<samples;++i){double position;std::cin>>position;std::cout<<profile.DeltaGauss(position)<<' '<<profile.BetaGauss(position)<<' ';}
 std::cout<<'\n';}}
 '''
-        generator = random.Random(26034)
-        cases = []
-        for number in range(240):
-            count = 4 + number % 13
-            coordinates = [generator.uniform(-20, 20)]
-            for index in range(1, count):
-                coordinates.append(coordinates[-1] + generator.uniform(.1, 5))
-            values = [generator.uniform(-3, 3) for _ in coordinates]
-            positions = [coordinates[0], coordinates[-1], coordinates[-2]]
-            positions += [coordinates[1] + (coordinates[-2] - coordinates[1]) * generator.random() for _ in range(20)]
-            positions += coordinates[2:-1]
-            profile = Profile(0, 1, generator.uniform(-.1, .1), generator.uniform(-.1, .1))
-            cases.append((profile, coordinates, values, positions))
+        cases = spline_cases()
         payload = '\n'.join(' '.join(map(str, [profile.delta_amplitude, profile.beta_amplitude, len(coordinates), len(positions),
             *coordinates, *values, *positions])) for profile, coordinates, values, positions in cases)
         with tempfile.TemporaryDirectory(prefix='remagx-spline-') as temporary:
@@ -214,6 +218,11 @@ if __name__ == '__main__':
             status, coordinates, values = knots(profile, intervals)
             assert status == 0
             payload.append(dict(kind='knots', profile=packed, intervals=intervals, expected=coordinates + values))
+        for profile, coordinates, values, positions in spline_cases():
+            status, expected = spline(profile, coordinates, values, positions)
+            assert status == 0
+            payload.append(dict(kind='spline', profile=[getattr(profile, name) for name, _ in Profile._fields_],
+                                knots=coordinates, values=values, positions=positions, expected=expected))
         print(json.dumps(payload))
     else:
         unittest.main()

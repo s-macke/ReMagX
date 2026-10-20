@@ -464,6 +464,29 @@ export function calculateGaussianProfile(module, { profile, positions }) {
   })
 }
 
+export function calculateSplineProfile(module, { profile, knots, values, positions }) {
+  if (!validVector(profile, 4) || !validVector(knots, undefined, true) ||
+      !validVector(values, knots.length, true) || !validVector(positions)) {
+    throw new TypeError('Invalid magnetic spline input')
+  }
+  return withBuffers(module, allocate => {
+    const profilePointer = allocate(4)
+    const knotsPointer = knots.length ? allocate(knots.length) : 0
+    const valuesPointer = values.length ? allocate(values.length) : 0
+    const positionsPointer = allocate(positions.length)
+    const outputPointer = allocate(positions.length * 2)
+    module.HEAPF64.set(profile, profilePointer / 8)
+    if (knots.length) {
+      module.HEAPF64.set(knots, knotsPointer / 8)
+      module.HEAPF64.set(values, valuesPointer / 8)
+    }
+    module.HEAPF64.set(positions, positionsPointer / 8)
+    checkStatus(module._remagx_spline_profile(profilePointer, knotsPointer, valuesPointer,
+      knots.length, positionsPointer, positions.length, outputPointer), 'Magnetic spline')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + positions.length * 2)
+  })
+}
+
 export function generateGaussianSplineKnots(module, { profile, intervals = 4 }) {
   if (!validVector(profile, 4) || !Number.isSafeInteger(intervals) || intervals < 0 || intervals > 2147483642)
     throw new TypeError('Invalid Gaussian spline input')

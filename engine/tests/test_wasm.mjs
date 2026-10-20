@@ -1,3 +1,4 @@
+import { checkSpline } from './spline_checks.mjs'
 import { checkFourier } from './fourier_checks.mjs'
 import { checkAsymmetry } from './asymmetry_checks.mjs'
 import { checkElementOptics } from './element_optics_checks.mjs'
@@ -9,7 +10,7 @@ import { checkOptimizer } from './optimizer_checks.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
+import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, calculateSplineProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -93,6 +94,7 @@ for (const change of [{ stacks: [] }, { stacks: new Array(3) }, { enabled: [1, 2
 }
 assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, qz: [0, 0, 1e10] }), { status: 4 })
 function evaluateProfile(core, request) {
+  if (request.kind === 'spline') return calculateSplineProfile(core, request)
   if (request.kind === 'application') return applyGaussianProfiles(core, request)
   if (request.kind === 'gaussian') return calculateGaussianProfile(core, request)
   const result = generateGaussianSplineKnots(core, request)
@@ -111,7 +113,8 @@ for (const [caseIndex, request] of input.profiles.entries()) {
     profileCount++
   })
 }
-assert.equal(profileCount, 13080)
+assert.equal(profileCount, 27438)
+checkSpline(module, calculateSplineProfile)
 const profileRequests = input.profiles.slice(2, 4)
 const profileBefore = profileRequests.map(request => evaluateProfile(module, request))
 for (const request of profileRequests) {
@@ -393,7 +396,7 @@ for (const [index, request] of profileRequests.entries()) {
   assert.equal(outstanding.size, 0)
   assert.deepEqual(evaluateProfile(module, request), profileBefore[index])
 }
-console.log(`WASM/native Gaussian profiles/knots/application: ${profileCount} values, validation, memory growth and cleanup passed.`)
+console.log(`WASM/native Gaussian/spline profiles, knots and application: ${profileCount} values, validation, memory growth and cleanup passed.`)
 
 
 for (const [calculate, request] of [
