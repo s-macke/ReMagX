@@ -652,3 +652,36 @@ local tensor accumulation and duplicate/zero-thickness interfaces. Do not remove
 this project, change its multilayer pattern, loosen tolerances or interpret the
 120-second limit as a numerical mismatch. The existing full-run timeout remains
 the acceptance result; no new full corpus run was performed for this audit.
+
+
+### Native immutable optical sampler
+
+The WASM prepared sampler now owns a native snapshot created by
+`remagx_segmented_optics_prepare`, sampled by `remagx_segmented_optics_sample`
+and released by `remagx_segmented_optics_destroy`. The constructor validates
+and copies the input stack, optional boundaries/tensors and explicit lookup;
+the adapter immediately frees its temporary input buffers. Sampling validates
+position and caller-owned tensor state, then uses the exact same arithmetic
+routine as the existing one-shot entry point. Summation order, local tensor
+accumulation and error-function evaluation are unchanged. No interface pruning
+or aggregation is introduced. The large-stack traversal remains per sample.
+
+Native tests compare both APIs across 60 generated stacks plus zero-thickness
+variants, with and without tensors, source mutation and atomic invalid-state
+failures. The original comparison still matches 19,800 scalar/tensor values
+across 60 stacks. Shared Node/Chromium lifecycle checks exercise immutable
+inputs, memory growth, host allocation failures, a rejected native constructor,
+repeated numerical errors, recovery and exactly-once native handle destruction.
+These checks do not simulate every allocator inside the C++ standard library;
+constructor exceptions are handled with RAII and allocation-error status.
+
+
+The full unchanged 99-project profile rerun after this change retains 84/89
+available reference matches: 35,492 smooth points, 35,408 segments and 389,908
+values, with zero D-23 mismatches. Maximum errors remain
+2.220446049250313e-16 absolute and 1.1429968083120912e-11 positive-pair log10.
+The large expanded-stack profile still exceeds 120 seconds in both original
+and worker. Five available references still lack element tables, and nine
+other original runs error. The diagnostic correctly exits nonzero with
+acceptancePassed=false. No full-profile speedup factor is established by this
+run; removing validation alone does not resolve the outstanding timeout.

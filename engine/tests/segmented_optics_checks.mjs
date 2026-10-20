@@ -90,13 +90,40 @@ export function checkSegmentedOptics(module, calculate, subdivide, prepareSample
       ensure(!outstanding.size, 'Segmented optics recovery leaked')
     }
   }
+  // Constructor failures release every temporary JS-owned buffer. Successful
+  // native handles are destroyed exactly once, including after sampling errors.
+  for (const variant of [request, { ...request, tensors: null, tensorState: null, boundaries: null }]) {
+    const expectedAllocations = variant.tensors === null ? 3 : 6
+    for (let failAt = 1; failAt <= expectedAllocations + 1; ++failAt) {
+      let attempts = 0, handles = 0
+      const outstanding = new Set()
+      const wrapped = new Proxy(module, { get(target, key) {
+        if (key === '_malloc') return bytes => {
+          if (++attempts === failAt) return 0
+          const pointer = target._malloc(bytes); if (pointer) outstanding.add(pointer); return pointer
+        }
+        if (key === '_free') return pointer => { ensure(outstanding.delete(pointer), 'Prepared constructor invalid free'); target._free(pointer) }
+        if (key === '_remagx_segmented_optics_prepare') return (...args) => {
+          if (failAt === expectedAllocations + 1) return 3
+          const status = target[key](...args); if (!status) handles++; return status
+        }
+        if (key === '_remagx_segmented_optics_destroy') return pointer => { handles--; target[key](pointer) }
+        return target[key]
+      } })
+      failure(() => prepareSampler(wrapped, variant), error => /allocation failed/.test(error.message) || error.status === 3)
+      ensure(!outstanding.size && handles === 0, 'Prepared constructor failure leaked')
+    }
+  }
   for (const model of [0, 1, 2]) {
     let allocations = 0, failSample = false
     const outstanding = new Set()
+    let handles = 0
     const wrapped = new Proxy(module, { get(target, key) {
       if (key === '_malloc') return bytes => { allocations++; const pointer = target._malloc(bytes); if(pointer) outstanding.add(pointer); return pointer }
       if (key === '_free') return pointer => { ensure(outstanding.delete(pointer), 'Prepared sampler invalid free'); target._free(pointer) }
-      if (key === '_remagx_segmented_optics') return (...args) => failSample ? 2 : target[key](...args)
+      if (key === '_remagx_segmented_optics_prepare') return (...args) => { const status = target[key](...args); if (!status) handles++; return status }
+      if (key === '_remagx_segmented_optics_destroy') return pointer => { ensure(handles === 1, 'Invalid prepared handle destruction'); handles--; target[key](pointer) }
+      if (key === '_remagx_segmented_optics_sample') return (...args) => failSample ? 2 : target[key](...args)
       return target[key]
     } })
     const source = JSON.parse(snapshot)
@@ -121,8 +148,18 @@ export function checkSegmentedOptics(module, calculate, subdivide, prepareSample
       failSample = false
       scalar(prepared.sample(0))
     } finally { prepared.dispose(); prepared.dispose() }
-    ensure(!outstanding.size, 'Prepared sampler leaked')
+    ensure(!outstanding.size && handles === 0, 'Prepared sampler leaked')
     failure(() => prepared.sample(0), error => /disposed/.test(error.message))
+  }
+  for (const patch of [
+    { tensors: [Array(18).fill(1e308), Array(18).fill(-1e308)] },
+    { layers: [[0, 1, 1e308, 0, 0, 0, 90, 90], [0, 1, -1e308, 0, 0, 0, 90, 90]] },
+  ]) {
+    const prepared = prepareSampler(module, { ...request, ...patch })
+    try {
+      failure(() => prepared.sample(0), error => error.status === 2)
+      failure(() => prepared.sample(0), error => error.status === 2)
+    } finally { prepared.dispose() }
   }
   ensure(snapshot === JSON.stringify(request), 'Segmented optics input changed')
   same(before)

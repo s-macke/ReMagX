@@ -15,6 +15,11 @@ Pointer = ctypes.POINTER(ctypes.c_double)
 library.remagx_segmented_optics.argtypes = [Pointer, ctypes.c_size_t, Pointer, Pointer, ctypes.c_int,
     ctypes.c_double, Pointer, ctypes.c_size_t, Pointer, Pointer]
 
+library.remagx_segmented_optics_prepare.argtypes = [Pointer, ctypes.c_size_t, Pointer, Pointer,
+    ctypes.c_int, Pointer, ctypes.c_size_t, ctypes.POINTER(ctypes.c_void_p)]
+library.remagx_segmented_optics_sample.argtypes = [ctypes.c_void_p, ctypes.c_double, Pointer, Pointer]
+library.remagx_segmented_optics_destroy.argtypes = [ctypes.c_void_p]
+
 
 def evaluate(layers, boundaries, tensors, model, position, samples, state=None):
     arrays = [(ctypes.c_double * len(values))(*values) for values in
@@ -48,6 +53,59 @@ def cases():
 
 
 class SegmentedOpticsTest(unittest.TestCase):
+    def test_owned_preparation_matches_one_shot_and_preserves_failure_outputs(self):
+        samples = [math.erf(-5 + index * 10 / 999) for index in range(1001)]
+        prepared_cases = cases()
+        for layers, boundaries, tensors, model, positions in cases()[:3]:
+            for row in layers:
+                row[0] = 0.0
+            prepared_cases.append((layers, [0.] * len(layers), tensors, model, positions))
+        for layers, boundaries, tensors, model, positions in prepared_cases:
+            for with_tensors in (False, True):
+                inputs = [(ctypes.c_double * len(values))(*values) for values in
+                          [[v for row in layers for v in row], boundaries,
+                           [v for row in tensors for v in row], samples]]
+                handle = ctypes.c_void_p()
+                status = library.remagx_segmented_optics_prepare(inputs[0], len(layers), inputs[1],
+                    inputs[2] if with_tensors else None, model, inputs[3], 1001, ctypes.byref(handle))
+                self.assertEqual(status, 0)
+                self.assertTrue(handle.value)
+                # Destroy the source values after preparation: the handle owns its copy.
+                for array in inputs:
+                    for index in range(len(array)):
+                        array[index] = math.nan
+                state = [7.] * 18 if with_tensors else None
+                try:
+                    for position in positions:
+                        expected = evaluate(layers, boundaries, tensors if with_tensors else [],
+                                            model, position, samples, state)
+                        output = (ctypes.c_double * 4)(*([-123.] * 4))
+                        tensor = (ctypes.c_double * 18)(*state) if with_tensors else None
+                        status = library.remagx_segmented_optics_sample(handle, position, output, tensor)
+                        actual = (status, list(output), list(tensor) if tensor is not None else None)
+                        self.assertEqual(actual, expected)
+                        state = actual[2]
+                    before = bytes(output), bytes(tensor) if tensor is not None else None
+                    self.assertEqual(library.remagx_segmented_optics_sample(handle, math.nan, output, tensor), 1)
+                    self.assertEqual((bytes(output), bytes(tensor) if tensor is not None else None), before)
+                    self.assertEqual(library.remagx_segmented_optics_sample(handle, 0, None, tensor), 1)
+                    if with_tensors:
+                        tensor[0] = math.inf
+                        before = bytes(output), bytes(tensor)
+                        self.assertEqual(library.remagx_segmented_optics_sample(handle, 0, output, tensor), 1)
+                        self.assertEqual((bytes(output), bytes(tensor)), before)
+                    if not with_tensors:
+                        invalid_state = (ctypes.c_double * 18)(*([7.] * 18))
+                        self.assertEqual(library.remagx_segmented_optics_sample(handle, 0, output, invalid_state), 1)
+                        self.assertEqual(list(invalid_state), [7.] * 18)
+                finally:
+                    library.remagx_segmented_optics_destroy(handle)
+        handle = ctypes.c_void_p(123)
+        self.assertEqual(library.remagx_segmented_optics_prepare(None, 0, None, None, 2, None, 0, ctypes.byref(handle)), 1)
+        self.assertEqual(handle.value, 123)
+        self.assertEqual(library.remagx_segmented_optics_sample(None, 0, None, None), 1)
+        library.remagx_segmented_optics_destroy(None)
+
     def test_sharp_interfaces_global_replacement_and_local_accumulation(self):
         layers = [[0, 0, 2, 4, 6, 8, 90, 90], [100, 0, 4, 6, 8, 10, 90, 90]]
         samples = [(-5 + index*10/999)/5 for index in range(1001)]

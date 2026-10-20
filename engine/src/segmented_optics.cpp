@@ -3,24 +3,37 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
+#include <stdexcept>
+#include <vector>
 
-extern "C" int remagx_segmented_optics(const RemagxLayer* layers, size_t layer_count,
-    const double* boundaries, const double* tensors, int model, double position,
-    const double* error_samples, size_t error_sample_count, double* output, double* tensor_state) {
+namespace {
+int validate_inputs(const RemagxLayer* layers, size_t layer_count, const double* boundaries,
+    const double* tensors, int model, const double* error_samples, size_t error_sample_count,
+    bool evaluate_tensors) {
     if (!layers || layer_count < 2 || model < 0 || model > 2 || (model == 0 && !boundaries) ||
-        (tensor_state && !tensors) || !std::isfinite(position) || !error_samples ||
-        error_sample_count != 1001 || !output) return REMAGX_INVALID_ARGUMENT;
+        (evaluate_tensors && !tensors) || !error_samples || error_sample_count != 1001)
+        return REMAGX_INVALID_ARGUMENT;
     if (layer_count > std::numeric_limits<size_t>::max() / (18 * sizeof(double))) return REMAGX_ALLOCATION_ERROR;
     for (size_t layer = 0; layer < layer_count; ++layer) {
         const auto& row = layers[layer];
         if (!std::isfinite(row.thickness) || row.thickness < 0 || !std::isfinite(row.roughness) || row.roughness < 0 ||
             !std::isfinite(row.delta) || !std::isfinite(row.beta) || !std::isfinite(row.delta_magnetic) ||
             !std::isfinite(row.beta_magnetic) || (model == 0 && !std::isfinite(boundaries[layer]))) return REMAGX_INVALID_ARGUMENT;
-        if (tensor_state) for (size_t component = 0; component < 18; ++component)
+        if (evaluate_tensors) for (size_t component = 0; component < 18; ++component)
             if (!std::isfinite(tensors[layer * 18 + component])) return REMAGX_INVALID_ARGUMENT;
     }
     for (size_t index = 0; index < error_sample_count; ++index)
         if (!std::isfinite(error_samples[index])) return REMAGX_INVALID_ARGUMENT;
+    return REMAGX_SUCCESS;
+}
+
+// Both entry points share exactly this arithmetic. Immutable input validation
+// belongs to the one-shot call or the owned prepared snapshot's constructor.
+int sample_optics(const RemagxLayer* layers, size_t layer_count, const double* boundaries,
+    const double* tensors, int model, double position, const double* error_samples,
+    double* output, double* tensor_state) {
+    if (!std::isfinite(position) || !output || (tensor_state && !tensors)) return REMAGX_INVALID_ARGUMENT;
     double scalar[4] = {}, result_tensor[18] = {}, tensor_sum[18] = {};
     if (tensor_state) for (size_t component = 0; component < 18; ++component) {
         if (!std::isfinite(tensor_state[component])) return REMAGX_INVALID_ARGUMENT;
@@ -92,4 +105,53 @@ extern "C" int remagx_segmented_optics(const RemagxLayer* layers, size_t layer_c
     std::copy(scalar, scalar + 4, output);
     if (tensor_state) std::copy(result_tensor, result_tensor + 18, tensor_state);
     return REMAGX_SUCCESS;
+}
+
+} // namespace
+
+struct RemagxSegmentedOptics {
+    std::vector<RemagxLayer> layers;
+    std::vector<double> boundaries, tensors, error_samples;
+    int model;
+};
+
+extern "C" int remagx_segmented_optics(const RemagxLayer* layers, size_t layer_count,
+    const double* boundaries, const double* tensors, int model, double position,
+    const double* error_samples, size_t error_sample_count, double* output, double* tensor_state) {
+    const int status = validate_inputs(layers, layer_count, boundaries, tensors, model,
+        error_samples, error_sample_count, tensor_state != nullptr);
+    if (status != REMAGX_SUCCESS) return status;
+    return sample_optics(layers, layer_count, boundaries, tensors, model, position, error_samples, output, tensor_state);
+}
+
+extern "C" int remagx_segmented_optics_prepare(const RemagxLayer* layers, size_t layer_count,
+    const double* boundaries, const double* tensors, int model,
+    const double* error_samples, size_t error_sample_count, RemagxSegmentedOptics** prepared) {
+    if (!prepared) return REMAGX_INVALID_ARGUMENT;
+    const int status = validate_inputs(layers, layer_count, boundaries, tensors, model,
+        error_samples, error_sample_count, tensors != nullptr);
+    if (status != REMAGX_SUCCESS) return status;
+    try {
+        auto snapshot = std::make_unique<RemagxSegmentedOptics>();
+        snapshot->layers.assign(layers, layers + layer_count);
+        if (model == 0) snapshot->boundaries.assign(boundaries, boundaries + layer_count);
+        if (tensors) snapshot->tensors.assign(tensors, tensors + layer_count * 18);
+        snapshot->error_samples.assign(error_samples, error_samples + error_sample_count);
+        snapshot->model = model;
+        *prepared = snapshot.release();
+        return REMAGX_SUCCESS;
+    } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
+      catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
+}
+
+extern "C" int remagx_segmented_optics_sample(const RemagxSegmentedOptics* prepared,
+    double position, double* output, double* tensor_state) {
+    if (!prepared) return REMAGX_INVALID_ARGUMENT;
+    return sample_optics(prepared->layers.data(), prepared->layers.size(), prepared->boundaries.data(),
+        prepared->tensors.empty() ? nullptr : prepared->tensors.data(), prepared->model,
+        position, prepared->error_samples.data(), output, tensor_state);
+}
+
+extern "C" void remagx_segmented_optics_destroy(RemagxSegmentedOptics* prepared) {
+    delete prepared;
 }

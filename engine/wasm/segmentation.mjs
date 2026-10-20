@@ -54,9 +54,13 @@ export function calculateAdaptiveSegments(module, {
 
 // Prepared immutable inputs are copied once. Tensor state remains caller-owned,
 // separately for each adaptive sampling slot; every sample returns owned arrays.
-export function createSegmentedOpticalSampler(module, {
+export function createSegmentedOpticalSampler(module, request) {
+  return opticalSampler(module, request, true)
+}
+
+function opticalSampler(module, {
   layers, boundaries = null, tensors = null, model, errorSamples,
-}) {
+}, prepareNative) {
   const rows = (value, length, width) => Array.isArray(value) && value.length === length &&
     Array.from(value).every(row => opticalVector(row, width))
   if (!Array.isArray(layers) || layers.length < 2 || !rows(layers, layers.length, 8) ||
@@ -67,10 +71,11 @@ export function createSegmentedOpticalSampler(module, {
     throw new TypeError('Invalid segmented optical input')
   }
   const allocations = []
-  let disposed = false
+  let disposed = false, prepared = 0
   const dispose = () => {
     if (disposed) return
     disposed = true
+    if (prepared) module._remagx_segmented_optics_destroy(prepared)
     for (const pointer of allocations) module._free(pointer)
   }
   const allocate = count => {
@@ -91,6 +96,23 @@ export function createSegmentedOpticalSampler(module, {
     if (boundary) module.HEAPF64.set(boundaries, boundary / 8)
     if (tensor) module.HEAPF64.set(tensors.flatMap(row => Array.from(row)), tensor / 8)
     module.HEAPF64.set(errorSamples, table / 8)
+    if (prepareNative) {
+      // The native constructor copies immutable inputs. Reuse the output buffer
+      // for the returned wasm32 handle, then release the temporary input buffers.
+      const status = module._remagx_segmented_optics_prepare(stack, layerCount, boundary, tensor,
+        model, table, 1001, output)
+      if (status !== 0) {
+        const error = new Error(`Segmented optical preparation failed (status ${status})`)
+        error.status = status
+        throw error
+      }
+      prepared = new DataView(module.HEAPF64.buffer, output, 4).getUint32(0, true)
+      if (!prepared) throw new Error('Invalid prepared optical handle')
+      for (const pointer of [stack, boundary, tensor, table]) if (pointer) {
+        allocations.splice(allocations.indexOf(pointer), 1)
+        module._free(pointer)
+      }
+    }
     return {
       sample(position, tensorState = null) {
         if (disposed) throw new Error('Segmented optical sampler is disposed')
@@ -100,8 +122,9 @@ export function createSegmentedOpticalSampler(module, {
           if (tensorState === null) module.HEAPF64.fill(0, state / 8, state / 8 + 18)
           else module.HEAPF64.set(tensorState, state / 8)
         }
-        const status = module._remagx_segmented_optics(stack, layerCount, boundary, tensor, model,
-          position, table, 1001, output, state)
+        const status = prepared ? module._remagx_segmented_optics_sample(prepared, position, output, state)
+          : module._remagx_segmented_optics(stack, layerCount, boundary, tensor, model,
+            position, table, 1001, output, state)
         if (status !== 0) {
           const error = new Error(`Segmented optical sampling failed (status ${status})`)
           error.status = status
@@ -128,6 +151,6 @@ function validateOpticalSample(position, tensorState, hasTensors) {
 export function calculateSegmentedOptics(module, request) {
   const { position, tensorState = null, tensors = null } = request
   validateOpticalSample(position, tensorState, tensors !== null)
-  const sampler = createSegmentedOpticalSampler(module, request)
+  const sampler = opticalSampler(module, request, false)
   try { return sampler.sample(position, tensorState) } finally { sampler.dispose() }
 }

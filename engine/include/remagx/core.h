@@ -411,6 +411,18 @@ int remagx_segmented_optics(const RemagxLayer* layers, size_t layer_count,
     const double* boundaries, const double* tensors, int model, double position,
     const double* error_samples, size_t error_sample_count,
     double* output, double* tensor_state);
+// Immutable owned snapshot for repeated optical samples. Creation validates and
+// copies all supplied inputs once; subsequent samples validate only position and
+// caller-owned tensor state. Same arithmetic and atomic output as the one-shot API.
+// On creation failure *prepared is unchanged. Destroy once after use (NULL allowed).
+// Handles cannot be used after destruction; sampling does not modify the snapshot.
+typedef struct RemagxSegmentedOptics RemagxSegmentedOptics;
+int remagx_segmented_optics_prepare(const RemagxLayer* layers, size_t layer_count,
+    const double* boundaries, const double* tensors, int model,
+    const double* error_samples, size_t error_sample_count, RemagxSegmentedOptics** prepared);
+int remagx_segmented_optics_sample(const RemagxSegmentedOptics* prepared,
+    double position, double* output, double* tensor_state);
+void remagx_segmented_optics_destroy(RemagxSegmentedOptics* prepared);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
