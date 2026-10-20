@@ -827,6 +827,17 @@ try {
         const applied = projectSchema.parse(JSON.parse(JSON.stringify(applyDatabaseValues(databaseProject, result))))
         output.databaseUpdates.push({ mode, automatic, tensorTable, result, applied, unchanged: before === JSON.stringify(databaseProject) })
       }
+      const fullTensorProject = createDefaultProject()
+      fullTensorProject.sample.mode = 'element'; fullTensorProject.experiment.energy = 150
+      fullTensorProject.sample.elementProfiles = [{ element: 'Fe', f1: 0, f2: 0, f1Mag: 0, f2Mag: 0, slabs: [] }]
+      const fullTensorBefore = JSON.stringify(fullTensorProject)
+      const fullTensorTables = [
+        { name: 'Fe', kind: 'ff', energy: [100, 200], columns: [[26, 26], [2, 2]], warnings: [] },
+        { name: 'Fe', kind: 'f', energy: [100, 200], columns: Array.from({ length: 18 }, () => [1, 1]), warnings: [] },
+      ]
+      try { await service.databaseValues(fullTensorProject, fullTensorTables); output.fullTensorError = '' }
+      catch (error) { output.fullTensorError = error.message }
+      output.fullTensorUnchanged = fullTensorBefore === JSON.stringify(fullTensorProject)
       const spectrumProject = createDefaultProject()
       spectrumProject.sample.layers = [createLayer({ opticalTable: 'sample', deltaMag: 9, betaMag: 8 })]
       const spectrumTables = [
@@ -1153,6 +1164,8 @@ try {
       assert.ok(Math.abs(results.realElementSpectrum[field][index] - expected) <= 1e-15 + 1e-10 * Math.abs(expected))
     }
   }
+  assert.match(results.fullTensorError, /element-assignment decision/)
+  assert.ok(results.fullTensorUnchanged)
   assert.equal(results.databaseUpdates.length, 8)
   const diagonal = (real, imaginary) => Array.from({ length: 18 }, (_, index) => [0, 8, 16].includes(index) ? real : [1, 9, 17].includes(index) ? imaginary : 0)
   for (const { mode, automatic, tensorTable, result, applied, unchanged } of results.databaseUpdates) {

@@ -66,3 +66,17 @@ it('rejects malformed interpolation/tensors and invalid preparation without muta
   expect(project).toEqual(before)
   expect(tensors.every(tensor => tensor.every(value => value === 0))).toBe(true)
 })
+
+
+it('rejects full scattering overrides explicitly until legacy cross-element assignment is resolved', () => {
+  const project = fixture(), before = structuredClone(project)
+  const tables = [table('Fe', 'ff'), table('Fe', 'f')]
+  const lookup = vi.fn(() => ({ values: new Float64Array([26, 2]), cursor: 0 }))
+  const construct = vi.fn(() => new Float64Array(18))
+  expect(() => refreshElementOptics(project, tables, 150, lookup, construct)).toThrow('element-assignment decision')
+  expect(lookup).not.toHaveBeenCalled()
+  expect(construct).not.toHaveBeenCalled()
+  expect(project).toEqual(before)
+  // Missing/out-of-range primary data still retains stored state without reading .F.
+  expect(refreshElementOptics(project, tables, 250, lookup, construct).updated).toEqual([false, false, false, false])
+})

@@ -3,8 +3,8 @@ import type { Project } from './project'
 import type { RealTableLookup } from './refreshOpticalConstants'
 import { copyScatteringTensors, type ScatteringTensorCalculator } from './scatteringTensors'
 
-// Filldb element branch for supported imported .ff/.ffm tables. Legacy .F full
-// scattering tables are a distinct, currently unsupported import kind, not .e.
+// Filldb element branch for .ff/.ffm tables. Imported .F overrides require a
+// decision about the original cross-element row assignment before evaluation.
 // Caller supplies the stored calculation energy; cursors are calculation-owned.
 export function refreshElementOptics(project: Project, tables: readonly OpticalTable[], energy: number,
   lookup: RealTableLookup, construct: ScatteringTensorCalculator, cursors = new Map<OpticalTable, number>(),
@@ -33,6 +33,9 @@ export function refreshElementOptics(project: Project, tables: readonly OpticalT
     if (energy < primary.energy[0] || energy > primary.energy.at(-1)!) {
       rangeError = `Element ${index}: ${energy} eV is outside ${profile.element}.ff.`
       return { ...profile }
+    }
+    if (tables.some(table => table.name === profile.element && table.kind === 'f' && table.energy.length)) {
+      throw new Error('Full .F scattering tensor refresh is unavailable pending the legacy element-assignment decision.')
     }
     const scalar = read(primary)
     const magneticTable = tables.find(table => table.name === profile.element && table.kind === 'ffm')

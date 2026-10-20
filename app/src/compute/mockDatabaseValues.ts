@@ -27,6 +27,7 @@ export function mockDatabaseValues(project: Project, tables: OpticalTable[]): Da
     }
     if (magnetic && (energy < magnetic.energy[0] || energy > magnetic.energy.at(-1)!)) result.warnings.push(`${label}: mock magnetic interpolation holds the nearest table endpoint outside its range.`)
     if (!magnetic) result.warnings.push(`${label}: no ${magneticKind} table; magnetic values set to zero.`)
+    if (tables.some(table => table.name === name && table.kind === 'f')) result.warnings.push(`${label}: scattering tensor data is retained in the library but is not applied by the mock.`)
     if (tables.some(table => table.name === name && table.kind === 'e')) result.warnings.push(`${label}: dielectric tensor data is retained in the library but is not applied by the mock.`)
     result.updates.push({ index, first: primary[0], second: primary[1], firstMag: mag[0], secondMag: mag[1] })
   })

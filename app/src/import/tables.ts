@@ -10,6 +10,10 @@ export const tableKinds = {
     columns: ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz'].flatMap((c) => [`${c}_re`, `${c}_im`]),
     description: 'dielectric tensor',
   },
+  f: {
+    columns: ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz'].flatMap((c) => [`${c}_re`, `${c}_im`]),
+    description: 'element scattering tensor',
+  },
   ff: { columns: ['f1', 'f2'], description: 'atomic form factors' },
   ffm: { columns: ['f1Mag', 'f2Mag'], description: 'magnetic form factors' },
 } as const
@@ -31,7 +35,7 @@ export function tableKindFromFileName(fileName: string): TableKind | undefined {
 
 export function parseOpticalTable(content: string, fileName: string): OpticalTable {
   const kind = tableKindFromFileName(fileName)
-  if (!kind) throw new Error(`"${fileName}" is not an optical-constant table (.db, .m, .e, .ff, .ffm).`)
+  if (!kind) throw new Error(`"${fileName}" is not an optical-constant table (.db, .m, .e, .F, .ff, .ffm).`)
   const width = tableKinds[kind].columns.length
   const warnings: string[] = []
   const rows: number[][] = []

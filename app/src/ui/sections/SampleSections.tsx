@@ -159,7 +159,7 @@ export function OpticalConstantsSection() {
         {materialLibrary.error && <p role="alert">{materialLibrary.error}</p>}
         {materialLibrary.warning && <p role="alert">{materialLibrary.warning}</p>}
         {opticalTables.length === 0 ? (
-          <Note>No tables loaded. Load .db, .m, .e, .ff or .ffm files; layers refer to them by name (db column).</Note>
+          <Note>No tables loaded. Load .db, .m, .e, .F, .ff or .ffm files; layers refer to them by name (db column).</Note>
         ) : (
           <table className="small-table">
             <thead>

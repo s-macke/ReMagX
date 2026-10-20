@@ -3,7 +3,7 @@ import { tableKinds, type OpticalTable } from '../import/tables'
 
 const opticalTableSchema = z.object({
   name: z.string(),
-  kind: z.enum(['db', 'm', 'e', 'ff', 'ffm']),
+  kind: z.enum(['db', 'm', 'e', 'f', 'ff', 'ffm']),
   energy: z.array(z.number().finite()),
   columns: z.array(z.array(z.number().finite())),
   warnings: z.array(z.string()),

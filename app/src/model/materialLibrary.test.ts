@@ -46,3 +46,15 @@ it('reports the latest save failure without stale completions hiding it', () => 
   expect(state.materialLibrary.error).toBeNull()
   expect(reducer(state, { type: 'materialLibraryFailed', revision: 1, error: 'old' })).toBe(state)
 })
+
+it('imports and restores full scattering tensors independently of dielectric and scalar tables', () => {
+  const row = [700, ...Array.from({ length: 18 }, (_, index) => index + 1)].join(' ')
+  const scattering = parseOpticalTable(row, 'Co.F')
+  const dielectric = parseOpticalTable(row, 'Co.e')
+  expect(scattering.kind).toBe('f')
+  expect(scattering.columns).toEqual(Array.from({ length: 18 }, (_, index) => [index + 1]))
+  expect(scattering.warnings).toEqual([])
+  expect(readStoredOpticalTable({ version: 1, table: scattering })).toEqual(scattering)
+  expect(mergeOpticalTables([original, dielectric], [scattering])).toEqual([original, dielectric, scattering])
+  expect(readStoredOpticalTable({ version: 1, table: { ...scattering, columns: [[1], [2]] } })).toBeNull()
+})
