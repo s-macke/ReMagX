@@ -1,5 +1,6 @@
 import ctypes
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -129,4 +130,16 @@ for(int i=0;i<points;++i){double z;cin>>z;cout<<GetDensity(layers,layer,z)<<' ';
 
 
 if __name__ == '__main__':
-    unittest.main()
+    if '--wasm-payload' in sys.argv:
+        # Synthetic analytic table for public cross-runtime tests only. Production
+        # table generation remains undecided; private original samples stay private.
+        samples = [math.erf(-5.0 + index * 10.0 / 999.0) for index in range(1001)]
+        payload = []
+        for boundaries, roughness, layer, positions in cases():
+            status, expected = evaluate(boundaries, roughness, layer, positions, samples)
+            assert status == 0
+            payload.append(dict(kind='density', boundaries=boundaries, roughness=roughness,
+                layerIndex=layer, positions=positions, errorSamples=samples, expected=expected))
+        print(json.dumps(payload))
+    else:
+        unittest.main()

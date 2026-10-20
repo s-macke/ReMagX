@@ -11,6 +11,7 @@ const modulePath = resolve(process.argv[2])
 const input = JSON.parse(readFileSync(0, 'utf8'))
 const cases = [...input.angular, ...input.qz.map(prepared => ({ ...prepared, kind: 'qz' }))]
 const assets = new Map([
+  ['/layer_density_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/layer_density_checks.mjs'))]],
   ['/magnetic_application_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/magnetic_application_checks.mjs'))]],
   ['/spline_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/spline_checks.mjs'))]],
   ['/fourier_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/fourier_checks.mjs'))]],
@@ -146,12 +147,12 @@ try {
     result.profileResults[index].forEach((value, beam) => {
       const target = item.expected[beam]
       assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
-        `Gaussian/spline profiles, knots and application case ${index}, value ${beam}: ${value} vs ${target}`)
+        `Gaussian/spline profiles, application and density case ${index}, value ${beam}: ${value} vs ${target}`)
       profileCount++
     })
   })
-  assert.equal(profileCount, 31278)
-  console.log(`Chromium Gaussian/spline profiles, knots and application: ${profileCount} values matched native.`)
+  assert.equal(profileCount, 37393)
+  console.log(`Chromium Gaussian/spline profiles, application and density: ${profileCount} values matched native.`)
   let tensorCount = 0
   input.tensors.forEach((item, index) => {
     assert.equal(result.tensorResults[index].anisotropic, item.anisotropic)

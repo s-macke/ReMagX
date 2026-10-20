@@ -571,6 +571,29 @@ export function applyMagneticProfiles(module, { profiles, splines, positions, in
   })
 }
 
+// Table samples are an explicit input; this adapter does not generate them.
+export function calculateLayerDensity(module, { boundaries, roughness, layerIndex, positions, errorSamples }) {
+  if (!validVector(boundaries) || !validVector(roughness, boundaries.length) ||
+      !Number.isSafeInteger(layerIndex) || layerIndex < 0 || layerIndex >= boundaries.length ||
+      !validVector(positions) || !validVector(errorSamples, 1001)) {
+    throw new TypeError('Invalid layer density input')
+  }
+  return withBuffers(module, allocate => {
+    const boundariesPointer = allocate(boundaries.length)
+    const roughnessPointer = allocate(roughness.length)
+    const positionsPointer = allocate(positions.length)
+    const tablePointer = allocate(errorSamples.length)
+    const outputPointer = allocate(positions.length)
+    module.HEAPF64.set(boundaries, boundariesPointer / 8)
+    module.HEAPF64.set(roughness, roughnessPointer / 8)
+    module.HEAPF64.set(positions, positionsPointer / 8)
+    module.HEAPF64.set(errorSamples, tablePointer / 8)
+    checkStatus(module._remagx_layer_density(boundariesPointer, roughnessPointer, boundaries.length,
+      layerIndex, positionsPointer, positions.length, tablePointer, errorSamples.length, outputPointer), 'Layer density')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + positions.length)
+  })
+}
+
 export function calculateGaussLorentzianImag(module, parameters) {
   if (!validVector(parameters, 5)) throw new TypeError('Invalid Gauss-Lorentzian input')
   return withBuffers(module, allocate => {
