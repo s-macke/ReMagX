@@ -16,6 +16,28 @@ double evaluate(double amplitude, double position, const RemagxGaussianProfile& 
     return amplitude * std::exp(-((position - profile.center) * (position - profile.center)) /
         2.0 / (profile.width * profile.width));
 }
+int splineValue(const double* knots, const double* values, size_t knot_count, double position, double& shape) {
+    shape = 0.0;
+    if (knot_count >= 4 && position >= knots[1] && position <= knots[knot_count - 2]) {
+        // TSplineFunc selects the first knot >= position, without sorting.
+        size_t right = 1;
+        while (right < knot_count && position > knots[right]) ++right;
+        // At the exact left endpoint the original would read values[-1].
+        if (right < 2 || right + 1 >= knot_count) return REMAGX_INVALID_ARGUMENT;
+        const double fraction = 0.0 - (knots[right - 1] - position) /
+            (knots[right - 1] - knots[right]) * (0.0 - 1.0);
+        const double first = values[right - 2], second = values[right - 1];
+        const double third = values[right], fourth = values[right + 1];
+        // Preserve the original coefficient and Horner evaluation order.
+        const double cubic = -0.5 * first + 1.5 * second + -1.5 * third + 0.5 * fourth;
+        const double quadratic = first + -2.5 * second + 2.0 * third + -0.5 * fourth;
+        const double linear = -0.5 * first + 0.0 * second + 0.5 * third + 0.0 * fourth;
+        const double constant = 0.0 * first + second + 0.0 * third + 0.0 * fourth;
+        shape = ((cubic * fraction + quadratic) * fraction + linear) * fraction + constant;
+    }
+    return std::isfinite(shape) ? REMAGX_SUCCESS : REMAGX_NUMERICAL_ERROR;
+}
+
 }
 
 extern "C" int remagx_gaussian_profile(const RemagxGaussianProfile* profile,
@@ -64,7 +86,8 @@ extern "C" int remagx_gaussian_spline_knots(const RemagxGaussianProfile* profile
       catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
 }
 
-extern "C" int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profiles, size_t profile_count,
+static int applyProfiles(const RemagxGaussianProfile* profiles, size_t profile_count,
+                                               const int* spline_counts, const double* knots, const double* values, size_t knot_count,
                                                const double* positions, const double* initial_values,
                                                const double* weights, size_t sample_count, int coupled,
                                                double* output) {
@@ -74,8 +97,23 @@ extern "C" int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profi
         profile_count > std::numeric_limits<size_t>::max() / sizeof(RemagxGaussianProfile) ||
         (profile_count && sample_count > std::numeric_limits<size_t>::max() / sizeof(double) / profile_count))
         return REMAGX_ALLOCATION_ERROR;
-    for (size_t profile = 0; profile < profile_count; ++profile)
+    if (knot_count > std::numeric_limits<size_t>::max() / sizeof(double)) return REMAGX_ALLOCATION_ERROR;
+    if (knot_count && (!spline_counts || !knots || !values)) return REMAGX_INVALID_ARGUMENT;
+    size_t used_knots = 0;
+    for (size_t profile = 0; profile < profile_count; ++profile) {
         if (!valid(profiles + profile)) return REMAGX_INVALID_ARGUMENT;
+        if (spline_counts) {
+            if (spline_counts[profile] < -1) return REMAGX_INVALID_ARGUMENT;
+            if (spline_counts[profile] >= 0) {
+                const size_t count = static_cast<size_t>(spline_counts[profile]);
+                if (count > knot_count - used_knots) return REMAGX_INVALID_ARGUMENT;
+                used_knots += count;
+            }
+        }
+    }
+    if (used_knots != knot_count) return REMAGX_INVALID_ARGUMENT;
+    for (size_t knot = 0; knot < knot_count; ++knot)
+        if (!std::isfinite(knots[knot]) || !std::isfinite(values[knot])) return REMAGX_INVALID_ARGUMENT;
     for (size_t sample = 0; sample < sample_count; ++sample) {
         if (!std::isfinite(positions[sample]) || !std::isfinite(initial_values[2 * sample]) ||
             !std::isfinite(initial_values[2 * sample + 1])) return REMAGX_INVALID_ARGUMENT;
@@ -85,13 +123,27 @@ extern "C" int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profi
     try {
         std::vector<double> result(initial_values, initial_values + sample_count * 2);
         for (size_t sample = 0; sample < sample_count; ++sample) {
+            size_t knot_offset = 0;
             for (size_t profile = 0; profile < profile_count; ++profile) {
                 const auto& shape = profiles[profile];
+                const int count = spline_counts ? spline_counts[profile] : -1;
+                const size_t offset = knot_offset;
+                if (count > 0) knot_offset += static_cast<size_t>(count);
                 if (shape.delta_amplitude == 0.0 && shape.beta_amplitude == 0.0) continue;
                 const double weight = weights[sample * profile_count + profile];
                 if (weight == 0.0) continue;
-                const double delta = evaluate(shape.delta_amplitude, positions[sample], shape);
-                const double beta = evaluate(shape.beta_amplitude, positions[sample], shape);
+                double delta, beta;
+                if (count >= 0) {
+                    double value;
+                    const int status = splineValue(count ? knots + offset : nullptr, count ? values + offset : nullptr,
+                        static_cast<size_t>(count), positions[sample], value);
+                    if (status != REMAGX_SUCCESS) return status;
+                    delta = shape.delta_amplitude * value;
+                    beta = shape.beta_amplitude * value;
+                } else {
+                    delta = evaluate(shape.delta_amplitude, positions[sample], shape);
+                    beta = evaluate(shape.beta_amplitude, positions[sample], shape);
+                }
                 if (coupled) {
                     // CalcMagProfile updates in profile order, using the current
                     // segment value for each contribution, not its initial value.
@@ -111,6 +163,20 @@ extern "C" int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profi
       catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
 }
 
+
+extern "C" int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profiles, size_t profile_count,
+    const double* positions, const double* initial_values, const double* weights, size_t sample_count, int coupled, double* output) {
+    return applyProfiles(profiles, profile_count, nullptr, nullptr, nullptr, 0,
+        positions, initial_values, weights, sample_count, coupled, output);
+}
+
+extern "C" int remagx_apply_magnetic_profiles(const RemagxGaussianProfile* profiles, size_t profile_count,
+    const int* spline_counts, const double* knots, const double* values, size_t knot_count,
+    const double* positions, const double* initial_values, const double* weights, size_t sample_count, int coupled, double* output) {
+    if (profile_count && !spline_counts) return REMAGX_INVALID_ARGUMENT;
+    return applyProfiles(profiles, profile_count, spline_counts, knots, values, knot_count,
+        positions, initial_values, weights, sample_count, coupled, output);
+}
 
 extern "C" int remagx_gauss_lorentzian_imag(double energy, double center, double area,
                                             double width, double mixing_percent, double* output) {
@@ -176,25 +242,9 @@ extern "C" int remagx_spline_profile(const RemagxGaussianProfile* profile,
     try {
         std::vector<double> result(count * 2);
         for (size_t sample = 0; sample < count; ++sample) {
-            const double position = positions[sample];
-            double shape = 0.0;
-            if (knot_count >= 4 && position >= knots[1] && position <= knots[knot_count - 2]) {
-                // TSplineFunc selects the first knot >= position, without sorting.
-                size_t right = 1;
-                while (right < knot_count && position > knots[right]) ++right;
-                // At the exact left endpoint the original would read values[-1].
-                if (right < 2 || right + 1 >= knot_count) return REMAGX_INVALID_ARGUMENT;
-                const double fraction = 0.0 - (knots[right - 1] - position) /
-                    (knots[right - 1] - knots[right]) * (0.0 - 1.0);
-                const double first = values[right - 2], second = values[right - 1];
-                const double third = values[right], fourth = values[right + 1];
-                // Preserve the original coefficient and Horner evaluation order.
-                const double cubic = -0.5 * first + 1.5 * second + -1.5 * third + 0.5 * fourth;
-                const double quadratic = first + -2.5 * second + 2.0 * third + -0.5 * fourth;
-                const double linear = -0.5 * first + 0.0 * second + 0.5 * third + 0.0 * fourth;
-                const double constant = 0.0 * first + second + 0.0 * third + 0.0 * fourth;
-                shape = ((cubic * fraction + quadratic) * fraction + linear) * fraction + constant;
-            }
+            double shape;
+            const int status = splineValue(knots, values, knot_count, positions[sample], shape);
+            if (status != REMAGX_SUCCESS) return status;
             result[2 * sample] = profile->delta_amplitude * shape;
             result[2 * sample + 1] = profile->beta_amplitude * shape;
             if (!std::isfinite(result[2 * sample]) || !std::isfinite(result[2 * sample + 1]))

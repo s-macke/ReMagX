@@ -328,6 +328,16 @@ int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profiles, size_t
                                    const double* positions, const double* initial_values,
                                    const double* weights, size_t sample_count, int coupled,
                                    double* output);
+// Mixed Gaussian/spline application with the same prepared-sample contract.
+// spline_counts has profile_count entries: -1 selects Gaussian, >=0 selects
+// a spline with that many knots (including an empty, zero-valued spline).
+// knots/values concatenate spline data in profile order; their length knot_count
+// must equal the sum of nonnegative counts. Zero-weight/zero-amplitude profiles
+// skip evaluation, including otherwise unsupported spline endpoints.
+int remagx_apply_magnetic_profiles(const RemagxGaussianProfile* profiles, size_t profile_count,
+    const int* spline_counts, const double* knots, const double* values, size_t knot_count,
+    const double* positions, const double* initial_values, const double* weights,
+    size_t sample_count, int coupled, double* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
