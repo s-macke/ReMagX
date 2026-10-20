@@ -154,7 +154,7 @@ try {
       profileCount++
     })
   })
-  assert.equal(profileCount, 56708)
+  assert.equal(profileCount, 57380)
   console.log(`Chromium Gaussian/spline profiles, application and density: ${profileCount} values matched native.`)
   let tensorCount = 0
   input.tensors.forEach((item, index) => {

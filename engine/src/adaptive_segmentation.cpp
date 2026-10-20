@@ -17,11 +17,11 @@ extern "C" int remagx_adaptive_segments(double minimum_depth, double maximum_dep
         !capacity || capacity > 1000000 || !positions || !thicknesses || !values || !count) return REMAGX_INVALID_ARGUMENT;
     try {
         std::vector<double> depths, optics;
-        auto sample = [&](double depth, double* output) {
+        auto sample = [&](double depth, size_t slot, double* output) {
             if (!std::isfinite(depth)) return false;
             // Missing callback components must not inherit a previous sample.
             std::fill(output, output + value_count, std::nan(""));
-            if (sampler(depth, output, context) != REMAGX_SUCCESS) return false;
+            if (sampler(depth, slot, output, context) != REMAGX_SUCCESS) return false;
             for (size_t component = 0; component < value_count; ++component)
                 if (!std::isfinite(output[component])) return false;
             return true;
@@ -42,10 +42,10 @@ extern "C" int remagx_adaptive_segments(double minimum_depth, double maximum_dep
         double first[22], second[22], middle[22], shifted[22];
         for (double depth = minimum_depth; depth <= maximum_depth;) {
             if (depths.size() == capacity) return REMAGX_INVALID_ARGUMENT;
-            if (!sample(depth, first) || !sample(depth + 1e-4, second)) return REMAGX_NUMERICAL_ERROR;
+            if (!sample(depth, 0, first) || !sample(depth + 1e-4, 1, second)) return REMAGX_NUMERICAL_ERROR;
             const double provisional = step(first, second);
-            if (!sample(depth + provisional / 2.0, middle) ||
-                !sample(depth + 1e-4 + provisional / 2.0, shifted)) return REMAGX_NUMERICAL_ERROR;
+            if (!sample(depth + provisional / 2.0, 2, middle) ||
+                !sample(depth + 1e-4 + provisional / 2.0, 3, shifted)) return REMAGX_NUMERICAL_ERROR;
             const double width = step(middle, shifted);
             const double center = depth + width / 2.0;
             const double next = depth + width;
@@ -58,7 +58,7 @@ extern "C" int remagx_adaptive_segments(double minimum_depth, double maximum_dep
         }
         for (size_t index = 1; index < depths.size(); ++index) {
             const double midpoint = (depths[index] + depths[index - 1]) * 0.5;
-            if (!sample(midpoint, optics.data() + index * value_count)) return REMAGX_NUMERICAL_ERROR;
+            if (!sample(midpoint, 0, optics.data() + index * value_count)) return REMAGX_NUMERICAL_ERROR;
         }
         std::vector<double> widths(depths.size(), 0.0);
         for (size_t index = 1; index < depths.size(); ++index) {

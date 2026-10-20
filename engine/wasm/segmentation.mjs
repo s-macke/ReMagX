@@ -1,5 +1,7 @@
 // Synchronous subdivision: call from a compute worker. Optical sampling policy
 // and project range/classification preparation belong to the caller.
+// sample(position, slot) receives the original reusable sampling-object index
+// (0..3); final midpoint resampling reuses slot 0. Keep any tensor state per slot.
 export function calculateAdaptiveSegments(module, {
   minimumDepth, maximumDepth, minimumStep, maximumStep, gradientScale,
   valueCount = 4, capacity = 100000, sample,
@@ -19,9 +21,9 @@ export function calculateAdaptiveSegments(module, {
   try {
     const positions = allocate(capacity), thicknesses = allocate(capacity)
     const values = allocate(capacity * valueCount), count = allocate(1)
-    callback = module.addFunction((position, output, _context) => {
+    callback = module.addFunction((position, slot, output, _context) => {
       try {
-        const result = sample(position)
+        const result = sample(position, slot)
         if ((!Array.isArray(result) && !(result instanceof Float64Array)) || result.length !== valueCount) {
           throw new TypeError('Optical sampler must return a finite vector synchronously')
         }
@@ -30,7 +32,7 @@ export function calculateAdaptiveSegments(module, {
         module.HEAPF64.set(result, output / 8)
         return 0
       } catch (error) { callbackFailed = true; callbackError = error; return 1 }
-    }, 'idii')
+    }, 'idiii')
     const status = module._remagx_adaptive_segments(minimumDepth, maximumDepth, minimumStep,
       maximumStep, gradientScale, valueCount, callback, 0, capacity, positions, thicknesses, values, count)
     if (callbackFailed) throw callbackError

@@ -122,7 +122,7 @@ for (const [caseIndex, request] of input.profiles.entries()) {
     profileCount++
   })
 }
-assert.equal(profileCount, 56708)
+assert.equal(profileCount, 57380)
 checkAdaptiveSegments(module, calculateAdaptiveSegments)
 checkLayerDensity(module, calculateLayerDensity)
 checkElementDensity(module, calculateElementDensity)

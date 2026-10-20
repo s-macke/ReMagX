@@ -1,6 +1,11 @@
 export function sampleAdaptiveSegments(module, calculate, request) {
-  const result = calculate(module, { ...request, sample: position => Array.from({ length: request.valueCount },
-    (_, component) => ((component + 1) * 1e-7) * (position * position + .25 * position + 2)) })
+  const states = Array.from({ length: 4 }, () => Array(18).fill(0))
+  const result = calculate(module, { ...request, sample: (position, slot) => Array.from({ length: request.valueCount },
+    (_, component) => {
+      const value = ((component + 1) * 1e-7) * (position * position + .25 * position + 2)
+      if (request.stateful && component >= 4) return states[slot][component - 4] += value
+      return value
+    }) })
   return Array.from(result.positions, (position, index) => [position, result.thicknesses[index],
     ...result.values.slice(index * request.valueCount, (index + 1) * request.valueCount)]).flat()
 }
@@ -21,6 +26,9 @@ export function checkAdaptiveSegments(module, calculate) {
     ensure(JSON.stringify(Array.from(result.thicknesses)) === '[0,2,2]', 'Adaptive thickness mismatch')
     ensure(JSON.stringify(Array.from(result.values)) === '[1,2,3,4,1,2,3,4,1,2,3,4]', 'Adaptive values mismatch')
   }
+  const slots = []
+  calculate(module, { ...request, sample: (_position, slot) => { slots.push(slot); return [1, 2, 3, 4] } })
+  ensure(JSON.stringify(slots) === '[0,1,2,3,0,1,2,3,0,1,2,3,0,0]', 'Adaptive sample slots mismatch')
   const before = calculate(module, request), snapshot = JSON.stringify(request)
   same(before)
   for (const patch of [{ minimumDepth: NaN }, { maximumDepth: -1 }, { minimumStep: 0 },

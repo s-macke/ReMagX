@@ -365,7 +365,10 @@ int remagx_element_density(const double* slabs, size_t slab_count,
 // capacity*value_count values. Output count and all buffers are atomic on failure.
 // Outputs must not overlap. Sampler failures map to REMAGX_NUMERICAL_ERROR.
 // Callback effects are caller-owned and cannot be rolled back. No erf policy here.
-typedef int (*RemagxOpticalSampler)(double position, double* values, void* context);
+// slot identifies the original reusable sample: 0/1 at the current depth,
+// 2/3 at the provisional midpoint; final resampling reuses slot 0. Callers
+// must preserve per-slot tensor state when the selected optical model requires it.
+typedef int (*RemagxOpticalSampler)(double position, size_t slot, double* values, void* context);
 int remagx_adaptive_segments(double minimum_depth, double maximum_depth,
     double minimum_step, double maximum_step, double gradient_scale, size_t value_count,
     RemagxOpticalSampler sampler, void* context, size_t capacity,
