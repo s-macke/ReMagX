@@ -1,5 +1,6 @@
 import ctypes
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -130,4 +131,15 @@ if(matrix)for(int i=0;i<3;++i)for(int j=0;j<3;++j)cout<<' '<<row.oc.epsilon.a[i]
 
 
 if __name__ == '__main__':
-    unittest.main()
+    if '--wasm-payload' in sys.argv:
+        payload = []
+        for width in [4, 22]:
+            for minimum, maximum, scale in [(.3, 5, .2), (.2, 3, 2), (1, 4, 0), (.7, .7, -1)]:
+                status, rows, _ = evaluate(minimum=minimum, maximum=maximum, scale=scale, width=width)
+                assert status == 0
+                payload.append(dict(kind='adaptive', minimumDepth=-30, maximumDepth=47,
+                    minimumStep=minimum, maximumStep=maximum, gradientScale=scale,
+                    valueCount=width, capacity=10000, expected=[value for row in rows for value in row]))
+        print(json.dumps(payload))
+    else:
+        unittest.main()

@@ -1,3 +1,5 @@
+import { calculateAdaptiveSegments } from '../wasm/segmentation.mjs'
+import { checkAdaptiveSegments, sampleAdaptiveSegments } from './adaptive_segments_checks.mjs'
 import { checkElementDensity } from './element_density_checks.mjs'
 import { checkLayerDensity } from './layer_density_checks.mjs'
 import { checkMagneticApplication } from './magnetic_application_checks.mjs'
@@ -97,6 +99,7 @@ for (const change of [{ stacks: [] }, { stacks: new Array(3) }, { enabled: [1, 2
 }
 assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, qz: [0, 0, 1e10] }), { status: 4 })
 function evaluateProfile(core, request) {
+  if (request.kind === 'adaptive') return sampleAdaptiveSegments(core, calculateAdaptiveSegments, request)
   if (request.kind === 'spline') return calculateSplineProfile(core, request)
   if (request.kind === 'element-density') return calculateElementDensity(core, request)
   if (request.kind === 'density') return calculateLayerDensity(core, request)
@@ -119,7 +122,8 @@ for (const [caseIndex, request] of input.profiles.entries()) {
     profileCount++
   })
 }
-assert.equal(profileCount, 43328)
+assert.equal(profileCount, 56708)
+checkAdaptiveSegments(module, calculateAdaptiveSegments)
 checkLayerDensity(module, calculateLayerDensity)
 checkElementDensity(module, calculateElementDensity)
 checkMagneticApplication(module, applyMagneticProfiles)
