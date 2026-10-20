@@ -523,3 +523,23 @@ export function calculateGaussLorentzianReal(module, parameters) {
     return module.HEAPF64[output / 8]
   })
 }
+
+
+export function calculateFourier(module, qz, reflectivity) {
+  if (!Array.isArray(qz) || qz.length < 2 || qz.length > 1000000 ||
+      !validVector(qz) || !validVector(reflectivity, qz.length)) {
+    throw new TypeError('Invalid Fourier input')
+  }
+  const count = Math.floor(qz.length / 2)
+  return withBuffers(module, allocate => {
+    const coordinatePointer = allocate(qz.length)
+    const signalPointer = allocate(reflectivity.length)
+    const depthPointer = allocate(count)
+    const magnitudePointer = allocate(count)
+    module.HEAPF64.set(qz, coordinatePointer / 8)
+    module.HEAPF64.set(reflectivity, signalPointer / 8)
+    checkStatus(module._remagx_fourier(coordinatePointer, signalPointer, qz.length, depthPointer, magnitudePointer), 'Fourier postprocessing')
+    return { depths: module.HEAPF64.slice(depthPointer / 8, depthPointer / 8 + count),
+      magnitudes: module.HEAPF64.slice(magnitudePointer / 8, magnitudePointer / 8 + count) }
+  })
+}

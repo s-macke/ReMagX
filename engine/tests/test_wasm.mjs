@@ -1,3 +1,4 @@
+import { checkFourier } from './fourier_checks.mjs'
 import { checkAsymmetry } from './asymmetry_checks.mjs'
 import { checkElementOptics } from './element_optics_checks.mjs'
 import { checkScattering } from './scattering_checks.mjs'
@@ -8,11 +9,14 @@ import { checkOptimizer } from './optimizer_checks.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
+import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, generateGaussianSplineKnots, applyGaussianProfiles } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
 const input = JSON.parse(readFileSync(0, 'utf8'))
+const fourierCount = checkFourier(module, calculateFourier, input.fourier)
+assert.equal(fourierCount, 75658)
+console.log(`WASM/native Fourier: ${fourierCount} values, validation, growth and cleanup passed.`)
 const fitErrorValues = checkFitErrors(module, calculateFitError, input.fitErrors)
 assert.equal(fitErrorValues, 12480)
 console.log(`WASM/native dataset fit errors: ${fitErrorValues} means/residuals, validation, growth and cleanup passed.`)

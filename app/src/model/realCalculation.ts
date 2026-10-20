@@ -14,6 +14,7 @@ import type { OpticalTable } from '../import/tables'
 export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Array
 
 export interface RealCalculationEngine {
+  fourier?(qz: number[], reflectivity: number[]): { depths: Float64Array; magnitudes: Float64Array }
   convolveFastQz?(qz: number[], values: Float64Array, width: number): Float64Array
   gaussLorentzianImag?(energy: number, center: number, area: number, width: number, mixingPercent: number): number
   gaussLorentzianReal?(energy: number, center: number, area: number, width: number, mixingPercent: number): number

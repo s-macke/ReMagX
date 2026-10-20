@@ -14,7 +14,8 @@ const handle = createRealRequestHandler(response => self.postMessage(response), 
     import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl), import(/* @vite-ignore */ fitErrorUrl), import(/* @vite-ignore */ optimizerUrl),
   ])
   const instance = await core.default()
-  return { convolveFastQz: (qz, values, width) => adapter.convolveFastQz(instance, qz, values, width),
+  return { fourier: (qz, reflectivity) => adapter.calculateFourier(instance, qz, reflectivity),
+    convolveFastQz: (qz, values, width) => adapter.convolveFastQz(instance, qz, values, width),
     gaussLorentzianReal: (...parameters) => adapter.calculateGaussLorentzianReal(instance, parameters),
     gaussLorentzianImag: (...parameters) => adapter.calculateGaussLorentzianImag(instance, parameters),
     minimize: request => optimizerAdapter.minimizeSimplex(instance, request),

@@ -9,11 +9,11 @@ the same commit that completes them.
 A browser-local rewrite of **ReMagX** (resonant magnetic X-ray reflectivity: simulate and fit
 thin-film multilayers). The legacy program is a Windows C++/Borland application (ReMagX 2.6,
 local copy in `old/`, not in git). The new app is a static website: React + TypeScript UI,
-numerics later in WebAssembly compiled from the ported legacy C++ core.
+numerics in development in WebAssembly compiled from the ported legacy C++ core.
 
 - Live site: https://s-macke.github.io/ReMagX/ (deployed from `main` on every push)
 - Original project: https://remagx.org/
-- Current phase: **UI first with a mocked compute engine** (decision D-33)
+- Deployment: **UI with a mocked compute engine** (decision D-33). Development includes the real native/WASM engine; full acceptance and the public switch remain open.
 
 ## Source of truth
 
@@ -154,6 +154,9 @@ the main remaining work: **Implementation** (code/integration), **Validation** (
 already implemented paths), or **Decision** (an explicit choice before dependent work).
 An entry may also require work of another kind, stated in its text. Broad requirements overlap
 with component records; checkbox totals must not be treated as a completion percentage.
+Numerical comparison tolerances measure implementation compatibility, not experimental
+measurement accuracy. D-23 remains 1e-10 relative + 1e-15 absolute; logarithmic diagnostics
+supplement that comparison and do not silently replace its acceptance criterion.
 
 Checked entries below record the scope proven when each increment landed. Their historical
 “remains open” clauses can be superseded by later checked increments; they are not additional
@@ -304,6 +307,7 @@ Quality gates:
 - [ ] **Validation:** Validate implemented Parratt, full 4×4 matrix/Visnovsky and Zak qz/energy paths against full legacy corpus golden outputs, completing any missing preparation exposed by that comparison. Prepared kernels, real-worker paths and selected public-project comparisons already exist (D-3, D-25, AC-5).
 - [x] Segmentation error-function compatibility study: hash-gated private diagnostic compares the original lookup with std::erf on the same grid and direct evaluation, plus a fixed-slice synthetic reflectivity case. Both replacements exceed D-23 (23/200 and 200/200 reflectivity points respectively); no replacement or tolerance change is applied. Follow-up on 15 private segmented projects replaces only lookup samples with std::erf while retaining the original grid/interpolation and adaptive path: 14 projects/17,752 of 19,586 points exceed D-23; maximum absolute intensity error 6.67e-6 and maximum positive-pair log10 error 0.861 decades. No replacement or tolerance exception is adopted. Reproduce with `python3 tools/golden/legacy/compare_segmentation_erf.py` after building the native core.
 - [x] Identified internal single-precision intermediates in the original error-function series/continued-fraction helpers despite their double interfaces. Added an independent double-only DLMF-based diagnostic (no NR translation): 9,112/20,001 direct-function samples exceed D-23. A decision is pending on narrowly scoped legacy-rounding compatibility versus a separately reviewed full-double deviation; no production arithmetic or golden tolerance changed.
+- [ ] **Decision:** Resolve the legacy error-function's single-precision intermediates versus the double-only requirement: narrowly scoped legacy-rounding compatibility, or a separately reviewed full-double numerical deviation. Neither option nor a golden-tolerance exception has been approved; see the compatibility study above.
 - [ ] **Implementation:** Complete adaptive layer segmentation and its settings, then validate combined roughness/segmentation against original projects. Nevot-Croce already exists in the numerical kernels; the legacy error-function compatibility issue remains unresolved (D-25, spec §2).
 - [x] Native Gaussian magnetic amplitudes and BuildSpline knot generation: signed/zero widths, zero delta amplitude, original interpolation and normalization order, double-only data API and atomic failures. Compared 9,240 amplitude/knot values with the hash-gated original class plus independent analytic/error checks. Spline evaluation, binding/coupling, segmentation and WASM/worker integration remain open.
 - [x] Gaussian amplitude and spline-knot WASM adapters: explicit four-double profile ABI, owned buffers and independent output arrays. All 9,240 native values match in Node and Chromium; invalid/sparse inputs, oversized buffers, late numerical errors, memory growth and partial-allocation cleanup/recovery pass. Spline evaluation, binding/coupling, segmentation and real-worker profile integration remain open.
@@ -395,6 +399,7 @@ Quality gates:
 - [x] Initial real-worker ComputeService path for guarded Parratt reflectivity/dichroic/asymmetry requests, with lazy WASM loading, legacy asymmetry definitions, explicit unsupported errors and Chromium Stop/restart verification. Available through `createRealComputeService`; not selected by the deployed app.
 - [x] Real-worker qz⁴ scaling, exact pure-π correction and legacy moving averages, preserving preprocessing order and leading-zero averaging behavior. Four domain tests, Chromium service coverage and 960 local original-method output comparisons pass; Fourier postprocessing remains open.
 - [x] Native Fourier postprocessing component: double-only arbitrary-length forward transform using radix-two/chirp convolution, preserving original extra qz^4 scaling, 3.141592 window/depth constant, N+1 denominator, original ordering (unused legacy interpolation buffer), floor(N/2) output and zero DC. All 10,122 values across 48 synthetic original-FFTW cases pass D-23; independent direct-transform, impulse/interference, 65,537-point and atomic-error checks pass. No new dependency or NR code. WASM/worker integration and complete Fourier acceptance remain open; the real app still rejects Fourier requests.
+- [x] Fourier WASM adapter: owned buffers and independent depth/magnitude arrays, exposed on the real-worker engine interface. All 75,658 values across 49 synthetic cases match native results in Node and Chromium at D-23, including a 65,537-point transform; malformed inputs, allocation failures, native errors, memory growth and recovery pass. Calculation orchestration and legacy output-column semantics remain open; public Fourier requests are not enabled.
 - [ ] **Implementation:** Complete the real engine and replace the deployed mock behind `ComputeService` (D-33)
 - [ ] **Implementation:** Native command-line tool like the legacy `ReMagX_Terminal`: `-refl`, `-dicrefl`, `-fit`, `-convert` (`.db` + `.m` → `.e`), `-v`; `-map` once maps exist; reads `.all` and JSON (D-35)
 

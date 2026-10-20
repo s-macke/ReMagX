@@ -1,5 +1,6 @@
 import ctypes
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -113,4 +114,19 @@ int main(){size_t count;cout<<setprecision(17);while(cin>>count){Dataset data;da
 
 
 if __name__ == '__main__':
-    unittest.main()
+    if '--wasm-payload' in sys.argv:
+        generator = random.Random(739)
+        payload = []
+        for count in [2, 3, 5, 8, 17, 31, 32, 64, 127, 128, 129, 300, 511, 512, 513, 1000, 65537]:
+            grids = ['ordered', 'unordered', 'constant'] if count != 65537 else ['large']
+            for grid in grids:
+                qz = [.001 + index * .0007 for index in range(count)]
+                if grid == 'unordered': generator.shuffle(qz)
+                if grid in ['constant', 'large']: qz = [.1] * count
+                values = [generator.random() / (index + 1) for index in range(count)]
+                status, output = calculate(qz, values)
+                assert status == 0
+                payload.append(dict(qz=qz, reflectivity=values, expected=output))
+        print(json.dumps(payload))
+    else:
+        unittest.main()
