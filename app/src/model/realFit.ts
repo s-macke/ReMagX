@@ -34,11 +34,14 @@ export class FitStoppedBeforeEvaluation extends Error {}
 // The fit state advances after each evaluation just as CMultiFit::Error does.
 export function runRealFit(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }, minimize: RealMinimizer,
-  onProgress: (progress: FitProgress) => void, shouldStop = () => false, beforeCalculation?: RealBeforeCalculation, initialOpticalState?: SerialOpticalState, annealingSeed = 0): FitResult {
-  // The rewrite uses a fixed default seed for reproducible worker fits. Explicit
-  // seeds are available to native-reference integration; Evolution's seed is unrelated.
+  onProgress: (progress: FitProgress) => void, shouldStop = () => false, beforeCalculation?: RealBeforeCalculation, initialOpticalState?: SerialOpticalState, annealingSeed?: number): FitResult {
+  // CMultiFit passes state.evo.random to the optimizer constructor for every fit.
+  // Preserve the Windows unsigned-32-bit seed conversion for saved integer values;
+  // explicit reference overrides must already be uint32 values.
+  const savedSeed = project.fit.evolution.randomSeed
+  const seed = annealingSeed ?? (Number.isSafeInteger(savedSeed) ? savedSeed >>> 0 : NaN)
   const annealing = project.fit.algorithm === 'simplex-annealing'
-    ? { ...project.fit.annealing, seed: annealingSeed } : undefined
+    ? { ...project.fit.annealing, seed } : undefined
   if (annealing && (!Number.isFinite(annealing.temperature) || annealing.temperature < 0 ||
       !Number.isFinite(annealing.temperatureStep) || !Number.isInteger(annealing.seed) ||
       annealing.seed < 0 || annealing.seed > 0xffffffff)) {

@@ -121,7 +121,7 @@ it('retains missing-table layers during fit initialization and later qz dataset 
 })
 
 
-it('routes saved annealing settings and a reproducible seed without using Evolution settings', () => {
+it('routes saved annealing settings and the legacy shared fit seed with explicit override', () => {
   const { project, engine } = fixture()
   project.fit.algorithm = 'simplex-annealing'
   project.fit.annealing = { temperature: 2.5, temperatureStep: -.125 }
@@ -132,7 +132,7 @@ it('routes saved annealing settings and a reproducible seed without using Evolut
     return { termination: 'converged', parameters, value: objective(parameters), iterations: 1, evaluations: 1 }
   })
   runRealFit(project, [], engine, minimize, vi.fn())
-  expect(minimize.mock.calls[0][0].annealing).toEqual({ temperature: 2.5, temperatureStep: -.125, seed: 0 })
+  expect(minimize.mock.calls[0][0].annealing).toEqual({ temperature: 2.5, temperatureStep: -.125, seed: 999 })
   runRealFit(project, [], engine, minimize, vi.fn(), undefined, undefined, undefined, 4294967295)
   expect(minimize.mock.calls[1][0].annealing?.seed).toBe(4294967295)
   expect(project).toEqual(before)
@@ -152,4 +152,23 @@ it('rejects invalid annealing settings before calculation or script execution', 
   expect(minimize).not.toHaveBeenCalled()
   expect(hook).not.toHaveBeenCalled()
   expect(engine.calculate).not.toHaveBeenCalled()
+})
+
+
+it('normalizes saved signed or wide integer seeds to the Windows uint32 domain', () => {
+  const { project, engine } = fixture()
+  project.fit.algorithm = 'simplex-annealing'
+  const minimize = vi.fn<RealMinimizer>(({ objective }) => {
+    const parameters = new Float64Array([0])
+    return { termination: 'converged', parameters, value: objective(parameters), iterations: 1, evaluations: 1 }
+  })
+  for (const [saved, expected] of [[-1, 4294967295], [2 ** 32 + 7, 7], [0, 0], [100, 100]]) {
+    project.fit.evolution.randomSeed = saved
+    runRealFit(project, [], engine, minimize, vi.fn())
+    expect(minimize.mock.calls.at(-1)?.[0].annealing?.seed).toBe(expected)
+    expect(project.fit.evolution.randomSeed).toBe(saved)
+  }
+  project.fit.evolution.randomSeed = Number.MAX_SAFE_INTEGER + 1
+  expect(() => runRealFit(project, [], engine, minimize, vi.fn())).toThrow('seed')
+  expect(minimize).toHaveBeenCalledTimes(4)
 })

@@ -657,9 +657,12 @@ six ordinary simplex cases. Node and Chromium compare termination, counters, par
 and true objective values using unchanged D-23. Worker project fitting remains separate.
 
 Worker integration now selects the annealing adapter when requested by the saved fit
-algorithm, passing its temperature and additive step. Worker fits use a reproducible
-seed of zero; direct domain calls can specify another uint32 seed for reference work.
-The Evolution seed is not reused, and no JSON/UI seed field was added.
+algorithm, passing its temperature and additive step. CMultiFit's constructor passes
+state.evo.random to CChiSquareFit, so worker annealing uses the saved Evolution seed,
+normalized to uint32 as in the Windows reference. Direct domain calls can override it
+with an explicit uint32 seed for reference work. No JSON/UI seed field was added.
+An earlier seed-zero assumption was corrected after checking that constructor; the
+journal records the superseded assumption and the subsequent verification.
 
 The first real-worker recovery test found that thermal search could leave its best
 candidate at 34.5 Å on a 35 Å synthetic film. To avoid losing local refinement when
