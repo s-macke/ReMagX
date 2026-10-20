@@ -75,3 +75,34 @@ it('keeps stored layer arrays separate from element slabs in element mode', () =
   workspace.arrays.get('f1')!.write(0, 12.5)
   expect(workspace.snapshot().sample.elementProfiles[0].f1).toBe(12.5)
 })
+
+
+it('preserves every measurement column and metadata while isolating refresh and snapshots', () => {
+  const source = fixture()
+  const values = [-0, 1e-300, 1e200]
+  source.datasets = [{ title: 'measured', comment: 'all columns', sourceFile: 'synthetic', energy: 700,
+    energyShift: 1, angularResolution: .01, intensityScale: 2, intensityOffset: 3, qzShift: .02,
+    errorWeight: 4, polarization: source.experiment.polarization, active: true,
+    columns: { qz: values.slice(), energy: [700, 701, 702], reflectivity: values,
+      reflectivityPlus: values, reflectivityMinus: values.slice(), asymmetry: [0, .1, -.1], electronYield: values.slice() } }]
+  const expected = structuredClone(source)
+  const workspace = createScriptArrayWorkspace(source)
+  source.datasets[0].columns.qz[0] = 99
+  expect(workspace.snapshot()).toEqual(expected)
+  const first = workspace.snapshot()
+  expect(first.datasets[0].columns.reflectivity).toBe(first.datasets[0].columns.reflectivityPlus)
+  expect(Object.is(first.datasets[0].columns.reflectivity![0], -0)).toBe(true)
+  first.datasets[0].columns.reflectivity![1] = 42
+  first.datasets[0].comment = 'mutated'
+  expect(workspace.snapshot()).toEqual(expected)
+  const refreshed = structuredClone(expected)
+  refreshed.datasets[0].columns = { qz: [.2, .3], reflectivity: undefined }
+  refreshed.datasets[0].title = 'replacement'
+  workspace.replace(refreshed)
+  const replacement = structuredClone(refreshed)
+  refreshed.datasets[0].columns.qz[0] = 77
+  expect(workspace.snapshot()).toEqual(replacement)
+  const last = workspace.snapshot()
+  last.datasets[0].columns.qz.push(99)
+  expect(workspace.snapshot()).toEqual(replacement)
+})

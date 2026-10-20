@@ -488,3 +488,35 @@ enabled. The other two unmatched native curves still lack element tables; the
 original adapter still errors on 76 inputs. Acceptance remains false. This proves
 one former timeout now completes compatibly, not a fixed whole-scan speedup ratio
 or compatibility of the remaining timeout.
+
+
+### Script workspace measurement copies
+
+After prepared tables, a worker-instrumented 30-second probe of case 67 reports
+2,392 completed script hooks taking 27.194 seconds. Their project snapshots take
+12.925 seconds (nested within those hooks); 19,137 table lookups take only 0.632
+seconds. These periodic counters are not exact cancellation totals and must not
+be added. Early adapter-only instrumentation could not attribute time inside the
+hook; worker-specific instrumentation was required. The probe is worker-only,
+uses unchanged inputs/original lookup, and does not replace a native comparison.
+
+The script workspace now copies numeric dataset columns with Array.slice and
+uses structuredClone for the remaining project, including dataset metadata.
+Shared measurement-array references remain shared inside each independent copy.
+Initialization, replacement and returned snapshots all retain isolated mutable
+measurements. No measurement is omitted, no Lua global changes, and no numerical
+operation or tolerance changes. Public tests cover all seven columns, negative
+zero, tiny/large values, optional columns, replacement and mutations in both
+directions; 496 public tests, lint/build, the dedicated Chromium Lua runtime and
+full Chromium ComputeService checks pass. Temporary profiling code is removed.
+
+
+The full unchanged 99-project rerun now matches **21 of 23** available native
+energy curves, with no worker timeouts. Case 67 contributes 12,577 newly matched
+points. Total output is 19,556 points/39,112 coordinate-intensity values, with
+zero D-23 mismatches (maximum absolute difference 4.274358644806853e-15;
+maximum positive-pair log10 difference 7.847056338050606e-13). The other two
+available native curves still encounter missing element tables; the original
+adapter still errors on 76 projects. All projects remain attempted and
+acceptancePassed=false remains correct. This closes the two observed runtime
+failures, not full energy/asymmetry/fit or corpus acceptance.

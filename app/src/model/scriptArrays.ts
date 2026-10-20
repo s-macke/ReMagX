@@ -34,7 +34,7 @@ export interface ScriptElementBinding {
 
 /** Mutable script workspace, isolated from the UI/project until a request succeeds. */
 export function createScriptArrayWorkspace(source: Project) {
-  const project = structuredClone(source)
+  const project = cloneScriptProject(source)
   let wavelength = HC_EV_ANGSTROM / project.experiment.energy
   let renewOpticalConstants = 0
   const arrays = new Map<string, ScriptNumericArray>()
@@ -113,7 +113,7 @@ export function createScriptArrayWorkspace(source: Project) {
       if (!(nextWavelength > 0) || !Number.isFinite(nextWavelength) || !Number.isFinite(renew)) {
         throw new Error('Invalid script project refresh')
       }
-      const copy = structuredClone(next)
+      const copy = cloneScriptProject(next)
       Object.assign(project, copy)
       wavelength = nextWavelength
       renewOpticalConstants = renew
@@ -146,6 +146,31 @@ export function createScriptArrayWorkspace(source: Project) {
     elements,
     arrays: arrays as ReadonlyMap<string, ScriptNumericArray>,
     /** A fresh snapshot prevents callers from mutating the running script's state. */
-    snapshot: (): Project => structuredClone(project),
+    snapshot: (): Project => cloneScriptProject(project),
   }
+}
+
+
+// Measurement columns contain only numbers. Copy their arrays directly instead
+// of serializing every point through structuredClone on each script invocation.
+// All remaining project fields still use structuredClone, including dataset
+// metadata. Both directions retain independent, mutable project snapshots.
+function cloneScriptProject(source: Project): Project {
+  const result: Project = structuredClone({ ...source,
+    datasets: source.datasets.map(dataset => ({ ...dataset, columns: { qz: [] } })),
+  })
+  const copies = new Map<number[], number[]>()
+  source.datasets.forEach((dataset, index) => {
+    const columns = { ...dataset.columns }
+    for (const key of Object.keys(columns) as (keyof typeof columns)[]) {
+      const values = columns[key]
+      if (values !== undefined) {
+        let copy = copies.get(values)
+        if (!copy) { copy = values.slice(); copies.set(values, copy) }
+        columns[key] = copy
+      }
+    }
+    result.datasets[index].columns = columns
+  })
+  return result
 }
