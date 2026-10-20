@@ -55,6 +55,8 @@ int remagx_nelder_mead(const double* initial_simplex, size_t dimension,
 // Temperature advances by temperature_step after each completed simplex iteration,
 // clamped at zero. Both settings must be finite and initial temperature >= 0.
 // Positive/zero steps are allowed and remain subject to the hard work limits.
+// On first cooling to zero, restart ordinary simplex refinement at the best
+// true candidate with the initial edge displacements, within the remaining budget.
 // Convergence is tested only at zero temperature. Zero temperature and zero step
 // exactly reuse ordinary Nelder-Mead (including no random draws).
 // Seeded mt19937 draws map to the open interval (0,1) using (draw+0.5)/2^32.

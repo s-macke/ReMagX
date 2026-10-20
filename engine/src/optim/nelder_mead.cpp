@@ -32,6 +32,7 @@ public:
     std::mt19937 random;
     Vertex best;
     std::vector<Vertex> vertices;
+    std::vector<std::vector<double>> refinement_offsets;
 
     Search(const double* initial, size_t count, const RemagxSimplexOptions& settings,
            RemagxObjective evaluate, RemagxShouldStop stop, RemagxFitProgress notify, void* user, const RemagxAnnealingOptions* annealing)
@@ -42,6 +43,14 @@ public:
         vertices.reserve(count + 1);
         for (size_t row = 0; row <= count; ++row)
             vertices.push_back({std::vector<double>(initial + row * count, initial + (row + 1) * count), 0.0});
+        if (annealing && temperature > 0.0 && temperature_step < 0.0) {
+            for (size_t row = 1; row <= count; ++row) {
+                std::vector<double> offset(count);
+                for (size_t column = 0; column < count; ++column)
+                    offset[column] = initial[row * count + column] - initial[column];
+                refinement_offsets.push_back(std::move(offset));
+            }
+        }
     }
     void check_stop() const {
         if (should_stop && should_stop(context)) throw Halt{REMAGX_FIT_STOPPED};
@@ -70,6 +79,18 @@ public:
         const double score = existing ? value + fluctuation : value - fluctuation;
         if (!std::isfinite(score)) throw Failure{};
         return score;
+    }
+    void start_cold_refinement() {
+        // A thermal simplex may collapse on a clipped-parameter plateau. Refine
+        // the best true candidate using the original simplex edge displacements.
+        // This uses the same objective, Stop callback and remaining work budget.
+        const auto center = best.parameters;
+        for (size_t row = 0; row <= dimension; ++row) {
+            vertices[row].parameters = center;
+            if (row) for (size_t column = 0; column < dimension; ++column)
+                vertices[row].parameters[column] += refinement_offsets[row - 1][column];
+            evaluate(vertices[row]);
+        }
     }
     void notify() const {
         if (progress) progress(best.parameters.data(), dimension, best.value,
@@ -136,8 +157,11 @@ public:
             }
             ++summary.iterations;
             notify();
+            const double previous_temperature = temperature;
             temperature = std::max(0.0, temperature + temperature_step);
             if (!std::isfinite(temperature)) throw Failure{};
+            if (previous_temperature > 0.0 && temperature == 0.0 &&
+                summary.iterations < options.max_iterations) start_cold_refinement();
         }
     }
 };

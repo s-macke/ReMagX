@@ -293,6 +293,29 @@ void annealing() {
     require(escaped > 0, "annealing never escaped the double-well local trap");
     std::cout << "Annealing double-well escapes: " << escaped << "/12 seeds.\n";
 
+    Harness clipped;
+    clipped.function = [](const std::vector<double>& coordinates) {
+        const double thickness = std::max(20.0, std::min(50.0, 30.0 + 1.5 * coordinates[0]));
+        const double residual = thickness - 35.0;
+        return 1e-5 * residual * residual;
+    };
+    std::vector<double> refined(1);
+    const auto refined_result = run_annealing({0, 1}, 1, clipped, refined, {defaults(), 1, -.01, 0});
+    require(refined_result.value < 1e-18 && std::abs(30 + 1.5 * refined[0] - 35) < 1e-6,
+        "cold refinement did not recover from a clipped plateau");
+
+    for (const bool cancel : {false, true}) {
+        Harness limited_refinement;
+        limited_refinement.function = [](const std::vector<double>& point) { return (point[0] - 5) * (point[0] - 5); };
+        limited_refinement.stop_after = cancel ? 5 : std::numeric_limits<size_t>::max();
+        auto limits = defaults();
+        limits.max_evaluations = cancel ? 10000 : 5;
+        const auto result = run_annealing({0, 1}, 1, limited_refinement, refined, {limits, 1, -1, 0});
+        require(result.evaluations == 5 && result.iterations == 1 && result.termination ==
+            (cancel ? REMAGX_FIT_STOPPED : REMAGX_FIT_EVALUATION_LIMIT),
+            "cold refinement reset budgets or ignored Stop");
+    }
+
     Harness failed;
     failed.function = quadratic;
     auto invalid = [&](double temperature, double step, int expected) {

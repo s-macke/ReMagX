@@ -655,3 +655,23 @@ paths. Temperature, step and seed are explicit; no project seed/schedule policy 
 silently selected. The native reference generator supplies 16 annealing cases alongside
 six ordinary simplex cases. Node and Chromium compare termination, counters, parameters
 and true objective values using unchanged D-23. Worker project fitting remains separate.
+
+Worker integration now selects the annealing adapter when requested by the saved fit
+algorithm, passing its temperature and additive step. Worker fits use a reproducible
+seed of zero; direct domain calls can specify another uint32 seed for reference work.
+The Evolution seed is not reused, and no JSON/UI seed field was added.
+
+The first real-worker recovery test found that thermal search could leave its best
+candidate at 34.5 Å on a 35 Å synthetic film. To avoid losing local refinement when
+parameter clipping produces a plateau, the native optimizer now rebuilds a simplex
+at its best true candidate when temperature first reaches zero, using the initial
+edge displacements. It then runs ordinary Nelder–Mead within the remaining budgets.
+This is a documented refinement policy of the rewrite, not a claimed legacy trajectory.
+Stop and evaluation limits during that transition are tested explicitly. Zero-initial-
+temperature behavior remains identical to ordinary simplex. All 12 retained double-well
+seeds now escape in the native test, without implying a general global guarantee.
+
+Chromium verifies annealing qz thickness recovery for Parratt, Visnovsky and Zak,
+seed replay, best-curve previews, unchanged inputs and forced-worker Stop/recovery.
+Original-optimizer quality comparisons and broader energy/mixed/scripted annealing
+validation remain open; the deployed app still uses the mock worker.

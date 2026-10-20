@@ -16,6 +16,7 @@ export interface SimplexProgress {
 }
 export type RealMinimizer = (request: {
   simplex: number[][]
+  annealing?: { temperature: number; temperatureStep: number; seed: number }
   objective: (coordinates: Float64Array) => number
   shouldStop: () => boolean
   onProgress: (progress: SimplexProgress) => void
@@ -33,8 +34,16 @@ export class FitStoppedBeforeEvaluation extends Error {}
 // The fit state advances after each evaluation just as CMultiFit::Error does.
 export function runRealFit(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }, minimize: RealMinimizer,
-  onProgress: (progress: FitProgress) => void, shouldStop = () => false, beforeCalculation?: RealBeforeCalculation, initialOpticalState?: SerialOpticalState): FitResult {
-  if (project.fit.algorithm !== 'simplex') throw new Error('Real annealing fits are not implemented yet.')
+  onProgress: (progress: FitProgress) => void, shouldStop = () => false, beforeCalculation?: RealBeforeCalculation, initialOpticalState?: SerialOpticalState, annealingSeed = 0): FitResult {
+  // The rewrite uses a fixed default seed for reproducible worker fits. Explicit
+  // seeds are available to native-reference integration; Evolution's seed is unrelated.
+  const annealing = project.fit.algorithm === 'simplex-annealing'
+    ? { ...project.fit.annealing, seed: annealingSeed } : undefined
+  if (annealing && (!Number.isFinite(annealing.temperature) || annealing.temperature < 0 ||
+      !Number.isFinite(annealing.temperatureStep) || !Number.isInteger(annealing.seed) ||
+      annealing.seed < 0 || annealing.seed > 0xffffffff)) {
+    throw new Error('Annealing needs a nonnegative finite temperature, a finite temperature step and a uint32 seed.')
+  }
   if (project.fit.occamQ !== 0) throw new Error('Real fit regularization is not implemented yet.')
   if (!project.fit.parameters.length) throw new Error('Select at least one fit parameter.')
   if (!project.datasets.some(dataset => dataset.active)) throw new Error('Select at least one dataset for fitting.')
@@ -104,7 +113,7 @@ export function runRealFit(project: Project, tables: OpticalTable[],
       ...(best.preview ? { datasetPreview: structuredClone(best.preview) } : {}) })
     return result
   }
-  const result = minimize({ simplex: prepared.simplex, objective, shouldStop,
+  const result = minimize({ simplex: prepared.simplex, objective, shouldStop, ...(annealing ? { annealing } : {}),
     onProgress: progress => {
       if (best.result) onProgress({ iteration: progress.iterations, chi2: best.result.chi2, values: best.result.values.slice(),
         ...(best.preview ? { datasetPreview: structuredClone(best.preview) } : {}) })

@@ -18,7 +18,9 @@ const handle = createRealRequestHandler(response => self.postMessage(response), 
     convolveFastQz: (qz, values, width) => adapter.convolveFastQz(instance, qz, values, width),
     gaussLorentzianReal: (...parameters) => adapter.calculateGaussLorentzianReal(instance, parameters),
     gaussLorentzianImag: (...parameters) => adapter.calculateGaussLorentzianImag(instance, parameters),
-    minimize: request => optimizerAdapter.minimizeSimplex(instance, request),
+    minimize: request => request.annealing
+      ? optimizerAdapter.minimizeAnnealing(instance, { ...request, ...request.annealing })
+      : optimizerAdapter.minimizeSimplex(instance, request),
     fitError: request => fitErrorAdapter.calculateFitError(instance, request),
     scatteringTensor: request => adapter.calculateScatteringTensor(instance, request),
     dielectricTensor: request => adapter.calculateDielectricTensor(instance, request),

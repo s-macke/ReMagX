@@ -56,7 +56,6 @@ it('reports unsupported fits, cancellation and numerical failures explicitly', (
   const { project, engine } = fixture()
   const minimize = vi.fn<RealMinimizer>()
   const run = () => runRealFit(project, [], engine, minimize, vi.fn())
-  project.fit.algorithm = 'simplex-annealing'; expect(run).toThrow('annealing')
   project.fit.algorithm = 'simplex'; project.fit.occamQ = 1; expect(run).toThrow('regularization')
   project.fit.occamQ = 0; project.datasets.forEach(data => { data.active = false }); expect(run).toThrow('dataset')
   project.datasets[0].active = true
@@ -119,4 +118,38 @@ it('retains missing-table layers during fit initialization and later qz dataset 
     expect(request.layers.map(layer => layer[2])).toEqual([.02, 0])
   }
   expect(project).toEqual(before)
+})
+
+
+it('routes saved annealing settings and a reproducible seed without using Evolution settings', () => {
+  const { project, engine } = fixture()
+  project.fit.algorithm = 'simplex-annealing'
+  project.fit.annealing = { temperature: 2.5, temperatureStep: -.125 }
+  project.fit.evolution.randomSeed = 999
+  const before = structuredClone(project)
+  const minimize = vi.fn<RealMinimizer>(({ objective }) => {
+    const parameters = new Float64Array([0])
+    return { termination: 'converged', parameters, value: objective(parameters), iterations: 1, evaluations: 1 }
+  })
+  runRealFit(project, [], engine, minimize, vi.fn())
+  expect(minimize.mock.calls[0][0].annealing).toEqual({ temperature: 2.5, temperatureStep: -.125, seed: 0 })
+  runRealFit(project, [], engine, minimize, vi.fn(), undefined, undefined, undefined, 4294967295)
+  expect(minimize.mock.calls[1][0].annealing?.seed).toBe(4294967295)
+  expect(project).toEqual(before)
+  project.fit.algorithm = 'simplex'
+  runRealFit(project, [], engine, minimize, vi.fn())
+  expect(minimize.mock.calls[2][0].annealing).toBeUndefined()
+})
+
+it('rejects invalid annealing settings before calculation or script execution', () => {
+  const { project, engine } = fixture()
+  project.fit.algorithm = 'simplex-annealing'
+  const minimize = vi.fn<RealMinimizer>(), hook = vi.fn()
+  for (const [temperature, temperatureStep, seed] of [[-1, -.01, 0], [Infinity, 0, 0], [1, NaN, 0], [1, 0, -1], [1, 0, 2 ** 32]]) {
+    project.fit.annealing = { temperature, temperatureStep }
+    expect(() => runRealFit(project, [], engine, minimize, vi.fn(), undefined, hook, undefined, seed)).toThrow('Annealing')
+  }
+  expect(minimize).not.toHaveBeenCalled()
+  expect(hook).not.toHaveBeenCalled()
+  expect(engine.calculate).not.toHaveBeenCalled()
 })
