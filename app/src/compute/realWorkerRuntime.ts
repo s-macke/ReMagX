@@ -27,7 +27,12 @@ export function startRealWorker(errorSamples?: readonly number[]) {
       density: request => adapter.calculateLayerDensity(instance, request),
       apply: request => adapter.applyMagneticProfiles(instance, request),
     } : undefined
-    return { segmentation, fourier: (qz, reflectivity) => adapter.calculateFourier(instance, qz, reflectivity),
+    const elementPreparation: RealEngine['elementPreparation'] = samples ? {
+      errorSamples: samples,
+      density: request => adapter.calculateElementDensity(instance, request),
+      optics: request => adapter.calculateElementOptics(instance, request),
+    } : undefined
+    return { segmentation, elementPreparation, fourier: (qz, reflectivity) => adapter.calculateFourier(instance, qz, reflectivity),
       convolveFastQz: (qz, values, width) => adapter.convolveFastQz(instance, qz, values, width),
       gaussLorentzianReal: (...parameters) => adapter.calculateGaussLorentzianReal(instance, parameters),
       gaussLorentzianImag: (...parameters) => adapter.calculateGaussLorentzianImag(instance, parameters),

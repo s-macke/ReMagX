@@ -309,3 +309,19 @@ sorted local paths and are stable only for an unchanged tree. Raw reference/brow
 errors and paths are withheld. This diagnostic covers qz reflectivity with an
 explicit original lookup, not production lookup generation, energy/asymmetry/fit
 acceptance or the complete engine. Earlier 62-curve evidence remains historical.
+
+
+After explicit-lookup element qz routing, the next 2026-10-20 run matches **84/99**
+unchanged projects across **67,792 points / 135,584 coordinate-intensity values**,
+with no D-23 mismatches. Seventeen compared projects have the segmentation flag;
+element mode retains its distinct original sampling path. Maximum absolute error
+is 2.050137837272814e-12 and maximum positive-pair log10 error is
+8.972023124442785e-11. Remaining first worker failures: ten element/scattering,
+one table and four script errors.
+
+The summary now also reports `referenceCounts`: the original adapter completes
+90 projects and errors on nine. Six projects with original curves therefore still
+lack successful worker comparisons. A reference error alone does not prove a
+project invalid: missing inputs, legacy failures and adapter limitations must be
+investigated separately. No project is repaired or excluded automatically, and
+`acceptancePassed` remains false (exit status 1).

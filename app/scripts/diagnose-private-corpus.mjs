@@ -134,7 +134,8 @@ try {
   await page.evaluate(() => window.privateReferenceService.dispose())
   const counts = reports.reduce((counts, report) => { const key = report.category ?? report.status; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
   const compared = reports.filter(report => report.points !== undefined)
-  const summary = { scope: 'private-qz-explicit-original-lookup', projects: reports.length, counts,
+  const referenceCounts = inputs.reduce((counts, input) => { const key = input.referenceError ?? 'completed'; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
+  const summary = { scope: 'private-qz-explicit-original-lookup', projects: reports.length, counts, referenceCounts,
     segmentedCompared: compared.filter(report => report.segmented).length,
     segmentedMatched: compared.filter(report => report.segmented && report.status === 'matched').length,
     comparedPoints: compared.reduce((sum, report) => sum + report.points, 0),

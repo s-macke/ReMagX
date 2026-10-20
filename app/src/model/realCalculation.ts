@@ -1,3 +1,5 @@
+import { prepareSampledElementLayers, type ElementPreparationEngine } from './sampledElementLayers'
+import { refreshElementOptics } from './refreshElementOptics'
 import { prepareRealSegmentedStack } from './segmentedCompoundStack'
 import type { SegmentationEngine } from './segmentedLayers'
 import type { MagneticProfileEngine } from './segmentedMagneticProfiles'
@@ -20,6 +22,7 @@ export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Arr
 
 export interface RealCalculationEngine {
   // Explicit samples only until a production error-function policy is approved.
+  elementPreparation?: ElementPreparationEngine & { errorSamples: readonly number[] }
   segmentation?: SegmentationEngine & MagneticProfileEngine & { errorSamples: readonly number[] }
   fourier?: FourierCalculator
   convolveFastQz?(qz: number[], values: Float64Array, width: number): Float64Array
@@ -71,11 +74,21 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   if (project.calculation.automaticOpticalConstants) {
     // Filldb reads LambdaToEnergy after the GUI has stored EnergyToLambda.
     const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / project.experiment.energy)
-    const refreshed = refreshPartialCompoundOptics(project, tables, energy, engine.lookup, cursors, dielectricTensors)
-    dielectricTensors = refreshed.dielectricTensors
-    dielectricState = refreshed.updated.map((updated, index) => updated ? null : dielectricState?.[index] ?? null)
-    project = { ...project, sample: { ...project.sample, layers: refreshed.layers },
-      calculation: { ...project.calculation, automaticOpticalConstants: false } }
+    if (project.sample.mode === 'element') {
+      const refreshed = refreshElementOptics(project, tables, energy, engine.lookup, request => {
+        if (!engine.scatteringTensor) throw new Error('Native element scattering tensors are unavailable.')
+        return engine.scatteringTensor(request)
+      }, cursors, scatteringTensors)
+      scatteringTensors = refreshed.scatteringTensors
+      project = { ...project, sample: { ...project.sample, elementProfiles: refreshed.elementProfiles },
+        calculation: { ...project.calculation, automaticOpticalConstants: false } }
+    } else {
+      const refreshed = refreshPartialCompoundOptics(project, tables, energy, engine.lookup, cursors, dielectricTensors)
+      dielectricTensors = refreshed.dielectricTensors
+      dielectricState = refreshed.updated.map((updated, index) => updated ? null : dielectricState?.[index] ?? null)
+      project = { ...project, sample: { ...project.sample, layers: refreshed.layers },
+        calculation: { ...project.calculation, automaticOpticalConstants: false } }
+    }
   }
   if (beforeCalculation && project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
     // Packing suppresses a second refresh, but nested calls must still see the
@@ -98,10 +111,19 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   // Fourier operates on the completed curve, never on individual kernel calls.
   const packedProject = transform ? { ...project, calculation: { ...project.calculation,
     postProcessing: { ...project.calculation.postProcessing, fourierTransform: false } } } : project
-  const segmented = prepareRealSegmentedStack(packedProject, { layers: project.sample.layers,
+  const elementStack = project.sample.mode === 'element' ? (() => {
+    if (!engine.elementPreparation) throw new Error('Element preparation requires an explicit error-function lookup and numerical engine.')
+    const prepared = prepareSampledElementLayers(packedProject, engine.elementPreparation.errorSamples,
+      engine.elementPreparation, scatteringTensors)
+    // Element2oc marks every generated matrix layer anisotropic, including boundaries.
+    // FillLayers bypasses compound segmentation/profile application in element mode.
+    return { layers: prepared.layers, dielectricTensors: prepared.dielectricTensors.map(values =>
+      values ? { values, anisotropic: true } : null) }
+  })() : undefined
+  const segmented = elementStack ?? prepareRealSegmentedStack(packedProject, { layers: project.sample.layers,
     layerDepths, dielectricTensors, dielectricState, scatteringTensors, cursors }, engine)
   if (project.calculation.algorithm === 'matrix') {
-    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, dielectricTensors, undefined, segmented)
+    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, elementStack ? undefined : dielectricTensors, undefined, segmented)
     qz = request.qz
     values = engine.matrixQz(request)
   } else if (project.calculation.algorithm === 'zak') {

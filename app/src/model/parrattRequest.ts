@@ -53,7 +53,7 @@ export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic'
   if (calculation.postProcessing.fourierTransform) {
     throw new Error('Fourier postprocessing is not implemented in this real-engine path yet.')
   }
-  if (preparedLayers && (project.sample.mode !== 'compound' || preparedLayers.length < 2 ||
+  if (preparedLayers && (preparedLayers.length < 2 ||
       !Array.from(preparedLayers).every(row => row && row.length === 8 && Array.from(row).every(Number.isFinite) && row[0] >= 0 && row[1] >= 0))) {
     throw new Error('Invalid prepared compound calculation stack.')
   }

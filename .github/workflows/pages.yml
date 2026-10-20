@@ -84,6 +84,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - name: Verify element preparation and qz routing with actual WASM
+        run: WASM_MODULE=../build/wasm/remagx-core.mjs npm test -- --run test/elementPreparationWasm.test.ts
       - run: npm run build
       - run: npx playwright install --with-deps --only-shell chromium
       - name: Lua runtime in Chromium worker

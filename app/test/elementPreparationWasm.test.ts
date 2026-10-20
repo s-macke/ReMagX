@@ -1,3 +1,8 @@
+import { calculateRealCurve, type RealCalculationEngine } from '../src/model/realCalculation'
+import { prepareParrattQzRequest } from '../src/model/parrattRequest'
+import { prepareZakQzRequest } from '../src/model/zakRequest'
+import { prepareVisnovskyQzRequest } from '../src/model/visnovskyRequest'
+import { storedOpticalState } from '../src/model/storedOpticalState'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { expect, it } from 'vitest'
@@ -9,7 +14,8 @@ import { createElementDensitySampler } from '../src/model/elementDensity'
 it.skipIf(!process.env.WASM_MODULE)('composes actual WASM element density and optics against independent density preparation', async () => {
   const { default: createCore } = await import(/* @vite-ignore */ pathToFileURL(resolve(process.env.WASM_MODULE!)).href)
   const adapterPath = pathToFileURL(resolve('../engine/wasm/parratt.mjs')).href
-  const { calculateElementDensity, calculateElementOptics, calculateScatteringTensor } = await import(/* @vite-ignore */ adapterPath)
+  const adapter = await import(/* @vite-ignore */ adapterPath)
+  const { calculateElementDensity, calculateElementOptics, calculateScatteringTensor } = adapter
   const core = await createCore()
   // Synthetic lookup exercises interpolation and saturation, not a proposed production generator.
   const samples = Array.from({ length: 1001 }, (_, index) => Math.tanh(-5 + 10 * index / 999))
@@ -25,6 +31,8 @@ it.skipIf(!process.env.WASM_MODULE)('composes actual WASM element density and op
     for (const roughness of [0, 2]) {
       const project = createDefaultProject(); project.sample.mode = 'element'
       project.calculation.algorithm = algorithm
+      project.calculation.automaticOpticalConstants = false
+      project.experiment.qzScan.points = 6
       project.calculation.segmentation.minThickness = 1
       project.calculation.segmentation.tolerance = 1e-9
       project.sample.elementProfiles = [2, 3].map((density, index) => ({ element: 'Fe', f1: 20 + index, f2: 2,
@@ -48,6 +56,27 @@ it.skipIf(!process.env.WASM_MODULE)('composes actual WASM element density and op
       expect(values.length).toBe(references.length)
       values.forEach((value, index) => expect(Math.abs(value - references[index])).toBeLessThanOrEqual(1e-15 + 1e-10 * Math.abs(references[index])))
       compared += values.length
+      const engine: RealCalculationEngine = {
+        calculate: request => adapter.calculateParrattQz(core, request),
+        zakQz: request => adapter.calculateZakQz(core, request),
+        matrixQz: request => adapter.calculateVisnovskyQz(core, request),
+        dielectricTensor: request => adapter.calculateDielectricTensor(core, request),
+        energyScan: request => adapter.calculateParrattEnergyScan(core, request),
+        zakEnergy: request => adapter.calculateZakEnergyScan(core, request),
+        matrixEnergy: request => adapter.calculateVisnovskyEnergyScan(core, request),
+        lookup: () => { throw new Error('Unexpected table lookup') },
+        elementPreparation: { errorSamples: samples, density: request => calculateElementDensity(core, request), optics },
+      }
+      const state = { ...storedOpticalState(project), scatteringTensors: tensors }
+      for (const mode of ['monochromatic', 'dichroic'] as const) {
+        const curve = calculateRealCurve(project, [], engine, 'qz', mode, state)
+        const raw = algorithm === 'matrix' ? engine.matrixQz(prepareVisnovskyQzRequest(project, mode, engine.dielectricTensor, undefined, undefined,
+          { layers: expected.layers, dielectricTensors: expected.dielectricTensors.map(values => values ? { values, anisotropic: true } : null) }))
+          : algorithm === 'zak' ? engine.zakQz(prepareZakQzRequest(project, mode, undefined, expected.layers))
+            : engine.calculate(prepareParrattQzRequest(project, mode, undefined, expected.layers))
+        curve.reflectivityPlus.forEach((value, index) => expect(Math.abs(value - raw[index * 2])).toBeLessThanOrEqual(1e-15 + 1e-10 * Math.abs(raw[index * 2])))
+        if (mode === 'dichroic') curve.reflectivityMinus.forEach((value, index) => expect(Math.abs(value - raw[index * 2 + 1])).toBeLessThanOrEqual(1e-15 + 1e-10 * Math.abs(raw[index * 2 + 1])))
+      }
       expect(JSON.stringify(project)).toBe(before)
     }
   }
