@@ -23,6 +23,7 @@ export function startRealWorker(errorSamples?: readonly number[]) {
     const segmentation: RealEngine['segmentation'] = samples ? {
       errorSamples: samples,
       sample: request => segmentationAdapter.calculateSegmentedOptics(instance, request),
+      prepareSampler: request => segmentationAdapter.createSegmentedOpticalSampler(instance, request),
       subdivide: request => segmentationAdapter.calculateAdaptiveSegments(instance, request),
       density: request => adapter.calculateLayerDensity(instance, request),
       apply: request => adapter.applyMagneticProfiles(instance, request),

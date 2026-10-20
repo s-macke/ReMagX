@@ -1,6 +1,6 @@
 import { checkVariableEnergy } from './variable_energy_checks.mjs'
 import { checkSegmentedOptics, sampleSegmentedOptics } from './segmented_optics_checks.mjs'
-import { calculateAdaptiveSegments, calculateSegmentedOptics } from '../wasm/segmentation.mjs'
+import { calculateAdaptiveSegments, calculateSegmentedOptics, createSegmentedOpticalSampler } from '../wasm/segmentation.mjs'
 import { checkAdaptiveSegments, sampleAdaptiveSegments } from './adaptive_segments_checks.mjs'
 import { checkElementDensity } from './element_density_checks.mjs'
 import { checkLayerDensity } from './layer_density_checks.mjs'
@@ -129,7 +129,7 @@ for (const [caseIndex, request] of input.profiles.entries()) {
   })
 }
 assert.equal(profileCount, 77180)
-checkSegmentedOptics(module, calculateSegmentedOptics, calculateAdaptiveSegments)
+checkSegmentedOptics(module, calculateSegmentedOptics, calculateAdaptiveSegments, createSegmentedOpticalSampler)
 checkAdaptiveSegments(module, calculateAdaptiveSegments)
 checkLayerDensity(module, calculateLayerDensity)
 checkElementDensity(module, calculateElementDensity)

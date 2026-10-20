@@ -1,6 +1,6 @@
 import { checkVariableEnergy } from './variable_energy_checks.mjs'
 import { checkSegmentedOptics, sampleSegmentedOptics } from './segmented_optics_checks.mjs'
-import { calculateAdaptiveSegments, calculateSegmentedOptics } from './segmentation.mjs'
+import { calculateAdaptiveSegments, calculateSegmentedOptics, createSegmentedOpticalSampler } from './segmentation.mjs'
 import { checkAdaptiveSegments, sampleAdaptiveSegments } from './adaptive_segments_checks.mjs'
 import { checkElementDensity } from './element_density_checks.mjs'
 import { checkLayerDensity } from './layer_density_checks.mjs'
@@ -35,7 +35,7 @@ self.onmessage = ({ data }) => {
       calculateParratt(core, prepared)
       self.postMessage({ kind: 'finished' })
     } else {
-      checkSegmentedOptics(core, calculateSegmentedOptics, calculateAdaptiveSegments)
+      checkSegmentedOptics(core, calculateSegmentedOptics, calculateAdaptiveSegments, createSegmentedOpticalSampler)
       checkAdaptiveSegments(core, calculateAdaptiveSegments)
       checkLayerDensity(core, calculateLayerDensity)
       if (data.scans) checkVariableEnergy(core, calculateParrattEnergyScan, data.scans)

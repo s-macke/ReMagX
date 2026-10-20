@@ -7,6 +7,11 @@ export interface SegmentationEngine {
     errorSamples: number[]; tensors: number[][] | null; tensorState: Float64Array | null }): {
     opticalConstants: Float64Array; dielectricTensor: Float64Array | null
   }
+  prepareSampler?(request: { layers: PreparedCompoundLayer[]; model: 1 | 2;
+    errorSamples: number[]; tensors: number[][] | null }): {
+    sample(position: number, tensorState: Float64Array | null): { opticalConstants: Float64Array; dielectricTensor: Float64Array | null }
+    dispose(): void
+  }
   subdivide(request: { minimumDepth: number; maximumDepth: number; minimumStep: number;
     maximumStep: number; gradientScale: number; valueCount: 4 | 22; capacity: number;
     sample(position: number, slot: number): number[] }): {
@@ -45,18 +50,20 @@ export function prepareSegmentedLayers(input: readonly PreparedCompoundLayer[],
   if (!Number.isFinite(minimumDepth) || !Number.isFinite(maximumDepth)) throw new Error('Segmentation depth range overflow.')
   const states: (Float64Array | null)[] = [null, null, null, null]
   const width = tensors ? 22 : 4
-  const result = engine.subdivide({ minimumDepth, maximumDepth, minimumStep: settings.minThickness,
+  const prepared = engine.prepareSampler?.({ layers, model: settings.scope === 'global' ? 1 : 2, errorSamples: tables, tensors })
+  let result: ReturnType<SegmentationEngine['subdivide']>
+  try { result = engine.subdivide({ minimumDepth, maximumDepth, minimumStep: settings.minThickness,
     maximumStep: settings.maxThickness, gradientScale: settings.gradientScale, valueCount: width, capacity: maximumLayers,
     sample(position, slot) {
       if (!Number.isFinite(position) || !Number.isInteger(slot) || slot < 0 || slot > 3) throw new Error('Invalid segmentation sampling slot or position.')
-      const sampled = engine.sample({ layers, model: settings.scope === 'global' ? 1 : 2, position,
+      const sampled = prepared ? prepared.sample(position, states[slot]) : engine.sample({ layers, model: settings.scope === 'global' ? 1 : 2, position,
         errorSamples: tables, tensors, tensorState: states[slot] })
       if (!finite(sampled.opticalConstants, 4) || (tensors && (!sampled.dielectricTensor || !finite(sampled.dielectricTensor, 18)))) {
         throw new Error('Invalid segmented optical sample.')
       }
       states[slot] = tensors ? sampled.dielectricTensor!.slice() : null
       return [...sampled.opticalConstants, ...(states[slot] ?? [])]
-    } })
+    } }) } finally { prepared?.dispose() }
   const count = result.positions.length
   if (count < 1 || count > maximumLayers || !finite(result.positions, count) || !finite(result.thicknesses, count) ||
       result.thicknesses.some(value => value < 0) || !finite(result.values, count * width)) {

@@ -9,7 +9,7 @@ export function sampleSegmentedOptics(module, calculate, request) {
   return values
 }
 
-export function checkSegmentedOptics(module, calculate, subdivide) {
+export function checkSegmentedOptics(module, calculate, subdivide, prepareSampler) {
   const ensure = (condition, message) => { if (!condition) throw new Error(message) }
   const failure = (operation, predicate) => {
     try { operation() } catch (error) {
@@ -61,9 +61,10 @@ export function checkSegmentedOptics(module, calculate, subdivide) {
       ensure(values.slice(4).every(value => value === (model === 2 ? [3, 12, 15][index] : 3)), 'Composed sampling state mismatch')
     }
   }
+  const retainedSampler = prepareSampler(module, request)
   const oldBuffer = module.HEAPF64.buffer, large = module._malloc(oldBuffer.byteLength + 1024)
   ensure(large && oldBuffer !== module.HEAPF64.buffer, 'Segmented optics memory did not grow')
-  try { same(calculate(module, request)); same(before) } finally { module._free(large) }
+  try { same(calculate(module, request)); same(retainedSampler.sample(request.position, request.tensorState)); same(before) } finally { retainedSampler.dispose(); module._free(large) }
   for (const variant of [request, { ...request, tensors: null, tensorState: null, boundaries: null }]) {
     const expectedAllocations = variant.tensors === null ? 3 : 6
     for (let failAt = 1; failAt <= expectedAllocations; ++failAt) {
@@ -88,6 +89,40 @@ export function checkSegmentedOptics(module, calculate, subdivide) {
       scalar(calculate(wrapped, variant))
       ensure(!outstanding.size, 'Segmented optics recovery leaked')
     }
+  }
+  for (const model of [0, 1, 2]) {
+    let allocations = 0, failSample = false
+    const outstanding = new Set()
+    const wrapped = new Proxy(module, { get(target, key) {
+      if (key === '_malloc') return bytes => { allocations++; const pointer = target._malloc(bytes); if(pointer) outstanding.add(pointer); return pointer }
+      if (key === '_free') return pointer => { ensure(outstanding.delete(pointer), 'Prepared sampler invalid free'); target._free(pointer) }
+      if (key === '_remagx_segmented_optics') return (...args) => failSample ? 2 : target[key](...args)
+      return target[key]
+    } })
+    const source = JSON.parse(snapshot)
+    source.model = model
+    const prepared = prepareSampler(wrapped, source)
+    source.layers[0][2] = 999; source.errorSamples.fill(1); source.tensors[0].fill(999)
+    let state = request.tensorState
+    const count = allocations
+    try {
+      for (let index = 0; index < 40; index++) {
+        const position = index / 10
+        const expected = calculate(module, { ...request, model, position, tensorState: state })
+        const actual = prepared.sample(position, state)
+        ensure(JSON.stringify(Array.from(actual.opticalConstants)) === JSON.stringify(Array.from(expected.opticalConstants)), 'Prepared scalar mismatch')
+        ensure(JSON.stringify(Array.from(actual.dielectricTensor)) === JSON.stringify(Array.from(expected.dielectricTensor)), 'Prepared tensor mismatch')
+        state = actual.dielectricTensor
+      }
+      ensure(allocations === count, 'Prepared sampling allocated host buffers per point')
+      failure(() => prepared.sample(NaN), error => error instanceof TypeError)
+      failSample = true
+      failure(() => prepared.sample(0), error => error.status === 2)
+      failSample = false
+      scalar(prepared.sample(0))
+    } finally { prepared.dispose(); prepared.dispose() }
+    ensure(!outstanding.size, 'Prepared sampler leaked')
+    failure(() => prepared.sample(0), error => /disposed/.test(error.message))
   }
   ensure(snapshot === JSON.stringify(request), 'Segmented optics input changed')
   same(before)

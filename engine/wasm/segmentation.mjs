@@ -52,24 +52,27 @@ export function calculateAdaptiveSegments(module, {
   }
 }
 
-// One depth sample. Caller retains the returned tensor separately for each
-// sampling slot; neither the supplied tensor state nor the input stack is edited.
-export function calculateSegmentedOptics(module, {
-  layers, boundaries = null, tensors = null, tensorState = null, model, position, errorSamples,
+// Prepared immutable inputs are copied once. Tensor state remains caller-owned,
+// separately for each adaptive sampling slot; every sample returns owned arrays.
+export function createSegmentedOpticalSampler(module, {
+  layers, boundaries = null, tensors = null, model, errorSamples,
 }) {
-  const vector = (value, length) => (Array.isArray(value) || value instanceof Float64Array) &&
-    value.length === length && Array.from(value).every(Number.isFinite)
   const rows = (value, length, width) => Array.isArray(value) && value.length === length &&
-    Array.from(value).every(row => vector(row, width))
+    Array.from(value).every(row => opticalVector(row, width))
   if (!Array.isArray(layers) || layers.length < 2 || !rows(layers, layers.length, 8) ||
-      layers.some(row => row[0] < 0 || row[1] < 0) || ![0, 1, 2].includes(model) || !Number.isFinite(position) ||
-      !vector(errorSamples, 1001) || (model === 0 && boundaries === null) ||
-      (boundaries !== null && !vector(boundaries, layers.length)) ||
-      (tensors !== null && !rows(tensors, layers.length, 18)) ||
-      (tensorState !== null && (tensors === null || !vector(tensorState, 18)))) {
+      layers.some(row => row[0] < 0 || row[1] < 0) || ![0, 1, 2].includes(model) ||
+      !opticalVector(errorSamples, 1001) || (model === 0 && boundaries === null) ||
+      (boundaries !== null && !opticalVector(boundaries, layers.length)) ||
+      (tensors !== null && !rows(tensors, layers.length, 18))) {
     throw new TypeError('Invalid segmented optical input')
   }
   const allocations = []
+  let disposed = false
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    for (const pointer of allocations) module._free(pointer)
+  }
   const allocate = count => {
     const bytes = count * 8
     if (!Number.isSafeInteger(bytes) || bytes > 0x7fffffff) throw new RangeError('Segmented optical buffer too large')
@@ -79,25 +82,52 @@ export function calculateSegmentedOptics(module, {
     return pointer
   }
   try {
-    const stack = allocate(layers.length * 8)
-    const boundary = boundaries === null ? 0 : allocate(layers.length)
-    const tensor = tensors === null ? 0 : allocate(layers.length * 18)
+    const layerCount = layers.length
+    const stack = allocate(layerCount * 8)
+    const boundary = boundaries === null ? 0 : allocate(layerCount)
+    const tensor = tensors === null ? 0 : allocate(layerCount * 18)
     const table = allocate(1001), output = allocate(4), state = tensors === null ? 0 : allocate(18)
     module.HEAPF64.set(layers.flatMap(row => Array.from(row)), stack / 8)
     if (boundary) module.HEAPF64.set(boundaries, boundary / 8)
     if (tensor) module.HEAPF64.set(tensors.flatMap(row => Array.from(row)), tensor / 8)
     module.HEAPF64.set(errorSamples, table / 8)
-    if (state) module.HEAPF64.set(tensorState ?? new Float64Array(18), state / 8)
-    const status = module._remagx_segmented_optics(stack, layers.length, boundary, tensor, model,
-      position, table, 1001, output, state)
-    if (status !== 0) {
-      const error = new Error(`Segmented optical sampling failed (status ${status})`)
-      error.status = status
-      throw error
+    return {
+      sample(position, tensorState = null) {
+        if (disposed) throw new Error('Segmented optical sampler is disposed')
+        validateOpticalSample(position, tensorState, !!state)
+        // Other WASM calls, including subdivision, may have grown memory.
+        if (state) {
+          if (tensorState === null) module.HEAPF64.fill(0, state / 8, state / 8 + 18)
+          else module.HEAPF64.set(tensorState, state / 8)
+        }
+        const status = module._remagx_segmented_optics(stack, layerCount, boundary, tensor, model,
+          position, table, 1001, output, state)
+        if (status !== 0) {
+          const error = new Error(`Segmented optical sampling failed (status ${status})`)
+          error.status = status
+          throw error
+        }
+        return { opticalConstants: module.HEAPF64.slice(output / 8, output / 8 + 4),
+          dielectricTensor: state ? module.HEAPF64.slice(state / 8, state / 8 + 18) : null }
+      }, dispose,
     }
-    return { opticalConstants: module.HEAPF64.slice(output / 8, output / 8 + 4),
-      dielectricTensor: state ? module.HEAPF64.slice(state / 8, state / 8 + 18) : null }
-  } finally {
-    for (const pointer of allocations) module._free(pointer)
+  } catch (error) { dispose(); throw error }
+}
+
+function opticalVector(value, length) {
+  return (Array.isArray(value) || value instanceof Float64Array) &&
+    value.length === length && Array.from(value).every(Number.isFinite)
+}
+function validateOpticalSample(position, tensorState, hasTensors) {
+  if (!Number.isFinite(position) || (tensorState !== null && (!hasTensors || !opticalVector(tensorState, 18)))) {
+    throw new TypeError('Invalid segmented optical input')
   }
+}
+
+// Compatibility entry point for one sample, with the same validation/ownership.
+export function calculateSegmentedOptics(module, request) {
+  const { position, tensorState = null, tensors = null } = request
+  validateOpticalSample(position, tensorState, tensors !== null)
+  const sampler = createSegmentedOpticalSampler(module, request)
+  try { return sampler.sample(position, tensorState) } finally { sampler.dispose() }
 }

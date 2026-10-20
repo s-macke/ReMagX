@@ -71,3 +71,25 @@ it('rejects invalid preparation, callback results and generated output', () => {
   expect(() => prepareSegmentedLayers(layers(), settings(), Array(1001).fill(0), { sample, subdivide: () => output(3) })).toThrow('output')
   expect(() => prepareSegmentedLayers(layers(), settings(), Array(1001).fill(0), { sample, subdivide: request => { request.sample(0, 4); return output(4) } })).toThrow('slot')
 })
+
+
+it('owns one prepared sampler across subdivision and disposes it after success or failure', () => {
+  for (const fails of [false, true]) {
+    const dispose = vi.fn()
+    const sample = vi.fn(() => ({ opticalConstants: new Float64Array(4), dielectricTensor: null }))
+    const prepareSampler = vi.fn(() => ({ sample, dispose }))
+    const fallback = vi.fn()
+    const engine: SegmentationEngine = { sample: fallback, prepareSampler, subdivide: request => {
+      request.sample(1, 0); request.sample(2, 1)
+      if (fails) throw new Error('subdivision failure')
+      return output(4)
+    } }
+    const run = () => prepareSegmentedLayers(layers(), settings(), Array(1001).fill(0), engine)
+    if (fails) expect(run).toThrow('subdivision failure')
+    else expect(run().layers).toHaveLength(3)
+    expect(prepareSampler).toHaveBeenCalledTimes(1)
+    expect(sample.mock.calls).toEqual([[1, null], [2, null]])
+    expect(dispose).toHaveBeenCalledTimes(1)
+    expect(fallback).not.toHaveBeenCalled()
+  }
+})

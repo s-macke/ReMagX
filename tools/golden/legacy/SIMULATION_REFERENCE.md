@@ -415,3 +415,18 @@ The targeted follow-up confirms **both** previously generic failures are
 longer controlled run or runtime investigation is still needed. The full-run
 reference counts and 19 matched curves remain unchanged. No input was repaired or
 excluded, and `acceptancePassed=false` remains correct.
+
+
+A prepared WASM optical sampler now copies immutable compound inputs once per
+adaptive subdivision instead of once per depth sample. The four independent
+tensor states and native arithmetic are unchanged. The optimized preparation
+matches 48 original stacks/1,741 layers/31,534 values; ownership, memory growth,
+allocation failures and cleanup are checked in Node and Chromium.
+
+The repeated full 99-project energy diagnostic retains all 19 matching curves,
+6,179 points and the same maximum errors reported above, with zero D-23
+mismatches. Both difficult scans still exceed the unchanged 120-second limit.
+Available native curves therefore still comprise 19 matches, two missing-element-
+table failures and two worker timeouts. The optimization removes repeated buffer
+work but does not resolve full-scan runtime or establish compatibility of those
+two curves. No full-scan speedup is claimed; acceptancePassed remains false.

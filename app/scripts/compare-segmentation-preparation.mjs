@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { applySegmentedMagneticProfiles } from '../src/model/segmentedMagneticProfiles.ts'
 import { calculateLayerDensity, applyMagneticProfiles } from '../../engine/wasm/parratt.mjs'
 import { prepareSegmentedLayers } from '../src/model/segmentedLayers.ts'
-import { calculateAdaptiveSegments, calculateSegmentedOptics } from '../../engine/wasm/segmentation.mjs'
+import { calculateAdaptiveSegments, calculateSegmentedOptics, createSegmentedOpticalSampler } from '../../engine/wasm/segmentation.mjs'
 
 const payload = JSON.parse(readFileSync(0, 'utf8'))
 const { default: createCore } = await import(pathToFileURL(resolve(process.argv[2])).href)
@@ -16,6 +16,7 @@ for (const [index, item] of payload.cases.entries()) {
   const tensors = item.matrix ? item.tensors.map((row, layer) => ({ values: new Float64Array(row), anisotropic: item.anisotropic[layer] })) : undefined
   const generated = prepareSegmentedLayers(item.layers, item.settings, payload.samples, {
     sample: request => calculateSegmentedOptics(core, request),
+    prepareSampler: request => createSegmentedOpticalSampler(core, request),
     subdivide: request => calculateAdaptiveSegments(core, request),
   }, tensors, 10000)
   if (item.profiles.length) {
