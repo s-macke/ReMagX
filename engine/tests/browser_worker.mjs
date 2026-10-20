@@ -1,3 +1,4 @@
+import { checkTableSessions, checkTableSessionMemory } from './table_session_checks.mjs'
 import { checkVariableEnergy } from './variable_energy_checks.mjs'
 import { checkSegmentedOptics, sampleSegmentedOptics } from './segmented_optics_checks.mjs'
 import { calculateAdaptiveSegments, calculateSegmentedOptics, createSegmentedOpticalSampler } from './segmentation.mjs'
@@ -14,7 +15,7 @@ import { checkFitErrors } from './fit_error_checks.mjs'
 import { minimizeSimplex, minimizeAnnealing } from './optimizer.mjs'
 import { checkOptimizer } from './optimizer_checks.mjs'
 import createCore from './remagx-core.mjs'
-import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, calculateSplineProfile, generateGaussianSplineKnots, applyGaussianProfiles, applyMagneticProfiles, calculateLayerDensity, calculateElementDensity } from './parratt.mjs'
+import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, createTableLookupSession, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, calculateSplineProfile, generateGaussianSplineKnots, applyGaussianProfiles, applyMagneticProfiles, calculateLayerDensity, calculateElementDensity } from './parratt.mjs'
 
 const core = await createCore()
 self.onmessage = ({ data }) => {
@@ -35,7 +36,8 @@ self.onmessage = ({ data }) => {
       calculateParratt(core, prepared)
       self.postMessage({ kind: 'finished' })
     } else {
-      checkSegmentedOptics(core, calculateSegmentedOptics, calculateAdaptiveSegments, createSegmentedOpticalSampler)
+      checkTableSessions(core, createTableLookupSession, lookupTable, data.tables)
+      checkTableSessionMemory(core, createTableLookupSession, () => checkSegmentedOptics(core, calculateSegmentedOptics, calculateAdaptiveSegments, createSegmentedOpticalSampler))
       checkAdaptiveSegments(core, calculateAdaptiveSegments)
       checkLayerDensity(core, calculateLayerDensity)
       if (data.scans) checkVariableEnergy(core, calculateParrattEnergyScan, data.scans)

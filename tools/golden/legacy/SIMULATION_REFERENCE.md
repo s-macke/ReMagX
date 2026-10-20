@@ -457,3 +457,34 @@ caller's cursor, duplicate-energy history, endpoints, range behavior and atomic
 failure behavior. Replacing or mutating an input table must not reuse stale
 storage. The second case still needs attribution of the remaining runtime;
 this evidence does not justify changing physics, scripts or tolerance.
+
+
+### Request-owned prepared optical tables
+
+The real worker now opens a separate table lookup session for each request and
+releases it in the handler's finally block. A session copies each table once to
+immutable WASM storage; later requests and replacement objects get fresh storage.
+Query buffers and cursor values remain per call, so callers retain their original
+independent lookup histories. The native lookup still performs its existing
+validation and interpolation on every call. No native arithmetic was changed.
+
+Prepared lookup matches 14,760 native values and 80 cursor sequences in Node and
+Chromium. Shared tests cover duplicate energies, endpoints/range behavior,
+allocation failures, input snapshot isolation, replacement, numerical errors,
+recovery, memory growth and idempotent disposal. The memory-growth check shares
+an existing sampler growth exercise; an initial run with additional full-heap growth encountered
+a Chromium timeout during concurrent checks and was removed without weakening
+the lookup assertion. The final complete Node/Chromium suite passes. Public tests
+verify separate request sessions and cleanup after calculation errors; all 495
+public tests, lint/build and the full Chromium ComputeService suite pass.
+
+
+The full unchanged 99-project energy rerun now matches **20 of 23** available
+native curves (previously 19). Case 60 completes within the unchanged 120-second
+limit and matches all 800 points; case 67 still times out. Total compared output
+is 6,979 points/13,958 coordinate-intensity values, with zero D-23 mismatches and
+unchanged maximum absolute/log10 errors. Four compared projects have segmentation
+enabled. The other two unmatched native curves still lack element tables; the
+original adapter still errors on 76 inputs. Acceptance remains false. This proves
+one former timeout now completes compatibly, not a fixed whole-scan speedup ratio
+or compatibility of the remaining timeout.

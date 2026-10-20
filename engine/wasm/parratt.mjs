@@ -125,6 +125,60 @@ export function lookupTable(module, table, queries, cursor = 0) {
   })
 }
 
+// Own immutable table snapshots for one worker request. Cursors remain caller-owned.
+// The native entry still validates its buffers; this removes repeated JS copies.
+export function createTableLookupSession(module) {
+  const tables = new Map()
+  let disposed = false
+  function dispose() {
+    if (disposed) return
+    disposed = true
+    for (const table of tables.values()) for (const pointer of table.pointers) module._free(pointer)
+    tables.clear()
+  }
+  return { dispose, lookup(table, queries, cursor = 0) {
+    if (disposed) throw new Error('Optical-table session is disposed')
+    if (!validVector(queries) || !Number.isSafeInteger(cursor) || cursor < 0 || cursor > 0xffffffff) {
+      throw new TypeError('Invalid optical-table lookup input')
+    }
+    let prepared = tables.get(table)
+    if (!prepared) {
+      if (!table || !validVector(table.energy, undefined, true) || !Array.isArray(table.columns) ||
+          table.columns.length < 1 || table.columns.length > 20 ||
+          !Array.from(table.columns).every(column => validVector(column, table.energy.length, true))) {
+        throw new TypeError('Invalid optical-table lookup input')
+      }
+      const rows = table.energy.length, columns = table.columns.length, pointers = []
+      const allocate = count => {
+        const bytes = count * 8
+        if (!Number.isSafeInteger(bytes) || bytes > 0x7fffffff) throw new RangeError('Optical-table buffer too large')
+        const pointer = module._malloc(bytes)
+        if (!pointer) throw new Error('Optical-table allocation failed')
+        pointers.push(pointer)
+        return pointer
+      }
+      try {
+        const energy = rows ? allocate(rows) : 0, values = rows ? allocate(rows * columns) : 0
+        if (rows) module.HEAPF64.set(table.energy, energy / 8)
+        for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+          module.HEAPF64[values / 8 + row * columns + column] = table.columns[column][row]
+        }
+        prepared = { rows, columns, energy, values, pointers }
+        tables.set(table, prepared)
+      } catch (error) { for (const pointer of pointers) module._free(pointer); throw error }
+    }
+    return withBuffers(module, allocate => {
+      const query = allocate(queries.length), position = allocate(1), output = allocate(queries.length * prepared.columns)
+      module.HEAPF64.set(queries, query / 8)
+      new DataView(module.HEAPF64.buffer).setUint32(position, cursor, true)
+      checkStatus(module._remagx_table_lookup(prepared.energy, prepared.values, prepared.rows, prepared.columns,
+        query, queries.length, position, output), 'Optical-table lookup')
+      return { values: module.HEAPF64.slice(output / 8, output / 8 + queries.length * prepared.columns),
+        cursor: new DataView(module.HEAPF64.buffer).getUint32(position, true) }
+    })
+  } }
+}
+
 // Both intensity columns are convolved before asymmetry and postprocessing.
 export function convolveEnergy(module, energies, values, width) {
   if (!validVector(energies) || !(values instanceof Float64Array) || values.length !== energies.length * 2 ||

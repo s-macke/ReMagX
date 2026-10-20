@@ -163,3 +163,39 @@ it.each([
   expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ id: 2, type: 'result', result: { reflectivity: [1, .5] } })
   expect(project).toEqual(original)
 })
+
+
+it('owns separate table sessions per request and disposes them after success or errors', async () => {
+  const project = createDefaultProject()
+  project.experiment.qzScan.points = 2
+  project.experiment.energy = 650
+  project.calculation.automaticOpticalConstants = true
+  project.sample.layers.forEach(layer => { layer.opticalTable = 'sample' })
+  const sessions: { lookup: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] = []
+  const baseLookup = vi.fn()
+  const createLookupSession = () => {
+    const value = { lookup: vi.fn(() => ({ values: new Float64Array([.01, .002]), cursor: 1 })), dispose: vi.fn() }
+    sessions.push(value); return value
+  }
+  let fail = false
+  const calculate = vi.fn((request: Parameters<RealQzCalculator>[0]) => {
+    if (fail) throw new Error('Calculation failed')
+    return new Float64Array(request.qz.flatMap(() => [1, 1]))
+  })
+  const send = vi.fn()
+  const handle = createRealRequestHandler(send, async () => ({ createLookupSession, calculate, lookup: baseLookup,
+    fitError: vi.fn(), energyScan: vi.fn(), matrixEnergy: vi.fn(), zakQz: vi.fn(), zakEnergy: vi.fn(),
+    dielectricTensor: vi.fn(() => ({ values: new Float64Array(18), anisotropic: false })), matrixQz: vi.fn() }))
+  const tables = [{ name: 'sample', kind: 'db' as const, energy: [600, 700], columns: [[0, 1], [0, 1]], warnings: [] }]
+  await handle({ id: 1, kind: 'reflectivity', project, tables })
+  expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ type: 'result' })
+  fail = true
+  await handle({ id: 2, kind: 'reflectivity', project, tables })
+  expect(sessions).toHaveLength(2)
+  for (const session of sessions) {
+    expect(session.lookup).toHaveBeenCalled()
+    expect(session.dispose).toHaveBeenCalledTimes(1)
+  }
+  expect(baseLookup).not.toHaveBeenCalled()
+  expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ type: 'error' })
+})

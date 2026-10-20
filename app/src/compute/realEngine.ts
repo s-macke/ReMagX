@@ -15,13 +15,17 @@ import { calculateRealCurve, type RealCalculationEngine } from '../model/realCal
 import { evaluateProjectDatasetErrorAsync, prepareStandaloneDatasetError, type FitErrorCalculator } from '../model/projectDatasetError'
 import type { WorkerRequest, WorkerResponse } from './protocol'
 export type { RealQzCalculator } from '../model/realCalculation'
-export interface RealEngine extends RealCalculationEngine { fitError: FitErrorCalculator; minimize?: RealMinimizer }
+export interface RealEngine extends RealCalculationEngine {
+  fitError: FitErrorCalculator; minimize?: RealMinimizer
+  createLookupSession?: () => { lookup: RealCalculationEngine['lookup']; dispose(): void }
+}
 
 // Uses the existing worker protocol. Unported operations never fall back to the mock.
 export function createRealRequestHandler(send: (response: WorkerResponse) => void, load: () => Promise<RealEngine>, createLuaSession?: () => Promise<LuaSession>) {
   let calculator: Promise<RealEngine> | null = null
   return async (message: WorkerRequest): Promise<void> => {
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
+    let lookupSession: ReturnType<NonNullable<RealEngine['createLookupSession']>> | undefined
     try {
       if (message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
@@ -32,7 +36,9 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         assertRealAlgorithm(message.project.calculation.algorithm)
       }
       calculator ??= load().catch(error => { calculator = null; throw error })
-      const engine = await calculator
+      const loaded = await calculator
+      lookupSession = loaded.createLookupSession?.()
+      const engine = lookupSession ? { ...loaded, lookup: lookupSession.lookup } : loaded
       if (message.kind === 'executeScript') {
         if (!createLuaSession) throw new Error('Lua script execution is unavailable.')
         const prepared = prepareManualScript(message.project, message.spectrum.tables, engine)
@@ -146,6 +152,6 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         : status === 1 ? 'The real engine rejected invalid calculation inputs.'
         : detail.trim() ? detail : 'The real engine calculation failed.'
       send({ id: message.id, type: 'error', message: text })
-    }
+    } finally { lookupSession?.dispose() }
   }
 }

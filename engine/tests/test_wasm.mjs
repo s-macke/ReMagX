@@ -1,3 +1,4 @@
+import { checkTableSessions, checkTableSessionMemory } from './table_session_checks.mjs'
 import { checkVariableEnergy } from './variable_energy_checks.mjs'
 import { checkSegmentedOptics, sampleSegmentedOptics } from './segmented_optics_checks.mjs'
 import { calculateAdaptiveSegments, calculateSegmentedOptics, createSegmentedOpticalSampler } from '../wasm/segmentation.mjs'
@@ -17,7 +18,7 @@ import { checkOptimizer } from './optimizer_checks.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, calculateSplineProfile, generateGaussianSplineKnots, applyGaussianProfiles, applyMagneticProfiles, calculateLayerDensity, calculateElementDensity } from '../wasm/parratt.mjs'
+import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, createTableLookupSession, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, calculateSplineProfile, generateGaussianSplineKnots, applyGaussianProfiles, applyMagneticProfiles, calculateLayerDensity, calculateElementDensity } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -129,7 +130,8 @@ for (const [caseIndex, request] of input.profiles.entries()) {
   })
 }
 assert.equal(profileCount, 77180)
-checkSegmentedOptics(module, calculateSegmentedOptics, calculateAdaptiveSegments, createSegmentedOpticalSampler)
+checkTableSessions(module, createTableLookupSession, lookupTable, input.tables)
+checkTableSessionMemory(module, createTableLookupSession, () => checkSegmentedOptics(module, calculateSegmentedOptics, calculateAdaptiveSegments, createSegmentedOpticalSampler))
 checkAdaptiveSegments(module, calculateAdaptiveSegments)
 checkLayerDensity(module, calculateLayerDensity)
 checkElementDensity(module, calculateElementDensity)

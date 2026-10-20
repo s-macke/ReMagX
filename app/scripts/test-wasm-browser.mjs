@@ -11,6 +11,7 @@ const modulePath = resolve(process.argv[2])
 const input = JSON.parse(readFileSync(0, 'utf8'))
 const cases = [...input.angular, ...input.qz.map(prepared => ({ ...prepared, kind: 'qz' }))]
 const assets = new Map([
+  ['/table_session_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/table_session_checks.mjs'))]],
   ['/variable_energy_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/variable_energy_checks.mjs'))]],
   ['/segmented_optics_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/segmented_optics_checks.mjs'))]],
   ['/segmentation.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/wasm/segmentation.mjs'))]],
