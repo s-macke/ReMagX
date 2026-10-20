@@ -49,3 +49,6 @@ extern double remagx_reference_math_hypot(double, double);
 #define M_ATAN2 remagx_reference_math_atan2
 extern double remagx_reference_math_atan2(double, double);
 extern double remagx_reference_math_x2y2m1(double, double);
+
+#define __exp remagx_reference_math_exp
+#define __exp_data remagx_reference_math_exp_data

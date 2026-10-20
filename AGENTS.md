@@ -174,12 +174,11 @@ This is the authoritative list of remaining requirements. There are 35 open requ
 the counts are not a completion percentage. Completed increments and their historical
 limitations are recorded separately below.
 
-The immediate numerical issue is a reproduced CPU-dependent Visnovsky native/WASM
-mismatch. Sharing the existing pinned math routines fixed the first observed case, but
-another case still fails on an FMA-capable CPU. The first differing traced operation is
-`exp`; its one-step rounding difference is amplified by the magnetic calculation.
-Resolving and validating this is part of the existing full-engine numerical requirement,
-not a new scope item. Container acceptance also remains open.
+The reproduced CPU-dependent Visnovsky mismatch has a locally verified fix: native and
+WASM complex exponentials now use the same pinned routine without FMA contraction.
+The emulated failing CPU passes 9,600 beam/asymmetry comparisons, and original-project
+comparisons pass locally. Actual CI runner and container verification remain pending;
+full-engine/corpus acceptance is still open.
 
 #### Implementation
 
@@ -356,6 +355,7 @@ Quality gates:
 - [x] Preserve legacy profile-mode behavior with Nevot–Croce: CalcMagProfile returns before profile application when segmentation is disabled, so Matrix/Zak now accept stored magnetic constants in this configuration, as Parratt already did. Twelve additional original-reference Chromium variants with nonzero profile amplitudes pass D-23; combined diagnostic: 135 projects/51,810 values, zero mismatches. Real-service Chromium checks also compare all four qz/energy methods between stored-constant and profile modes for Matrix/Zak, and require segmentation failures separately. Actual adaptive/profile application remains unimplemented and explicitly rejected.
 - [x] Initial Parratt WASM component: pinned Emscripten 6.0.12, ES module and prepared-stack adapter; 4,320 native/WASM synthetic comparisons, logarithmic diagnostics, memory-growth and error-recovery checks in CI. Chromium also compares all points in a module worker and verifies event-loop response plus termination/recreation during a real WASM call. The public app still uses the mock.
 - [x] Shared pinned scalar/complex math in native and WASM builds: native targets now link the same reviewed double-only sources already used by WASM, with source-hash verification and position-independent native objects. All 24 native test groups pass with private original comparisons enabled; Node/Chromium and 147 original-project variants/52,002 values pass unchanged D-23 locally. Subsequent older-runner checks still fail on another Visnovsky case; FMA CPU emulation reproduces it and traces the first difference to exp rounding. The existing pinned primitives do not yet cover that operation. Full platform/corpus acceptance remains open.
+- [x] Pinned non-FMA exponential for sensitive native/WASM complex exponential and power paths: unmodified LGPL upstream source/data with hashes, double-only integration and a direct rounding/range regression. The previously failing QEMU Haswell case now matches; eight magnetic variants pass 9,600 intensity/raw-difference/normalized-asymmetry comparisons at D-23. Existing 24 native groups plus the new exponential test pass; Node/Chromium and 147 original-project variants/52,002 values pass locally. Actual CI/container verification and full-platform acceptance remain open.
 - [x] AC-3 precision override through the real WASM worker: the public default `.all` fixture imports with precision 0, 1, 2 and 3; every variant reports the ignored key, preserves the imported project and produces byte-identical nonconstant finite Parratt reflectivity and matching qz coordinates. Runs in the Chromium ComputeService check in CI. This verifies the precision override, not full real-engine/corpus acceptance.
 - [x] Native clean-room Nelder-Mead primitive in `engine/src/optim/`: C callback interface, explicit simplex, deterministic ties, absolute convergence thresholds, hard evaluation/iteration budgets, progress and cooperative Stop. Analytic recovery, all move types, native log-reflectivity thickness/δ recovery, cancellation and atomic failures pass. No NR implementation used. Annealing, project objective/bounds mapping, WASM fitting, public rebuild integration and original-optimizer quality references remain open.
 - [x] WASM Nelder-Mead callback bridge: checked wasm32 options/results, owned callback arrays, callback exception containment and buffer/function-table cleanup. Node and Chromium match six native optimizer cases and recover synthetic film thickness with nested WASM Parratt calls; input errors, early Stop, incomplete trials, callback failures, memory growth and partial resource failures pass. Synchronous Stop predicates do not process queued worker messages; full fit-service integration and original fit-quality acceptance remain open.

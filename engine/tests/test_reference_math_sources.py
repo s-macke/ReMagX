@@ -13,7 +13,7 @@ class ReferenceMathSources(unittest.TestCase):
         expected = {'e_atan2.c', 'e_asin.c', 's_sin.c', 'sincostab.c', 'branred.c',
                     'dla.h', 'mydefs.h', 'uatan.tbl', 'atnat2.h', 'usncs.h', 'branred.h',
                     'asincos.tbl', 'root.tbl', 'powtwo.tbl', 'uasncs.h', 'COPYING.LIB',
-                    'e_hypot.c', 's_csqrt_template.c', 's_clog_template.c', 'x2y2m1.c', 'mul_split.h'}
+                    'e_exp.c', 'e_exp_data.c', 'e_hypot.c', 's_csqrt_template.c', 's_clog_template.c', 'x2y2m1.c', 'mul_split.h'}
         self.assertEqual(set(manifest['sha256']), expected)
         for name, digest in manifest['sha256'].items():
             self.assertEqual(hashlib.sha256((directory / name).read_bytes()).hexdigest(), digest, name)

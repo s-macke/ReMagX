@@ -55,3 +55,8 @@ Docker documents this file-export workflow in
 [Export binaries](https://docs.docker.com/build/building/export/).
 The upstream image recipe is in the
 [emsdk source](https://github.com/emscripten-core/emsdk/blob/35ff8a6d150541276abbc6bae512ca90bcfbe220/docker/Dockerfile).
+
+The sensitive native/WASM matrix math also uses the same pinned source routines,
+including exponential evaluation without fused multiply-add contraction. Pinning
+only the container image does not eliminate CPU-dependent system-libm dispatch;
+the numerical comparisons remain required on the runner CPU.

@@ -21,6 +21,8 @@
     "s_csqrt_template.c": "ef2cefef15c10deaadda6354b2719e02bbbd268582ef733abf7ec9a717324bb7",
     "s_clog_template.c": "c01142d4a4b09553c51acf40f8b784da41cb64f93aee47a45f4d70db99fa7c1c",
     "x2y2m1.c": "d3e1cade509574dd72d0aab71cd8ce234666b96cdc36ec21e696fdbcbbcbda61",
-    "mul_split.h": "35a9f454e24c469142795fb370f239c7e4b4348fbf562b2cf7b0d9f4d5786c12"
+    "mul_split.h": "35a9f454e24c469142795fb370f239c7e4b4348fbf562b2cf7b0d9f4d5786c12",
+    "e_exp.c": "bd443b6c8544cbafcca75cfbbe8603d39c2bffd2a8364702bca2f866a71cbc02",
+    "e_exp_data.c": "2b8d6494039e8c4ab4000f955e2c3e043bd0868c1fd6eb755072e5bc5dfc2047"
   }
 }

@@ -15,7 +15,7 @@ these digests before configuring native or WASM builds; a native CI test also ch
 the copy of the licence distributed with the web application.
 
 The Visnovsky quartic can produce nearly coincident roots. Differences of one ULP in
-atan2, sin/cos, asin, hypot or complex primitives between native glibc and Emscripten's
+atan2, sin/cos, asin, exp, hypot or complex primitives between native glibc and Emscripten's
 math library can then exceed D-23 in full reflectivity and asymmetry curves. The WASM
 and native matrix paths use these pinned implementations to match the reference's scalar
 arithmetic, without changing polynomial branches, Newton passes, eigenvector normalization
@@ -24,7 +24,7 @@ in the build shims. Native builds also use them: relying on an older host libm
 can exceed D-23 even when its results differ by only a few rounding steps.
 
 Matrix division shares the quartic helper's native ratio-scaled arithmetic. Complex
-exponentials use pinned sine/cosine for finite magnitudes and retain runtime exceptional
+exponentials use pinned exponential and sine/cosine for finite magnitudes and retain runtime exceptional
 handling. This does not improve or replace the original quartic algorithm and does not
 claim that all future project/platform discrepancies are resolved.
 
@@ -43,3 +43,8 @@ there are no alternative precision types. The precision gate scans source, heade
 tables here as well as the maintained engine code. Compile without fast-math or contraction.
 The shims are project-maintained code; upstream files must be updated together with the
 revision, hashes, licence review and numerical regression evidence.
+
+The exponential uses the upstream portable table implementation with contraction disabled,
+including on CPUs where system glibc selects FMA instructions. The integration shim supplies
+binary64 bit casts, the upstream data layout, and overflow/underflow reporting; errno is
+not part of the engine API. Its rounding regression is checked independently of system exp.

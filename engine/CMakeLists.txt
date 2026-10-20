@@ -38,6 +38,7 @@ include(CTest)
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME double_precision_gate COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_precision.py)
+  add_test(NAME reference_exponential COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_reference_exp.py $<TARGET_FILE:remagx_core>)
   add_test(NAME reference_math_sources COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_reference_math_sources.py)
   add_test(NAME precision_gate_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_precision_gate.py)
   add_executable(optimizer_tests tests/test_optimizer.cpp)
@@ -84,6 +85,7 @@ foreach(index RANGE 0 ${reference_math_last})
   endif()
 endforeach()
 add_library(remagx_reference_math STATIC
+  ${reference_math_directory}/e_exp.c ${reference_math_directory}/e_exp_data.c
   ${reference_math_directory}/e_atan2.c ${reference_math_directory}/e_asin.c
   ${reference_math_directory}/s_sin.c ${reference_math_directory}/sincostab.c
   ${reference_math_directory}/branred.c ${reference_math_directory}/e_hypot.c
