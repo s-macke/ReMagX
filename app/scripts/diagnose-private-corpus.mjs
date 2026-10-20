@@ -95,7 +95,7 @@ try {
   const reports = []
   for (const input of inputs) {
     const report = await page.evaluate(async input => {
-      const { importAllFile, parseOpticalTable } = window.realServiceHarness
+      const { importAllFile, parseOpticalTable, diagnosticCategory } = window.realServiceHarness
       const service = window.privateReferenceService
       let timer
       try {
@@ -121,21 +121,19 @@ try {
         }
         return { id: input.id, segmented, status: mismatches ? 'numerical-mismatch' : 'matched', points: input.points.length, mismatches, maximumAbsolute, maximumLog10 }
       } catch (error) {
-        const text = String(error.message)
-        const category = text.includes('comparison-timeout') ? 'worker-timeout' : /binding/.test(text) ? 'profile-binding' :
-          /spline/i.test(text) ? 'spline' : /element|scattering/i.test(text) ? 'element' : /Lua|BeforeCalculation|Default:/i.test(text) ? 'script' :
-          /table|database|\.db|\.ff/i.test(text) ? 'table' : /algorithm|not available|not implemented/i.test(text) ? 'unsupported' : 'other'
+        const category = diagnosticCategory(String(error.message))
         return { id: input.id, status: 'worker-error', category, referenceError: input.referenceError }
       } finally { clearTimeout(timer) }
     }, input)
     reports.push(report)
-    console.log(JSON.stringify({ stage: 'comparison', completed: reports.length, total: inputs.length, id: report.id, status: report.status, ...(report.category ? { category: report.category } : {}) }))
+    console.log(JSON.stringify({ stage: 'comparison', completed: reports.length, total: inputs.length, id: report.id, status: report.status, referenceStatus: input.referenceError ?? 'completed', ...(report.category ? { category: report.category } : {}) }))
   }
   await page.evaluate(() => window.privateReferenceService.dispose())
   const counts = reports.reduce((counts, report) => { const key = report.category ?? report.status; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
   const compared = reports.filter(report => report.points !== undefined)
   const referenceCounts = inputs.reduce((counts, input) => { const key = input.referenceError ?? 'completed'; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
-  const summary = { scope: 'private-qz-explicit-original-lookup', projects: reports.length, counts, referenceCounts,
+  const referenceCompletedFailures = reports.filter((report, index) => !inputs[index].referenceError && report.status !== 'matched').reduce((counts, report) => { const key = report.category ?? report.status; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
+  const summary = { scope: 'private-qz-explicit-original-lookup', projects: reports.length, counts, referenceCounts, referenceCompletedFailures,
     segmentedCompared: compared.filter(report => report.segmented).length,
     segmentedMatched: compared.filter(report => report.segmented && report.status === 'matched').length,
     comparedPoints: compared.reduce((sum, report) => sum + report.points, 0),

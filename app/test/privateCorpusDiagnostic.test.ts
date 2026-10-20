@@ -1,3 +1,4 @@
+import { diagnosticCategory } from './real-service/diagnosticCategory'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -25,3 +26,21 @@ it('fails private comparison setup without disclosing paths or changing corpus i
     } finally { rmSync(directory, { recursive: true, force: true }) }
   }
 }, 60000)
+
+
+it('separates deferred algorithms, missing element data and pending tensor behavior without disclosing details', () => {
+  const marker = 'PRIVATE_DIAGNOSTIC_MARKER'
+  const cases = [
+    ['Parratt without multiple scattering is planned for a later release and is not available in the real engine.', 'deferred-algorithm'],
+    ['Full .F scattering tensor refresh is unavailable pending the legacy element-assignment decision.', 'scattering-tensor-decision'],
+    [`Element 2: missing ${marker}.ff table; built-in tables are unavailable.`, 'missing-element-table'],
+    [`Element 2: 700 eV is outside ${marker}.ff.`, 'element-table-range'],
+    [`BeforeCalculation: element index error ${marker}`, 'script'],
+    [`missing ${marker}.db table`, 'table'],
+    [`unrecognized failure ${marker}`, 'other'],
+  ]
+  for (const [message, category] of cases) {
+    expect(diagnosticCategory(message)).toBe(category)
+    expect(diagnosticCategory(message)).not.toContain(marker)
+  }
+})

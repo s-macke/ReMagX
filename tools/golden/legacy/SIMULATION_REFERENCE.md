@@ -325,3 +325,27 @@ lack successful worker comparisons. A reference error alone does not prove a
 project invalid: missing inputs, legacy failures and adapter limitations must be
 investigated separately. No project is repaired or excluded automatically, and
 `acceptancePassed` remains false (exit status 1).
+
+
+Worker error categories distinguish `deferred-algorithm`, `missing-element-table`,
+`element-table-range` and `scattering-tensor-decision` before generic element errors.
+This prevents the phrase "without multiple scattering" from being misclassified as
+an element-preparation defect. Script context also takes precedence over words in
+its diagnostic. Each progress record reports original-reference status separately;
+`referenceCompletedFailures` counts only unmatched projects with completed native
+curves. Unknown messages remain `other`; raw text and private names stay withheld.
+
+Legacy `ReadElement` can fall back to built-in Chantler data when local table
+loading fails and that fallback is enabled. Missing local `.ff` files alone do not
+prove invalid project input. The web implementation has not shipped this built-in
+data; its scope/licensing decision remains in the checklist. These categories are
+diagnostic evidence, not automatic approval to exclude or repair any project.
+
+
+The classified rerun preserves 84 matches and the numerical metrics above. Its
+`referenceCompletedFailures` is `{"deferred-algorithm":1,"missing-element-table":5}`.
+Across all projects, worker failures are nine missing-element-table, one deferred
+algorithm, one other table failure and four script failures. The nine projects
+whose original adapter errors coincide with four missing-element-table, one other
+table and four script failures in the worker. This establishes co-occurrence, not
+identical causes. None is silently excluded from the strict aggregate gate.
