@@ -529,6 +529,48 @@ export function applyGaussianProfiles(module, { profiles, positions, initialValu
 }
 
 
+// Each spline entry is null for Gaussian or { knots, values } for a spline.
+// Empty spline arrays describe a zero-valued spline, not a Gaussian fallback.
+export function applyMagneticProfiles(module, { profiles, splines, positions, initialValues, weights, coupled }) {
+  if (!Array.isArray(profiles) || (profiles.length > 0 && !validRows(profiles, 4)) ||
+      !Array.isArray(splines) || splines.length !== profiles.length ||
+      !Array.from(splines).every(shape => shape === null || (shape &&
+        validVector(shape.knots, undefined, true) && shape.knots.length <= 2147483647 &&
+        validVector(shape.values, shape.knots.length, true))) ||
+      !validVector(positions) || !validVector(initialValues, positions.length * 2) ||
+      !Array.isArray(weights) || weights.length !== positions.length ||
+      !Array.from(weights).every(row => validVector(row, profiles.length, true)) || ![0, 1].includes(coupled)) {
+    throw new TypeError('Invalid prepared magnetic profile input')
+  }
+  const knotCount = splines.reduce((total, shape) => total + (shape?.knots.length ?? 0), 0)
+  if (!Number.isSafeInteger(knotCount * 8) || knotCount * 8 > 0x7fffffff) throw new RangeError('Magnetic spline buffer too large')
+  return withBuffers(module, allocate => {
+    const profilePointer = profiles.length ? allocate(profiles.length * 4) : 0
+    // The shared allocator counts doubles; round storage up for int32 descriptors.
+    const countsPointer = profiles.length ? allocate(Math.ceil(profiles.length / 2)) : 0
+    const knotsPointer = knotCount ? allocate(knotCount) : 0
+    const valuesPointer = knotCount ? allocate(knotCount) : 0
+    const positionsPointer = allocate(positions.length)
+    const initialPointer = allocate(initialValues.length)
+    const weightsPointer = profiles.length ? allocate(positions.length * profiles.length) : 0
+    const outputPointer = allocate(initialValues.length)
+    if (profilePointer) module.HEAPF64.set(profiles.flat(), profilePointer / 8)
+    const descriptors = new DataView(module.HEAPF64.buffer)
+    splines.forEach((shape, index) => descriptors.setInt32(countsPointer + index * 4, shape === null ? -1 : shape.knots.length, true))
+    if (knotCount) {
+      module.HEAPF64.set(splines.flatMap(shape => shape?.knots ?? []), knotsPointer / 8)
+      module.HEAPF64.set(splines.flatMap(shape => shape?.values ?? []), valuesPointer / 8)
+    }
+    module.HEAPF64.set(positions, positionsPointer / 8)
+    module.HEAPF64.set(initialValues, initialPointer / 8)
+    if (weightsPointer) module.HEAPF64.set(weights.flat(), weightsPointer / 8)
+    checkStatus(module._remagx_apply_magnetic_profiles(profilePointer, profiles.length, countsPointer,
+      knotsPointer, valuesPointer, knotCount, positionsPointer, initialPointer, weightsPointer,
+      positions.length, coupled, outputPointer), 'Magnetic profile application')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + initialValues.length)
+  })
+}
+
 export function calculateGaussLorentzianImag(module, parameters) {
   if (!validVector(parameters, 5)) throw new TypeError('Invalid Gauss-Lorentzian input')
   return withBuffers(module, allocate => {

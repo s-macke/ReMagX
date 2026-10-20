@@ -200,6 +200,14 @@ if __name__ == '__main__':
             payload.append(dict(kind='application', profiles=[[getattr(profile, field) for field, _ in Profile._fields_] for profile in profiles],
                 positions=positions, initialValues=initial, weights=[weights[index*count:(index+1)*count] for index in range(len(positions))],
                 coupled=coupled, expected=expected))
+        for profiles, positions, initial, weights, coupled, splines in mixed_cases():
+            status, expected = evaluate(profiles, positions, initial, weights, coupled, splines)
+            assert status == 0
+            count = len(profiles)
+            payload.append(dict(kind='mixed-application', profiles=[[getattr(profile, field) for field, _ in Profile._fields_] for profile in profiles],
+                splines=[None if shape is None else dict(knots=shape[0], values=shape[1]) for shape in splines],
+                positions=positions, initialValues=initial, weights=[weights[index*count:(index+1)*count] for index in range(len(positions))],
+                coupled=coupled, expected=expected))
         print(json.dumps(payload))
     else:
         unittest.main()
