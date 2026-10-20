@@ -338,6 +338,16 @@ int remagx_apply_magnetic_profiles(const RemagxGaussianProfile* profiles, size_t
     const int* spline_counts, const double* knots, const double* values, size_t knot_count,
     const double* positions, const double* initial_values, const double* weights,
     size_t sample_count, int coupled, double* output);
+// Legacy GetDensity weights for one original layer at prepared positions.
+// boundaries/roughness have layer_count entries; layer_index uses substrate-first
+// order. Zero roughness becomes 1e-10; outer media retain the +/-1e10 limits.
+// error_samples must contain exactly 1001 caller-supplied values on the legacy
+// -5 + i*10/999 grid, including its guard sample. This consumes that table only;
+// it does not generate samples or resolve the pending precision policy.
+// Finite inputs; output holds count doubles and remains unchanged on failure.
+int remagx_layer_density(const double* boundaries, const double* roughness,
+    size_t layer_count, size_t layer_index, const double* positions, size_t count,
+    const double* error_samples, size_t error_sample_count, double* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
