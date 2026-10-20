@@ -17,6 +17,9 @@ const destination = resolve(root, 'build/private-corpus-test')
 const timeout = 120000
 let browser, server
 try {
+  const diagnosticArguments = process.argv.slice(2)
+  if (diagnosticArguments.length > 1 || diagnosticArguments.some(value => value !== '--energy')) throw new Error('Unsupported diagnostic arguments')
+  const energyScan = diagnosticArguments[0] === '--energy'
   async function discover(directory) {
     const projects = []
     for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -58,12 +61,12 @@ try {
     }
     let points, referenceError
     try {
-      const output = execFileSync('python3', ['-c', 'import os,resource,sys;resource.setrlimit(resource.RLIMIT_CORE,(0,0));os.execv(sys.argv[1],sys.argv[1:])', executable, path],
+      const output = execFileSync('python3', ['-c', 'import os,resource,sys;resource.setrlimit(resource.RLIMIT_CORE,(0,0));os.execv(sys.argv[1],sys.argv[1:])', executable, path, ...(energyScan ? ['--energy'] : [])],
         { cwd: dirname(path), stdio: 'pipe', timeout, maxBuffer: 64 * 1024 * 1024 }).toString()
       points = JSON.parse(output)
       if (!Array.isArray(points) || !points.length || !points.every(row => Array.isArray(row) && row.length === 2 && row.every(Number.isFinite))) throw new Error('Invalid reference curve')
     } catch (error) { referenceError = error.code === 'ETIMEDOUT' ? 'reference-timeout' : 'reference-error' }
-    inputs.push({ id: index + 1, source, tables, points, referenceError })
+    inputs.push({ id: index + 1, source, tables, points, referenceError, energyScan })
     if ((index + 1) % 10 === 0) console.log(JSON.stringify({ stage: 'reference', completed: index + 1, total: projects.length }))
   }
   await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' }, logLevel: 'silent',
@@ -95,23 +98,21 @@ try {
   const reports = []
   for (const input of inputs) {
     const report = await page.evaluate(async input => {
-      const { importAllFile, parseOpticalTable, diagnosticCategory } = window.realServiceHarness
+      const { importAllFile, parseOpticalTable, diagnosticCategory, withDiagnosticDeadline } = window.realServiceHarness
       const service = window.privateReferenceService
-      let timer
       try {
         const { project } = importAllFile(input.source)
         const segmented = project.calculation.roughnessModel === 'segmentation'
         const tables = input.tables.map(table => parseOpticalTable(table.source, table.name))
         const before = JSON.stringify(project)
-        const actual = await Promise.race([service.calcReflectivity(project, undefined, tables), new Promise((_, reject) => {
-          timer = setTimeout(() => { service.stop(); reject(new Error('comparison-timeout')) }, 120000)
-        })])
+        const actual = await withDiagnosticDeadline(service[input.energyScan ? 'calcEnergyScan' : 'calcReflectivity'](project, undefined, tables), () => service.stop())
         if (JSON.stringify(project) !== before) return { id: input.id, segmented, status: 'input-changed' }
         if (input.referenceError) return { id: input.id, segmented, status: input.referenceError, workerCompleted: true }
-        if (actual.qz.length !== input.points.length || actual.reflectivity.length !== input.points.length) return { id: input.id, segmented, status: 'length-mismatch' }
+        const coordinates = input.energyScan ? actual.energy : actual.qz
+        if (coordinates.length !== input.points.length || actual.reflectivity.length !== input.points.length) return { id: input.id, segmented, status: 'length-mismatch' }
         let mismatches = 0, maximumAbsolute = 0, maximumLog10 = 0
         for (let index = 0; index < input.points.length; ++index) {
-          for (const [value, reference] of [[actual.qz[index], input.points[index][0]], [actual.reflectivity[index], input.points[index][1]]]) {
+          for (const [value, reference] of [[coordinates[index], input.points[index][0]], [actual.reflectivity[index], input.points[index][1]]]) {
             if (!Number.isFinite(value) || !Number.isFinite(reference)) return { id: input.id, segmented, status: 'nonfinite' }
             const difference = Math.abs(value - reference)
             if (difference > 1e-15 + 1e-10 * Math.abs(reference)) ++mismatches
@@ -123,7 +124,7 @@ try {
       } catch (error) {
         const category = diagnosticCategory(String(error.message))
         return { id: input.id, status: 'worker-error', category, referenceError: input.referenceError }
-      } finally { clearTimeout(timer) }
+      }
     }, input)
     reports.push(report)
     console.log(JSON.stringify({ stage: 'comparison', completed: reports.length, total: inputs.length, id: report.id, status: report.status, referenceStatus: input.referenceError ?? 'completed', ...(report.category ? { category: report.category } : {}) }))
@@ -133,7 +134,7 @@ try {
   const compared = reports.filter(report => report.points !== undefined)
   const referenceCounts = inputs.reduce((counts, input) => { const key = input.referenceError ?? 'completed'; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
   const referenceCompletedFailures = reports.filter((report, index) => !inputs[index].referenceError && report.status !== 'matched').reduce((counts, report) => { const key = report.category ?? report.status; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
-  const summary = { scope: 'private-qz-explicit-original-lookup', projects: reports.length, counts, referenceCounts, referenceCompletedFailures,
+  const summary = { scope: energyScan ? 'private-energy-explicit-original-lookup' : 'private-qz-explicit-original-lookup', projects: reports.length, counts, referenceCounts, referenceCompletedFailures,
     segmentedCompared: compared.filter(report => report.segmented).length,
     segmentedMatched: compared.filter(report => report.segmented && report.status === 'matched').length,
     comparedPoints: compared.reduce((sum, report) => sum + report.points, 0),

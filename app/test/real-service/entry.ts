@@ -1,4 +1,4 @@
-import { diagnosticCategory } from './diagnosticCategory'
+import { diagnosticCategory, withDiagnosticDeadline } from './diagnosticCategory'
 import { parseOpticalTable } from '../../src/import/tables'
 import { WorkerComputeService, type WorkerPort } from '../../src/compute/WorkerComputeService'
 import type { OpticalTable } from '../../src/import/tables'
@@ -22,4 +22,4 @@ const createReferenceComputeService = (samples: readonly number[]) => {
     return worker as unknown as WorkerPort
   }, undefined, true)
 }
-Object.assign(window, { realServiceHarness: { diagnosticCategory, createReferenceComputeService, parseOpticalTable, createSegmentedComputeService, applyDatabaseValues, projectSchema, renderFourierPlot, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } })
+Object.assign(window, { realServiceHarness: { diagnosticCategory, withDiagnosticDeadline, createReferenceComputeService, parseOpticalTable, createSegmentedComputeService, applyDatabaseValues, projectSchema, renderFourierPlot, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } })

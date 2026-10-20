@@ -367,3 +367,51 @@ histories are not reproduced by this fixture or accepted as equivalent. All 15
 native simulation-reference tests pass with this addition. Run the existing
 `LEGACY_ROOT=old/reMagX3 python3 -m unittest discover -s tools/golden/legacy -p test_simulation_reference.py`
 command to reproduce the checks.
+
+
+## Private energy-scan worker comparison
+
+```sh
+node app/scripts/diagnose-private-corpus.mjs --energy
+```
+
+This mode invokes the original reference with `--energy` and the real worker's
+`calcEnergyScan` on the same unchanged imported projects and same-directory tables.
+It compares energy coordinates and reflectivity at D-23, using the same private
+explicit original lookup as the qz diagnostic. The scope field is
+`private-energy-explicit-original-lookup`; the default command remains qz-only.
+The `.all` importer uses the original default fixed-qz energy mode because the
+legacy format does not persist the GUI fixed-angle selector. Synthetic fixed-angle
+reference tests remain separate.
+
+Reference failures, worker failures and numerical mismatches remain distinct;
+missing energy columns/tables or invalid energy ranges are not silently repaired.
+Unknown or duplicate arguments fail with sanitized output. This command does not
+establish two-beam/asymmetry or fit acceptance and does not configure a production
+lookup generator.
+
+
+The first 99-project energy run on 2026-10-20 produced 23 native reference curves
+and matched 19 worker curves across 6,179 points (12,358 coordinate/intensity
+values). All compared values meet D-23: maximum absolute difference
+1.8943180357666733e-15, maximum positive-pair log10 difference
+7.847056338050606e-13. Three compared projects have the segmentation flag. The
+original adapter errors on 76 projects; this is a different scope from the qz run
+and does not establish that those projects are invalid generally.
+
+Of four unmatched projects with native curves, two lack element tables in the web
+path and two initially appeared as generic worker errors. Investigation found a
+diagnostic race: the deadline called Stop before rejecting its own promise, so
+synchronous ComputeCancelled rejection could win Promise.race and hide a timeout.
+The shared diagnostic helper now rejects the deadline first; a fake-clock test
+verifies timeout priority, early success/error cleanup and no late Stop. This
+changes reporting only, not the 120-second limit or numerical tolerance. Targeted
+worker-only follow-up uses the same private inputs and original lookup; it does
+not regenerate or replace the native references.
+
+
+The targeted follow-up confirms **both** previously generic failures are
+120-second worker timeouts. Their numerical compatibility remains unproven; a
+longer controlled run or runtime investigation is still needed. The full-run
+reference counts and 19 matched curves remain unchanged. No input was repaired or
+excluded, and `acceptancePassed=false` remains correct.
