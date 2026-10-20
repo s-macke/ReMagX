@@ -569,3 +569,56 @@ Parratt-without-multiple-scattering algorithm. The original adapter errors on
 nine projects. This matches the earlier monochromatic qz coverage while adding
 independent second-beam and derived-asymmetry evidence; full corpus acceptance
 remains false. Neither run varies each project's stored asymmetry definition.
+
+
+### Original depth-profile preparation
+
+The native reference and private corpus runner now accept `--profile` as a
+separate mode, incompatible with energy/asymmetry flags:
+
+```sh
+node app/scripts/diagnose-private-corpus.mjs --profile
+```
+
+The native adapter follows the GUI profile path: loaded tensor state, automatic
+GetState refresh plus strict database refresh, a temporary BeforeCalculation
+script, forced slicing, and original FillLayers. It emits buffered finite
+17-digit JSON with `smooth` rows [z, delta, beta, deltaMag, betaMag] and `segments`
+rows [start, end, delta, beta, deltaMag, betaMag]. Smooth output retains the
+initial point and averages adjacent rows; segments omit the terminal ambient
+row, as in both original profile handlers. Original source/lookup hash gates and
+optimizer exclusion remain unchanged. Sixteen private native adapter tests pass,
+including boundary/average relationships and incompatible-option rejection.
+
+Chromium compares the real depthProfile service output with both reference
+sections independently at unchanged D-23. Single-row profiles may have no
+interior slices. Output reports smooth-point counts, segment counts, total values
+and mismatch counts separately for the two sections; raw research data remain
+private. Every project is attempted unchanged, and native errors/timeouts remain
+separate from worker failures and numerical discrepancies. Public tests cover
+section mismatches, nonfinite values, lengths and sanitized option rejection.
+
+
+The initial full profile diagnostic compared 84 profiles and matched 82. Two
+nonsegmented reflectivity projects (numeric IDs 95/96) produced 325 mismatches in
+profile coordinates and scalar optical constants; magnetic columns matched.
+Both files omit segmentationmodel. The importer defaulted to global, whereas
+the original CSlicing constructor sets model 2, dispatched as local by
+LayerSegmentation2. Because the profile handlers force segmentation, this dormant
+import-default error became observable here. The importer now uses local when
+the key is absent; explicit model mappings are unchanged. A synthetic original
+profile test confirms omitted-model output matches explicit model 2 under D-23
+and differs from model 1. Seventeen native adapter tests, 503 public app tests,
+lint/build and the strict 99-project import corpus gate pass.
+
+
+After correcting the omitted-model import default, the full unchanged rerun
+matches **84 of 89** available native profiles. It compares 35,492 smooth points
+and 35,408 segments, totaling 389,908 coordinate/optical values, with zero D-23
+mismatches in either section. Maximum absolute difference is
+2.220446049250313e-16; maximum positive-pair log10 difference is
+1.1429968083120912e-11. Five available references still encounter missing element
+tables in the worker. The original adapter errors on nine other projects and
+times out on one; that same project also exceeds the worker's 120-second limit.
+All 99 projects remain included and acceptancePassed remains false. Production
+lookup policy and complete profile/corpus acceptance are still open.

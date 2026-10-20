@@ -32,10 +32,11 @@ extern "C" int __wrap_luaL_loadbuffer(lua_State* state, const char* text, size_t
 
 int main(int argc, char** argv) {
     if (argc < 2 || argc > 9) return 2;
-    bool asymmetry = false, energy_scan = false, fixed_angle = false;
+    bool asymmetry = false, energy_scan = false, fixed_angle = false, profile = false;
     bool fourier = false, multiply = false, divide = false, column_layout = false;
     for (int index = 2; index < argc; ++index) {
-        if (std::strcmp(argv[index], "--column-layout") == 0 && !column_layout) column_layout = true;
+        if (std::strcmp(argv[index], "--profile") == 0 && !profile) profile = true;
+        else if (std::strcmp(argv[index], "--column-layout") == 0 && !column_layout) column_layout = true;
         else if (std::strcmp(argv[index], "--asymmetry") == 0 && !asymmetry) asymmetry = true;
         else if (std::strcmp(argv[index], "--energy") == 0 && !energy_scan) energy_scan = true;
         else if (std::strcmp(argv[index], "--angle") == 0 && !fixed_angle) fixed_angle = true;
@@ -44,6 +45,7 @@ int main(int argc, char** argv) {
         else if (std::strcmp(argv[index], "--divide-pi") == 0 && !divide) divide = true;
         else return 2;
     }
+    if (profile && (energy_scan || asymmetry || fixed_angle || fourier || multiply || divide || column_layout)) return 2;
     if (fixed_angle && !energy_scan) return 2;
     if (fourier && (energy_scan || asymmetry) && !column_layout) return 2;
     FILE* output = fdopen(dup(STDOUT_FILENO), "w");
@@ -59,6 +61,47 @@ int main(int argc, char** argv) {
     state->postfft = fourier;
     state->postmultiply = multiply;
     state->postdivide = divide;
+    if (profile) {
+        // GUI GetState followed by SetOCStrict, then the temporary profile hook.
+        if (state->ocautomatic) {
+            Getdblist(*state); Filldb(*state);
+            if (!Getdblist(*state) || !Filldb(*state)) return 6;
+        }
+        CScript(*state, BEFORECALCULATION, NULL, NULL);
+        if (script_failed) return 7;
+        state->slicing.layersegmentationmode = 1;
+        CVector<Schicht<double>> layers;
+        if (FillLayers<double>(*state, state->GetActiveFilm()->mfs, layers) != RX_SUCCESS || layers.empty()) return 8;
+        std::ostringstream buffer;
+        buffer << std::setprecision(17) << "{\"smooth\":[";
+        auto write_row = [&](const std::vector<double>& values) {
+            buffer << "[";
+            for (size_t index = 0; index < values.size(); ++index) {
+                if (!std::isfinite(values[index])) return false;
+                if (index) buffer << ",";
+                buffer << values[index];
+            }
+            buffer << "]";
+            return true;
+        };
+        if (!write_row({layers[0].z, layers[0].oc.delta, layers[0].oc.beta, layers[0].oc.deltam, layers[0].oc.betam})) return 8;
+        for (int index = 1; index < layers.size() - 1; ++index) {
+            buffer << ",";
+            const auto& current = layers[index]; const auto& next = layers[index + 1];
+            if (!write_row({current.z, (current.oc.delta + next.oc.delta) / 2., (current.oc.beta + next.oc.beta) / 2.,
+                (current.oc.deltam + next.oc.deltam) / 2., (current.oc.betam + next.oc.betam) / 2.})) return 8;
+        }
+        buffer << "],\"segments\":[";
+        for (int index = 1; index < layers.size() - 1; ++index) {
+            if (index > 1) buffer << ",";
+            const auto& current = layers[index];
+            if (!write_row({layers[index - 1].z, current.z, current.oc.delta, current.oc.beta, current.oc.deltam, current.oc.betam})) return 8;
+        }
+        buffer << "]}\n";
+        const auto result = buffer.str();
+        if (fwrite(result.data(), 1, result.size(), output) != result.size()) return 9;
+        return fclose(output) == 0 ? 0 : 9;
+    }
     if ((energy_scan || state->ocautomatic) && (!Getdblist(*state) || !Filldb(*state))) return 6;
     CDataSet data;
     // Unit1.cpp Button3Click copies the selected dataset and adapts it once.

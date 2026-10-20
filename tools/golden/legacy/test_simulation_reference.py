@@ -55,6 +55,42 @@ class SimulationReferenceTest(unittest.TestCase):
         libraries = subprocess.run(['ldd', self.executable], check=True, capture_output=True, text=True).stdout
         self.assertNotIn('liblua', libraries)
 
+    def test_depth_profile_smooth_values_and_slice_boundaries(self):
+        result = self.run_fixture(REPOSITORY / 'app/test/fixtures/default.all', '--profile')
+        self.assertEqual(set(result), {'smooth', 'segments'})
+        self.assertEqual(len(result['smooth']), len(result['segments']) + 1)
+        self.assertGreater(len(result['segments']), 1)
+        self.assertTrue(all(len(row) == 5 and all(map(math.isfinite, row)) for row in result['smooth']))
+        self.assertTrue(all(len(row) == 6 and all(map(math.isfinite, row)) for row in result['segments']))
+        for index, row in enumerate(result['segments']):
+            self.assertEqual(row[0], result['smooth'][index][0])
+            self.assertEqual(row[1], result['smooth'][index + 1][0])
+            self.assertGreater(row[1], row[0])
+            if index + 1 < len(result['segments']):
+                for column in range(4):
+                    self.assertEqual(result['smooth'][index + 1][column + 1],
+                                     (row[column + 2] + result['segments'][index + 1][column + 2]) / 2)
+        rejected = subprocess.run([self.executable, REPOSITORY / 'app/test/fixtures/default.all', '--profile', '--energy'],
+                                  capture_output=True, text=True, timeout=30)
+        self.assertEqual(rejected.returncode, 2)
+        self.assertEqual(rejected.stdout, '')
+
+    def test_profile_default_segmentation_is_local_when_key_is_absent(self):
+        source = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        source = re.sub(r'^segmentationmodel\s*=.*$', '', source, flags=re.MULTILINE)
+        path = Path(self.directory.name) / 'profile-default.all'
+        path.write_text(source + '\n')
+        omitted = self.run_fixture(path, '--profile')
+        path.write_text(source + '\nsegmentationmodel = 2\n')
+        local = self.run_fixture(path, '--profile')
+        for section in ['smooth', 'segments']:
+            self.assertEqual(len(omitted[section]), len(local[section]))
+            for left, right in zip(omitted[section], local[section]):
+                self.assertTrue(all(math.isclose(a, b, rel_tol=1e-10, abs_tol=1e-15) for a, b in zip(left, right)))
+        path.write_text(source + '\nsegmentationmodel = 1\n')
+        global_profile = self.run_fixture(path, '--profile')
+        self.assertNotEqual(global_profile, local)
+
     def test_two_beams_and_both_asymmetry_definitions(self):
         fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
         for definition in [0, 1]:

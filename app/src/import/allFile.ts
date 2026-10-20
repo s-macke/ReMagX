@@ -166,7 +166,7 @@ function legacyBaseProject(name: string): Project {
     calculation: {
       algorithm: 'parratt',
       roughnessModel: 'nevot-croce',
-      segmentation: { minThickness: 2, maxThickness: 10, gradientScale: 1, tolerance: 1e-6, scope: 'global' },
+      segmentation: { minThickness: 2, maxThickness: 10, gradientScale: 1, tolerance: 1e-6, scope: 'local' },
       magnetization: { mode: 'none', direction: { gamma: 90, phi: 90 } },
       tensorContribution: 'magnetic',
       asymmetryDefinition: 'normalized',

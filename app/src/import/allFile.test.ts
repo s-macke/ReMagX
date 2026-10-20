@@ -22,6 +22,10 @@ describe('parseAssignments (legacy tokenizing)', () => {
 })
 
 describe('importAllFile', () => {
+  it('uses the original local segmentation default when the file omits the model', () => {
+    expect(importAllFile('numberofpoints = 2\n').project.calculation.segmentation.scope).toBe('local')
+  })
+
   it('imports the legacy default project (CRLF)', () => {
     expect(defaultAll).toContain('\r\n')
     const { project, report } = importAllFile(defaultAll, 'default.all')

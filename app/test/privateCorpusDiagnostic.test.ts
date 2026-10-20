@@ -1,4 +1,4 @@
-import { compareDiagnosticColumns } from './real-service/diagnosticComparison'
+import { compareDiagnosticColumns, compareDiagnosticProfile } from './real-service/diagnosticComparison'
 import { diagnosticCategory, withDiagnosticDeadline } from './real-service/diagnosticCategory'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
@@ -7,14 +7,14 @@ import { join, resolve } from 'node:path'
 import { expect, it, vi } from 'vitest'
 
 it('fails private comparison setup without disclosing paths or changing corpus inputs', () => {
-  for (const scenario of ['empty', 'symlink', 'incomplete', 'arguments', 'duplicate-energy', 'duplicate-asymmetry']) {
+  for (const scenario of ['empty', 'symlink', 'incomplete', 'arguments', 'duplicate-energy', 'duplicate-asymmetry', 'profile-energy']) {
     const directory = mkdtempSync(join(tmpdir(), 'private-diagnostic-marker-'))
     const marker = 'PRIVATE_DIAGNOSTIC_CONTENT_MARKER'
     const source = join(directory, `${marker}.all`)
     try {
       if (scenario === 'symlink') symlinkSync(join(directory, 'missing-private-target'), source)
       if (scenario === 'incomplete' || scenario === 'arguments') writeFileSync(source, marker)
-      const result = spawnSync(process.execPath, [resolve('scripts/diagnose-private-corpus.mjs'), ...(scenario === 'arguments' ? [`--${marker}`] : scenario === 'duplicate-energy' ? ['--energy', '--energy'] : scenario === 'duplicate-asymmetry' ? ['--asymmetry', '--asymmetry'] : [])], {
+      const result = spawnSync(process.execPath, [resolve('scripts/diagnose-private-corpus.mjs'), ...(scenario === 'arguments' ? [`--${marker}`] : scenario === 'duplicate-energy' ? ['--energy', '--energy'] : scenario === 'duplicate-asymmetry' ? ['--asymmetry', '--asymmetry'] : scenario === 'profile-energy' ? ['--profile', '--energy'] : [])], {
         env: { ...process.env, LEGACY_ROOT: directory }, encoding: 'utf8', timeout: 20000,
       })
       expect(result.error).toBeUndefined()
@@ -81,4 +81,18 @@ it('compares both beams and signed asymmetry independently with unchanged D-23',
   expect(compareDiagnosticColumns(columns, [[1, 2]])).toEqual({ status: 'length-mismatch' })
   columns[2].values[0] = NaN
   expect(compareDiagnosticColumns(columns, reference)).toEqual({ status: 'nonfinite' })
+})
+
+
+it('compares independent smooth and slice profile sections, including a single constant row', () => {
+  const reference = { smooth: [[-30, .1, .2, -.3, -.4], [0, .2, .3, -.4, -.5]], segments: [[-30, 0, .15, .25, -.35, -.45]] }
+  const actual = structuredClone(reference)
+  expect(compareDiagnosticProfile(actual, reference)).toMatchObject({ status: 'matched', points: 2, segmentCount: 1, comparedValues: 16 })
+  actual.segments[0][1] = 1
+  expect(compareDiagnosticProfile(actual, reference)).toMatchObject({ status: 'numerical-mismatch', mismatchesByColumn: { smooth: 0, segments: 1 } })
+  actual.smooth[1][3] = NaN
+  expect(compareDiagnosticProfile(actual, reference)).toEqual({ status: 'nonfinite' })
+  expect(compareDiagnosticProfile({ smooth: [reference.smooth[0]], segments: [] }, reference)).toEqual({ status: 'length-mismatch' })
+  const single = { smooth: [reference.smooth[0]], segments: [] }
+  expect(compareDiagnosticProfile(single, single)).toMatchObject({ status: 'matched', comparedValues: 5, segmentCount: 0 })
 })

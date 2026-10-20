@@ -18,9 +18,11 @@ const timeout = 120000
 let browser, server
 try {
   const diagnosticArguments = process.argv.slice(2)
-  if (new Set(diagnosticArguments).size !== diagnosticArguments.length || diagnosticArguments.some(value => !['--energy', '--asymmetry'].includes(value))) throw new Error('Unsupported diagnostic arguments')
+  if (new Set(diagnosticArguments).size !== diagnosticArguments.length || diagnosticArguments.some(value => !['--energy', '--asymmetry', '--profile'].includes(value))) throw new Error('Unsupported diagnostic arguments')
   const energyScan = diagnosticArguments.includes('--energy')
   const asymmetry = diagnosticArguments.includes('--asymmetry')
+  const profile = diagnosticArguments.includes('--profile')
+  if (profile && (energyScan || asymmetry)) throw new Error('Incompatible diagnostic modes')
   async function discover(directory) {
     const projects = []
     for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -62,12 +64,16 @@ try {
     }
     let points, referenceError
     try {
-      const output = execFileSync('python3', ['-c', 'import os,resource,sys;resource.setrlimit(resource.RLIMIT_CORE,(0,0));os.execv(sys.argv[1],sys.argv[1:])', executable, path, ...(energyScan ? ['--energy'] : []), ...(asymmetry ? ['--asymmetry'] : [])],
+      const output = execFileSync('python3', ['-c', 'import os,resource,sys;resource.setrlimit(resource.RLIMIT_CORE,(0,0));os.execv(sys.argv[1],sys.argv[1:])', executable, path, ...(energyScan ? ['--energy'] : []), ...(asymmetry ? ['--asymmetry'] : []), ...(profile ? ['--profile'] : [])],
         { cwd: dirname(path), stdio: 'pipe', timeout, maxBuffer: 64 * 1024 * 1024 }).toString()
       points = JSON.parse(output)
-      if (!Array.isArray(points) || !points.length || !points.every(row => Array.isArray(row) && row.length === (asymmetry ? 4 : 2) && row.every(Number.isFinite))) throw new Error('Invalid reference curve')
+      if (profile) {
+        if (!points || !Array.isArray(points.smooth) || !points.smooth.length || !Array.isArray(points.segments) ||
+            !points.smooth.every(row => Array.isArray(row) && row.length === 5 && row.every(Number.isFinite)) ||
+            !points.segments.every(row => Array.isArray(row) && row.length === 6 && row.every(Number.isFinite))) throw new Error('Invalid reference profile')
+      } else if (!Array.isArray(points) || !points.length || !points.every(row => Array.isArray(row) && row.length === (asymmetry ? 4 : 2) && row.every(Number.isFinite))) throw new Error('Invalid reference curve')
     } catch (error) { referenceError = error.code === 'ETIMEDOUT' ? 'reference-timeout' : 'reference-error' }
-    inputs.push({ id: index + 1, source, tables, points, referenceError, energyScan, asymmetry })
+    inputs.push({ id: index + 1, source, tables, points, referenceError, energyScan, asymmetry, profile })
     if ((index + 1) % 10 === 0) console.log(JSON.stringify({ stage: 'reference', completed: index + 1, total: projects.length }))
   }
   await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' }, logLevel: 'silent',
@@ -99,17 +105,23 @@ try {
   const reports = []
   for (const input of inputs) {
     const report = await page.evaluate(async input => {
-      const { importAllFile, parseOpticalTable, diagnosticCategory, withDiagnosticDeadline, compareDiagnosticColumns } = window.realServiceHarness
+      const { importAllFile, parseOpticalTable, diagnosticCategory, withDiagnosticDeadline, compareDiagnosticColumns, compareDiagnosticProfile } = window.realServiceHarness
       const service = window.privateReferenceService
       try {
         const { project } = importAllFile(input.source)
         const segmented = project.calculation.roughnessModel === 'segmentation'
         const tables = input.tables.map(table => parseOpticalTable(table.source, table.name))
         const before = JSON.stringify(project)
-        const method = input.asymmetry ? (input.energyScan ? 'calcEnergyAsymmetry' : 'calcAsymmetry') : (input.energyScan ? 'calcEnergyScan' : 'calcReflectivity')
+        const method = input.profile ? 'depthProfile' : input.asymmetry ? (input.energyScan ? 'calcEnergyAsymmetry' : 'calcAsymmetry') : (input.energyScan ? 'calcEnergyScan' : 'calcReflectivity')
         const actual = await withDiagnosticDeadline(service[method](project, undefined, tables), () => service.stop())
         if (JSON.stringify(project) !== before) return { id: input.id, segmented, status: 'input-changed' }
         if (input.referenceError) return { id: input.id, segmented, status: input.referenceError, workerCompleted: true }
+        if (input.profile) {
+          if (actual.engine !== 'real' || !Array.isArray(actual.segments)) return { id: input.id, status: 'invalid-profile-result' }
+          const rows = { smooth: actual.z.map((z, index) => [z, actual.delta[index], actual.beta[index], actual.deltaMag[index], actual.betaMag[index]]),
+            segments: actual.segments.map(row => [row.start, row.end, row.delta, row.beta, row.deltaMag, row.betaMag]) }
+          return { id: input.id, segmented, ...compareDiagnosticProfile(rows, input.points) }
+        }
         const coordinates = input.energyScan ? actual.energy : actual.qz
         const columns = [{ name: 'coordinate', values: coordinates }, ...(input.asymmetry
           ? [{ name: 'plus', values: actual.reflectivityPlus }, { name: 'minus', values: actual.reflectivityMinus }, { name: 'asymmetry', values: actual.asymmetry }]
@@ -128,10 +140,11 @@ try {
   const compared = reports.filter(report => report.points !== undefined)
   const referenceCounts = inputs.reduce((counts, input) => { const key = input.referenceError ?? 'completed'; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
   const referenceCompletedFailures = reports.filter((report, index) => !inputs[index].referenceError && report.status !== 'matched').reduce((counts, report) => { const key = report.category ?? report.status; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
-  const summary = { scope: `private-${energyScan ? 'energy' : 'qz'}${asymmetry ? '-asymmetry' : ''}-explicit-original-lookup`, projects: reports.length, counts, referenceCounts, referenceCompletedFailures,
+  const summary = { scope: `private-${profile ? 'profile' : energyScan ? 'energy' : 'qz'}${asymmetry ? '-asymmetry' : ''}-explicit-original-lookup`, projects: reports.length, counts, referenceCounts, referenceCompletedFailures,
     segmentedCompared: compared.filter(report => report.segmented).length,
     segmentedMatched: compared.filter(report => report.segmented && report.status === 'matched').length,
     comparedPoints: compared.reduce((sum, report) => sum + report.points, 0),
+    ...(profile ? { comparedSegments: compared.reduce((sum, report) => sum + report.segmentCount, 0) } : {}),
     comparedValues: compared.reduce((sum, report) => sum + report.comparedValues, 0),
     mismatchesByColumn: compared.reduce((counts, report) => {
       for (const [name, count] of Object.entries(report.mismatchesByColumn)) counts[name] = (counts[name] ?? 0) + count
