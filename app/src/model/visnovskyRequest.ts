@@ -1,3 +1,4 @@
+import type { SegmentationTensor } from './segmentedLayers'
 import type { Project } from './project'
 import { prepareCompoundLayerIndices, type PreparedCompoundLayer } from './compoundLayers'
 import { prepareCompoundQzRequest, type PreparedParrattQzRequest } from './parrattRequest'
@@ -13,12 +14,13 @@ export interface PreparedVisnovskyQzRequest extends Omit<PreparedParrattQzReques
 // Worker-only preparation: numerical tensor construction is injected from WASM.
 // FillTensors uses per-layer directions and applies no second-beam reversal.
 export function prepareVisnovskyQzRequest(project: Project, mode: 'monochromatic' | 'dichroic',
-  constructTensor: DielectricTensorCalculator, dielectricTensors?: (Float64Array | null)[], coordinates?: readonly number[]): PreparedVisnovskyQzRequest {
+  constructTensor: DielectricTensorCalculator, dielectricTensors?: (Float64Array | null)[], coordinates?: readonly number[],
+  preparedStack?: { layers: PreparedCompoundLayer[]; dielectricTensors: (SegmentationTensor | null)[] }): PreparedVisnovskyQzRequest {
   validateVisnovskyProject(project)
   if (dielectricTensors && dielectricTensors.length !== project.sample.layers.length) throw new Error('Invalid dielectric-tensor layer mapping.')
   const overrides = dielectricTensors && prepareCompoundLayerIndices(project).map(index => dielectricTensors[index])
-  const { layers, tensor, magnetic, ...scan } = prepareCompoundQzRequest(project, mode, coordinates)
-  return { ...scan, epsilon: project.calculation.epsilon, layers: prepareVisnovskyLayers(layers, tensor, magnetic, constructTensor, overrides) }
+  const { layers, tensor, magnetic, ...scan } = prepareCompoundQzRequest(project, mode, coordinates, preparedStack?.layers)
+  return { ...scan, epsilon: project.calculation.epsilon, layers: prepareVisnovskyLayers(layers, tensor, magnetic, constructTensor, preparedStack ? undefined : overrides, preparedStack?.dielectricTensors) }
 }
 
 export function validateVisnovskyProject(project: Project) {
@@ -27,11 +29,12 @@ export function validateVisnovskyProject(project: Project) {
 }
 
 export function prepareVisnovskyLayers(layers: PreparedCompoundLayer[], tensor: 0 | 1, magnetic: 0 | 1,
-  constructTensor: DielectricTensorCalculator, overrides?: (Float64Array | null)[]): PreparedVisnovskyQzRequest['layers'] {
+  constructTensor: DielectricTensorCalculator, overrides?: (Float64Array | null)[], states?: readonly (SegmentationTensor | null)[]): PreparedVisnovskyQzRequest['layers'] {
   if (overrides && overrides.length !== layers.length) throw new Error('Invalid dielectric-tensor layer mapping.')
+  if (states && (states.length !== layers.length || states.some(state => !state))) throw new Error('Invalid prepared dielectric-tensor state.')
   return layers.map((layer, index) => {
     const override = overrides?.[index]
-    const dielectric = override ? { values: override, anisotropic: true } : constructTensor({ layer, tensor, magnetic })
+    const dielectric = states?.[index] ?? (override ? { values: override, anisotropic: true } : constructTensor({ layer, tensor, magnetic }))
     if (dielectric.values.length !== 18 || !dielectric.values.every(Number.isFinite) || typeof dielectric.anisotropic !== 'boolean') {
       throw new Error('The real engine returned an invalid dielectric tensor.')
     }

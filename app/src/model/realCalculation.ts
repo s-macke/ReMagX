@@ -1,3 +1,6 @@
+import { prepareSegmentedCompoundStack } from './segmentedCompoundStack'
+import type { SegmentationEngine } from './segmentedLayers'
+import type { MagneticProfileEngine } from './segmentedMagneticProfiles'
 import { copyLayerDepths } from './layerDepths'
 import { storedOpticalState } from './storedOpticalState'
 import type { ScatteringTensorCalculator } from './scatteringTensors'
@@ -16,6 +19,8 @@ import type { FourierCalculator } from './datasetPostprocessing'
 export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Array
 
 export interface RealCalculationEngine {
+  // Explicit samples only until a production error-function policy is approved.
+  segmentation?: SegmentationEngine & MagneticProfileEngine & { errorSamples: readonly number[] }
   fourier?: FourierCalculator
   convolveFastQz?(qz: number[], values: Float64Array, width: number): Float64Array
   gaussLorentzianImag?(energy: number, center: number, area: number, width: number, mixingPercent: number): number
@@ -91,16 +96,32 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   // Fourier operates on the completed curve, never on individual kernel calls.
   const packedProject = transform ? { ...project, calculation: { ...project.calculation,
     postProcessing: { ...project.calculation.postProcessing, fourierTransform: false } } } : project
+  let segmented: ReturnType<typeof prepareSegmentedCompoundStack> | undefined
+  if (project.calculation.roughnessModel === 'segmentation') {
+    if (!engine.segmentation) throw new Error('Adaptive segmentation requires an explicit error-function lookup and numerical engine.')
+    const tensors = project.calculation.algorithm === 'matrix' ? project.sample.layers.map((layer, index) => {
+      const retained = dielectricState?.[index]
+      if (retained) return retained
+      const override = dielectricTensors[index]
+      return override ? { values: override, anisotropic: true } : engine.dielectricTensor({
+        layer: [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag,
+          layer.magnetization.gamma, layer.magnetization.phi],
+        tensor: project.calculation.tensorContribution === 'tetragonal' ? 1 : 0,
+        magnetic: project.calculation.magnetization.mode === 'none' ? 0 : 1,
+      })
+    }) : undefined
+    segmented = prepareSegmentedCompoundStack(packedProject, layerDepths, engine.segmentation.errorSamples, engine.segmentation, tensors)
+  }
   if (project.calculation.algorithm === 'matrix') {
-    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, dielectricTensors)
+    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, dielectricTensors, undefined, segmented)
     qz = request.qz
     values = engine.matrixQz(request)
   } else if (project.calculation.algorithm === 'zak') {
-    const request = prepareZakQzRequest(packedProject, mode)
+    const request = prepareZakQzRequest(packedProject, mode, undefined, segmented?.layers)
     qz = request.qz
     values = engine.zakQz(request)
   } else {
-    const request = prepareParrattQzRequest(packedProject, mode)
+    const request = prepareParrattQzRequest(packedProject, mode, undefined, segmented?.layers)
     qz = request.qz
     values = engine.calculate(request)
   }

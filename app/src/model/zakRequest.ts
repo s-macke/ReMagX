@@ -1,3 +1,4 @@
+import type { PreparedCompoundLayer } from './compoundLayers'
 import type { RealBeforeCalculation, ScriptSessionLifetime } from './realCalculation'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
@@ -9,15 +10,15 @@ export type PreparedZakQzRequest = Omit<PreparedParrattQzRequest, 'tensor'>
 export type PreparedZakEnergyScan = Omit<PreparedEnergyScan, 'tensor' | 'dielectricTensors'>
 export type ZakEnergyCalculator = (request: PreparedZakEnergyScan) => Float64Array
 
-function prepareZakTemplate(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]) {
+function prepareZakTemplate(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[], preparedLayers?: readonly PreparedCompoundLayer[]) {
   if (project.calculation.algorithm !== 'zak') throw new Error('This real-engine path requires the Zak algorithm.')
-  return prepareCompoundQzRequest(project, mode, coordinates)
+  return prepareCompoundQzRequest(project, mode, coordinates, preparedLayers)
 }
 
 // CZak reads scalar optical constants and directions; it does not consume
 // epsilon, tensorContribution or imported dielectric tensors.
-export function prepareZakQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]): PreparedZakQzRequest {
-  const { tensor: _tensor, ...request } = prepareZakTemplate(project, mode, coordinates)
+export function prepareZakQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[], preparedLayers?: readonly PreparedCompoundLayer[]): PreparedZakQzRequest {
+  const { tensor: _tensor, ...request } = prepareZakTemplate(project, mode, coordinates, preparedLayers)
   return request
 }
 

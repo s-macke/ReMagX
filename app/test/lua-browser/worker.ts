@@ -1,3 +1,5 @@
+import { prepareCompoundQzRequest } from '../../src/model/parrattRequest'
+import { postprocessParrattResult } from '../../src/model/parrattResult'
 import { prepareSegmentedCompoundStack } from '../../src/model/segmentedCompoundStack'
 import { applySegmentedMagneticProfiles, type MagneticProfileEngine } from '../../src/model/segmentedMagneticProfiles'
 import { prepareSegmentedLayers } from '../../src/model/segmentedLayers'
@@ -154,6 +156,53 @@ async function run() {
     }
     const preparedMagneticProfilesPassed = true
     const preparedSegmentationPassed = JSON.stringify(segmentationLayers) === segmentationBefore
+    const segmentedNumerical: RealCalculationEngine = { ...numerical, segmentation: {
+      errorSamples: Array(1001).fill(0),
+      sample: request => segmentation.calculateSegmentedOptics(instance, request),
+      subdivide: request => segmentation.calculateAdaptiveSegments(instance, request),
+      density: request => adapter.calculateLayerDensity(instance, request),
+      apply: request => adapter.applyMagneticProfiles(instance, request),
+    } }
+    for (const algorithm of ['parratt', 'zak', 'matrix'] as const) for (const scope of ['local', 'global'] as const)
+      for (const combination of ['sum', 'product'] as const) for (const mode of ['monochromatic', 'dichroic'] as const) {
+        const project = createDefaultProject()
+        project.sample.layers = [createLayer({ delta: .01, beta: .001 }), createLayer({ thickness: 7, delta: .008, beta: .002 }), createLayer()]
+        project.sample.multilayer.enabled = false
+        project.sample.depthProfileFunctions = [{ center: 2, width: 5, deltaAmplitude: 1e-6, betaAmplitude: 2e-7,
+          boundToLayer: 1, amplitudeCoupledTo: null, widthCoupledTo: null, spline: { enabled: false, points: [] } }]
+        project.calculation.algorithm = algorithm
+        project.calculation.automaticOpticalConstants = false
+        project.calculation.roughnessModel = 'segmentation'
+        project.calculation.magnetization.mode = 'profile'
+        project.calculation.profileCombination = combination
+        project.calculation.segmentation = { ...project.calculation.segmentation, scope, minThickness: 10, maxThickness: 10 }
+        project.experiment.qzScan = { qzMin: .01, qzMax: .04, points: 4, useDatasetPoints: false }
+        project.experiment.resolution.angularFwhm = .0001
+        project.experiment.resolution.fastConvolution = combination === 'product'
+        const tensors = algorithm === 'matrix' ? project.sample.layers.map(layer => numerical.dielectricTensor({
+          layer: [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag, layer.magnetization.gamma, layer.magnetization.phi],
+          tensor: 0, magnetic: 1,
+        })) : undefined
+        const expected = prepareSegmentedCompoundStack(project, [0, 7, 7], segmentedNumerical.segmentation!.errorSamples,
+          segmentedNumerical.segmentation!, tensors)
+        const request = prepareCompoundQzRequest(project, mode, undefined, expected.layers)
+        const raw = algorithm === 'matrix' ? numerical.matrixQz({ ...request, epsilon: project.calculation.epsilon,
+          layers: expected.layers.map((layer, index) => ({ values: [layer[0], layer[1], 1 - layer[2], layer[3], ...expected.dielectricTensors[index]!.values],
+            anisotropic: expected.dielectricTensors[index]!.anisotropic ? 1 : 0 })) })
+          : algorithm === 'zak' ? numerical.zakQz(request) : numerical.calculate(request)
+        const reference = postprocessParrattResult(project, request.qz, raw, mode)
+        const before = JSON.stringify(project)
+        const actual = calculateRealCurve(project, [], segmentedNumerical, 'qz', mode)
+        for (const column of ['reflectivityPlus', 'reflectivityMinus', 'asymmetry'] as const) {
+          if (actual[column].length !== reference[column].length || actual[column].some((value, index) => !Number.isFinite(value) || !Number.isFinite(reference[column][index]) || Math.abs(value - reference[column][index]) > 1e-15 + 1e-10 * Math.abs(reference[column][index]))) {
+            throw new Error('Segmented qz routing differs from prepared-stack WASM calculation')
+          }
+        }
+        if (JSON.stringify(project) !== before || actual.opticalState.layers.length !== 3 || JSON.stringify(actual.opticalState.layerDepths) !== '[0,7,7]') {
+          throw new Error('Segmented qz routing changed stored project state')
+        }
+      }
+    const segmentedQzPassed = true
     const depthProject = createDefaultProject()
     depthProject.sample.layers = [createLayer({ thickness: 999, delta: .01 }), createLayer({ thickness: 7 }), createLayer({ thickness: 999 })]
     depthProject.calculation.automaticOpticalConstants = false
@@ -353,7 +402,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed, preparedMagneticProfilesPassed, storedDepthsPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed, preparedMagneticProfilesPassed, storedDepthsPassed, segmentedQzPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }

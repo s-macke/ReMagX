@@ -45,7 +45,7 @@ function packBeam(beam: Polarization['beam1']): [number, number, number, number]
 
 // Shared real-worker compound scan preparation before algorithm-specific packing.
 // Requires refreshed scalar constants and rejects unimplemented preprocessing.
-export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]): PreparedParrattQzRequest {
+export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[], preparedLayers?: readonly PreparedCompoundLayer[]): PreparedParrattQzRequest {
   const calculation = project.calculation
   if (project.experiment.scattering !== 'reflection') throw new Error('Transmission is not available in this real-engine path.')
   if (calculation.automaticOpticalConstants) throw new Error('Automatic optical-table refresh is not implemented in real-engine preparation yet.')
@@ -53,7 +53,11 @@ export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic'
   if (calculation.postProcessing.fourierTransform) {
     throw new Error('Fourier postprocessing is not implemented in this real-engine path yet.')
   }
-  const layers = prepareCompoundLayers(project)
+  if (preparedLayers && (project.sample.mode !== 'compound' || preparedLayers.length < 2 ||
+      !Array.from(preparedLayers).every(row => row && row.length === 8 && Array.from(row).every(Number.isFinite) && row[0] >= 0 && row[1] >= 0))) {
+    throw new Error('Invalid prepared compound calculation stack.')
+  }
+  const layers = preparedLayers ? preparedLayers.map(row => row.slice() as PreparedCompoundLayer) : prepareCompoundLayers(project)
   const qz = coordinates === undefined ? prepareQzCoordinates(project) : [...coordinates]
   if (!qz.every(Number.isFinite)) throw new Error('Prepared qz coordinates must be finite.')
   const energy = project.experiment.energy
@@ -76,8 +80,8 @@ export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic'
     resolution: { width: experimentResolution.angularFwhm, fast: experimentResolution.fastConvolution } }
 }
 
-export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[]): PreparedParrattQzRequest {
+export function prepareParrattQzRequest(project: Project, mode: 'monochromatic' | 'dichroic', coordinates?: readonly number[], preparedLayers?: readonly PreparedCompoundLayer[]): PreparedParrattQzRequest {
   assertRealAlgorithm(project.calculation.algorithm)
   if (project.calculation.algorithm !== 'parratt') throw new Error('Parratt request preparation requires the Parratt algorithm.')
-  return prepareCompoundQzRequest(project, mode, coordinates)
+  return prepareCompoundQzRequest(project, mode, coordinates, preparedLayers)
 }
