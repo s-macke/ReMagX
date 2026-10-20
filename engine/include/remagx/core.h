@@ -357,6 +357,19 @@ int remagx_layer_density(const double* boundaries, const double* roughness,
 int remagx_element_density(const double* slabs, size_t slab_count,
     const double* positions, size_t count, const double* error_samples,
     size_t error_sample_count, double* output);
+// Adaptive LayerSegmentation2 subdivision with caller-owned optical sampling.
+// Sampler writes 4 scalar values, optionally followed by 18 tensor components,
+// and returns a RemagxStatus. Only the four scalar gradients control subdivision.
+// The caller prepares legacy depth limits and tensor classifications separately.
+// capacity is 1..1,000,000; outputs need capacity positions/thicknesses and
+// capacity*value_count values. Output count and all buffers are atomic on failure.
+// Outputs must not overlap. Sampler failures map to REMAGX_NUMERICAL_ERROR.
+// Callback effects are caller-owned and cannot be rolled back. No erf policy here.
+typedef int (*RemagxOpticalSampler)(double position, double* values, void* context);
+int remagx_adaptive_segments(double minimum_depth, double maximum_depth,
+    double minimum_step, double maximum_step, double gradient_scale, size_t value_count,
+    RemagxOpticalSampler sampler, void* context, size_t capacity,
+    double* positions, double* thicknesses, double* values, size_t* count);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
