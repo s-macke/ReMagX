@@ -17,6 +17,16 @@ Pointer = ctypes.POINTER(ctypes.c_double)
 library.remagx_gaussian_profile.argtypes = [ctypes.POINTER(Profile), Pointer, ctypes.c_size_t, Pointer]
 library.remagx_gaussian_spline_knots.argtypes = [ctypes.POINTER(Profile), ctypes.c_int, Pointer, Pointer]
 
+library.remagx_spline_profile.argtypes = [ctypes.POINTER(Profile), Pointer, Pointer, ctypes.c_size_t, Pointer, ctypes.c_size_t, Pointer]
+
+def spline(profile, knots, values, positions):
+    coordinates, ordinates, samples = [(ctypes.c_double * len(items))(*items) for items in [knots, values, positions]]
+    output = (ctypes.c_double * (2 * len(positions)))(*([-123.] * (2 * len(positions))))
+    before = bytes(profile), bytes(coordinates), bytes(ordinates), bytes(samples)
+    status = library.remagx_spline_profile(ctypes.byref(profile), coordinates, ordinates, len(knots), samples, len(positions), output)
+    assert before == (bytes(profile), bytes(coordinates), bytes(ordinates), bytes(samples))
+    return status, list(output)
+
 def evaluate(profile, positions):
     points = (ctypes.c_double * len(positions))(*positions)
     output = (ctypes.c_double * (2 * len(positions)))(*([-123.] * (2 * len(positions))))
@@ -89,6 +99,74 @@ class GaussianProfileTest(unittest.TestCase):
         self.assertEqual(list(sentinel), [-123, -456])
         self.assertEqual(library.remagx_gaussian_profile(None, point, 1, sentinel), 1)
         self.assertEqual(library.remagx_gaussian_spline_knots(ctypes.byref(profile), 2147483647, sentinel, sentinel), 1)
+
+    def test_spline_constant_linear_and_support(self):
+        profile = Profile(0, 1, 2, -3)
+        self.assertEqual(spline(profile, [0, 1, 2, 3, 4], [7]*5, [0, 1.5, 2, 3, 4]),
+                         (0, [0, 0, 14, -21, 14, -21, 14, -21, 0, 0]))
+        self.assertEqual(spline(profile, [0, 1, 2, 3, 4], [0, 1, 2, 3, 4], [1.5, 2, 2.5, 3]),
+                         (0, [3, -4.5, 4, -6, 5, -7.5, 6, -9]))
+        for count in range(4):
+            self.assertEqual(spline(profile, list(range(count)), [1]*count, [-5, 0, 5]), (0, [0]*6))
+        self.assertEqual(spline(profile, [4, 3, 2, 1, 0], [1]*5, [0, 1, 2, 3, 4]), (0, [0]*10))
+
+    def test_spline_errors_are_atomic(self):
+        profile = Profile(0, 1, 1, 1)
+        for positions in [[1.5, 1], [1.5, math.nan]]:
+            self.assertEqual(spline(profile, [0, 1, 2, 3], [1]*4, positions), (1, [-123]*4))
+        self.assertEqual(spline(profile, [0, 1, 2, 3], [1, math.inf, 1, 1], [1.5]), (1, [-123]*2))
+        self.assertEqual(spline(profile, [0, 1, 2, 3], [1e308]*4, [0, 1.5]), (2, [-123]*4))
+        point = (ctypes.c_double * 1)(0)
+        output = (ctypes.c_double * 2)(-123, -123)
+        self.assertEqual(library.remagx_spline_profile(ctypes.byref(profile), None, None, 0,
+                         point, ctypes.c_size_t(-1).value, output), 3)
+        self.assertEqual(list(output), [-123]*2)
+
+    @unittest.skipUnless(os.environ.get('LEGACY_ROOT'), 'private original comparison not requested')
+    def test_original_spline_profiles(self):
+        source = (Path(os.environ['LEGACY_ROOT']) / 'shared/CGaussFunc.h').read_text(encoding='latin1')
+        self.assertEqual(hashlib.sha256(source.encode()).hexdigest(), '602ae8b0a3766fd5f36eff64734fd66f032289007d174ada841c0171a7e28bbf')
+        source = source.replace('#include"CVector.h"', '#include <vector>\ntemplate<class T> using CVector = std::vector<T>;')
+        wrapper = r'''#include <iostream>
+#include <iomanip>
+int main(){double delta,beta;int count,samples;std::cout<<std::setprecision(17);
+while(std::cin>>delta>>beta>>count>>samples){CGaussFunc profile;profile.delta=delta;profile.beta=beta;profile.usespline=true;
+for(int i=0;i<count;++i){double value;std::cin>>value;profile.sf.x.push_back(value);}
+for(int i=0;i<count;++i){double value;std::cin>>value;profile.sf.y.push_back(value);}
+for(int i=0;i<samples;++i){double position;std::cin>>position;std::cout<<profile.DeltaGauss(position)<<' '<<profile.BetaGauss(position)<<' ';}
+std::cout<<'\n';}}
+'''
+        generator = random.Random(26034)
+        cases = []
+        for number in range(240):
+            count = 4 + number % 13
+            coordinates = [generator.uniform(-20, 20)]
+            for index in range(1, count):
+                coordinates.append(coordinates[-1] + generator.uniform(.1, 5))
+            values = [generator.uniform(-3, 3) for _ in coordinates]
+            positions = [coordinates[0], coordinates[-1], coordinates[-2]]
+            positions += [coordinates[1] + (coordinates[-2] - coordinates[1]) * generator.random() for _ in range(20)]
+            positions += coordinates[2:-1]
+            profile = Profile(0, 1, generator.uniform(-.1, .1), generator.uniform(-.1, .1))
+            cases.append((profile, coordinates, values, positions))
+        payload = '\n'.join(' '.join(map(str, [profile.delta_amplitude, profile.beta_amplitude, len(coordinates), len(positions),
+            *coordinates, *values, *positions])) for profile, coordinates, values, positions in cases)
+        with tempfile.TemporaryDirectory(prefix='remagx-spline-') as temporary:
+            cpp, exe = Path(temporary) / 'reference.cpp', Path(temporary) / 'reference'
+            cpp.write_text(source + wrapper)
+            subprocess.run(['g++', '-std=c++17', '-O2', '-fno-fast-math', '-ffp-contract=off', str(cpp), '-o', str(exe)], check=True)
+            lines = subprocess.run([str(exe)], input=payload, text=True, capture_output=True, check=True).stdout.splitlines()
+        self.assertEqual(len(lines), len(cases))
+        comparisons = 0
+        for (profile, coordinates, values, positions), line in zip(cases, lines):
+            status, actual = spline(profile, coordinates, values, positions)
+            self.assertEqual(status, 0)
+            expected = list(map(float, line.split()))
+            self.assertEqual(len(actual), len(expected))
+            for value, reference in zip(actual, expected):
+                self.assertLessEqual(abs(value-reference), 1e-15 + 1e-10 * abs(reference))
+                comparisons += 1
+        print(f'Original magnetic splines: {comparisons} values matched (undefined left endpoint excluded).')
 
     @unittest.skipUnless(os.environ.get('LEGACY_ROOT'), 'private original comparison not requested')
     def test_original_gaussians_and_knots(self):

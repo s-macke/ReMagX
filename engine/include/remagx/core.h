@@ -305,6 +305,16 @@ int remagx_gaussian_profile(const RemagxGaussianProfile* profile,
 // Caller owns n+5 doubles in each nonoverlapping output; errors are atomic.
 int remagx_gaussian_spline_knots(const RemagxGaussianProfile* profile, int intervals,
                                 double* positions, double* values);
+// Evaluate the legacy four-point magnetic spline at supplied positions, scaling
+// its ordinates by the profile delta/beta amplitudes. Knots retain caller order;
+// fewer than four knots and positions outside [knots[1], knots[n-2]] give zero.
+// The exact left endpoint has an undefined legacy array read and is rejected
+// pending an explicit compatibility decision. Invalid stencils/nonfinite results
+// fail atomically. count>0; output holds 2*count interleaved doubles. Center/width
+// are finite metadata only; knot positions already encode the shape.
+int remagx_spline_profile(const RemagxGaussianProfile* profile,
+                          const double* knots, const double* values, size_t knot_count,
+                          const double* positions, size_t count, double* output);
 // Apply Gaussian profiles at prepared segment midpoints. initial_values/output
 // are interleaved magnetic delta/beta (2*sample_count doubles). weights is a
 // sample-major sample_count*profile_count matrix of already prepared binding

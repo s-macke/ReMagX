@@ -160,3 +160,48 @@ extern "C" int remagx_gauss_lorentzian_real(double energy, double center, double
     *output = result;
     return REMAGX_SUCCESS;
 }
+
+
+extern "C" int remagx_spline_profile(const RemagxGaussianProfile* profile,
+                                      const double* knots, const double* values, size_t knot_count,
+                                      const double* positions, size_t count, double* output) {
+    if (!valid(profile) || !positions || !count || !output || (knot_count && (!knots || !values)))
+        return REMAGX_INVALID_ARGUMENT;
+    if (count > std::numeric_limits<size_t>::max() / (2 * sizeof(double)) ||
+        knot_count > std::numeric_limits<size_t>::max() / sizeof(double)) return REMAGX_ALLOCATION_ERROR;
+    for (size_t index = 0; index < knot_count; ++index)
+        if (!std::isfinite(knots[index]) || !std::isfinite(values[index])) return REMAGX_INVALID_ARGUMENT;
+    for (size_t index = 0; index < count; ++index)
+        if (!std::isfinite(positions[index])) return REMAGX_INVALID_ARGUMENT;
+    try {
+        std::vector<double> result(count * 2);
+        for (size_t sample = 0; sample < count; ++sample) {
+            const double position = positions[sample];
+            double shape = 0.0;
+            if (knot_count >= 4 && position >= knots[1] && position <= knots[knot_count - 2]) {
+                // TSplineFunc selects the first knot >= position, without sorting.
+                size_t right = 1;
+                while (right < knot_count && position > knots[right]) ++right;
+                // At the exact left endpoint the original would read values[-1].
+                if (right < 2 || right + 1 >= knot_count) return REMAGX_INVALID_ARGUMENT;
+                const double fraction = 0.0 - (knots[right - 1] - position) /
+                    (knots[right - 1] - knots[right]) * (0.0 - 1.0);
+                const double first = values[right - 2], second = values[right - 1];
+                const double third = values[right], fourth = values[right + 1];
+                // Preserve the original coefficient and Horner evaluation order.
+                const double cubic = -0.5 * first + 1.5 * second + -1.5 * third + 0.5 * fourth;
+                const double quadratic = first + -2.5 * second + 2.0 * third + -0.5 * fourth;
+                const double linear = -0.5 * first + 0.0 * second + 0.5 * third + 0.0 * fourth;
+                const double constant = 0.0 * first + second + 0.0 * third + 0.0 * fourth;
+                shape = ((cubic * fraction + quadratic) * fraction + linear) * fraction + constant;
+            }
+            result[2 * sample] = profile->delta_amplitude * shape;
+            result[2 * sample + 1] = profile->beta_amplitude * shape;
+            if (!std::isfinite(result[2 * sample]) || !std::isfinite(result[2 * sample + 1]))
+                return REMAGX_NUMERICAL_ERROR;
+        }
+        std::copy(result.begin(), result.end(), output);
+        return REMAGX_SUCCESS;
+    } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
+      catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
+}
