@@ -35,13 +35,13 @@ it('rejects unsupported work before loading, retries failed initialization, and 
   const load = vi.fn().mockRejectedValueOnce(new Error('Module load failed')).mockResolvedValue({ calculate: () => { throw Object.assign(new Error(), { status: 4 }) }, fitError: vi.fn(), lookup: vi.fn(), energyScan: vi.fn(), matrixEnergy: vi.fn(), zakQz: vi.fn(), zakEnergy: vi.fn(), dielectricTensor: vi.fn(() => ({ values: new Float64Array(18), anisotropic: false })), matrixQz: vi.fn() })
   const handle = createRealRequestHandler(message => messages.push(message), load)
   const project = createDefaultProject()
-  await handle({ id: 1, kind: 'depthProfile', project })
+  await handle({ id: 1, kind: 'densityProfiles', project })
   expect(load).not.toHaveBeenCalled()
   await handle({ id: 2, kind: 'reflectivity', project })
   await handle({ id: 3, kind: 'reflectivity', project })
   expect(load).toHaveBeenCalledTimes(2)
   expect(messages).toEqual([
-    { id: 1, type: 'error', message: 'The real engine does not support depthProfile yet.' },
+    { id: 1, type: 'error', message: 'The real engine does not support densityProfiles yet.' },
     { id: 2, type: 'error', message: 'Module load failed' },
     { id: 3, type: 'error', message: 'Qz exceeds the legacy calculation boundary. Check the qz values and energy; the incident angle cannot exceed 90 degrees.' },
   ])

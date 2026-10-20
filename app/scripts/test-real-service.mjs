@@ -120,12 +120,31 @@ try {
       same((await service.calcReflectivity(project)).reflectivity, baseline.reflectivity)
       const unavailable = await unconfigured.calcReflectivity(project).then(() => '', error => error.message)
       if (!unavailable.includes('explicit error-function lookup')) throw new Error('Default worker silently selected a lookup')
+      const profileProject = structuredClone(project)
+      profileProject.calculation.roughnessModel = 'nevot-croce'
+      profileProject.calculation.automaticOpticalConstants = false
+      profileProject.calculation.magnetization.mode = 'none'
+      profileProject.calculation.segmentation.minThickness = 1; profileProject.calculation.segmentation.maxThickness = 1
+      profileProject.sample.layers.forEach(layer => { layer.delta = .002; layer.beta = .0001; layer.deltaMag = 0; layer.betaMag = 0; layer.roughness = 0 })
+      const profileBefore = JSON.stringify(profileProject)
+      const profile = await service.depthProfile(profileProject)
+      if (profile.engine !== 'real' || profile.segments.length < 2) throw new Error('Missing native profile slices')
+      same(profile.delta, profile.z.map(() => .002)); same(profile.beta, profile.z.map(() => .0001))
+      same(profile.deltaMag, profile.z.map(() => 0))
+      const scriptedProfile = structuredClone(profileProject)
+      scriptedProfile.scripts.enabled = true; scriptedProfile.scripts.beforeCalculation = 'thickness[1] = thickness[1] + 10; print("profile")'
+      const changedProfile = await service.depthProfile(scriptedProfile)
+      same([changedProfile.z.at(-1) - profile.z.at(-1)], [10])
+      if (!changedProfile.scriptMessages?.some(line => line.includes('profile'))) throw new Error('Missing profile script messages')
+      if (JSON.stringify(profileProject) !== profileBefore) throw new Error('Profile changed project')
+      const automatic = await service.depthProfile({ ...profileProject, calculation: { ...profileProject.calculation, automaticOpticalConstants: true } })
+      if (automatic.delta.every(value => value === .002)) throw new Error('Profile ignored current tables')
       const busy = structuredClone(project)
       busy.calculation.segmentation.minThickness = 1e-6; busy.calculation.segmentation.maxThickness = 1e-6
       busy.fit.algorithm = 'simplex'; busy.fit.occamQ = 0
       busy.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null, value: 7, step: 0, lowerBound: 1, upperBound: 10 }]
       const cancellations = []
-      for (const method of ['calcReflectivity', 'calcEnergyScan', 'calcChi2', 'startFit']) {
+      for (const method of ['calcReflectivity', 'calcEnergyScan', 'depthProfile', 'calcChi2', 'startFit']) {
         let timeout
         const entered = new Promise((resolve, reject) => {
           enteredResolve = resolve; timeout = setTimeout(() => reject(new Error('Segmented native core did not start')), 10000)
@@ -143,7 +162,7 @@ try {
   })
   assert.equal(segmentedResults.comparisons, 12)
   assert.ok(segmentedResults.cancellations.every(result => result.stopped === 'ComputeCancelled' && result.milliseconds < 1000), JSON.stringify(segmentedResults.cancellations))
-  console.log('Segmented ComputeService: 12 energy/per-point comparisons, explicit lookup guard, binding errors and four native Stop/recovery paths passed.')
+  console.log('Segmented ComputeService: 12 energy/per-point comparisons, explicit lookup guard, binding errors and five native Stop/recovery paths and real depth profiles passed.')
   const elementComparisons = await page.evaluate(async () => {
     const { createReferenceComputeService, createDefaultProject } = window.realServiceHarness
     const service = createReferenceComputeService(Array.from({ length: 1001 }, (_, index) => Math.tanh(-5 + 10 * index / 999)))
@@ -192,6 +211,22 @@ try {
         if (JSON.stringify(project) !== before) throw new Error('Element energy calculation changed input')
         comparisons++
       }
+      const profileProject = structuredClone(project)
+      profileProject.calculation.algorithm = 'parratt'
+      profileProject.calculation.automaticOpticalConstants = false
+      profileProject.calculation.magnetization.mode = 'none'
+      profileProject.scripts.enabled = true; profileProject.scripts.beforeCalculation = 'f1[0] = 2; print("element-profile")'
+      profileProject.sample.elementProfiles[0].f1 = 1; profileProject.sample.elementProfiles[0].f2 = 0
+      profileProject.sample.elementProfiles[0].f1Mag = 0; profileProject.sample.elementProfiles[0].f2Mag = 0
+      profileProject.sample.elementProfiles[0].slabs.forEach(slab => { slab.density = .1; slab.roughness = 0 })
+      const beforeProfile = JSON.stringify(profileProject)
+      const profile = await service.depthProfile(profileProject, undefined, [])
+      const energy = 12398.326 / (12398.326 / profileProject.experiment.energy)
+      const factor = .0004151761541 * 1e6 / (energy * energy)
+      same(profile.delta, profile.z.map(() => 1 - Math.sqrt(1 - 2 * .1 * 2 * factor)))
+      same(profile.beta, profile.z.map(() => 0))
+      if (profile.engine !== 'real' || !profile.z.length || JSON.stringify(profileProject) !== beforeProfile ||
+          !profile.scriptMessages?.some(line => line.includes('element-profile'))) throw new Error('Element depth-profile preparation failed')
     } finally { service.dispose() }
     return comparisons
   })
@@ -1440,7 +1475,7 @@ try {
   }
   assert.deepEqual(results.zero.reflectivity, [0, 0, 0, 0])
   assert.deepEqual(results.asymmetry.asymmetry, [0, 0, 0, 0])
-  assert.match(results.unsupported, /does not support depthProfile/)
+  assert.match(results.unsupported, /explicit error-function lookup/)
   for (const value of results.totalReflection.reflectivity) assert.ok(Math.abs(value - 1) <= 1e-10 + 1e-15)
   const corrected = results.postBaseline.qz.map((qz, index) => {
     const wave = 2 * Math.PI / (12398.326 / results.postEnergy)

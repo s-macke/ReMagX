@@ -57,6 +57,8 @@ export interface ProfileSegment {
   delta: number; beta: number; deltaMag: number; betaMag: number
 }
 export interface DepthProfile {
+  engine?: 'real' | 'mock'
+  scriptMessages?: string[]
   segments?: ProfileSegment[] // actual engine slices; mock supplies its sampling intervals
 
   z: number[]
@@ -115,7 +117,7 @@ export interface ComputeService {
   calcAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<AsymmetryCurve>
   materialToElements(project: Project): Promise<ElementConversion>
   segmentLayers(project: Project): Promise<Layer[]>
-  depthProfile(project: Project): Promise<DepthProfile>
+  depthProfile(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<DepthProfile>
   // Dataset-error statistic. The real engine sums all fit-enabled datasets, as the legacy χ² action does.
   calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<number>
   startFit(project: Project, onProgress: (progress: FitProgress) => void, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<FitResult>

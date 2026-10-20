@@ -128,8 +128,8 @@ export class WorkerComputeService implements ComputeService {
     return this.request('segmentLayers', project)
   }
 
-  depthProfile(project: Project): Promise<DepthProfile> {
-    return this.request('depthProfile', project)
+  depthProfile(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<DepthProfile> {
+    return this.request('depthProfile', project, undefined, undefined, onScriptMessages, tables)
   }
 
   calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<number> {
@@ -207,7 +207,7 @@ export class WorkerComputeService implements ComputeService {
       this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress, onScriptMessages })
       try {
         this.worker ??= this.connect()
-        const tables = (kind === 'fit' || kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || kind === 'reflectivity' || kind === 'asymmetry') ? explicitTables ?? this.getTables?.() : undefined
+        const tables = (kind === 'depthProfile' || kind === 'fit' || kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || kind === 'reflectivity' || kind === 'asymmetry') ? explicitTables ?? this.getTables?.() : undefined
         this.worker.postMessage({ id, kind, project, ...(tables ? { tables } : {}), ...(spectrum ? { spectrum } : {}) } as WorkerRequest)
       } catch (error) {
         this.failWorker(`Could not start the computation: ${String(error)}`)
