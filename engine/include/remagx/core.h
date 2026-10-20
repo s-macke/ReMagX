@@ -348,6 +348,15 @@ int remagx_apply_magnetic_profiles(const RemagxGaussianProfile* profiles, size_t
 int remagx_layer_density(const double* boundaries, const double* roughness,
     size_t layer_count, size_t layer_index, const double* positions, size_t count,
     const double* error_samples, size_t error_sample_count, double* output);
+// ElementLayerSystem::GetDensity for one element's substrate-first slab list.
+// Slabs are packed thickness/roughness/density triples; thickness and roughness
+// must be nonnegative. Outer slab thicknesses are ignored. Zero roughness becomes
+// 1e-6, outer roughness is 1e-5, and overlapping weights are normalized.
+// Uses the same explicit 1001-sample table as remagx_layer_density; no table is
+// generated here. Nonempty finite inputs, count outputs, atomic failure.
+int remagx_element_density(const double* slabs, size_t slab_count,
+    const double* positions, size_t count, const double* error_samples,
+    size_t error_sample_count, double* output);
 // Legacy CTable::Get lookup on caller-sorted, nondecreasing energies.
 // Values and output are row-major; column_count is 1..20. Empty tables and
 // out-of-range queries return zeros; exact endpoints return their stored row.
