@@ -172,7 +172,15 @@ and this checklist for implementation status; the external Steps 0–8 have not 
 This is the authoritative list of remaining requirements. There are 35 open requirements:
 17 implementation, eight validation and ten decisions. They overlap and differ in size;
 the counts are not a completion percentage. Completed increments and their historical
-limitations are recorded separately below.
+limitations are recorded separately below. Read this backlog for current work; the checked
+entries are historical implementation evidence, not a second list of outstanding tasks.
+
+The core-extraction requirement covers the remaining numerical components; real-engine
+replacement covers their integration and deployment. Native rebuild work supplies the
+reference tool, simulation goldens supply its corpus outputs, and native/WASM acceptance
+compares the complete implementations. Private-corpus CI access is a decision prerequisite
+for the separate CI integration requirement. These related records must not be counted as
+independent implementation steps.
 
 The reproduced CPU-dependent Visnovsky mismatch has a locally verified fix: native and
 WASM complex exponentials now use the same pinned routine without FMA contraction.
@@ -183,10 +191,10 @@ Full-engine/corpus acceptance is still open.
 #### Implementation
 
 - [ ] **Implementation:** Real adaptive layer-list conversion, including element-mode conversion; the current preview uses fixed mock profile intervals and is disabled in element mode.
-- [ ] **Implementation:** Real layer and element spectra: per-energy Filldb/BeforeCalculation evaluation, element conversion and dielectric tensors behind the spectrum service (current compound, tensor and f1/f2 views are mock previews).
+- [ ] **Implementation:** Complete and deploy real layer/element spectra, including the remaining element-conversion integration and original-project validation. Imported-table compound scalar/tensor and element f1/f2/slab optical spectra already run per-energy BeforeCalculation hooks and preserve persisted tensor state through the real worker. These implemented paths do not establish complete element-mode parity; deployed spectrum views still use the mock.
 - [ ] **Implementation:** Complete optical-constant integration and deploy the real database/calculation paths. Imported-table refresh and per-energy constants already work in the real worker; built-in data, remaining tensor-update paths and full-project validation remain. Deployed actions still use mock interpolation (D-13, D-33).
-- [ ] **Implementation:** Native rebuild of the legacy 2.6 core for golden data, `%.17g` output, no NR code in the repo (D-5, D-32)
-- [ ] **Implementation:** Extract and clean the numerical core: double only, descriptive names, data-driven C API; verify the double-only source gate (D-6, D-34, AC-2).
+- [ ] **Implementation:** Complete the native legacy 2.6 reference/rebuild preparation for golden data. Private original-loader and simulation adapters already produce 17-digit output; complete project/corpus preparation and the cleaned public rebuild remain open. Keep original optimizer code private and integrate only clean-room optimizers into the public rebuild (D-5, D-32).
+- [ ] **Implementation:** Complete extraction of the numerical core, including adaptive segmentation, magnetic profiles and element preparation. Existing native/WASM kernels already expose a data-driven C API and run double-only source gates; extend those guarantees to the remaining components with descriptive English names (D-6, D-34, AC-2).
 - [ ] **Implementation:** Complete adaptive layer segmentation and its settings, then validate combined roughness/segmentation against original projects. Nevot-Croce already exists in the numerical kernels; the legacy error-function compatibility issue remains unresolved (D-25, spec §2).
 - [ ] **Implementation:** Port Gaussian and spline magnetic profiles with coupling (D-25, spec §2).
 - [ ] **Implementation:** Expose and display δ(z), β(z), δm(z), βm(z) from the actual engine after roughness/slicing (D-26); replace the mock profile data behind the existing views.
@@ -219,7 +227,7 @@ Full-engine/corpus acceptance is still open.
 - [ ] **Decision:** Decide on the legacy layer-table "coupl." column (no `.all` key)
 - [ ] **Decision:** Built-in periodic-table/Chantler asset (D-13); licence check of the Chantler/Henke data before shipping it (D-31)
 - [ ] **Decision:** Connect private-corpus access in CI and require the strict runner (D-17.3, D-20, AC-4). The choice of a private repository/read-only credential or a self-hosted runner is pending; Pages still does not supply the corpus. No private data may enter public logs or artifacts.
-- [ ] **Decision:** Resolve the legacy error-function's single-precision intermediates versus the double-only requirement: narrowly scoped legacy-rounding compatibility, or a separately reviewed full-double numerical deviation. Neither option nor a golden-tolerance exception has been approved; see the compatibility study above.
+- [ ] **Decision:** Resolve the legacy error-function's single-precision intermediates versus the double-only requirement: narrowly scoped legacy-rounding compatibility, or a separately reviewed full-double numerical deviation. Neither option nor a golden-tolerance exception has been approved; see the compatibility study in the engine implementation evidence below.
 - [ ] **Decision:** Decide nested Lua CalculateReflectivity numerical-failure behavior: preserve legacy partially computed solution arrays, or raise a source-line error and leave arrays unchanged. The latter changes Lua semantics and requires D-29 approval; no exception has been accepted.
 - [ ] **Decision:** Resolve remaining Fourier plot semantics: monochromatic energy scans retain a full energy array after Fourier halves R/qz; two-beam paths transform placeholder R/qz while retaining untransformed Rp/Rm/A. Decide whether to use depth coordinates for monochromatic energy Fourier and ignore Fourier for two-beam displays, or retain explicit unavailability. Neither correction is approved (D-29); see the column-layout diagnostic in `tools/golden/legacy/SIMULATION_REFERENCE.md`.
 - [ ] **Decision:** Resolve Fourier fitting semantics: the original dataset-error path transforms measured qz into depths before calling the reflectivity solver and ignores its error status. Choose a separately validated correction (calculate on original qz, transform both curves once, compare in depth coordinates) or retain explicit unavailability for now. No deviation is approved; see `tools/golden/legacy/diagnose_fourier_fit.py` and D-29.
