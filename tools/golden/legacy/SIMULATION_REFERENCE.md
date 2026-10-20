@@ -430,3 +430,30 @@ Available native curves therefore still comprise 19 matches, two missing-element
 table failures and two worker timeouts. The optimization removes repeated buffer
 work but does not resolve full-scan runtime or establish compatibility of those
 two curves. No full-scan speedup is claimed; acceptancePassed remains false.
+
+
+### Runtime follow-up after prepared sampling
+
+Separate worker-only 30-second profiling probes of the two remaining energy
+cases used unchanged private inputs and the hash-gated original lookup. They
+were stopped for profiling, did not regenerate native references, and do not
+replace the 120-second acceptance diagnostic. Instrumentation accumulated call
+durations around exported WASM adapters; durations of nested operations must not
+be added, and these samples do not establish a whole-scan speedup.
+
+For numeric corpus ID 60, the last reported counters include 8,015 table lookups
+(22.459 seconds), 206 completed adaptive subdivisions (4.275 seconds), and
+436,239 depth samples (2.028 seconds, nested in subdivision). For ID 67, the last
+reported counters include 13,009 table lookups (9.312 seconds); this alone does
+not explain the whole 30-second interval. Neither final energy solver wrapper
+completed during the probes. Counters are periodic snapshots, not exact totals
+at cancellation. No private filenames, tables, scripts or curves are recorded.
+
+Source inspection shows lookupTable in engine/wasm/parratt.mjs validates and
+copies every table for every call; remagx_table_lookup also validates the entire
+native table on each invocation. A next optimization should prepare immutable
+table storage with bounded lifetime and explicit cleanup, while preserving each
+caller's cursor, duplicate-energy history, endpoints, range behavior and atomic
+failure behavior. Replacing or mutating an input table must not reuse stale
+storage. The second case still needs attribution of the remaining runtime;
+this evidence does not justify changing physics, scripts or tolerance.
