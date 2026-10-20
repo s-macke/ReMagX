@@ -74,9 +74,10 @@ jobs:
           # Public synthetic fixtures only; never add private-corpus output here.
           python3 - "$comparison_log" <<'PYTHON'
           import pathlib, sys
-          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-12000:]
-          message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-          print("::error title=Native/WASM comparison failed::" + message)
+          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-6000:]
+          for index in range(0, len(message), 2000):
+              part = message[index:index + 2000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title=Native/WASM comparison failed (part {index // 2000 + 1})::" + part)
           PYTHON
           exit 1
 
@@ -96,9 +97,10 @@ jobs:
           # Public synthetic fixtures only; never add private-corpus output here.
           python3 - "$comparison_log" <<'PYTHON'
           import pathlib, sys
-          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-12000:]
-          message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-          print("::error title=Chromium WASM comparison failed::" + message)
+          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-6000:]
+          for index in range(0, len(message), 2000):
+              part = message[index:index + 2000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title=Chromium WASM comparison failed (part {index // 2000 + 1})::" + part)
           PYTHON
           exit 1
       - name: Verify real engine through ComputeService

@@ -1,7 +1,7 @@
 #include "complex_primitives.h"
 #include <complex.h>
 #include <string.h>
-#ifdef __EMSCRIPTEN__
+#ifdef REMAGX_REFERENCE_MATH
 extern double complex remagx_reference_math_csqrt(double complex);
 extern double complex remagx_reference_math_clog(double complex);
 #define reference_logarithm remagx_reference_math_clog

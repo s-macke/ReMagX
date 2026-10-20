@@ -11,29 +11,32 @@ They retain their upstream copyright notices and identifiers. They are licensed 
 LGPL-2.1-or-later (see COPYING.LIB), compatible with this project's GPL-3.0 distribution.
 These are public mathematical library sources, not legacy ReMagX or Numerical Recipes
 code. The `manifest.json` records every upstream file's SHA-256 digest. CMake verifies
-these digests before configuring the WASM build; a native CI test also checks them and
+these digests before configuring native or WASM builds; a native CI test also checks them and
 the copy of the licence distributed with the web application.
 
 The Visnovsky quartic can produce nearly coincident roots. Differences of one ULP in
 atan2, sin/cos, asin, hypot or complex primitives between native glibc and Emscripten's
 math library can then exceed D-23 in full reflectivity and asymmetry curves. The WASM
-matrix path uses these pinned implementations to match the native reference's scalar
+and native matrix paths use these pinned implementations to match the reference's scalar
 arithmetic, without changing polynomial branches, Newton passes, eigenvector normalization
 or tolerances. The upstream complex sqrt/log templates are instantiated only for double
-in the build shims. Native builds retain their C runtime complex primitives.
+in the build shims. Native builds also use them: relying on an older host libm
+can exceed D-23 even when its results differ by only a few rounding steps.
 
-Matrix division shares the quartic helper's native ratio-scaled arithmetic. WASM complex
+Matrix division shares the quartic helper's native ratio-scaled arithmetic. Complex
 exponentials use pinned sine/cosine for finite magnitudes and retain runtime exceptional
 handling. This does not improve or replace the original quartic algorithm and does not
 claim that all future project/platform discrepancies are resolved.
 
-`compat/` supplies build integration only: distinct symbol names, WASM's little-endian
+`compat/` supplies build integration only: distinct symbol names, little-endian
 layout, no glibc symbol aliases, and adaptations for floating-point environment helpers.
 WASM always uses round-to-nearest and exposes no floating-point exception flags; native
-standalone diagnostics must also run in the default nearest mode. Source arithmetic and
+builds and diagnostics must also run in the default nearest mode. Source arithmetic and
 coefficient tables are unchanged. Unused acos/large-angle sections are removed by
-the final linker where possible. The library is linked only in WASM; native calculations
-continue to use their installed libm. No global math symbols are replaced.
+the final linker where possible. Native shared-library builds use position-independent
+objects for this library. Other mathematical functions retain their installed runtime;
+no global math symbols are replaced. Other architectures and rounding modes are not
+established by the Linux amd64 and WASM comparisons.
 
 All arithmetic uses C double. The upstream compensation macros also operate on doubles;
 there are no alternative precision types. The precision gate scans source, headers and

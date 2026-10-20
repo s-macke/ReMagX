@@ -1,7 +1,7 @@
 #pragma once
-// WebAssembly memory is little endian. Native diagnostic builds must agree.
+// Supported native and WebAssembly builds use little-endian memory.
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
-#error "Reference math diagnostic requires a little-endian target"
+#error "Reference math requires a little-endian target"
 #endif
 #define LITTLE_ENDI 1
 #define HIGH_HALF 1

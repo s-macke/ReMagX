@@ -5,7 +5,7 @@
 #include <limits>
 #include <complex>
 
-#ifdef __EMSCRIPTEN__
+#ifdef REMAGX_REFERENCE_MATH
 extern "C" double remagx_reference_math_atan2(double, double);
 extern "C" double remagx_reference_math_cos(double);
 extern "C" double remagx_reference_math_sin(double);
@@ -39,21 +39,21 @@ inline std::complex<double> reference_complex_divide(std::complex<double> numera
     return numerator / denominator;
 }
 inline double reference_cosine(double value) {
-#ifdef __EMSCRIPTEN__
+#ifdef REMAGX_REFERENCE_MATH
     return remagx_reference_math_cos(value);
 #else
     return std::cos(value);
 #endif
 }
 inline double reference_inverse_sine(double value) {
-#ifdef __EMSCRIPTEN__
+#ifdef REMAGX_REFERENCE_MATH
     return remagx_reference_math_asin(value);
 #else
     return std::asin(value);
 #endif
 }
 inline std::complex<double> reference_complex_exponential(std::complex<double> value) {
-#ifdef __EMSCRIPTEN__
+#ifdef REMAGX_REFERENCE_MATH
     const double magnitude = std::exp(value.real());
     if (std::isfinite(magnitude) && std::isfinite(value.imag()))
         return {magnitude * remagx_reference_math_cos(value.imag()),
@@ -71,13 +71,13 @@ inline std::complex<double> reference_complex_power(std::complex<double> value, 
     if (value.imag() == 0.0 && value.real() > 0.0) return std::pow(value.real(), exponent);
     const auto logarithm = remagx_complex_logarithm(value.real(), value.imag());
     const double magnitude = std::exp(exponent * logarithm.real);
-#ifdef __EMSCRIPTEN__
+#ifdef REMAGX_REFERENCE_MATH
     const double argument = remagx_reference_math_atan2(value.imag(), value.real());
 #else
     const double argument = logarithm.imaginary;
 #endif
     const double angle = exponent * argument;
-#ifdef __EMSCRIPTEN__
+#ifdef REMAGX_REFERENCE_MATH
     return {magnitude * remagx_reference_math_cos(angle), magnitude * remagx_reference_math_sin(angle)};
 #else
     return {magnitude * std::cos(angle), magnitude * std::sin(angle)};

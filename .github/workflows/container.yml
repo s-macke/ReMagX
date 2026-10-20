@@ -32,9 +32,10 @@ jobs:
           # size and escape workflow-command characters as in the numerical jobs.
           python3 - "$build_log" <<'PYTHON'
           import pathlib, sys
-          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-12000:]
-          message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-          print("::error title=Optional container build failed::" + message)
+          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-6000:]
+          for index in range(0, len(message), 2000):
+              part = message[index:index + 2000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title=Optional container build failed (part {index // 2000 + 1})::" + part)
           PYTHON
           exit 1
       - name: Check exported artifacts

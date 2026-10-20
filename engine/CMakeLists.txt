@@ -69,31 +69,35 @@ if(BUILD_TESTING)
   endif()
 endif()
 
-if(EMSCRIPTEN)
-  set(reference_math_directory "${CMAKE_CURRENT_SOURCE_DIR}/third_party/glibc_math")
-  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${reference_math_directory}/manifest.json")
-  file(READ "${reference_math_directory}/manifest.json" reference_math_manifest)
-  string(JSON reference_math_count LENGTH "${reference_math_manifest}" sha256)
-  math(EXPR reference_math_last "${reference_math_count} - 1")
-  foreach(index RANGE 0 ${reference_math_last})
-    string(JSON name MEMBER "${reference_math_manifest}" sha256 ${index})
-    string(JSON expected GET "${reference_math_manifest}" sha256 "${name}")
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${reference_math_directory}/${name}")
-    file(SHA256 "${reference_math_directory}/${name}" actual)
-    if(NOT actual STREQUAL expected)
-      message(FATAL_ERROR "Reference math source differs from its pinned upstream snapshot: ${name}")
-    endif()
-  endforeach()
-  add_library(remagx_reference_math STATIC
-    ${reference_math_directory}/e_atan2.c ${reference_math_directory}/e_asin.c
-    ${reference_math_directory}/s_sin.c ${reference_math_directory}/sincostab.c
-    ${reference_math_directory}/branred.c ${reference_math_directory}/e_hypot.c
-    ${reference_math_directory}/s_csqrt_template.c
-    ${reference_math_directory}/s_clog_template.c ${reference_math_directory}/x2y2m1.c)
-  target_compile_features(remagx_reference_math PRIVATE c_std_11)
-  target_include_directories(remagx_reference_math PRIVATE
-    ${reference_math_directory}/compat ${reference_math_directory})
-  target_compile_options(remagx_reference_math PRIVATE -O2 -fno-fast-math -ffp-contract=off
-    -include ${reference_math_directory}/compat/definitions.h)
-  target_link_libraries(remagx_core PRIVATE remagx_reference_math)
+set(reference_math_directory "${CMAKE_CURRENT_SOURCE_DIR}/third_party/glibc_math")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${reference_math_directory}/manifest.json")
+file(READ "${reference_math_directory}/manifest.json" reference_math_manifest)
+string(JSON reference_math_count LENGTH "${reference_math_manifest}" sha256)
+math(EXPR reference_math_last "${reference_math_count} - 1")
+foreach(index RANGE 0 ${reference_math_last})
+  string(JSON name MEMBER "${reference_math_manifest}" sha256 ${index})
+  string(JSON expected GET "${reference_math_manifest}" sha256 "${name}")
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${reference_math_directory}/${name}")
+  file(SHA256 "${reference_math_directory}/${name}" actual)
+  if(NOT actual STREQUAL expected)
+    message(FATAL_ERROR "Reference math source differs from its pinned upstream snapshot: ${name}")
+  endif()
+endforeach()
+add_library(remagx_reference_math STATIC
+  ${reference_math_directory}/e_atan2.c ${reference_math_directory}/e_asin.c
+  ${reference_math_directory}/s_sin.c ${reference_math_directory}/sincostab.c
+  ${reference_math_directory}/branred.c ${reference_math_directory}/e_hypot.c
+  ${reference_math_directory}/s_csqrt_template.c
+  ${reference_math_directory}/s_clog_template.c ${reference_math_directory}/x2y2m1.c)
+target_compile_features(remagx_reference_math PRIVATE c_std_11)
+target_include_directories(remagx_reference_math PRIVATE
+  ${reference_math_directory}/compat ${reference_math_directory})
+target_compile_options(remagx_reference_math PRIVATE -O2 -fno-fast-math -ffp-contract=off
+  -include ${reference_math_directory}/compat/definitions.h)
+target_link_libraries(remagx_core PRIVATE remagx_reference_math)
+
+# Use the same pinned scalar/complex arithmetic for native and WASM builds.
+target_compile_definitions(remagx_core PRIVATE REMAGX_REFERENCE_MATH=1)
+if(NOT EMSCRIPTEN)
+  set_target_properties(remagx_reference_math PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
