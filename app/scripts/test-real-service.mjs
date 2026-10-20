@@ -22,6 +22,11 @@ assert.ok(adapter.includes(entryCall))
 // Test-only marker immediately before the actual synchronous C API call.
 await writeFile(resolve(destination, 'assets/parratt.mjs'), adapter.replace(entryCall,
   '    if (qz.length >= 100000) self.postMessage({ realCoreEntered: true })\n' + entryCall))
+const segmentationAdapter = await readFile(resolve(root, 'engine/wasm/segmentation.mjs'), 'utf8')
+const segmentationCall = '    const status = module._remagx_adaptive_segments'
+assert.ok(segmentationAdapter.includes(segmentationCall))
+await writeFile(resolve(destination, 'assets/segmentation.mjs'), segmentationAdapter.replace(segmentationCall,
+  '    if (minimumStep <= 1e-6) self.postMessage({ segmentationCoreEntered: true })\n' + segmentationCall))
 const assets = new Map([['/', ['text/html', '<!doctype html><script type="module" src="./entry.js"></script>']]])
 async function collect(directory, prefix = '') {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -43,6 +48,102 @@ try {
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
+  const segmentedResults = await page.evaluate(async () => {
+    const { createSegmentedComputeService, createRealComputeService, createDefaultProject, createLayer } = window.realServiceHarness
+    const NativeWorker = window.Worker
+    let enteredResolve
+    window.Worker = class extends NativeWorker {
+      constructor(url, options) {
+        super(url, options)
+        this.addEventListener('message', event => { if (event.data.segmentationCoreEntered) enteredResolve?.() })
+      }
+    }
+    const tables = ['substrate', 'film', 'air'].map((name, index) => ({ name, kind: 'db', energy: [600, 700],
+      columns: index === 2 ? [[0, 0], [0, 0]] : [[.01 - index * .002, .012 - index * .002], [.001, .002]], warnings: [] }))
+    const service = createSegmentedComputeService(() => tables)
+    const unconfigured = createRealComputeService(() => tables)
+    const same = (actual, expected) => {
+      if (actual.length !== expected.length || actual.some((value, index) => !Number.isFinite(value) || !Number.isFinite(expected[index]) ||
+          Math.abs(value - expected[index]) > 1e-15 + 1e-10 * Math.abs(expected[index]))) throw new Error('Segmented ComputeService curve mismatch')
+    }
+    try {
+      const project = createDefaultProject()
+      project.sample.layers = [createLayer({ opticalTable: 'substrate', roughness: 20 }),
+        createLayer({ opticalTable: 'film', thickness: 7, roughness: 20 }), createLayer({ opticalTable: 'air' })]
+      project.sample.multilayer.enabled = false
+      project.sample.depthProfileFunctions = [{ center: 2, width: 5, deltaAmplitude: 1e-6, betaAmplitude: 2e-7,
+        boundToLayer: 1, amplitudeCoupledTo: null, widthCoupledTo: null, spline: { enabled: false, points: [] } }]
+      project.calculation.roughnessModel = 'segmentation'
+      project.calculation.automaticOpticalConstants = true
+      project.calculation.magnetization.mode = 'profile'
+      project.calculation.segmentation = { ...project.calculation.segmentation, scope: 'global', minThickness: 10, maxThickness: 10 }
+      project.experiment.energy = 640
+      project.experiment.resolution.energyFwhm = 0
+      project.experiment.resolution.angularFwhm = .0001
+      project.experiment.resolution.fastConvolution = false
+      project.experiment.qzScan.useDatasetPoints = true
+      project.datasets = [{ title: '', comment: '', sourceFile: '', active: true, errorWeight: 1, energy: 640, energyShift: 0, qzShift: 0,
+        angularResolution: .0001, intensityScale: 1, intensityOffset: 0, polarization: project.experiment.polarization,
+        columns: { energy: [640, 900, 660, 640], qz: [.02, .03, .04, .02], reflectivity: [1, 1, 1, 1] } }]
+      project.activeDatasetIndex = 0
+      project.scripts.enabled = true
+      project.scripts.beforeCalculation = 'thickness[1] = (energy - 600) * 2'
+      let comparisons = 0
+      for (const algorithm of ['parratt', 'zak', 'matrix']) for (const scope of ['global', 'local']) for (const dichroic of [false, true]) {
+        project.calculation.algorithm = algorithm
+        project.calculation.segmentation.scope = scope
+        const before = JSON.stringify(project)
+        const scan = await service[dichroic ? 'calcEnergyAsymmetry' : 'calcEnergyScan'](project)
+        same(scan.energy, project.datasets[0].columns.energy)
+        const expectedPlus = [], expectedMinus = [], expectedAsymmetry = []
+        for (let index = 0; index < scan.energy.length; ++index) {
+          if (scan.energy[index] > 700) { expectedPlus.push(1); expectedMinus.push(1); expectedAsymmetry.push(0); continue }
+          const single = structuredClone(project)
+          single.experiment.energy = scan.energy[index]
+          single.datasets[0].columns = { qz: [project.datasets[0].columns.qz[index]], reflectivity: [1] }
+          const result = await service[dichroic ? 'calcAsymmetry' : 'calcReflectivity'](single)
+          expectedPlus.push(dichroic ? result.reflectivityPlus[0] : result.reflectivity[0])
+          if (dichroic) { expectedMinus.push(result.reflectivityMinus[0]); expectedAsymmetry.push(result.asymmetry[0]) }
+        }
+        same(dichroic ? scan.reflectivityPlus : scan.reflectivity, expectedPlus)
+        if (dichroic) { same(scan.reflectivityMinus, expectedMinus); same(scan.asymmetry, expectedAsymmetry) }
+        if (JSON.stringify(project) !== before) throw new Error('Segmented service modified its project')
+        ++comparisons
+      }
+      project.calculation.algorithm = 'parratt'; project.scripts.enabled = false
+      project.calculation.segmentation.scope = 'global'
+      project.datasets[0].columns = { qz: [.02], energy: [640], reflectivity: [1] }
+      const baseline = await service.calcReflectivity(project)
+      const invalid = structuredClone(project); invalid.sample.depthProfileFunctions[0].boundToLayer = 3
+      const failure = await service.calcReflectivity(invalid).then(() => '', error => error.message)
+      if (!failure.includes('outside the original layer stack')) throw new Error('Invalid binding was not reported by service')
+      same((await service.calcReflectivity(project)).reflectivity, baseline.reflectivity)
+      const unavailable = await unconfigured.calcReflectivity(project).then(() => '', error => error.message)
+      if (!unavailable.includes('explicit error-function lookup')) throw new Error('Default worker silently selected a lookup')
+      const busy = structuredClone(project)
+      busy.calculation.segmentation.minThickness = 1e-6; busy.calculation.segmentation.maxThickness = 1e-6
+      busy.fit.algorithm = 'simplex'; busy.fit.occamQ = 0
+      busy.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null, value: 7, step: 0, lowerBound: 1, upperBound: 10 }]
+      const cancellations = []
+      for (const method of ['calcReflectivity', 'calcEnergyScan', 'calcChi2', 'startFit']) {
+        let timeout
+        const entered = new Promise((resolve, reject) => {
+          enteredResolve = resolve; timeout = setTimeout(() => reject(new Error('Segmented native core did not start')), 10000)
+        })
+        const pending = service[method](busy, () => {}).then(() => 'finished', error => error.name)
+        try { await entered } finally { clearTimeout(timeout) }
+        const start = performance.now()
+        service.stop()
+        const stopped = await pending
+        same((await service.calcReflectivity(project)).reflectivity, baseline.reflectivity)
+        cancellations.push({ method, stopped, milliseconds: performance.now() - start })
+      }
+      return { comparisons, cancellations }
+    } finally { service.dispose(); unconfigured.dispose(); window.Worker = NativeWorker }
+  })
+  assert.equal(segmentedResults.comparisons, 12)
+  assert.ok(segmentedResults.cancellations.every(result => result.stopped === 'ComputeCancelled' && result.milliseconds < 1000), JSON.stringify(segmentedResults.cancellations))
+  console.log('Segmented ComputeService: 12 energy/per-point comparisons, explicit lookup guard, binding errors and four native Stop/recovery paths passed.')
   const results = await page.evaluate(async () => {
     const { applyDatabaseValues, projectSchema, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve
