@@ -18,8 +18,9 @@ const timeout = 120000
 let browser, server
 try {
   const diagnosticArguments = process.argv.slice(2)
-  if (diagnosticArguments.length > 1 || diagnosticArguments.some(value => value !== '--energy')) throw new Error('Unsupported diagnostic arguments')
-  const energyScan = diagnosticArguments[0] === '--energy'
+  if (new Set(diagnosticArguments).size !== diagnosticArguments.length || diagnosticArguments.some(value => !['--energy', '--asymmetry'].includes(value))) throw new Error('Unsupported diagnostic arguments')
+  const energyScan = diagnosticArguments.includes('--energy')
+  const asymmetry = diagnosticArguments.includes('--asymmetry')
   async function discover(directory) {
     const projects = []
     for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -61,12 +62,12 @@ try {
     }
     let points, referenceError
     try {
-      const output = execFileSync('python3', ['-c', 'import os,resource,sys;resource.setrlimit(resource.RLIMIT_CORE,(0,0));os.execv(sys.argv[1],sys.argv[1:])', executable, path, ...(energyScan ? ['--energy'] : [])],
+      const output = execFileSync('python3', ['-c', 'import os,resource,sys;resource.setrlimit(resource.RLIMIT_CORE,(0,0));os.execv(sys.argv[1],sys.argv[1:])', executable, path, ...(energyScan ? ['--energy'] : []), ...(asymmetry ? ['--asymmetry'] : [])],
         { cwd: dirname(path), stdio: 'pipe', timeout, maxBuffer: 64 * 1024 * 1024 }).toString()
       points = JSON.parse(output)
-      if (!Array.isArray(points) || !points.length || !points.every(row => Array.isArray(row) && row.length === 2 && row.every(Number.isFinite))) throw new Error('Invalid reference curve')
+      if (!Array.isArray(points) || !points.length || !points.every(row => Array.isArray(row) && row.length === (asymmetry ? 4 : 2) && row.every(Number.isFinite))) throw new Error('Invalid reference curve')
     } catch (error) { referenceError = error.code === 'ETIMEDOUT' ? 'reference-timeout' : 'reference-error' }
-    inputs.push({ id: index + 1, source, tables, points, referenceError, energyScan })
+    inputs.push({ id: index + 1, source, tables, points, referenceError, energyScan, asymmetry })
     if ((index + 1) % 10 === 0) console.log(JSON.stringify({ stage: 'reference', completed: index + 1, total: projects.length }))
   }
   await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' }, logLevel: 'silent',
@@ -98,29 +99,22 @@ try {
   const reports = []
   for (const input of inputs) {
     const report = await page.evaluate(async input => {
-      const { importAllFile, parseOpticalTable, diagnosticCategory, withDiagnosticDeadline } = window.realServiceHarness
+      const { importAllFile, parseOpticalTable, diagnosticCategory, withDiagnosticDeadline, compareDiagnosticColumns } = window.realServiceHarness
       const service = window.privateReferenceService
       try {
         const { project } = importAllFile(input.source)
         const segmented = project.calculation.roughnessModel === 'segmentation'
         const tables = input.tables.map(table => parseOpticalTable(table.source, table.name))
         const before = JSON.stringify(project)
-        const actual = await withDiagnosticDeadline(service[input.energyScan ? 'calcEnergyScan' : 'calcReflectivity'](project, undefined, tables), () => service.stop())
+        const method = input.asymmetry ? (input.energyScan ? 'calcEnergyAsymmetry' : 'calcAsymmetry') : (input.energyScan ? 'calcEnergyScan' : 'calcReflectivity')
+        const actual = await withDiagnosticDeadline(service[method](project, undefined, tables), () => service.stop())
         if (JSON.stringify(project) !== before) return { id: input.id, segmented, status: 'input-changed' }
         if (input.referenceError) return { id: input.id, segmented, status: input.referenceError, workerCompleted: true }
         const coordinates = input.energyScan ? actual.energy : actual.qz
-        if (coordinates.length !== input.points.length || actual.reflectivity.length !== input.points.length) return { id: input.id, segmented, status: 'length-mismatch' }
-        let mismatches = 0, maximumAbsolute = 0, maximumLog10 = 0
-        for (let index = 0; index < input.points.length; ++index) {
-          for (const [value, reference] of [[coordinates[index], input.points[index][0]], [actual.reflectivity[index], input.points[index][1]]]) {
-            if (!Number.isFinite(value) || !Number.isFinite(reference)) return { id: input.id, segmented, status: 'nonfinite' }
-            const difference = Math.abs(value - reference)
-            if (difference > 1e-15 + 1e-10 * Math.abs(reference)) ++mismatches
-            maximumAbsolute = Math.max(maximumAbsolute, difference)
-            if (value > 0 && reference > 0) maximumLog10 = Math.max(maximumLog10, Math.abs(Math.log10(value) - Math.log10(reference)))
-          }
-        }
-        return { id: input.id, segmented, status: mismatches ? 'numerical-mismatch' : 'matched', points: input.points.length, mismatches, maximumAbsolute, maximumLog10 }
+        const columns = [{ name: 'coordinate', values: coordinates }, ...(input.asymmetry
+          ? [{ name: 'plus', values: actual.reflectivityPlus }, { name: 'minus', values: actual.reflectivityMinus }, { name: 'asymmetry', values: actual.asymmetry }]
+          : [{ name: 'reflectivity', values: actual.reflectivity }])]
+        return { id: input.id, segmented, ...compareDiagnosticColumns(columns, input.points) }
       } catch (error) {
         const category = diagnosticCategory(String(error.message))
         return { id: input.id, status: 'worker-error', category, referenceError: input.referenceError }
@@ -134,10 +128,15 @@ try {
   const compared = reports.filter(report => report.points !== undefined)
   const referenceCounts = inputs.reduce((counts, input) => { const key = input.referenceError ?? 'completed'; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
   const referenceCompletedFailures = reports.filter((report, index) => !inputs[index].referenceError && report.status !== 'matched').reduce((counts, report) => { const key = report.category ?? report.status; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
-  const summary = { scope: energyScan ? 'private-energy-explicit-original-lookup' : 'private-qz-explicit-original-lookup', projects: reports.length, counts, referenceCounts, referenceCompletedFailures,
+  const summary = { scope: `private-${energyScan ? 'energy' : 'qz'}${asymmetry ? '-asymmetry' : ''}-explicit-original-lookup`, projects: reports.length, counts, referenceCounts, referenceCompletedFailures,
     segmentedCompared: compared.filter(report => report.segmented).length,
     segmentedMatched: compared.filter(report => report.segmented && report.status === 'matched').length,
     comparedPoints: compared.reduce((sum, report) => sum + report.points, 0),
+    comparedValues: compared.reduce((sum, report) => sum + report.comparedValues, 0),
+    mismatchesByColumn: compared.reduce((counts, report) => {
+      for (const [name, count] of Object.entries(report.mismatchesByColumn)) counts[name] = (counts[name] ?? 0) + count
+      return counts
+    }, {}),
     mismatchedValues: compared.reduce((sum, report) => sum + report.mismatches, 0),
     maximumAbsolute: Math.max(0, ...compared.map(report => report.maximumAbsolute)),
     maximumLog10: Math.max(0, ...compared.map(report => report.maximumLog10)),

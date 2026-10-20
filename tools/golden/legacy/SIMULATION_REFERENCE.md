@@ -520,3 +520,52 @@ available native curves still encounter missing element tables; the original
 adapter still errors on 76 projects. All projects remain attempted and
 acceptancePassed=false remains correct. This closes the two observed runtime
 failures, not full energy/asymmetry/fit or corpus acceptance.
+
+
+### Private two-beam/asymmetry diagnostic
+
+The same corpus runner now accepts `--asymmetry`, alone for qz or together with
+`--energy` for energy scans:
+
+```sh
+node app/scripts/diagnose-private-corpus.mjs --asymmetry
+node app/scripts/diagnose-private-corpus.mjs --energy --asymmetry
+```
+
+It requests the corresponding original native two-beam reference and calls
+calcAsymmetry/calcEnergyAsymmetry through Chromium ComputeService. Coordinates,
+both beam intensities and the stored project's asymmetry definition are compared
+independently at unchanged D-23. The aggregate report includes compared value
+counts and mismatches per column. Signed/near-zero asymmetry uses the same
+absolute-plus-relative criterion; logarithmic diagnostics remain restricted to
+positive pairs. Default qz and `--energy` monochromatic modes remain available.
+
+Every project is attempted unchanged. Original-reference errors, missing worker
+capabilities/data and numerical mismatches stay separate; duplicate and unknown
+options fail without disclosing their content. Public tests exercise isolated
+beam/asymmetry mismatches, tolerance behavior, malformed lengths/nonfinite output
+and sanitized command failures. This does not establish fit acceptance, approve
+production lookup generation, or prove untested alternative asymmetry settings.
+
+
+The first full 99-project energy-asymmetry run matches 21 of 23 available native
+curves: 19,556 points/78,224 values. Coordinate, plus, minus and asymmetry columns
+all have zero D-23 mismatches; maximum absolute difference is
+6.838973831690964e-14 and maximum positive-pair log10 difference is
+2.992806003021542e-10. The absolute allowance in D-23 still applies near zero;
+log10 error alone is not the pass/fail criterion. Four matched projects have
+segmentation enabled. Two available reference curves encounter missing element
+tables; the original adapter errors on 76 projects. There are no worker timeouts.
+No project was excluded or modified, and acceptancePassed remains false.
+
+
+The first full 99-project qz-asymmetry run matches 84 of 90 available native
+curves: 67,792 points/271,168 values, including 17 projects with segmentation
+selected. All four columns have zero D-23 mismatches (maximum absolute
+3.0943025919327738e-12; maximum positive-pair log10 error
+8.972023124442785e-11). There are no worker timeouts. Of six unmatched available
+native curves, five encounter missing element tables and one uses the deferred
+Parratt-without-multiple-scattering algorithm. The original adapter errors on
+nine projects. This matches the earlier monochromatic qz coverage while adding
+independent second-beam and derived-asymmetry evidence; full corpus acceptance
+remains false. Neither run varies each project's stored asymmetry definition.

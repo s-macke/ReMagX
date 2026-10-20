@@ -1,3 +1,4 @@
+import { compareDiagnosticColumns } from './real-service/diagnosticComparison'
 import { diagnosticCategory, withDiagnosticDeadline } from './real-service/diagnosticCategory'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
@@ -6,14 +7,14 @@ import { join, resolve } from 'node:path'
 import { expect, it, vi } from 'vitest'
 
 it('fails private comparison setup without disclosing paths or changing corpus inputs', () => {
-  for (const scenario of ['empty', 'symlink', 'incomplete', 'arguments']) {
+  for (const scenario of ['empty', 'symlink', 'incomplete', 'arguments', 'duplicate-energy', 'duplicate-asymmetry']) {
     const directory = mkdtempSync(join(tmpdir(), 'private-diagnostic-marker-'))
     const marker = 'PRIVATE_DIAGNOSTIC_CONTENT_MARKER'
     const source = join(directory, `${marker}.all`)
     try {
       if (scenario === 'symlink') symlinkSync(join(directory, 'missing-private-target'), source)
       if (scenario === 'incomplete' || scenario === 'arguments') writeFileSync(source, marker)
-      const result = spawnSync(process.execPath, [resolve('scripts/diagnose-private-corpus.mjs'), ...(scenario === 'arguments' ? [`--${marker}`] : [])], {
+      const result = spawnSync(process.execPath, [resolve('scripts/diagnose-private-corpus.mjs'), ...(scenario === 'arguments' ? [`--${marker}`] : scenario === 'duplicate-energy' ? ['--energy', '--energy'] : scenario === 'duplicate-asymmetry' ? ['--asymmetry', '--asymmetry'] : [])], {
         env: { ...process.env, LEGACY_ROOT: directory }, encoding: 'utf8', timeout: 20000,
       })
       expect(result.error).toBeUndefined()
@@ -63,4 +64,21 @@ it('reports the diagnostic deadline even when Stop synchronously rejects the pen
     expect(successfulStop).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
   } finally { vi.useRealTimers() }
+})
+
+
+it('compares both beams and signed asymmetry independently with unchanged D-23', () => {
+  const reference = [[1, .5, .4, -.1], [2, 0, 0, 0]]
+  const columns = [
+    { name: 'coordinate', values: [1, 2] }, { name: 'plus', values: [.5 + 1e-12, 5e-16] },
+    { name: 'minus', values: [.4, 0] }, { name: 'asymmetry', values: [-.1 - 1e-12, -5e-16] },
+  ]
+  expect(compareDiagnosticColumns(columns, reference)).toMatchObject({ status: 'matched', comparedValues: 8, mismatches: 0 })
+  columns[1].values[1] = 2e-15
+  columns[3].values[0] = -.11
+  expect(compareDiagnosticColumns(columns, reference)).toMatchObject({ status: 'numerical-mismatch', mismatches: 2,
+    mismatchesByColumn: { coordinate: 0, plus: 1, minus: 0, asymmetry: 1 } })
+  expect(compareDiagnosticColumns(columns, [[1, 2]])).toEqual({ status: 'length-mismatch' })
+  columns[2].values[0] = NaN
+  expect(compareDiagnosticColumns(columns, reference)).toEqual({ status: 'nonfinite' })
 })
