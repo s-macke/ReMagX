@@ -7,7 +7,8 @@ export interface CurveSeries {
 }
 
 export interface CalculatedCurve {
-  axis: 'qz' | 'angle' | 'energy' | 'z'
+  axis: 'qz' | 'angle' | 'energy' | 'z' | 'depth'
+  measured?: { label: string; curve: MeasuredCurve }[]
   x: number[]
   series: CurveSeries[]
   logScale: boolean
@@ -30,6 +31,7 @@ export function angleFromQz(qz: number, energy: number): number {
 export function plotCoordinates(curve: CalculatedCurve | null, measured: MeasurementSeries, showAngle: boolean, energy: number): {
   curve: CalculatedCurve | null; measured: MeasurementSeries; error: string | null
 } {
+  if (curve?.axis === 'depth') return { curve, measured: curve.measured ?? [], error: null }
   if (!showAngle || curve?.axis !== 'qz') return { curve, measured, error: null }
   try {
     return {

@@ -69,6 +69,26 @@ class SimulationReferenceTest(unittest.TestCase):
                 expected = (plus - minus) / (plus + minus) if definition == 0 and plus + minus else plus - minus
                 self.assertLessEqual(abs(actual - expected), 1e-15 + 1e-10 * abs(expected))
 
+    def test_fourier_gui_flags_and_corrected_transform_order(self):
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        path = Path(self.directory.name) / 'fourier.all'
+        path.write_text(fixture + '\nnumberofpoints = 17\naveraging = 1\nray1sigmare = 0\nray1sigmaim = 0\nray1pire = 1\nray1piim = 0\n')
+        baseline = self.run_fixture(path, '--multiply-qz4', '--divide-pi')
+        actual = self.run_fixture(path, '--fourier', '--multiply-qz4', '--divide-pi')
+        self.assertEqual(len(actual), len(baseline) // 2)
+        signal = [value * ((qz * qz) * (qz * qz)) *
+                  .5 * (1 - math.cos(2 * 3.141592 * index / (len(baseline) + 1)))
+                  for index, (qz, value) in enumerate(baseline)]
+        for frequency, (depth, magnitude) in enumerate(actual):
+            expected = abs(sum(value * cmath.exp(-2j * math.pi * frequency * index / len(signal))
+                               for index, value in enumerate(signal))) if frequency else 0
+            self.assertLessEqual(abs(magnitude - expected), 1e-15 + 1e-10 * abs(expected))
+            self.assertEqual(depth, 2 * 3.141592 * frequency / baseline[-1][0])
+        for options in [('--fourier', '--energy'), ('--fourier', '--asymmetry'), ('--fourier', '--fourier')]:
+            result = subprocess.run([self.executable, path, *options], capture_output=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(result.stdout, b'')
+
     def write_energy_tables(self):
         for name, minimum, maximum, delta, beta in [
                 ('Cu', 710, 890, .0016, .0002), ('Co', 720, 880, .003, .001),

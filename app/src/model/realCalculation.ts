@@ -30,7 +30,7 @@ export interface RealCalculationEngine {
   matrixQz: (request: PreparedVisnovskyQzRequest) => Float64Array
 }
 
-export type RealCurve = ReturnType<typeof postprocessParrattResult> & { energy?: number[]; opticalState: SerialOpticalState; finalEnergy: number; scriptedProject?: Project }
+export type RealCurve = ReturnType<typeof postprocessParrattResult> & { axis?: 'depth'; energy?: number[]; opticalState: SerialOpticalState; finalEnergy: number; scriptedProject?: Project }
 
 export type ScriptSessionLifetime = 'temporary' | 'existing'
 
@@ -84,20 +84,25 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     cursors = scripted.opticalState.cursors
   }
   let qz: number[], values: Float64Array
+  const transform = project.calculation.postProcessing.fourierTransform
+  if (transform && (mode !== 'monochromatic' || !engine.fourier)) throw new Error('Fourier processing is not available for this real-engine request.')
+  // Fourier operates on the completed curve, never on individual kernel calls.
+  const packedProject = transform ? { ...project, calculation: { ...project.calculation,
+    postProcessing: { ...project.calculation.postProcessing, fourierTransform: false } } } : project
   if (project.calculation.algorithm === 'matrix') {
-    const request = prepareVisnovskyQzRequest(project, mode, engine.dielectricTensor, dielectricTensors)
+    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, dielectricTensors)
     qz = request.qz
     values = engine.matrixQz(request)
   } else if (project.calculation.algorithm === 'zak') {
-    const request = prepareZakQzRequest(project, mode)
+    const request = prepareZakQzRequest(packedProject, mode)
     qz = request.qz
     values = engine.zakQz(request)
   } else {
-    const request = prepareParrattQzRequest(project, mode)
+    const request = prepareParrattQzRequest(packedProject, mode)
     qz = request.qz
     values = engine.calculate(request)
   }
-  const result = postprocessParrattResult(project, qz, values, mode)
-  return { ...result, opticalState: { layers: project.sample.layers, dielectricTensors, dielectricState, scatteringTensors, cursors },
+  const result = postprocessParrattResult(project, qz, values, mode, undefined, engine.fourier)
+  return { ...result, ...(transform ? { axis: 'depth' as const } : {}), opticalState: { layers: project.sample.layers, dielectricTensors, dielectricState, scatteringTensors, cursors },
     finalEnergy: project.experiment.energy, ...(scriptedProject ? { scriptedProject } : {}) }
 }

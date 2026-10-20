@@ -38,7 +38,8 @@ try {
   async function addCase(source, settings) {
     const path = resolve(temporary, 'project.all')
     await writeFile(path, source)
-    const points = JSON.parse(execFileSync(executable, [path, ...(settings.asymmetry ? ['--asymmetry'] : []), ...(settings.scan === 'energy' ? ['--energy'] : []), ...(settings.fixedAngle ? ['--angle'] : [])], { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString())
+    const points = JSON.parse(execFileSync(executable, [path, ...(settings.asymmetry ? ['--asymmetry'] : []), ...(settings.scan === 'energy' ? ['--energy'] : []), ...(settings.fixedAngle ? ['--angle'] : []),
+      ...(settings.fourier ? ['--fourier'] : []), ...(settings.corrections ? ['--multiply-qz4', '--divide-pi'] : [])], { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString())
     cases.push({ source, points, settings })
   }
   for (const algorithm of [0, 1, 2]) for (const magnetic of [0, 1, 2])
@@ -82,6 +83,10 @@ try {
       'activedatasetindex = 1\n'
     await addCase(source, { algorithm, definition, energyWidth: 2, asymmetry: definition !== null, scan: 'energy', dataset: true })
   }
+  for (const algorithm of [0, 1, 2]) for (const fast of [0, 1]) for (const corrections of [false, true]) {
+    const source = fixture + `\nalgorithm = ${algorithm}\nfastresolution = ${fast}\nresolution = 0.001\nnumberofpoints = 17\naveraging = ${corrections ? 1 : 0}\nray1sigmare = 0\nray1sigmaim = 0\nray1pire = 1\nray1piim = 0\n`
+    await addCase(source, { algorithm, fast, corrections, fourier: true, scan: 'generated' })
+  }
   await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' },
     build: { outDir: destination, emptyOutDir: true,
       rollupOptions: { input: resolve(root, 'app/test/real-service/entry.ts'), output: { entryFileNames: 'entry.js' } } } })
@@ -122,6 +127,11 @@ try {
         const columnNames = settings.asymmetry ? [settings.scan === 'energy' ? 'energy' : 'qz', 'plus', 'minus', 'asymmetry'] : [settings.scan === 'energy' ? 'energy' : 'qz', 'reflectivity']
         const mismatchesByColumn = Object.fromEntries(columnNames.map(name => [name, 0]))
         const { project } = importAllFile(source)
+        if (settings.fourier) project.calculation.postProcessing.fourierTransform = true
+        if (settings.corrections) {
+          project.calculation.postProcessing.multiplyByQz4 = true
+          project.calculation.postProcessing.divideByCos2ThetaSquared = true
+        }
         if (settings.fixedAngle) project.experiment.energyScan.fixed = 'angle'
         const snapshot = JSON.stringify(project)
         const actual = settings.scan === 'energy'

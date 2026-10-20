@@ -31,15 +31,20 @@ extern "C" int __wrap_luaL_loadbuffer(lua_State* state, const char* text, size_t
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2 || argc > 5) return 2;
+    if (argc < 2 || argc > 8) return 2;
     bool asymmetry = false, energy_scan = false, fixed_angle = false;
+    bool fourier = false, multiply = false, divide = false;
     for (int index = 2; index < argc; ++index) {
         if (std::strcmp(argv[index], "--asymmetry") == 0 && !asymmetry) asymmetry = true;
         else if (std::strcmp(argv[index], "--energy") == 0 && !energy_scan) energy_scan = true;
         else if (std::strcmp(argv[index], "--angle") == 0 && !fixed_angle) fixed_angle = true;
+        else if (std::strcmp(argv[index], "--fourier") == 0 && !fourier) fourier = true;
+        else if (std::strcmp(argv[index], "--multiply-qz4") == 0 && !multiply) multiply = true;
+        else if (std::strcmp(argv[index], "--divide-pi") == 0 && !divide) divide = true;
         else return 2;
     }
     if (fixed_angle && !energy_scan) return 2;
+    if (fourier && (energy_scan || asymmetry)) return 2;
     FILE* output = fdopen(dup(STDOUT_FILENO), "w");
     if (!output) return 3;
     if (!freopen("/dev/null", "w", stdout) || !freopen("/dev/null", "w", stderr)) return 3;
@@ -49,6 +54,10 @@ int main(int argc, char** argv) {
     // Process ownership avoids unrelated destruction paths in the original code.
     auto* state = new CStateHandler;
     if (!state->LoadState(argv[1])) return 4;
+    // GUI postprocessing checkboxes are not persisted by LoadState.
+    state->postfft = fourier;
+    state->postmultiply = multiply;
+    state->postdivide = divide;
     if ((energy_scan || state->ocautomatic) && (!Getdblist(*state) || !Filldb(*state))) return 6;
     CDataSet data;
     // Unit1.cpp Button3Click copies the selected dataset and adapts it once.

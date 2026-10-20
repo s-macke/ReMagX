@@ -147,7 +147,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       }] },
       cursor: { drag: { x: true, y: true, uni: 20 } },
       axes: [
-        { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'angle' ? 'theta (°)' : curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (Å), 0 = substrate surface' },
+        { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'angle' ? 'theta (°)' : curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : curve.axis === 'depth' ? 'Fourier depth (Å)' : 'z (Å), 0 = substrate surface' },
         logY
           ? {
               stroke: text,

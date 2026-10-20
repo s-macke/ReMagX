@@ -21,6 +21,12 @@ order and receive the legacy shifts once. Energy scans always perform strict ini
 table refresh, including with automatic constants disabled. Generated energy grids use
 the table-range intersection and minimum-inclusive repeated addition; invalid or
 nonadvancing grids fail instead of hanging.
+For monochromatic qz scans, `--fourier` enables the GUI Fourier checkbox and
+emits `[depth, magnitude]` pairs. `--multiply-qz4` and `--divide-pi` enable the
+two preceding GUI corrections; averaging still comes from the project.
+These three checkbox settings are supplied explicitly because the original loader
+does not persist them. Fourier with energy scans or two-beam output is rejected by
+this adapter until its unequal output-column lengths are handled.
 Run in the directory containing any required material tables;
 use an absolute project path when changing directories. Outputs from research projects
 remain private. Standard legacy diagnostics are suppressed and the adapter buffers the

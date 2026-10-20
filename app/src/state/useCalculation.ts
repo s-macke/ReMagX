@@ -8,6 +8,7 @@ import type { Project } from '../model/project'
 import type { DisplayMode, PlotView, ScanKind } from './appState'
 
 import { profilePlot } from '../model/profileView'
+import { reflectivityPlot } from '../model/reflectivityView'
 import { tensorPlot } from '../model/tensorView'
 import type { CalculatedCurve } from '../model/plotCoordinates'
 export type { CalculatedCurve, CurveSeries } from '../model/plotCoordinates'
@@ -87,7 +88,7 @@ async function calculate(service: ComputeService, project: Project, request: Cal
   }
   if (mode === 'monochromatic') {
     const curve = await service.calcReflectivity(project, onScriptMessages, request.tables ?? [])
-    return { scriptMessages: curve.scriptMessages, axis: 'qz', x: curve.qz, series: [{ label: 'simulated R', y: curve.reflectivity }], logScale: true, yLabel: 'R' }
+    return reflectivityPlot(curve, project)
   }
   const curve = await service.calcAsymmetry(project, onScriptMessages, request.tables ?? [])
   if (mode === 'dichroic') {

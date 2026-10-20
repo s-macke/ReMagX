@@ -217,6 +217,27 @@ try {
       postProject.calculation.postProcessing.divideByCos2ThetaSquared = true
       postProject.calculation.averaging = 1
       output.postprocessed = await service.calcReflectivity(postProject)
+      const fourierProject = structuredClone(postProject)
+      fourierProject.calculation.postProcessing = { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: true }
+      fourierProject.calculation.averaging = 0
+      fourierProject.experiment.qzScan.points = 17
+      fourierProject.datasets = [{ title: '', comment: '', sourceFile: '', energy: 640, energyShift: 0,
+        qzShift: .003, angularResolution: 0, intensityScale: 2, intensityOffset: .5, errorWeight: 1,
+        active: true, polarization: fourierProject.experiment.polarization,
+        columns: { qz: [.03, .01, .03, .02, .04], reflectivity: [1, 2, 3, 4, 5] } }]
+      fourierProject.activeDatasetIndex = 0
+      const fourierSnapshot = JSON.stringify(fourierProject)
+      output.fourier = await service.calcReflectivity(fourierProject)
+      output.fourierPlot = window.realServiceHarness.renderFourierPlot(fourierProject, output.fourier)
+      fourierProject.experiment.qzScan.useDatasetPoints = true
+      output.fourierDataset = await service.calcReflectivity(fourierProject)
+      fourierProject.experiment.qzScan.useDatasetPoints = false
+      output.fourierUnchanged = fourierSnapshot === JSON.stringify(fourierProject)
+      try { await service.calcAsymmetry(fourierProject) } catch (error) { output.fourierDichroicError = error.message }
+      try { await service.calcChi2(fourierProject) } catch (error) { output.fourierFitError = error.message }
+      fourierProject.datasets[0].columns.qz[4] = -.003
+      try { await service.calcReflectivity(fourierProject) } catch (error) { output.fourierError = error.message }
+      output.fourierRecovered = await service.calcReflectivity(postProject)
       const resolutionProject = createDefaultProject()
       resolutionProject.sample.layers = [createLayer({ delta: .01, beta: .002 }), createLayer()]
       resolutionProject.experiment.energy = 640
@@ -1171,6 +1192,30 @@ try {
   const mean = (corrected[0] + corrected[1]) / 2
   assert.equal(results.postprocessed.reflectivity[0], 0) // legacy unsigned leading-window behavior
   assert.ok(Math.abs(results.postprocessed.reflectivity[1] - mean) <= 1e-15 + 1e-10 * Math.abs(mean))
+  assert.equal(results.fourier.axis, 'depth')
+  assert.ok(results.fourierPlot.axis)
+  assert.ok(results.fourierPlot.canvases > 0)
+  assert.match(results.fourierPlot.text, /measured Fourier magnitude/)
+  assert.deepEqual(results.fourierPlot.x, results.fourier.qz)
+  assert.deepEqual(results.fourierPlot.measured[0].curve.x, results.fourier.measuredFourier.qz)
+  assert.equal(results.fourier.qz.length, 8)
+  assert.equal(results.fourier.reflectivity.length, 8)
+  assert.equal(results.fourierDataset.qz.length, 2)
+  assert.equal(results.fourierDataset.reflectivity.length, 2)
+  assert.ok(results.fourierUnchanged)
+  const measuredQz = [.03, .01, .03, .02, .04].map(value => value + .003)
+  const measuredSignal = [1, 2, 3, 4, 5].map((value, index) =>
+    (value + .5) * 2 * ((measuredQz[index] * measuredQz[index]) ** 2) * .5 * (1 - Math.cos(2 * 3.141592 * index / 6)))
+  const real = measuredSignal.reduce((sum, value, index) => sum + value * Math.cos(-2 * Math.PI * index / 5), 0)
+  const imaginary = measuredSignal.reduce((sum, value, index) => sum + value * Math.sin(-2 * Math.PI * index / 5), 0)
+  const expectedMagnitude = Math.sqrt(real * real + imaginary * imaginary)
+  assert.deepEqual(results.fourier.measuredFourier.qz, [0, 2 * 3.141592 / measuredQz[4]])
+  assert.ok(Math.abs(results.fourier.measuredFourier.reflectivity[1] - expectedMagnitude) <= 1e-15 + 1e-10 * Math.abs(expectedMagnitude))
+  assert.deepEqual(results.fourier.measuredFourier, results.fourierDataset.measuredFourier)
+  assert.match(results.fourierDichroicError, /Fourier/)
+  assert.match(results.fourierFitError, /Fourier/)
+  assert.ok(results.fourierError)
+  assert.deepEqual(results.fourierRecovered, results.postprocessed)
   // Synthetic original CParratt<double> values, weighted with the active legacy
   // 19-node kernel at energy 640 eV and width .002 inverse Angstrom.
   const resolutionReference = [.56005877016968919, .87413289596007782]
