@@ -19,12 +19,14 @@ export function prepareEnergyCoordinates(project: Project, tables: OpticalTable[
     }
     return { energy, qz }
   }
-  if (project.sample.mode !== 'compound') throw new Error('Real element-mode energy scan preparation is not implemented yet.')
   const scan = project.experiment.energyScan
   let minimum = scan.energyMin
   let maximum = scan.energyMax
   if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) throw new Error('Energy scan bounds must be finite.')
-  for (const layer of project.sample.layers) {
+  // GetMaximumEnergyRange consults only MATERIAL entries. Fresh element-mode
+  // preparation loads ELEMENT tables, so ff/ffm ranges do not clip this grid.
+  // Per-point Filldb later handles energies outside those tables.
+  for (const layer of project.sample.mode === 'compound' ? project.sample.layers : []) {
     const name = layer.opticalTable
     const primary = tables.find(table => name && table.name === name && table.kind === 'db')
     if (!primary?.energy.length) throw new Error(`Missing optical table ${name || '(unnamed)'}.db for energy scan.`)

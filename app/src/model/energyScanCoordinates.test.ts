@@ -74,3 +74,22 @@ it('rejects missing tables, disjoint or stalled ranges and excessive allocations
   tables[0].energy = [1, 2]
   expect(() => prepareEnergyCoordinates(project, tables)).toThrow('too small')
 })
+
+
+it('retains the requested element energy range instead of clipping to ff/ffm or inactive compound tables', () => {
+  const { project, tables } = setup()
+  project.sample.mode = 'element'
+  project.calculation.magnetization.mode = 'add'
+  project.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: 0, f2Mag: 0, slabs: [] }]
+  tables.push({ name: 'Fe', kind: 'ff', energy: [125, 175], columns: [[26, 26], [1, 1]], warnings: [] },
+    { name: 'Fe', kind: 'ffm', energy: [140, 160], columns: [[0, 0], [0, 0]], warnings: [] })
+  const before = structuredClone({ project, tables })
+  expect(prepareEnergyCoordinates(project, tables)).toEqual({ energy: [100, 125, 150, 175, 200], qz: Array(5).fill(.03) })
+  expect({ project, tables }).toEqual(before)
+  expect(prepareEnergyCoordinates(project, [])).toEqual(prepareEnergyCoordinates(project, tables))
+  project.experiment.energyScan.fixed = 'angle'
+  const result = prepareEnergyCoordinates(project, tables)
+  expect(result.qz).toEqual(result.energy.map(energy => 2 * (2 * Math.PI / (12398.326 / energy)) * Math.sin(2 / 180 * Math.PI)))
+  project.experiment.energyScan.energyMax = project.experiment.energyScan.energyMin
+  expect(() => prepareEnergyCoordinates(project, tables)).toThrow('distinct')
+})

@@ -349,3 +349,21 @@ algorithm, one other table failure and four script failures. The nine projects
 whose original adapter errors coincide with four missing-element-table, one other
 table and four script failures in the worker. This establishes co-occurrence, not
 identical causes. None is silently excluded from the strict aggregate gate.
+
+
+## Element energy coordinate reference
+
+`test_element_energy_grid_is_not_clipped_to_scattering_tables` uses a public
+synthetic element stack with Fe.ff covering 750–850 eV, narrower Fe.ffm data and
+unrelated compound tables. Original ordinary, fixed-angle and two-beam scans all
+retain the requested 700–900 eV grid at 25 eV intervals. `GetMaximumEnergyRange`
+searches MATERIAL entries, while fresh element loading populates ELEMENT entries.
+The web coordinate preparation preserves this distinction; later per-point
+refresh must handle table-range failures without clipping the initial grid.
+
+This evidence concerns fresh project preparation. The legacy GUI also carries a
+history-dependent table cache that can retain MATERIAL entries; those session
+histories are not reproduced by this fixture or accepted as equivalent. All 15
+native simulation-reference tests pass with this addition. Run the existing
+`LEGACY_ROOT=old/reMagX3 python3 -m unittest discover -s tools/golden/legacy -p test_simulation_reference.py`
+command to reproduce the checks.

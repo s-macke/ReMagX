@@ -140,6 +140,29 @@ class SimulationReferenceTest(unittest.TestCase):
             self.assertTrue(all(math.isfinite(value) for row in rows for value in row))
             self.assertGreater(max(row[1] for row in rows), min(row[1] for row in rows))
 
+    def test_element_energy_grid_is_not_clipped_to_scattering_tables(self):
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        # Fresh element loading does not populate MATERIAL entries used by
+        # GetMaximumEnergyRange, even if matching compound files exist nearby.
+        self.write_energy_tables()
+        Path(self.directory.name, 'Fe.ff').write_text('750 26 0.1\n850 26 0.1\n')
+        Path(self.directory.name, 'Fe.ffm').write_text('775 0 0\n825 0 0\n')
+        settings = '\n'.join([
+            'mode = 1', 'elementlayerversion = 2', 'element = Fe',
+            'el_f1 = 26', 'el_f2 = 0.1', 'el_f1m = 0', 'el_f2m = 0',
+            'el_layer = 0', 'el_density = 0.1', 'el_sigma = 3',
+            'el_layer = 1', 'el_d = 20', 'el_density = 0.05', 'el_sigma = 3',
+            'el_layer = 2', 'el_density = 0', 'el_sigma = 3',
+            'energy = 800', 'engscanmin = 700', 'engscanmax = 900',
+            'numberofpoints = 8', 'magnetizationmode = 1', '',
+        ])
+        path = Path(self.directory.name) / 'element-energy.all'
+        path.write_text(fixture + '\n' + settings)
+        for options in [('--energy',), ('--energy', '--angle'), ('--energy', '--asymmetry')]:
+            rows = self.run_fixture(path, *options)
+            self.assertEqual([row[0] for row in rows], list(range(700, 901, 25)))
+            self.assertTrue(all(math.isfinite(value) for row in rows for value in row))
+
     def test_energy_dataset_shifts_and_invalid_grid(self):
         self.write_energy_tables()
         fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
