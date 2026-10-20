@@ -1,3 +1,4 @@
+import { checkElementDensity } from './element_density_checks.mjs'
 import { checkLayerDensity } from './layer_density_checks.mjs'
 import { checkMagneticApplication } from './magnetic_application_checks.mjs'
 import { checkSpline } from './spline_checks.mjs'
@@ -12,7 +13,7 @@ import { checkOptimizer } from './optimizer_checks.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, calculateSplineProfile, generateGaussianSplineKnots, applyGaussianProfiles, applyMagneticProfiles, calculateLayerDensity } from '../wasm/parratt.mjs'
+import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, calculateSplineProfile, generateGaussianSplineKnots, applyGaussianProfiles, applyMagneticProfiles, calculateLayerDensity, calculateElementDensity } from '../wasm/parratt.mjs'
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
@@ -97,6 +98,7 @@ for (const change of [{ stacks: [] }, { stacks: new Array(3) }, { enabled: [1, 2
 assert.throws(() => calculateParrattEnergyScan(module, { ...scanPrepared, qz: [0, 0, 1e10] }), { status: 4 })
 function evaluateProfile(core, request) {
   if (request.kind === 'spline') return calculateSplineProfile(core, request)
+  if (request.kind === 'element-density') return calculateElementDensity(core, request)
   if (request.kind === 'density') return calculateLayerDensity(core, request)
   if (request.kind === 'mixed-application') return applyMagneticProfiles(core, request)
   if (request.kind === 'application') return applyGaussianProfiles(core, request)
@@ -117,8 +119,9 @@ for (const [caseIndex, request] of input.profiles.entries()) {
     profileCount++
   })
 }
-assert.equal(profileCount, 37393)
+assert.equal(profileCount, 43328)
 checkLayerDensity(module, calculateLayerDensity)
+checkElementDensity(module, calculateElementDensity)
 checkMagneticApplication(module, applyMagneticProfiles)
 checkSpline(module, calculateSplineProfile)
 const profileRequests = input.profiles.slice(2, 4)

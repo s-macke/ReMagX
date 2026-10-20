@@ -1,5 +1,6 @@
 import ctypes
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -127,4 +128,15 @@ for(int i=0;i<points;++i){double z;cin>>z;cout<<element.GetDensity(z)<<' ';}cout
 
 
 if __name__ == '__main__':
-    unittest.main()
+    if '--wasm-payload' in sys.argv:
+        # Synthetic samples for cross-runtime testing, not a production table.
+        samples = [math.erf(-5.0 + index * 10.0 / 999.0) for index in range(1001)]
+        payload = []
+        for slabs, positions in cases():
+            status, expected = evaluate(slabs, positions, samples)
+            assert status == 0
+            payload.append(dict(kind='element-density', slabs=slabs, positions=positions,
+                                errorSamples=samples, expected=expected))
+        print(json.dumps(payload))
+    else:
+        unittest.main()

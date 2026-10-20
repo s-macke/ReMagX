@@ -283,6 +283,8 @@ class NativeParrattTest(unittest.TestCase):
             library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout))
         profile_cases.extend(json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_layer_density.py')),
             library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout))
+        profile_cases.extend(json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_element_density.py')),
+            library._name, '--wasm-payload'], capture_output=True, text=True, check=True).stdout))
         optimizer_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('optimizer_reference.py')),
             library._name], capture_output=True, text=True, check=True).stdout)
         fit_error_cases = json.loads(subprocess.run([sys.executable, str(Path(__file__).with_name('test_fit_error.py')),

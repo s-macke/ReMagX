@@ -594,6 +594,26 @@ export function calculateLayerDensity(module, { boundaries, roughness, layerInde
   })
 }
 
+// Explicit-table element sampling; no production error-function policy is selected.
+export function calculateElementDensity(module, { slabs, positions, errorSamples }) {
+  if (!validRows(slabs, 3) || slabs.some(row => row[0] < 0 || row[1] < 0) ||
+      !validVector(positions) || !validVector(errorSamples, 1001)) {
+    throw new TypeError('Invalid element density input')
+  }
+  return withBuffers(module, allocate => {
+    const slabsPointer = allocate(slabs.length * 3)
+    const positionsPointer = allocate(positions.length)
+    const tablePointer = allocate(errorSamples.length)
+    const outputPointer = allocate(positions.length)
+    module.HEAPF64.set(slabs.flat(), slabsPointer / 8)
+    module.HEAPF64.set(positions, positionsPointer / 8)
+    module.HEAPF64.set(errorSamples, tablePointer / 8)
+    checkStatus(module._remagx_element_density(slabsPointer, slabs.length, positionsPointer,
+      positions.length, tablePointer, errorSamples.length, outputPointer), 'Element density')
+    return module.HEAPF64.slice(outputPointer / 8, outputPointer / 8 + positions.length)
+  })
+}
+
 export function calculateGaussLorentzianImag(module, parameters) {
   if (!validVector(parameters, 5)) throw new TypeError('Invalid Gauss-Lorentzian input')
   return withBuffers(module, allocate => {

@@ -11,6 +11,7 @@ const modulePath = resolve(process.argv[2])
 const input = JSON.parse(readFileSync(0, 'utf8'))
 const cases = [...input.angular, ...input.qz.map(prepared => ({ ...prepared, kind: 'qz' }))]
 const assets = new Map([
+  ['/element_density_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/element_density_checks.mjs'))]],
   ['/layer_density_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/layer_density_checks.mjs'))]],
   ['/magnetic_application_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/magnetic_application_checks.mjs'))]],
   ['/spline_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/spline_checks.mjs'))]],
@@ -151,7 +152,7 @@ try {
       profileCount++
     })
   })
-  assert.equal(profileCount, 37393)
+  assert.equal(profileCount, 43328)
   console.log(`Chromium Gaussian/spline profiles, application and density: ${profileCount} values matched native.`)
   let tensorCount = 0
   input.tensors.forEach((item, index) => {
