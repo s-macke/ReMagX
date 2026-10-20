@@ -1,0 +1,35 @@
+name: Optional container build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - docker/**
+      - .dockerignore
+      - .github/workflows/container.yml
+      - engine/emscripten.version
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and export with the pinned toolchain
+        run: docker buildx build --platform linux/amd64 --file docker/Dockerfile --output type=local,dest=build/container .
+      - name: Check exported artifacts
+        run: |
+          test -s build/container/site/index.html
+          test -s build/container/native/libremagx_core.so
+          test -s build/container/wasm/remagx-core.wasm
+          test -s build/container/wasm/remagx-core.mjs
+          test -s build/container/toolchain.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: container-build
+          path: build/container
+          if-no-files-found: error

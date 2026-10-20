@@ -1,0 +1,29 @@
+# Allow only public build inputs. In particular, never send old/, .git/, local
+# corpus folders, credentials or existing build products to a container builder.
+**
+!app/
+!app/**
+!engine/
+!engine/**
+!tools/
+!tools/inventory/
+!tools/inventory/**
+!tools/golden/
+!tools/golden/**
+!docs/
+!docs/**
+!docker/
+!docker/**
+!AGENTS.md
+!LICENSE
+!README.md
+**/node_modules
+**/dist
+**/build
+**/__pycache__
+**/*.pyc
+**/*.log
+**/.env
+**/.env.*
+**/test-results
+**/playwright-report

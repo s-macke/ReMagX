@@ -26,6 +26,9 @@ npm run build   # static site in app/dist
 Every push to `main` builds `app/` and publishes it to GitHub Pages
 (`.github/workflows/pages.yml`).
 
+An [optional Docker build](docker/README.md) pins the native/WASM toolchain and
+exports the static site plus engine artifacts. Local builds do not require Docker.
+
 ## Documentation
 
 - `AGENTS.md`: rules for contributors and agents, and the checklist of done and open work
