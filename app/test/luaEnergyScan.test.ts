@@ -54,6 +54,8 @@ it('initializes energy Lua once, refreshes before valid-point hooks and preserve
       ])
       expect(result.finalEnergy).toBe(670)
       expect(result.opticalState.layers[1].thickness).toBe(26)
+      expect(result.opticalState.layerDepths).toEqual([0, 20, 20])
+      expect(hook.mock.calls.map(call => call[1].layerDepths)).toEqual([[0, 20, 20], [0, 20, 20], [0, 20, 20]])
       expect(result.opticalState.cursors.get(tables[0])).toBe(6)
       expect(result.scriptedProject!.experiment.energyScan.qz).toBeCloseTo(source.experiment.energyScan.qz + .3, 14)
       expect(result.scriptedProject!.scripts.enabled).toBe(true)

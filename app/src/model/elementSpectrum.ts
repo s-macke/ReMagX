@@ -1,3 +1,4 @@
+import { copyLayerDepths } from './layerDepths'
 import { storedOpticalState } from './storedOpticalState'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
@@ -13,7 +14,7 @@ export function evaluateElementSpectrum(project: Project, tables: OpticalTable[]
   construct: ScatteringTensorCalculator, read: (current: Project, energy: number) => [number, number], beforeCalculation?: RealBeforeCalculation) {
   let current = project
   let state: SerialOpticalState = project.calculation.automaticOpticalConstants ? storedOpticalState(project)
-    : { layers: project.sample.layers, dielectricTensors: project.sample.layers.map(() => null), cursors: new Map() }
+    : { layers: project.sample.layers, layerDepths: copyLayerDepths(project), dielectricTensors: project.sample.layers.map(() => null), cursors: new Map() }
   const refresh = () => {
     const refreshed = refreshElementOptics(current, tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / current.experiment.energy),
       lookup, construct, state.cursors, state.scatteringTensors)

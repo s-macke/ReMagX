@@ -1,3 +1,4 @@
+import { copyLayerDepths } from './layerDepths'
 import { storedOpticalState } from './storedOpticalState'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
@@ -11,7 +12,7 @@ export function visitCompoundSpectrum(project: Project, tables: OpticalTable[], 
   lookup: RealTableLookup, visit: (current: Project, state: SerialOpticalState) => void, beforeCalculation?: RealBeforeCalculation) {
   let current = project
   let opticalState: SerialOpticalState = project.calculation.automaticOpticalConstants ? storedOpticalState(project)
-    : { layers: project.sample.layers, dielectricTensors: project.sample.layers.map(() => null), cursors: new Map() }
+    : { layers: project.sample.layers, layerDepths: copyLayerDepths(project), dielectricTensors: project.sample.layers.map(() => null), cursors: new Map() }
   const refresh = () => {
     const refreshed = refreshPartialCompoundOptics(current, tables,
       HC_EV_ANGSTROM / (HC_EV_ANGSTROM / current.experiment.energy), lookup, opticalState.cursors, opticalState.dielectricTensors)

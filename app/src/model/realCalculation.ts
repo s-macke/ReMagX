@@ -1,3 +1,4 @@
+import { copyLayerDepths } from './layerDepths'
 import { storedOpticalState } from './storedOpticalState'
 import type { ScatteringTensorCalculator } from './scatteringTensors'
 import { prepareZakQzRequest, calculateZakEnergyScan, type PreparedZakQzRequest, type ZakEnergyCalculator } from './zakRequest'
@@ -53,6 +54,7 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   // A fresh automatic qz request starts from stored film tensors. Serial
   // callers supply their newer calculation state, which takes precedence.
   previous ??= original.calculation.automaticOpticalConstants ? storedOpticalState(original) : undefined
+  const layerDepths = copyLayerDepths(original, previous?.layerDepths)
   let scriptedProject: Project | undefined
   let project = original
   let cursors = new Map(previous?.cursors)
@@ -73,7 +75,7 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     // original automatic-constants setting in their shared project state.
     const hookProject = { ...project, calculation: { ...project.calculation,
       automaticOpticalConstants: original.calculation.automaticOpticalConstants } }
-    const scripted = beforeCalculation(hookProject, { layers: project.sample.layers, dielectricTensors, dielectricState, scatteringTensors, cursors }, 0, scriptLifetime)
+    const scripted = beforeCalculation(hookProject, { layers: project.sample.layers, layerDepths: layerDepths.slice(), dielectricTensors, dielectricState, scatteringTensors, cursors }, 0, scriptLifetime)
     scriptedProject = { ...scripted.project, calculation: { ...scripted.project.calculation,
       automaticOpticalConstants: original.calculation.automaticOpticalConstants } }
     project = { ...scripted.project, scripts: { ...scripted.project.scripts, enabled: false },
@@ -103,6 +105,6 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
     values = engine.calculate(request)
   }
   const result = postprocessParrattResult(project, qz, values, mode, undefined, engine.fourier)
-  return { ...result, ...(transform ? { axis: 'depth' as const } : {}), opticalState: { layers: project.sample.layers, dielectricTensors, dielectricState, scatteringTensors, cursors },
+  return { ...result, ...(transform ? { axis: 'depth' as const } : {}), opticalState: { layers: project.sample.layers, layerDepths: layerDepths.slice(), dielectricTensors, dielectricState, scatteringTensors, cursors },
     finalEnergy: project.experiment.energy, ...(scriptedProject ? { scriptedProject } : {}) }
 }

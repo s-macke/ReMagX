@@ -1,3 +1,4 @@
+import { copyLayerDepths, rebuildLayerDepths } from './layerDepths'
 import type { FitProgress, FitResult, FitDatasetUpdate, FitDatasetPreview } from '../compute/ComputeService'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
@@ -57,12 +58,13 @@ export function runRealFit(project: Project, tables: OpticalTable[],
   if (!project.datasets.some(dataset => dataset.active)) throw new Error('Select at least one dataset for fitting.')
   const prepared = prepareRealFitSimplex(project.fit.parameters)
   let current = project
-  let opticalState: SerialOpticalState | undefined = initialOpticalState
+  let opticalState: SerialOpticalState = { ...(initialOpticalState ?? { layers: project.sample.layers,
+    dielectricTensors: project.sample.layers.map(() => null), cursors: new Map() }),
+    layerDepths: copyLayerDepths(project, initialOpticalState?.layerDepths) }
   const scripted = project.scripts.enabled && project.scripts.beforeCalculation.trim()
   const runHook = (renew: number, nestedSession: ScriptSessionLifetime = 'existing') => {
     if (!scripted || !beforeCalculation) return
-    const result = beforeCalculation(current, opticalState ?? { layers: current.sample.layers,
-      dielectricTensors: current.sample.layers.map(() => null), cursors: new Map() }, renew, nestedSession)
+    const result = beforeCalculation(current, opticalState, renew, nestedSession)
     current = result.project
     opticalState = result.opticalState
   }
@@ -82,13 +84,15 @@ export function runRealFit(project: Project, tables: OpticalTable[],
       })
     }
     current = candidate.project
+    // ImplementFitVariable calls dtoz before Filldb and every candidate hook.
+    opticalState = { ...opticalState, layerDepths: rebuildLayerDepths(current, opticalState.layerDepths?.[0]) }
     if (current.calculation.automaticOpticalConstants) {
       // CMultiFit refreshes once in the current context before the dataset loop.
       // Filldb's false range return is ignored here; partial updates survive.
       const cursors = new Map(opticalState?.cursors)
       const refreshed = refreshPartialCompoundOptics(current, tables,
         HC_EV_ANGSTROM / (HC_EV_ANGSTROM / current.experiment.energy), engine.lookup, cursors, opticalState?.dielectricTensors)
-      opticalState = { scatteringTensors: opticalState?.scatteringTensors, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
+      opticalState = { layerDepths: opticalState.layerDepths?.slice(), scatteringTensors: opticalState?.scatteringTensors, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
         dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState?.dielectricState?.[index] ?? null), cursors }
       current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
     }
@@ -101,7 +105,7 @@ export function runRealFit(project: Project, tables: OpticalTable[],
       }
     }, beforeCalculation)
     current = evaluated.project
-    opticalState = evaluated.opticalState
+    opticalState = evaluated.opticalState ?? opticalState
     const error = addFitRegularization(evaluated.error, project.fit.occamQ, regularizationReference, candidate.values)
     if (!best.result || error < best.result.chi2) {
       // Retain the actual evaluated state. Replaying values against a later state

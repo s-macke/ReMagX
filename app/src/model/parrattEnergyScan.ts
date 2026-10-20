@@ -1,3 +1,4 @@
+import { copyLayerDepths } from './layerDepths'
 import type { RealBeforeCalculation, ScriptSessionLifetime } from './realCalculation'
 import type { OpticalTable } from '../import/tables'
 import { prepareCompoundLayers, prepareCompoundLayerIndices, type PreparedCompoundLayer } from './compoundLayers'
@@ -31,7 +32,7 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
   const coordinates = prepareEnergyCoordinates(project, tables)
   const scripted = !!(beforeCalculation && project.scripts.enabled && project.scripts.beforeCalculation.trim())
   let current = project
-  let opticalState: SerialOpticalState = { layers: project.sample.layers,
+  let opticalState: SerialOpticalState = { layers: project.sample.layers, layerDepths: copyLayerDepths(project, previous?.layerDepths),
     dielectricTensors: previous?.dielectricTensors ?? project.sample.layers.map(() => null),
     scatteringTensors: previous?.scatteringTensors, dielectricState: previous?.dielectricState, cursors: new Map(previous?.cursors) }
   const runHook = (nestedSession: ScriptSessionLifetime = 'existing') => {
@@ -59,7 +60,7 @@ export function calculateCompoundEnergyScan(project: Project, tables: OpticalTab
     const cursors = opticalState.cursors
     const refreshed = refreshPartialCompoundOptics(current,
       tables, HC_EV_ANGSTROM / (HC_EV_ANGSTROM / energy), lookup, cursors, opticalState.dielectricTensors)
-    opticalState = { scatteringTensors: opticalState.scatteringTensors, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
+    opticalState = { layerDepths: opticalState.layerDepths?.slice(), scatteringTensors: opticalState.scatteringTensors, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
       dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState.dielectricState?.[index] ?? null), cursors }
     current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
     if (refreshed.rangeError) {

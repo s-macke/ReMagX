@@ -154,6 +154,24 @@ async function run() {
     }
     const preparedMagneticProfilesPassed = true
     const preparedSegmentationPassed = JSON.stringify(segmentationLayers) === segmentationBefore
+    const depthProject = createDefaultProject()
+    depthProject.sample.layers = [createLayer({ thickness: 999, delta: .01 }), createLayer({ thickness: 7 }), createLayer({ thickness: 999 })]
+    depthProject.calculation.automaticOpticalConstants = false
+    depthProject.experiment.qzScan.points = 2
+    depthProject.scripts.enabled = true
+    depthProject.scripts.beforeCalculation = 'thickness[1] = thickness[1] + 1'
+    const depthSession = await runtime.createSession()
+    try {
+      const hook = createBeforeCalculation(depthSession, numerical, [])
+      const first = calculateRealCurve(depthProject, [], numerical, 'qz', 'monochromatic', undefined, hook)
+      const second = calculateRealCurve(first.scriptedProject!, [], numerical, 'qz', 'monochromatic', first.opticalState, hook)
+      if (JSON.stringify(first.opticalState.layerDepths) !== '[0,7,1006]' ||
+          JSON.stringify(second.opticalState.layerDepths) !== '[0,7,1006]' || second.opticalState.layers[1].thickness !== 9 ||
+          first.opticalState.layerDepths === second.opticalState.layerDepths || depthProject.sample.layers[1].thickness !== 7) {
+        throw new Error('Stored depths changed across real WASM/Lua calculations')
+      }
+    } finally { depthSession.close() }
+    const storedDepthsPassed = true
     let preparedReflectionPassed = true
     for (const algorithm of ['parratt', 'zak', 'matrix'] as const) {
       const project = createDefaultProject()
@@ -335,7 +353,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed, preparedMagneticProfilesPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed, preparedMagneticProfilesPassed, storedDepthsPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }

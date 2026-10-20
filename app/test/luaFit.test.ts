@@ -31,7 +31,8 @@ it('runs persistent Lua initialization, objective renewal and serial dataset hoo
   project.scripts.beforeCalculation = `calls = (calls or 0) + 1
     print(calls, ":", renewocs)
     epsilon = epsilon + 0.001
-    delta[0] = delta[0] + 0.001`
+    delta[0] = delta[0] + 0.001; thickness[1] = thickness[1] + 2`
+  project.sample.layers[1].thickness = 7
   const initialEpsilon = project.calculation.epsilon
   project.sample.elementProfiles = [{ element: 'Fe', f1: 1, f2: 2, f1Mag: 3, f2Mag: 4, slabs: [] }]
   const before = structuredClone(project)
@@ -43,6 +44,7 @@ it('runs persistent Lua initialization, objective renewal and serial dataset hoo
     const retained = [new Float64Array(18).fill(3)]
     const innerHook = createBeforeCalculation(session, engine, [], text => messages.push(text))
     const hook = vi.fn<typeof innerHook>((current, opticalState, renew, lifetime) => {
+      expect(opticalState.layerDepths).toEqual([0, [7, 9, 9, 9, 15, 15, 15][hook.mock.calls.length - 1]])
       if (hook.mock.calls.length > 1) expect(opticalState.scatteringTensors).toEqual(retained)
       return innerHook(current, { ...opticalState, scatteringTensors: retained }, renew, lifetime)
     })
@@ -58,6 +60,7 @@ it('runs persistent Lua initialization, objective renewal and serial dataset hoo
     expect(result.project.calculation.epsilon).toBeCloseTo(initialEpsilon + .004, 14)
     expect(result.project.sample.layers[0].delta).toBeCloseTo(.014, 14)
     expect(result.project.scripts.enabled).toBe(true)
+    expect(result.project.sample.layers[1].thickness).toBe(15)
     expect(engine.calculate).toHaveBeenCalledTimes(4)
     expect(project).toEqual(before)
   } finally { session.close() }

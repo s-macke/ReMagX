@@ -1,3 +1,4 @@
+import { copyLayerDepths } from './layerDepths'
 import type { Project } from './project'
 import type { SerialOpticalState } from './refreshOpticalConstants'
 import { copyScriptTensors } from './scriptTensors'
@@ -11,7 +12,7 @@ export function storedOpticalState(project: Project): SerialOpticalState {
     ? { values: new Float64Array(layer.dielectricTensor.values), anisotropic: layer.dielectricTensor.anisotropic }
     : { values: new Float64Array(18), anisotropic: false }))
   return {
-    layers: project.sample.layers, cursors: new Map(), dielectricState,
+    layers: project.sample.layers, layerDepths: copyLayerDepths(project), cursors: new Map(), dielectricState,
     dielectricTensors: dielectricState.map(tensor => tensor.anisotropic ? tensor.values.slice() : null),
     scatteringTensors: copyScatteringTensors(project.sample.elementProfiles.map(element =>
       element.scatteringTensor ? new Float64Array(element.scatteringTensor) : new Float64Array(18))),

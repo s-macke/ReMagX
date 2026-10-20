@@ -39,13 +39,18 @@ it('packs retained matrix overrides, replaces them on refresh and rebuilds manua
 it.each(['parratt', 'zak', 'matrix'] as const)('keeps serial Lua state ahead of the saved JSON snapshot in %s qz requests', async algorithm => {
   const { project, engine, tables } = fixture()
   project.calculation.algorithm = algorithm; project.scripts.enabled = true
-  project.scripts.beforeCalculation = 'exx_r[0] = exx_r[0] + 1; print(exx_r[0])'
+  project.sample.layers[1].thickness = 7
+  project.scripts.beforeCalculation = 'exx_r[0] = exx_r[0] + 1; thickness[1] = thickness[1] + 3; print(exx_r[0])'
   const before = JSON.stringify(project), session = await runtime.createSession(), messages: string[] = []
   try {
     const hook = createBeforeCalculation(session, engine, tables, text => messages.push(text))
     const first = calculateRealCurve(project, tables, engine, 'qz', 'dichroic', undefined, hook)
     const second = calculateRealCurve(first.scriptedProject!, tables, engine, 'qz', 'dichroic', first.opticalState, hook)
     expect(messages).toEqual(['10', '11'])
+    expect(first.opticalState.layerDepths).toEqual([0, 7])
+    expect(second.opticalState.layerDepths).toEqual([0, 7])
+    expect(second.opticalState.layerDepths).not.toBe(first.opticalState.layerDepths)
+    expect(second.opticalState.layers[1].thickness).toBe(13)
     expect(first.opticalState.dielectricState![0]!.values[0]).toBe(10)
     expect(second.opticalState.dielectricState![0]!.values[0]).toBe(11)
     expect(second.opticalState.scatteringTensors![0][0]).toBe(8)

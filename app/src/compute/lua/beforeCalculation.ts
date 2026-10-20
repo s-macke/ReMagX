@@ -1,3 +1,4 @@
+import { copyLayerDepths } from '../../model/layerDepths'
 import { createScatteringTensorWorkspace } from '../../model/scatteringTensors'
 import { createScriptArrayWorkspace } from '../../model/scriptArrays'
 import { createScriptTensorWorkspace } from '../../model/scriptTensors'
@@ -28,6 +29,7 @@ export function createProjectScript(name: 'Default' | 'BeforeCalculation', sessi
   const cursors = new Map<OpticalTable, number>()
   return (project, opticalState, renewOpticalConstants = 0) => {
     try {
+      const layerDepths = copyLayerDepths(project, opticalState.layerDepths)
       if (opticalState.cursors !== cursors) {
         cursors.clear()
         for (const [table, cursor] of opticalState.cursors) cursors.set(table, cursor)
@@ -84,7 +86,7 @@ export function createProjectScript(name: 'Default' | 'BeforeCalculation', sessi
       const { workspace, tensors } = context
       workspace.replace(project, renewOpticalConstants)
       const result = runProjectHook(session, workspace)
-      return { project: result, opticalState: { layers: result.sample.layers, dielectricTensors: tensors.overrides(), dielectricState: tensors.snapshot(), scatteringTensors: context.scattering.snapshot(), cursors: new Map(cursors) } }
+      return { project: result, opticalState: { layers: result.sample.layers, layerDepths, dielectricTensors: tensors.overrides(), dielectricState: tensors.snapshot(), scatteringTensors: context.scattering.snapshot(), cursors: new Map(cursors) } }
     } catch (error) {
       session.close()
       throw error

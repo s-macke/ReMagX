@@ -10,6 +10,8 @@ export type RealTableLookup = (table: OpticalTable, queries: number[], cursor: n
 export class OpticalTableRangeError extends Error {}
 
 export interface SerialOpticalState extends CompoundOpticalState {
+  // Stored pre-script geometry; fit candidates rebuild it before their hooks.
+  layerDepths?: number[]
   cursors: Map<OpticalTable, number>
 }
 
