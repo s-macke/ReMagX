@@ -44,7 +44,7 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
   const results = await page.evaluate(async () => {
-    const { mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
+    const { applyDatabaseValues, projectSchema, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve
     const workerRequests = []
     const NativeWorker = window.Worker
@@ -811,18 +811,21 @@ try {
           selection: merged.activeDatasetIndex, unchanged: before === JSON.stringify(current) })
       }
       output.databaseUpdates = []
-      for (const mode of ['compound', 'element']) {
+      for (const mode of ['compound', 'element']) for (const automatic of [false, true]) for (const tensorTable of (mode === 'compound' ? ['none', 'inside', 'outside'] : ['none'])) {
         const databaseProject = createDefaultProject()
         databaseProject.experiment.energy = 150; databaseProject.sample.mode = mode
-        databaseProject.sample.layers = [createLayer({ opticalTable: 'sample' }), createLayer({ opticalTable: 'missing' })]
-        databaseProject.sample.elementProfiles = ['sample', 'missing'].map(element => ({ element, f1: 7, f2: 8, f1Mag: 9, f2Mag: 10, slabs: [] }))
+        databaseProject.calculation.automaticOpticalConstants = automatic
+        databaseProject.sample.layers = [createLayer({ opticalTable: 'sample', dielectricTensor: { values: Array(18).fill(9), anisotropic: true } }), createLayer({ opticalTable: 'missing', dielectricTensor: { values: Array(18).fill(9), anisotropic: true } })]
+        databaseProject.sample.elementProfiles = ['sample', 'missing'].map(element => ({ element, f1: 7, f2: 8, f1Mag: 9, f2Mag: 10, scatteringTensor: Array(18).fill(9), slabs: [] }))
         const databaseTables = [
           { name: 'sample', kind: mode === 'compound' ? 'db' : 'ff', energy: [100, 200], columns: [[1, 1], [2, 2]], warnings: [] },
           { name: 'sample', kind: mode === 'compound' ? 'm' : 'ffm', energy: [300, 400], columns: [[3, 3], [4, 4]], warnings: [] },
         ]
+        if (tensorTable !== 'none') databaseTables.push({ name: 'sample', kind: 'e', energy: tensorTable === 'inside' ? [100, 200] : [300, 400], columns: Array.from({ length: 18 }, (_, index) => [index + 1, index + 1]), warnings: [] })
         const before = JSON.stringify(databaseProject)
         const result = await service.databaseValues(databaseProject, databaseTables)
-        output.databaseUpdates.push({ mode, result, unchanged: before === JSON.stringify(databaseProject) })
+        const applied = projectSchema.parse(JSON.parse(JSON.stringify(applyDatabaseValues(databaseProject, result))))
+        output.databaseUpdates.push({ mode, automatic, tensorTable, result, applied, unchanged: before === JSON.stringify(databaseProject) })
       }
       const spectrumProject = createDefaultProject()
       spectrumProject.sample.layers = [createLayer({ opticalTable: 'sample', deltaMag: 9, betaMag: 8 })]
@@ -1150,10 +1153,25 @@ try {
       assert.ok(Math.abs(results.realElementSpectrum[field][index] - expected) <= 1e-15 + 1e-10 * Math.abs(expected))
     }
   }
-  for (const { mode, result, unchanged } of results.databaseUpdates) {
+  assert.equal(results.databaseUpdates.length, 8)
+  const diagonal = (real, imaginary) => Array.from({ length: 18 }, (_, index) => [0, 8, 16].includes(index) ? real : [1, 9, 17].includes(index) ? imaginary : 0)
+  for (const { mode, automatic, tensorTable, result, applied, unchanged } of results.databaseUpdates) {
     assert.ok(unchanged)
+    assert.equal(result.engine, 'real')
     assert.equal(result.mode, mode)
-    assert.deepEqual(result.updates, [{ index: 0, first: 1, second: 2, firstMag: 0, secondMag: 0 }])
+    assert.equal(result.updates.length, automatic ? 1 : 2)
+    assert.deepEqual(Object.fromEntries(['index', 'first', 'second', 'firstMag', 'secondMag'].map(key => [key, result.updates[0][key]])),
+      { index: 0, first: 1, second: 2, firstMag: 0, secondMag: 0 })
+    const compound = mode === 'compound'
+    const active = compound ? applied.sample.layers.map(row => row.dielectricTensor.values) : applied.sample.elementProfiles.map(row => row.scatteringTensor)
+    const expected = compound ? (tensorTable === 'inside' ? Array.from({ length: 18 }, (_, index) => index + 1)
+      : tensorTable === 'outside' ? Array(18).fill(0) : diagonal(-4, 0)) : diagonal(1, 2)
+    active[0].forEach((value, index) => assert.ok(Math.abs(value - expected[index]) <= 1e-15 + 1e-10 * Math.abs(expected[index])))
+    assert.deepEqual(active[1], automatic ? Array(18).fill(9) : compound ? diagonal(1, 0) : diagonal(7, 8))
+    if (compound) assert.equal(applied.sample.layers[0].dielectricTensor.anisotropic, tensorTable !== 'none')
+    const inactive = compound ? applied.sample.elementProfiles.map(row => row.scatteringTensor) : applied.sample.layers.map(row => row.dielectricTensor.values)
+    assert.deepEqual(inactive, Array.from({ length: 2 }, () => automatic ? Array(18).fill(9) : compound ? diagonal(7, 8) : diagonal(1, 0)))
+    assert.equal(result.inactiveTensorUpdates?.length ?? 0, automatic ? 0 : 2)
     assert.ok(result.warnings.some(warning => warning.includes('values kept')))
     assert.ok(result.warnings.some(warning => warning.includes('magnetic values set to zero')))
   }

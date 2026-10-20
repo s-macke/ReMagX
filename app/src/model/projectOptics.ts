@@ -11,7 +11,7 @@ import { HC_EV_ANGSTROM } from './units'
 // GUI GetState: Filldb in the active mode when automatic,
 // otherwise FillTensors for BOTH stored films. No generated element stack here.
 // GetState ignores Filldb's false return and retains each skipped entry.
-export function prepareProjectOptics(original: Project, tables: OpticalTable[], engine: RealCalculationEngine) {
+export function prepareProjectOptics(original: Project, tables: OpticalTable[], engine: Pick<RealCalculationEngine, 'lookup' | 'dielectricTensor' | 'scatteringTensor'>) {
   let project = structuredClone(original)
   const opticalState = storedOpticalState(project)
   const constructScattering = (request: Parameters<NonNullable<RealCalculationEngine['scatteringTensor']>>[0]) => {

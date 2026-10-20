@@ -33,3 +33,28 @@ it('discards stale project, table-library and undo/load results without changing
   expect(reducer(newer, { type: 'failDatabaseUpdate', id: 1, error: 'old' })).toBe(newer)
   expect(reducer(newer, { type: 'completeDatabaseUpdate', id: 1, source: source.project, tables: source.opticalTables, epoch: 0, result })).toBe(newer)
 })
+
+it('applies active and inactive stored tensors in one undo step and keeps response buffers isolated', () => {
+  const source = initialState()
+  source.project = { ...source.project, sample: { ...source.project.sample,
+    elementProfiles: [{ element: 'Fe', f1: 1, f2: 2, f1Mag: 0, f2Mag: 0, slabs: [] }] } }
+  const tensorResult: DatabaseValues = { mode: 'compound', engine: 'real', warnings: [],
+    updates: [{ ...result.updates[0], dielectricTensor: { values: Array(18).fill(3), anisotropic: true } }],
+    inactiveTensorUpdates: [{ index: 0, scatteringTensor: Array(18).fill(4) }] }
+  const started = reducer(source, { type: 'beginDatabaseUpdate', id: 7 })
+  const state = reducer(started, { type: 'completeDatabaseUpdate', id: 7, source: source.project,
+    tables: source.opticalTables, epoch: source.fitEpoch, result: tensorResult })
+  expect(state.history.past).toHaveLength(1)
+  expect(state.project.sample.layers[1].dielectricTensor).toEqual({ values: Array(18).fill(3), anisotropic: true })
+  expect(state.project.sample.elementProfiles[0].scatteringTensor).toEqual(Array(18).fill(4))
+  tensorResult.updates[0].dielectricTensor!.values[0] = 99
+  tensorResult.inactiveTensorUpdates![0].scatteringTensor![0] = 99
+  expect(state.project.sample.layers[1].dielectricTensor!.values[0]).toBe(3)
+  expect(state.project.sample.elementProfiles[0].scatteringTensor![0]).toBe(4)
+  expect(reducer(state, { type: 'undo' }).project).toBe(source.project)
+  const onlyInactive = reducer(started, { type: 'completeDatabaseUpdate', id: 7, source: source.project,
+    tables: source.opticalTables, epoch: source.fitEpoch, result: { ...tensorResult, updates: [] } })
+  expect(onlyInactive.project.sample.layers).toEqual(source.project.sample.layers)
+  expect(onlyInactive.project.sample.elementProfiles[0].scatteringTensor![0]).toBe(99)
+  expect(onlyInactive.history.past).toHaveLength(1)
+})

@@ -44,7 +44,7 @@ export const storedDielectricTensorSchema = z.object({
 })
 
 export const layerSchema = z.object({
-  // Stored state from explicit script execution, separate from scalar constants.
+  // Stored state from explicit script/database actions, separate from scalar constants.
   dielectricTensor: storedDielectricTensorSchema.optional(),
   material: z.string(),
   opticalTable: z.string(), // name of the optical-constant table (legacy ".db" file), may be empty

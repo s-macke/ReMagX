@@ -74,7 +74,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         return
       }
       if (message.kind === 'databaseValues') {
-        send({ id: message.id, type: 'result', result: realDatabaseValues(message.project, message.spectrum.tables, engine.lookup) })
+        send({ id: message.id, type: 'result', result: realDatabaseValues(message.project, message.spectrum.tables, engine) })
         return
       }
       if (message.kind === 'fit') {
