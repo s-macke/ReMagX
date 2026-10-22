@@ -3,28 +3,11 @@ import type { OpticalTable } from '../import/tables'
 import type { PreparedCompoundLayer } from './compoundLayers'
 import type { Project } from './project'
 import type { RealBeforeCalculation, RealCalculationEngine } from './realCalculation'
-import { prepareRealSegmentedStack } from './segmentedCompoundStack'
-import { prepareSampledElementLayers } from './sampledElementLayers'
-import { prepareStandaloneQz } from './standaloneQz'
+import { prepareRealLayerList } from './realLayerList'
 
-// Unit1.cpp ShowProfileButtonClick / magnetic-profile handler: GetState,
-// SetOCStrict, temporary BeforeCalculation, then force slicing for FillLayers.
 export function realDepthProfile(original: Project, tables: OpticalTable[], engine: RealCalculationEngine,
   hook?: RealBeforeCalculation): DepthProfile {
-  let { project, opticalState } = prepareStandaloneQz(original, tables, engine)
-  if (project.scripts.enabled && project.scripts.beforeCalculation.trim()) {
-    if (!hook) throw new Error('Depth profiles require BeforeCalculation execution.')
-    const result = hook(project, opticalState, 0, 'temporary')
-    project = result.project; opticalState = result.opticalState
-  }
-  project = { ...project, calculation: { ...project.calculation, roughnessModel: 'segmentation' } }
-  if (project.sample.mode === 'element') {
-    if (!engine.elementPreparation) throw new Error('Element profiles require an explicit error-function lookup and numerical engine.')
-    const stack = prepareSampledElementLayers(project, engine.elementPreparation.errorSamples,
-      engine.elementPreparation, opticalState.scatteringTensors)
-    return depthProfileFromLayers(stack.layers, stack.positions)
-  }
-  const stack = prepareRealSegmentedStack(project, opticalState, engine)!
+  const stack = prepareRealLayerList(original, tables, engine, hook)
   return depthProfileFromLayers(stack.layers, stack.positions)
 }
 
