@@ -561,7 +561,8 @@ it('returns a bounded mock layer conversion without modifying source data', asyn
   const service = new WorkerComputeService(inProcessWorker)
   const project = createDefaultProject()
   const before = structuredClone(project)
-  const layers = await service.segmentLayers(project)
+  const { layers, engine } = await service.segmentLayers(project)
+  expect(engine).toBe('mock')
   expect(layers.length).toBeGreaterThan(project.sample.layers.length)
   expect(layers.length).toBeLessThan(1000)
   expect(layers.every(layer => layer.roughness === 0 && layer.opticalTable === 'unknown')).toBe(true)
@@ -612,7 +613,7 @@ it('uses the current UI table snapshot for manual execution instead of the facto
   service.stop(); await rejected; service.dispose()
 })
 
-it.each(['densityProfiles', 'depthProfile', 'calcReflectivity', 'calcAsymmetry'] as const)('supplies tables to manual %s scripts', async method => {
+it.each(['segmentLayers', 'densityProfiles', 'depthProfile', 'calcReflectivity', 'calcAsymmetry'] as const)('supplies tables to manual %s scripts', async method => {
   const worker = controlledWorker()
   const tables = [{ name: 'A', kind: 'db' as const, energy: [100, 200], columns: [[.01, .02], [0, 0]], warnings: [] }]
   const service = new WorkerComputeService(() => worker, () => tables), project = createDefaultProject()
@@ -625,7 +626,7 @@ it.each(['densityProfiles', 'depthProfile', 'calcReflectivity', 'calcAsymmetry']
 })
 
 
-it.each(['densityProfiles', 'depthProfile', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcChi2', 'startFit'] as const)('uses explicit library replacements and clears for %s', async method => {
+it.each(['segmentLayers', 'densityProfiles', 'depthProfile', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcChi2', 'startFit'] as const)('uses explicit library replacements and clears for %s', async method => {
   const worker = controlledWorker(), service = new WorkerComputeService(() => worker, () => { throw new Error('stale factory tables') })
   const project = createDefaultProject()
   for (const tables of [

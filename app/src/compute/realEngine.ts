@@ -1,3 +1,4 @@
+import { realLayerList } from '../model/realLayerList'
 import { realDensityProfiles } from '../model/realDensityProfiles'
 import { realDepthProfile } from '../model/realDepthProfile'
 import { assertRealAlgorithm } from '../model/realAlgorithm'
@@ -29,7 +30,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     let lookupSession: ReturnType<NonNullable<RealEngine['createLookupSession']>> | undefined
     try {
-      if (message.kind !== 'densityProfiles' && message.kind !== 'depthProfile' && message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
+      if (message.kind !== 'segmentLayers' && message.kind !== 'densityProfiles' && message.kind !== 'depthProfile' && message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }
       if (message.kind === 'reflectivity' || message.kind === 'asymmetry' ||
@@ -41,7 +42,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       const loaded = await calculator
       lookupSession = loaded.createLookupSession?.()
       const engine = lookupSession ? { ...loaded, lookup: lookupSession.lookup } : loaded
-      if (message.kind === 'depthProfile' || message.kind === 'densityProfiles') {
+      if (message.kind === 'segmentLayers' || message.kind === 'depthProfile' || message.kind === 'densityProfiles') {
         const scripted = message.project.scripts.enabled && message.project.scripts.beforeCalculation.trim()
         const session = scripted && createLuaSession ? await createLuaSession() : undefined
         const scriptMessages: string[] = []
@@ -49,7 +50,9 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
           const hook = session ? createBeforeCalculation(session, engine, message.tables ?? [], text => {
             scriptMessages.push(text); send({ id: message.id, type: 'scriptMessages', lines: [text] })
           }) : undefined
-          const result = (message.kind === 'depthProfile' ? realDepthProfile : realDensityProfiles)(message.project, message.tables ?? [], engine, hook)
+          const result = message.kind === 'segmentLayers'
+            ? { layers: realLayerList(message.project, message.tables ?? [], engine, hook), engine: 'real' as const }
+            : (message.kind === 'depthProfile' ? realDepthProfile : realDensityProfiles)(message.project, message.tables ?? [], engine, hook)
           send({ id: message.id, type: 'result', result: { ...result, ...(session ? { scriptMessages } : {}) } })
         } finally { session?.close() }
         return

@@ -9,6 +9,8 @@ import type { DatabaseValues } from '../model/databaseValues'
 import type { TensorPreview } from '../model/tensorView'
 import type { Layer, Project } from '../model/project'
 
+export interface LayerConversionResult { layers: Layer[]; engine: 'real' | 'mock'; scriptMessages?: string[] }
+
 export interface TensorQuery { layerIndex: number; tables: OpticalTable[]; spectrum: boolean }
 export interface ElementSpectrumQuery { elementIndex: number; tables: OpticalTable[] }
 export interface LayerSpectrumQuery { elementIndex?: number; layerIndex: number; magnetic: boolean; tables: OpticalTable[] }
@@ -118,7 +120,7 @@ export interface ComputeService {
   calcEnergyAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<EnergyAsymmetryCurve>
   calcAsymmetry(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<AsymmetryCurve>
   materialToElements(project: Project): Promise<ElementConversion>
-  segmentLayers(project: Project): Promise<Layer[]>
+  segmentLayers(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<LayerConversionResult>
   depthProfile(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<DepthProfile>
   // Dataset-error statistic. The real engine sums all fit-enabled datasets, as the legacy χ² action does.
   calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<number>

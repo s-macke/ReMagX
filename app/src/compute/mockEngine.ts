@@ -100,7 +100,7 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
           result = convertMaterialElements(project)
           break
         case 'segmentLayers':
-          result = mockLayerConversion(project)
+          result = { layers: mockLayerConversion(project), engine: 'mock' as const }
           break
         case 'depthProfile':
           result = depthProfile(project)

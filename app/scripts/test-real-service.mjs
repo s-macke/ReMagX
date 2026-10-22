@@ -141,12 +141,27 @@ try {
       if (JSON.stringify(profileProject) !== profileBefore) throw new Error('Profile changed project')
       const automatic = await service.depthProfile({ ...profileProject, calculation: { ...profileProject.calculation, automaticOpticalConstants: true } })
       if (automatic.delta.every(value => value === .002)) throw new Error('Profile ignored current tables')
+      const conversionMessages = []
+      const conversion = await service.segmentLayers(scriptedProfile, lines => conversionMessages.push(...lines), [])
+      if (conversion.engine !== 'real' || conversion.layers.length !== changedProfile.z.length + 1 ||
+          !conversion.scriptMessages?.some(line => line.includes('profile')) ||
+          !conversionMessages.some(line => line.includes('profile'))) throw new Error('Missing real conversion metadata')
+      same(conversion.layers.map(layer => layer.delta), conversion.layers.map(() => .002))
+      same(conversion.layers.map(layer => layer.beta), conversion.layers.map(() => .0001))
+      same(conversion.layers.slice(1, -1).map(layer => layer.thickness), changedProfile.segments.map(segment => segment.end - segment.start))
+      if (conversion.layers.some(layer => layer.opticalTable !== 'unknown' || layer.material !== '' || layer.density !== 0 ||
+          layer.roughness !== 0 || layer.electronEscapeDepth !== 0)) throw new Error('Incorrect generated layer defaults')
+      const convertedAutomatic = await service.segmentLayers({ ...profileProject, calculation: { ...profileProject.calculation, automaticOpticalConstants: true } })
+      if (convertedAutomatic.layers.every(layer => layer.delta === .002)) throw new Error('Conversion ignored current tables')
+      let conversionGuard = false
+      try { await unconfigured.segmentLayers(profileProject) } catch (error) { conversionGuard = /explicit error-function lookup/.test(error.message) }
+      if (!conversionGuard || JSON.stringify(profileProject) !== profileBefore) throw new Error('Conversion guard/input isolation failed')
       const busy = structuredClone(project)
       busy.calculation.segmentation.minThickness = 1e-6; busy.calculation.segmentation.maxThickness = 1e-6
       busy.fit.algorithm = 'simplex'; busy.fit.occamQ = 0
       busy.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null, value: 7, step: 0, lowerBound: 1, upperBound: 10 }]
       const cancellations = []
-      for (const method of ['calcReflectivity', 'calcEnergyScan', 'depthProfile', 'calcChi2', 'startFit']) {
+      for (const method of ['calcReflectivity', 'calcEnergyScan', 'depthProfile', 'segmentLayers', 'calcChi2', 'startFit']) {
         let timeout
         const entered = new Promise((resolve, reject) => {
           enteredResolve = resolve; timeout = setTimeout(() => reject(new Error('Segmented native core did not start')), 10000)
@@ -164,7 +179,7 @@ try {
   })
   assert.equal(segmentedResults.comparisons, 12)
   assert.ok(segmentedResults.cancellations.every(result => result.stopped === 'ComputeCancelled' && result.milliseconds < 1000), JSON.stringify(segmentedResults.cancellations))
-  console.log('Segmented ComputeService: 12 energy/per-point comparisons, explicit lookup guard, binding errors and five native Stop/recovery paths and real depth profiles passed.')
+  console.log('Segmented ComputeService: 12 energy/per-point comparisons, explicit lookup guard, binding errors and six native Stop/recovery paths, real depth profiles and layer conversion passed.')
   const elementComparisons = await page.evaluate(async () => {
     const { createReferenceComputeService, createRealComputeService, createDefaultProject } = window.realServiceHarness
     const NativeWorker = window.Worker
@@ -234,6 +249,12 @@ try {
       same(profile.beta, profile.z.map(() => 0))
       if (profile.engine !== 'real' || !profile.z.length || JSON.stringify(profileProject) !== beforeProfile ||
           !profile.scriptMessages?.some(line => line.includes('element-profile'))) throw new Error('Element depth-profile preparation failed')
+      const converted = await service.segmentLayers(profileProject, undefined, [])
+      if (converted.engine !== 'real' || converted.layers.length !== 1 ||
+          !converted.scriptMessages?.some(line => line.includes('element-profile'))) throw new Error('Element conversion lost compressed row or script output')
+      same(converted.layers.map(layer => layer.delta), [1 - Math.sqrt(1 - 2 * .1 * 2 * factor)])
+      same(converted.layers.map(layer => layer.thickness), [0])
+      if (JSON.stringify(profileProject) !== beforeProfile) throw new Error('Element conversion changed input')
       const densityProject = structuredClone(profileProject)
       densityProject.calculation.automaticOpticalConstants = true
       densityProject.scripts.beforeCalculation = 'Fe:setthickness(1, 10); for i=0,2 do Fe:setdensity(i, Fe:getf1()/1000) end; print("density-view")'

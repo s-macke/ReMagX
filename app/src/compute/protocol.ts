@@ -5,13 +5,13 @@ import type { ElementConversion } from '../model/materialElements'
 import type { OpticalTable } from '../import/tables'
 import type { DatabaseValues } from '../model/databaseValues'
 import type { TensorPreview } from '../model/tensorView'
-import type { Layer, Project } from '../model/project'
-import type { TensorQuery, AsymmetryCurve, EnergyAsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
+import type { Project } from '../model/project'
+import type { LayerConversionResult, TensorQuery, AsymmetryCurve, EnergyAsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
   executeScript: ScriptExecutionResult
   materialToElements: ElementConversion
-  segmentLayers: Layer[]
+  segmentLayers: LayerConversionResult
   dielectricTensor: TensorPreview
   databaseValues: DatabaseValues
   densityProfiles: DensityProfiles

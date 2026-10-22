@@ -199,7 +199,7 @@ test('To layer list stops a blocked conversion within 1 s without changing the s
   const elapsed = await timedClick(page, dialog.getByRole('button', { name: 'Stop calculation', exact: true }), 'dialog [role="alert"]')
   expect(elapsed).toBeLessThan(1000)
   await expect(dialog.getByRole('alert')).toContainText('Stopped.')
-  await expect(dialog.getByRole('button', { name: 'Apply mock layers', exact: true })).toBeDisabled()
+  await expect(dialog.getByRole('button', { name: 'Apply layers', exact: true })).toBeDisabled()
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'thickness of layer 1', exact: true })).toHaveValue('46')
   const results = await page.evaluate(() => { window.blockedKind = undefined; return window.results })

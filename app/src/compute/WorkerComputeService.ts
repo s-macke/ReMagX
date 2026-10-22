@@ -5,7 +5,7 @@ import type { ElementConversion } from '../model/materialElements'
 import type { OpticalTable } from '../import/tables'
 import type { DatabaseValues } from '../model/databaseValues'
 import type { TensorPreview } from '../model/tensorView'
-import type { Layer, Project } from '../model/project'
+import type { Project } from '../model/project'
 import {
   ComputeError,
   ComputeCancelled,
@@ -18,6 +18,7 @@ import {
   type EnergyAsymmetryCurve,
   type FitProgress,
   type FitResult,
+  type LayerConversionResult,
   type LayerSpectrum,
   type LayerSpectrumQuery,
   type ElementSpectrumQuery,
@@ -124,8 +125,8 @@ export class WorkerComputeService implements ComputeService {
     return this.request('materialToElements', project)
   }
 
-  segmentLayers(project: Project): Promise<Layer[]> {
-    return this.request('segmentLayers', project)
+  segmentLayers(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<LayerConversionResult> {
+    return this.request('segmentLayers', project, undefined, undefined, onScriptMessages, tables)
   }
 
   depthProfile(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<DepthProfile> {
@@ -207,7 +208,7 @@ export class WorkerComputeService implements ComputeService {
       this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress, onScriptMessages })
       try {
         this.worker ??= this.connect()
-        const tables = (kind === 'densityProfiles' || kind === 'depthProfile' || kind === 'fit' || kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || kind === 'reflectivity' || kind === 'asymmetry') ? explicitTables ?? this.getTables?.() : undefined
+        const tables = (kind === 'segmentLayers' || kind === 'densityProfiles' || kind === 'depthProfile' || kind === 'fit' || kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || kind === 'reflectivity' || kind === 'asymmetry') ? explicitTables ?? this.getTables?.() : undefined
         this.worker.postMessage({ id, kind, project, ...(tables ? { tables } : {}), ...(spectrum ? { spectrum } : {}) } as WorkerRequest)
       } catch (error) {
         this.failWorker(`Could not start the computation: ${String(error)}`)
