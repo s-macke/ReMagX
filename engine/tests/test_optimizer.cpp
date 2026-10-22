@@ -348,8 +348,75 @@ void annealing() {
         untouched.termination == REMAGX_FIT_STOPPED && best == std::vector<double>({123, 456}),
         "annealing Stop before initialization changed parameters");
 }
+struct ReferenceEvent { int phase; size_t iterations, evaluations; std::vector<double> parameters; };
+struct ReferenceHarness : Harness {
+    std::vector<ReferenceEvent> events;
+    int fail_phase = -1;
+    bool cancel_on_selection = false;
+};
+int reference_event(const double* parameters, size_t count, int phase,
+                    size_t iterations, size_t evaluations, void* context) {
+    auto& harness = *static_cast<ReferenceHarness*>(static_cast<Harness*>(context));
+    require(evaluations == harness.visited.size(), "reference evaluation count");
+    require(harness.progress_values.size() == iterations + (phase == REMAGX_REFERENCE_SELECTED ? 1 : 0),
+        "reference/progress order");
+    harness.events.push_back({phase, iterations, evaluations, {parameters, parameters + count}});
+    if (harness.cancel_on_selection && phase == REMAGX_REFERENCE_SELECTED) harness.stop_after = evaluations;
+    return phase == harness.fail_phase ? 1 : 0;
+}
+void reference_lifecycle() {
+    const double initial[] = {0, 1};
+    const auto quadratic = [](const std::vector<double>& point) { return (point[0] - 4) * (point[0] - 4); };
+    auto options = defaults(); options.max_iterations = 2;
+    ReferenceHarness observed; observed.function = quadratic;
+    double best = 123; RemagxFitSummary summary{};
+    const auto invoke = [&](ReferenceHarness& harness, RemagxSimplexReference callback) {
+        return remagx_nelder_mead_with_reference(initial, 1, &options, objective, stop, progress,
+            callback, static_cast<Harness*>(&harness), &best, &summary);
+    };
+    require(invoke(observed, reference_event) == REMAGX_SUCCESS, "reference search failed");
+    require(observed.events.size() == 4 && summary.iterations == 2, "reference event count");
+    require(observed.events[0].parameters[0] == 1 && observed.events[1].parameters[0] == 1 &&
+        observed.events[2].parameters[0] == 3 && observed.events[3].parameters[0] == 3 && best == 4,
+        "selected reference replaced by a later best trial");
+    require(observed.events[0].phase == REMAGX_REFERENCE_SELECTED && observed.events[0].evaluations == 2 &&
+        observed.events[1].phase == REMAGX_REFERENCE_COMPLETED && observed.events[1].evaluations == 4,
+        "reference trial boundary timing");
+    Harness ordinary; ordinary.function = quadratic; std::vector<double> ordinary_best(1);
+    const auto ordinary_summary = run({0, 1}, 1, ordinary, ordinary_best, options);
+    require(ordinary.visited == observed.visited && ordinary.progress_values == observed.progress_values &&
+        ordinary_best[0] == best && ordinary_summary.value == summary.value &&
+        ordinary_summary.evaluations == summary.evaluations && ordinary_summary.termination == summary.termination,
+        "observer changed optimizer results");
+    ReferenceHarness absent; absent.function = quadratic;
+    require(invoke(absent, nullptr) == REMAGX_SUCCESS && absent.visited == ordinary.visited,
+        "null reference callback differs from original API");
+    ReferenceHarness cancelled; cancelled.function = quadratic; cancelled.cancel_on_selection = true;
+    require(invoke(cancelled, reference_event) == REMAGX_SUCCESS && summary.termination == REMAGX_FIT_STOPPED &&
+        summary.iterations == 0 && summary.evaluations == 2 && cancelled.events.size() == 1,
+        "selection cancellation evaluated a trial or emitted completion");
+    for (int phase : {REMAGX_REFERENCE_SELECTED, REMAGX_REFERENCE_COMPLETED}) {
+        ReferenceHarness failed; failed.function = quadratic; failed.fail_phase = phase;
+        best = 123; summary = {99, 98, 97, 96, 95}; const auto before = summary;
+        require(invoke(failed, reference_event) == REMAGX_NUMERICAL_ERROR && best == 123 &&
+            std::memcmp(&summary, &before, sizeof(summary)) == 0, "reference failure changed outputs");
+    }
+    options.max_evaluations = 2;
+    ReferenceHarness limited; limited.function = quadratic;
+    require(invoke(limited, reference_event) == REMAGX_SUCCESS && limited.events.empty() &&
+        summary.termination == REMAGX_FIT_EVALUATION_LIMIT, "exhausted budget emitted reference event");
+    options.max_evaluations = 3;
+    ReferenceHarness interrupted; interrupted.function = quadratic;
+    require(invoke(interrupted, reference_event) == REMAGX_SUCCESS && interrupted.events.size() == 1 &&
+        summary.termination == REMAGX_FIT_EVALUATION_LIMIT && summary.iterations == 0 && best == 2,
+        "incomplete iteration did not retain evaluated trial");
+    options = defaults(); options.parameter_tolerance = 1; options.objective_tolerance = 10;
+    ReferenceHarness converged; converged.function = quadratic;
+    require(invoke(converged, reference_event) == REMAGX_SUCCESS && converged.events.empty() &&
+        summary.termination == REMAGX_FIT_CONVERGED, "converged simplex emitted reference event");
+}
 int main() {
-    try { convergence(); reflectivity_recovery(); moves_and_limits(); stop_and_errors(); annealing(); }
+    try { convergence(); reflectivity_recovery(); moves_and_limits(); stop_and_errors(); annealing(); reference_lifecycle(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "Native simplex: recovery, deterministic moves, limits, Stop and atomic errors passed.\n";
 }

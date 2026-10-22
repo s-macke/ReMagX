@@ -4,7 +4,7 @@
 // Objective/progress receive owned copies. Callbacks may call other core APIs or
 // grow memory; no heap views survive a callback. Project objectives/bounds are separate.
 function minimize(module, {
-  simplex, objective, shouldStop = () => false, onProgress = () => {},
+  simplex, objective, shouldStop = () => false, onProgress = () => {}, onReference,
   maxEvaluations = 10000, maxIterations = 5000,
   parameterTolerance = 1e-9, objectiveTolerance = 1e-14,
 }, annealing) {
@@ -14,6 +14,7 @@ function minimize(module, {
       !Array.from(simplex).every(row => Array.isArray(row) && row.length === dimension &&
         Array.from(row).every(Number.isFinite)) || typeof objective !== 'function' ||
       typeof shouldStop !== 'function' || typeof onProgress !== 'function' ||
+      (onReference !== undefined && (typeof onReference !== 'function' || annealing)) ||
       !unsigned(maxEvaluations) || maxEvaluations < dimension + 1 || !unsigned(maxIterations) ||
       !Number.isFinite(parameterTolerance) || parameterTolerance < 0 ||
       !Number.isFinite(objectiveTolerance) || objectiveTolerance < 0) {
@@ -72,8 +73,18 @@ function minimize(module, {
         if (result && typeof result.then === 'function') throw new TypeError('Progress callback must be synchronous')
       } catch (error) { rememberError(error) }
     }, 'viidiii')
+    const reference = onReference ? register((parameters, count, phase, iterations, evaluations) => {
+      try {
+        const result = onReference({ parameters: module.HEAPF64.slice(parameters / 8, parameters / 8 + count),
+          phase: phase === 0 ? 'selected' : 'completed', iterations, evaluations })
+        if (result && typeof result.then === 'function') throw new TypeError('Reference callback must be synchronous')
+        return 0
+      } catch (error) { rememberError(error); return 1 }
+    }, 'iiiiiii') : 0
     const invoke = annealing ? module._remagx_simplex_annealing : module._remagx_nelder_mead
-    const status = invoke(initial, dimension, options, evaluate, stop, progress, 0, best, summary)
+    const status = reference
+      ? module._remagx_nelder_mead_with_reference(initial, dimension, options, evaluate, stop, progress, reference, 0, best, summary)
+      : invoke(initial, dimension, options, evaluate, stop, progress, 0, best, summary)
     if (callbackFailed) throw callbackError
     if (status !== 0) {
       const error = new Error(`Simplex optimizer failed (status ${status})`)

@@ -50,6 +50,30 @@ int remagx_nelder_mead(const double* initial_simplex, size_t dimension,
                        const RemagxSimplexOptions* options, RemagxObjective objective,
                        RemagxShouldStop should_stop, RemagxFitProgress progress, void* context,
                        double* best_parameters, RemagxFitSummary* summary);
+// Optional ordinary-simplex reference lifecycle, distinct from best-ever progress.
+// SELECTED runs after ranking and convergence/iteration-limit checks, before any
+// trial of an iteration. COMPLETED receives the SAME copied reference after all
+// that iteration's trials, before progress. iterations is the number completed;
+// evaluations counts objective calls only. No events during initialization or
+// for an iteration stopped/limited before it can start. An interrupted iteration
+// may emit SELECTED without COMPLETED. Callbacks must not throw, retain pointers
+// or mutate inputs; return nonzero to fail atomically with NUMERICAL_ERROR.
+// The callback may update caller-owned objective context; the optimizer does not
+// re-evaluate scores or reinterpret best-ever results. Reference re-evaluation,
+// project state and Q semantics belong to the caller and need separate validation.
+// A NULL callback is exactly equivalent to remagx_nelder_mead.
+enum RemagxReferencePhase {
+    REMAGX_REFERENCE_SELECTED = 0,
+    REMAGX_REFERENCE_COMPLETED = 1
+};
+typedef int (*RemagxSimplexReference)(const double* reference, size_t count, int phase,
+                                     size_t iterations, size_t evaluations, void* context);
+int remagx_nelder_mead_with_reference(const double* initial_simplex, size_t dimension,
+                       const RemagxSimplexOptions* options, RemagxObjective objective,
+                       RemagxShouldStop should_stop, RemagxFitProgress progress,
+                       RemagxSimplexReference reference, void* context,
+                       double* best_parameters, RemagxFitSummary* summary);
+
 // Thermal simplex comparisons follow Cardoso et al. (1996), equations 9-10.
 // True objective values determine reported best/progress, never perturbed scores.
 // Temperature advances by temperature_step after each completed simplex iteration,

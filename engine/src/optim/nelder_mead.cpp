@@ -25,6 +25,7 @@ public:
     RemagxObjective objective;
     RemagxShouldStop should_stop;
     RemagxFitProgress progress;
+    RemagxSimplexReference reference_callback;
     void* context;
     RemagxFitSummary summary{};
     double temperature;
@@ -35,9 +36,9 @@ public:
     std::vector<std::vector<double>> refinement_offsets;
 
     Search(const double* initial, size_t count, const RemagxSimplexOptions& settings,
-           RemagxObjective evaluate, RemagxShouldStop stop, RemagxFitProgress notify, void* user, const RemagxAnnealingOptions* annealing)
+           RemagxObjective evaluate, RemagxShouldStop stop, RemagxFitProgress notify, void* user, const RemagxAnnealingOptions* annealing, RemagxSimplexReference reference)
         : dimension(count), options(settings), objective(evaluate), should_stop(stop),
-          progress(notify), context(user), temperature(annealing ? annealing->temperature : 0.0),
+          progress(notify), reference_callback(reference), context(user), temperature(annealing ? annealing->temperature : 0.0),
           temperature_step(annealing ? annealing->temperature_step : 0.0),
           random(annealing ? annealing->seed : 0), best{std::vector<double>(count), 0.0} {
         vertices.reserve(count + 1);
@@ -117,6 +118,13 @@ public:
             });
             if (temperature == 0.0 && converged()) return REMAGX_FIT_CONVERGED;
             if (summary.iterations == options.max_iterations) return REMAGX_FIT_ITERATION_LIMIT;
+            std::vector<double> reference;
+            if (reference_callback) {
+                if (summary.evaluations == options.max_evaluations) throw Halt{REMAGX_FIT_EVALUATION_LIMIT};
+                reference = vertices.front().parameters;
+                if (reference_callback(reference.data(), dimension, REMAGX_REFERENCE_SELECTED,
+                        summary.iterations, summary.evaluations, context)) throw Failure{};
+            }
             std::vector<double> centroid(dimension, 0.0);
             for (size_t row = 0; row < dimension; ++row)
                 for (size_t column = 0; column < dimension; ++column)
@@ -156,6 +164,8 @@ public:
                 }
             }
             ++summary.iterations;
+            if (reference_callback && reference_callback(reference.data(), dimension, REMAGX_REFERENCE_COMPLETED,
+                    summary.iterations, summary.evaluations, context)) throw Failure{};
             notify();
             const double previous_temperature = temperature;
             temperature = std::max(0.0, temperature + temperature_step);
@@ -170,7 +180,7 @@ public:
 static int run_optimizer(const double* initial, size_t dimension,
     const RemagxSimplexOptions* options, RemagxObjective objective, RemagxShouldStop should_stop,
     RemagxFitProgress progress, void* context, double* output, RemagxFitSummary* summary,
-    const RemagxAnnealingOptions* annealing) {
+    const RemagxAnnealingOptions* annealing, RemagxSimplexReference reference = nullptr) {
     if (!initial || !dimension || !options || !objective || !output || !summary ||
         !options->max_iterations || !std::isfinite(options->parameter_tolerance) ||
         !std::isfinite(options->objective_tolerance) || options->parameter_tolerance < 0.0 ||
@@ -182,7 +192,7 @@ static int run_optimizer(const double* initial, size_t dimension,
     for (size_t index = 0; index < dimension * (dimension + 1); ++index)
         if (!std::isfinite(initial[index])) return REMAGX_INVALID_ARGUMENT;
     try {
-        Search search(initial, dimension, *options, objective, should_stop, progress, context, annealing);
+        Search search(initial, dimension, *options, objective, should_stop, progress, context, annealing, reference);
         try { search.summary.termination = search.run(); }
         catch (const Halt& halt) { search.summary.termination = halt.reason; }
         if (search.summary.has_best) std::copy(search.best.parameters.begin(), search.best.parameters.end(), output);
@@ -198,6 +208,14 @@ extern "C" int remagx_nelder_mead(const double* initial, size_t dimension,
     RemagxFitProgress progress, void* context, double* output, RemagxFitSummary* summary) {
     return run_optimizer(initial, dimension, options, objective, should_stop, progress,
                          context, output, summary, nullptr);
+}
+
+extern "C" int remagx_nelder_mead_with_reference(const double* initial, size_t dimension,
+    const RemagxSimplexOptions* options, RemagxObjective objective, RemagxShouldStop should_stop,
+    RemagxFitProgress progress, RemagxSimplexReference reference, void* context,
+    double* output, RemagxFitSummary* summary) {
+    return run_optimizer(initial, dimension, options, objective, should_stop, progress,
+                         context, output, summary, nullptr, reference);
 }
 
 extern "C" int remagx_simplex_annealing(const double* initial, size_t dimension,

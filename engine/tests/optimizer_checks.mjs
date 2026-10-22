@@ -129,6 +129,36 @@ export function checkOptimizer(module, minimize, cases, calculateParratt, calcul
   for (let repeat = 0; repeat < 5; repeat++) { minimize(tracked, request); clean() }
   check(grown.parameters[0] !== 123, 'output independence')
   if (minimizeAnnealing) {
+    const events = []
+    const referenceRequest = { simplex: [[0], [1]], maxIterations: 2, objective: point => (point[0] - 4) ** 2 }
+    const observed = minimize(tracked, { ...referenceRequest, onReference: event => {
+      events.push({ ...event, parameters: Array.from(event.parameters) })
+      event.parameters.fill(123)
+      if (events.length === 1) {
+        const pointer = module._malloc(module.HEAPF64.buffer.byteLength + 65536)
+        check(Boolean(pointer), 'reference memory growth allocation'); module._free(pointer)
+      }
+    } })
+    clean()
+    check(JSON.stringify(events.map(event => [event.phase, event.parameters[0], event.iterations, event.evaluations])) ===
+      JSON.stringify([['selected', 1, 0, 2], ['completed', 1, 1, 4], ['selected', 3, 1, 4], ['completed', 3, 2, 6]]),
+      'reference lifecycle differs from native')
+    check(observed.parameters[0] === 4 && observed.evaluations === 6, 'reference copy/growth changed result')
+    for (const phase of ['selected', 'completed']) {
+      expectThrow(() => minimize(tracked, { ...referenceRequest, onReference: event => {
+        if (event.phase === phase) throw new Error('Reference failure')
+      } }), error => error.message === 'Reference failure')
+      clean()
+    }
+    expectThrow(() => minimize(tracked, { ...referenceRequest, onReference: () => Promise.resolve() }), error => /synchronous/.test(error.message))
+    clean()
+    let stopped = false, referenceEvents = 0
+    const cancelled = minimize(tracked, { ...referenceRequest, shouldStop: () => stopped, onReference: () => { stopped = true; referenceEvents++ } })
+    check(cancelled.termination === 'stopped' && cancelled.evaluations === 2 && referenceEvents === 1, 'reference Stop ordering')
+    clean()
+    expectThrow(() => minimizeAnnealing(tracked, { ...referenceRequest, temperature: 0, temperatureStep: 0, seed: 1,
+      onReference: () => {} }), error => error instanceof TypeError)
+    clean()
     const cold = { temperature: 0, temperatureStep: 0, seed: 0 }
     for (const change of [{ temperature: -1 }, { temperature: Infinity }, { temperatureStep: NaN },
       { seed: -1 }, { seed: 2 ** 32 }, { seed: .5 }, { seed: undefined }]) {
