@@ -1,5 +1,6 @@
 import cmath
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -68,6 +69,19 @@ class ReferenceAdapterTest(unittest.TestCase):
         self.assertEqual(self.calculate([ambient, ambient]), 0)
         film = [50, *substrate[1:]]
         self.assert_numerically_equal(self.calculate([substrate, film, ambient]), self.calculate([substrate, ambient]))
+
+    def test_single_logical_layer_depends_on_retained_unused_storage(self):
+        result = subprocess.run([self.executable, '--diagnose-single-layer'],
+                                capture_output=True, text=True, check=True, timeout=10)
+        self.assertEqual(result.stderr, '')
+        report = json.loads(result.stdout)
+        self.assertEqual(report['logicalLayers'], 1)
+        self.assertTrue(report['dependsOnUnusedStorage'])
+        medium = [0, 0, .01, .001, 0, 0, 90, 90]
+        vacuum = [0, 0, 0, 0, 0, 0, 90, 90]
+        self.assert_numerically_equal(report['sameMediumStorage'], self.calculate([medium, medium], angle=.2))
+        self.assert_numerically_equal(report['vacuumStorage'], self.calculate([medium, vacuum], angle=.2))
+        self.assertGreater(abs(report['vacuumStorage'] - report['sameMediumStorage']), .03)
 
     def test_rejects_invalid_protocol(self):
         result = subprocess.run([self.executable], input='1 1 0 0\n', text=True, capture_output=True)

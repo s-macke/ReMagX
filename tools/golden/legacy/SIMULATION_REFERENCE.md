@@ -778,3 +778,30 @@ timeouts and completes the case whose original reference times out; that case
 remains numerically unvalidated. All inputs are accounted for and the diagnostic
 exits nonzero with acceptancePassed false. Production lookup and complete
 conversion acceptance remain open.
+
+### One generated layer is not a stable Parratt reference
+
+Build the private Parratt adapter with `build_reference.py`, then run it with
+`--diagnose-single-layer`. This diagnostic uses only synthetic inputs; its output
+must not become simulation golden data. It initializes two allocated slots,
+clears the logical vector without releasing storage, and reinserts the same one
+physical medium. The second slot is retained once as that medium and once as
+vacuum. Both calls have exactly one logical layer.
+
+The original `CParratt::BerechneIntensitaet` advances `iternext` once and calls
+`CalcKz`/`CalcR` before its layer-count loop. `CVector::Iterator` advances its raw
+pointer without a logical-bound check. The resulting intensities are respectively
+0 and 0.030353444210630787, matching the corresponding explicit two-medium stacks.
+This proves dependence on storage outside the logical input. It does not define
+a legitimate one-medium optical result or authorize reproducing that dependency.
+
+A separate source trace finds that compound adaptive segmentation reads
+`mfs[mfs.size()-2]` to obtain the terminal roughness. One logical layer therefore
+also cannot simply be admitted to all existing preparation paths. Matrix and Zak
+use the first and last stored medium and require separate validation; this
+Parratt diagnostic makes no claim about their single-medium acceptance.
+
+The current application explicitly rejects applying one-row conversion results.
+Choosing a corrected homogeneous-medium/no-interface interpretation requires
+D-29 approval, followed by project persistence, editing, preparation and solver
+work. Until then, generated output remains unpadded and the project unchanged.

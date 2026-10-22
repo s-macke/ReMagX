@@ -2,6 +2,7 @@
 // Legacy identifiers below are import mappings only (D-34).
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <pthread.h>
@@ -20,7 +21,36 @@ static bool read_number(double& value) {
     return static_cast<bool>(std::cin >> value) && std::isfinite(value);
 }
 
-int main() {
+// Diagnostic only: both physical array slots are initialized, but clear/reinsert
+// leaves one logical layer. A correct one-layer calculation cannot depend on the
+// retained second slot. Never use these results as golden physical intensities.
+static int diagnose_single_layer() {
+    CPolarization polarization;
+    polarization.ray1sigmare = 1.; polarization.ray1sigmaim = 0.;
+    polarization.ray1pire = 0.; polarization.ray1piim = 0.;
+    Schicht<double> medium;
+    medium.oc.delta = .01; medium.oc.beta = .001;
+    double values[2];
+    for (int index = 0; index < 2; ++index) {
+        CVector<Schicht<double>> layers;
+        layers.Reserve(2);
+        layers.push_back(medium);
+        layers.push_back(index == 0 ? medium : Schicht<double>());
+        layers.clear_but_dont_destroy();
+        layers.push_back(medium);
+        if (layers.size() != 1) return 4;
+        CParratt<double> calculation(layers, 0);
+        values[index] = calculation.BerechneIntensitaet(.2, 1., 0., polarization, 1, 0);
+        if (!std::isfinite(values[index])) return 3;
+    }
+    std::printf("{\"logicalLayers\":1,\"sameMediumStorage\":%.17g,\"vacuumStorage\":%.17g,\"dependsOnUnusedStorage\":%s}\n",
+        values[0], values[1], values[0] != values[1] ? "true" : "false");
+    return 0;
+}
+
+int main(int argc, char** argv) {
+    if (argc == 2 && std::strcmp(argv[1], "--diagnose-single-layer") == 0) return diagnose_single_layer();
+    if (argc != 1) return 2;
     static_assert(std::numeric_limits<double>::is_iec559 && sizeof(double) == 8);
     int layer_count = 0, point_count = 0, tensor_type = 0, analyzer = 0;
     if (!(std::cin >> layer_count >> point_count >> tensor_type >> analyzer) ||
