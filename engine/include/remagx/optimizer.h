@@ -81,6 +81,9 @@ int remagx_nelder_mead_with_reference(const double* initial_simplex, size_t dime
 // Positive/zero steps are allowed and remain subject to the hard work limits.
 // On first cooling to zero, restart ordinary simplex refinement at the best
 // true candidate with the initial edge displacements, within the remaining budget.
+// After that local convergence, also refine the original input simplex, keeping
+// the best true candidate across both basins and sharing the same work budget.
+// This is a deterministic restart policy, not a guarantee of a global minimum.
 // Convergence is tested only at zero temperature. Zero temperature and zero step
 // exactly reuse ordinary Nelder-Mead (including no random draws).
 // Seeded mt19937 draws map to the open interval (0,1) using (draw+0.5)/2^32.

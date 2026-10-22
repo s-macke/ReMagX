@@ -167,6 +167,18 @@ export function checkOptimizer(module, minimize, cases, calculateParratt, calcul
     expectThrow(() => minimizeAnnealing(tracked, { ...request, ...cold,
       temperature: Number.MAX_VALUE, seed: 1, objective: () => Number.MAX_VALUE }), error => error.status === 2)
     clean()
+    for (let seed = 0; seed < 12; seed++) {
+      const visited = []
+      const result = minimizeAnnealing(module, { simplex: [[0], [1]], temperature: 1, temperatureStep: -.01, seed,
+        objective: point => {
+          visited.push(point[0])
+          const x = Math.max(-10, Math.min(20, point[0]))
+          return Math.min(.001 * (x - 5) * (x - 5), .0001 + .001 * (x - 8.6) * (x - 8.6))
+        } })
+      check(result.value < 1e-18 && Math.abs(result.parameters[0] - 5) < 1e-7, 'original basin lost after annealing')
+      check(visited.some((value, index) => index > 1 && value === 0 && visited[index + 1] === 1),
+        'original simplex was not refined after cooling')
+    }
     // Exercise the annealing ABI through all common Stop/callback/growth/cleanup paths.
     checkOptimizer(module, (instance, options) => minimizeAnnealing(instance, { ...cold, ...options }),
       [], calculateParratt, calculateFitError)

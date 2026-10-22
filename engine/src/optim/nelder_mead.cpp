@@ -34,6 +34,7 @@ public:
     Vertex best;
     std::vector<Vertex> vertices;
     std::vector<std::vector<double>> refinement_offsets;
+    std::vector<Vertex> initial_refinement_vertices;
 
     Search(const double* initial, size_t count, const RemagxSimplexOptions& settings,
            RemagxObjective evaluate, RemagxShouldStop stop, RemagxFitProgress notify, void* user, const RemagxAnnealingOptions* annealing, RemagxSimplexReference reference)
@@ -45,6 +46,7 @@ public:
         for (size_t row = 0; row <= count; ++row)
             vertices.push_back({std::vector<double>(initial + row * count, initial + (row + 1) * count), 0.0});
         if (annealing && temperature > 0.0 && temperature_step < 0.0) {
+            initial_refinement_vertices = vertices;
             for (size_t row = 1; row <= count; ++row) {
                 std::vector<double> offset(count);
                 for (size_t column = 0; column < count; ++column)
@@ -81,11 +83,11 @@ public:
         if (!std::isfinite(score)) throw Failure{};
         return score;
     }
-    void start_cold_refinement() {
+    void start_cold_refinement(const std::vector<double>& origin) {
         // A thermal simplex may collapse on a clipped-parameter plateau. Refine
         // the best true candidate using the original simplex edge displacements.
         // This uses the same objective, Stop callback and remaining work budget.
-        const auto center = best.parameters;
+        const auto center = origin;
         for (size_t row = 0; row <= dimension; ++row) {
             vertices[row].parameters = center;
             if (row) for (size_t column = 0; column < dimension; ++column)
@@ -116,7 +118,17 @@ public:
             std::stable_sort(vertices.begin(), vertices.end(), [](const Vertex& left, const Vertex& right) {
                 return left.score < right.score;
             });
-            if (temperature == 0.0 && converged()) return REMAGX_FIT_CONVERGED;
+            if (temperature == 0.0 && converged()) {
+                if (initial_refinement_vertices.empty()) return REMAGX_FIT_CONVERGED;
+                if (summary.iterations == options.max_iterations) return REMAGX_FIT_ITERATION_LIMIT;
+                // The thermal winner may belong to a worse local basin. Also
+                // refine the supplied start, retaining the best from both paths.
+                // Counters, Stop and the objective context are never reset.
+                vertices = std::move(initial_refinement_vertices);
+                initial_refinement_vertices.clear();
+                for (auto& vertex : vertices) evaluate(vertex);
+                continue;
+            }
             if (summary.iterations == options.max_iterations) return REMAGX_FIT_ITERATION_LIMIT;
             std::vector<double> reference;
             if (reference_callback) {
@@ -171,7 +183,7 @@ public:
             temperature = std::max(0.0, temperature + temperature_step);
             if (!std::isfinite(temperature)) throw Failure{};
             if (previous_temperature > 0.0 && temperature == 0.0 &&
-                summary.iterations < options.max_iterations) start_cold_refinement();
+                summary.iterations < options.max_iterations) start_cold_refinement(best.parameters);
         }
     }
 };

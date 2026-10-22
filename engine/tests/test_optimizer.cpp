@@ -293,6 +293,43 @@ void annealing() {
     require(escaped > 0, "annealing never escaped the double-well local trap");
     std::cout << "Annealing double-well escapes: " << escaped << "/12 seeds.\n";
 
+    // Two distinct basins: thermal exploration may land in the inferior well,
+    // although ordinary refinement from the supplied start reaches zero.
+    const auto two_basins = [](const std::vector<double>& point) {
+        const double x = std::max(-10.0, std::min(20.0, point[0]));
+        return std::min(.001 * (x - 5) * (x - 5), .0001 + .001 * (x - 8.6) * (x - 8.6));
+    };
+    Harness baseline;
+    baseline.function = two_basins;
+    const auto baseline_result = run({0, 1}, 1, baseline, local_best);
+    require(baseline_result.value < 1e-18, "two-basin initial refinement baseline");
+    for (uint32_t seed = 0; seed < 12; ++seed) {
+        Harness restarted;
+        restarted.function = two_basins;
+        const auto result = run_annealing({0, 1}, 1, restarted, local_best,
+            {defaults(), 1, -.01, seed});
+        require(result.value < 1e-18, "annealing discarded the original local basin");
+        // Locate the final fresh copy of the original simplex and interrupt
+        // there, exercising the second refinement's shared limits and Stop.
+        size_t restart = 0;
+        for (size_t i = 2; i + 1 < restarted.visited.size(); ++i)
+            if (restarted.visited[i] == std::vector<double>{0} &&
+                restarted.visited[i + 1] == std::vector<double>{1}) restart = i;
+        require(restart > 0, "missing original-simplex refinement");
+        for (bool cancel : {false, true}) {
+            Harness limited;
+            limited.function = two_basins;
+            auto limits = defaults();
+            if (cancel) limited.stop_after = restart + 1;
+            else limits.max_evaluations = restart + 1;
+            const auto stopped = run_annealing({0, 1}, 1, limited, local_best,
+                {limits, 1, -.01, seed});
+            require(stopped.evaluations == restart + 1 && stopped.termination ==
+                (cancel ? REMAGX_FIT_STOPPED : REMAGX_FIT_EVALUATION_LIMIT),
+                "original-simplex refinement reset limits or ignored Stop");
+        }
+    }
+
     Harness clipped;
     clipped.function = [](const std::vector<double>& coordinates) {
         const double thickness = std::max(20.0, std::min(50.0, 30.0 + 1.5 * coordinates[0]));
