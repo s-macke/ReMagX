@@ -34,3 +34,51 @@ it('applies atomically with undo/redo and invalidates sessions even for equal-si
   expect(reducer({ ...state, opticalTables: [] }, action).project).toBe(state.project)
   expect(() => applyLayerConversion(state.project, [])).toThrow('invalid layer list')
 })
+
+it('replaces the stored compound stack in element mode while preserving element targets, selection and undo', () => {
+  const state = initialState()
+  state.project.sample.mode = 'element'
+  state.project.sample.elementProfiles = [{ element: 'Fe', f1: 2, f2: 1, f1Mag: .1, f2Mag: .2,
+    slabs: Array.from({ length: 5 }, () => ({ thickness: 5, density: .1, roughness: 2 })) }]
+  state.selectedLayer = 3
+  const parameter = { value: .1, step: .01, lowerBound: 0, upperBound: 1 }
+  state.project.fit.parameters = [
+    { ...parameter, target: 'elementDensity', elementIndex: 0, index: 3 },
+    { ...parameter, target: 'elementF1', elementIndex: 0, index: null },
+    { ...parameter, target: 'delta', elementIndex: null, index: 1 },
+    { ...parameter, target: 'delta', elementIndex: null, index: state.project.sample.layers.length - 1 },
+  ]
+  state.project.sample.depthProfileFunctions = [{ ...createDepthProfileFunction(), boundToLayer: 1 }]
+  const before = structuredClone(state.project)
+  const layers = Array.from({ length: 3 }, () => createLayer({ opticalTable: 'unknown',
+    dielectricTensor: { values: Array(18).fill(.5), anisotropic: true } }))
+  const converted = applyLayerConversion(state.project, layers)
+  expect(converted.notes.join(' ')).toContain('Element Mode are retained')
+  const action = { type: 'applyLayerConversion' as const, source: state.project, epoch: state.fitEpoch, tables: state.opticalTables, layers }
+  const next = reducer(state, action)
+  expect(next.project.sample.mode).toBe('element')
+  expect(next.project.sample.elementProfiles).toEqual(before.sample.elementProfiles)
+  expect(next.selectedLayer).toBe(3)
+  expect(next.selectedElement).toBe(state.selectedElement)
+  expect(next.project.fit.parameters.slice(0, 2)).toEqual(before.fit.parameters.slice(0, 2))
+  expect(next.project.fit.parameters).toHaveLength(3)
+  expect(next.project.fit.parameters[2].index).toBe(2)
+  expect(next.project.sample.depthProfileFunctions[0].boundToLayer).toBe(3)
+  expect(next.fitEpoch).toBeGreaterThan(state.fitEpoch)
+  expect(next.history.past).toHaveLength(1)
+  expect(reducer(next, { type: 'undo' }).project).toEqual(before)
+  expect(reducer(reducer(next, { type: 'undo' }), { type: 'redo' }).project).toEqual(next.project)
+  layers[0].dielectricTensor!.values[0] = 123
+  expect(next.project.sample.layers[0].dielectricTensor!.values[0]).toBe(.5)
+  expect(state.project).toEqual(before)
+})
+
+it('distinguishes valid single-row conversion from invalid engine data without padding or mutating the project', () => {
+  const project = createDefaultProject()
+  project.sample.mode = 'element'
+  const before = structuredClone(project)
+  expect(() => applyLayerConversion(project, [createLayer()])).toThrow('Conversion produced one layer')
+  expect(() => applyLayerConversion(project, [createLayer({ delta: NaN })])).toThrow('invalid layer list')
+  expect(() => applyLayerConversion(project, [])).toThrow('invalid layer list')
+  expect(project).toEqual(before)
+})

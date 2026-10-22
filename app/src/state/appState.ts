@@ -203,7 +203,7 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
       return { ...state, project: applyElementConversion(state.project, action.result).project, selectedElement: 0, selectedLayer: 1, plotView: 'densityProfiles' }
     case 'applyLayerConversion':
       if (action.source !== state.project || action.epoch !== state.fitEpoch || action.tables !== state.opticalTables) return { ...state, notice: 'Layer conversion discarded because the project, table library or fit session changed.' }
-      return { ...state, project: applyLayerConversion(state.project, action.layers).project, selectedLayer: 1, plotView: 'scan' }
+      return { ...state, project: applyLayerConversion(state.project, action.layers).project, selectedLayer: state.project.sample.mode === 'element' ? state.selectedLayer : 1, plotView: 'scan' }
     case 'beginDatabaseUpdate':
       return { ...state, databaseUpdate: { id: action.id, busy: true, result: null, error: null } }
     case 'completeDatabaseUpdate': {
