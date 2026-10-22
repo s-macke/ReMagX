@@ -863,3 +863,55 @@ No final replay against a later script/dataset state is performed. Ordinary nonz
 Q is enabled in the development real worker; zero-Q and annealing callbacks remain
 unchanged. These integration checks do not establish original fit-quality acceptance
 or equivalence of optimizer trajectories. Public deployment still uses the mock.
+
+
+### Private original-optimizer reference preparation
+
+A separate, uncommitted adapter/build under `/tmp/remagx-original-fit` links the
+original `CFit.cpp`, `CChiSquareFit.cpp`, `CError.cpp` and random generator to the
+original simulation and embedded Lua sources. This is separate from the public
+simulation-only adapter and from the planned clean-room public rebuild. Neither
+the private optimizer nor this original-build executable enters git. Symbol
+inspection verifies both original Simplex entry points and excludes the public
+optimizer entry points.
+
+The fit boundary follows the GUI's initial partial optical preparation and strict
+fit refreshes, preserves saved fit start values and the saved seed, and runs
+serially with double simulation dispatch. It does not copy the terminal front
+end's start-value transfer or GUI wall-clock reseeding. It records the GUI's
+`lasterror` and last evaluated fit variables after a fixed number of original
+iteration calls. The current reference budget is 1,000 calls, not a claim of
+convergence or equality with the new optimizer's iteration count.
+
+The original error path can ignore calculation failures. The adapter observes
+those statuses without changing the original calculation/optimizer implementation
+and rejects runs with calculation errors, outer Lua failures or nonfinite curve
+or fit outputs. Diagnostic text is suppressed; only numeric case IDs and bounded
+status classifications leave the private runner. Each process has a 120-second
+limit and disabled core dumps. Fit inputs are copied to disposable working folders;
+replays use fresh copies and check that input files remain unchanged.
+
+Provenance includes the compiler and flags, hashes of all 110 source dependencies
+(including the boundary adapter), the executable hash, saved seed, invocation
+count, input/table-directory file hashes and exact output values. Outputs and
+provenance belong in the ignored private corpus. A successful original run is a
+reference candidate; AC-9 additionally requires the separate web-fit comparison
+on the same project and seed. No project failure is silently converted to a
+reference curve or dropped from the inventory.
+
+
+The 2026-10-22 preparation accounts for all 99 corpus projects: 15 eligible saved
+fit inputs, 21 without usable active measurements, 52 without saved fit rows and
+11 using another original optimizer. Of the 15 eligible inputs, nine complete
+1,000 original Simplex calls (eight distinct project hashes); four fail strict
+table preparation, one fails Lua and the original annealing case exceeds the
+unchanged 120-second limit. Every successful long run was repeated in a fresh
+working folder with exactly identical output and unchanged input files. Source
+and executable hashes were rechecked after execution. The original corpus still
+contains 99 `.all` files.
+
+Private output/provenance is stored at
+`old/reMagX3/fit-references/2026-10-22/reference-candidates.json` (git-ignored).
+Its inventory retains all inputs and unavailable cases; `acceptancePassed` is
+false until the separate web-fit acceptance work is complete. The public changes
+contain only this workflow/evidence, not fit values or private project identifiers.
