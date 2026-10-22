@@ -234,6 +234,29 @@ button[aria-pressed='true'] {
   border-top: 1px solid var(--border);
 }
 
+.status-bar__message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.status-bar__message > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-bar__message > button {
+  flex-shrink: 0;
+}
+
+.calculation-error__detail {
+  overflow-wrap: anywhere;
+}
+
 .status-bar__error {
   color: var(--danger);
 }

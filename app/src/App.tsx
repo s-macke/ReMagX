@@ -76,6 +76,7 @@ function Workspace() {
   useMaterialLibrary()
   const unsaved = project !== state.savedProject
   const [error, setError] = useState<string | null>(null)
+  const [calculationErrorDetails, setCalculationErrorDetails] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [licenseOpen, setLicenseOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
@@ -94,6 +95,8 @@ function Workspace() {
   )
 
   const plot = useMemo(() => plotCoordinates(calculation.curve, measured, project.experiment.qzScan.showAngle, project.experiment.energy), [calculation.curve, measured, project.experiment.qzScan.showAngle, project.experiment.energy])
+  const calculationError = plot.error ?? calculation.error
+  if (calculationErrorDetails !== null && calculationErrorDetails !== calculationError) setCalculationErrorDetails(null)
 
   const baseName = state.fileName.replace(/\.json$/i, '')
   const saveDiagramData = () => {
@@ -284,11 +287,17 @@ function Workspace() {
         </aside>
       </main>
       <footer className="status-bar" role="status">
-        <span className={plot.error || calculation.error ? 'status-bar__error' : undefined}>
-          {plot.error ?? calculation.error ?? (calculation.stopped ? 'Stopped.' : null) ?? state.notice ?? (state.databaseUpdate.busy ? 'Updating database values…' : calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
+        <span className="status-bar__message">
+          <span className={calculationError ? 'status-bar__error' : undefined}>
+            {calculationError?.split('\n')[0] ?? (calculation.stopped ? 'Stopped.' : null) ?? state.notice ?? (state.databaseUpdate.busy ? 'Updating database values…' : calculation.busy ? 'Calculating…' : `${project.sample.layers.length - 2} ${project.sample.layers.length === 3 ? 'layer' : 'layers'} · ${project.experiment.energy} eV`)}
+          </span>
+          {calculationError && <button type="button" onClick={() => setCalculationErrorDetails(calculationError)}>Error details</button>}
         </span>
         <span className="status-bar__mock">Mock calculation, not the real ReMagX engine</span>
       </footer>
+      {calculationErrorDetails !== null && calculationErrorDetails === calculationError && <Dialog title="Calculation error" onClose={() => setCalculationErrorDetails(null)}>
+        <pre className="dialog__pre calculation-error__detail">{calculationError}</pre>
+      </Dialog>}
       {materialDialogActive && materialDialog && <MaterialSettingsDialog index={materialDialog.index} onClose={() => setMaterialDialog(null)} />}
       {!materialDialogActive && !preferencesOpen && !scriptOpen && !aboutOpen && !licenseOpen && !error && !asciiFile && !state.importReport && <DatabaseUpdateReport />}
       {state.importReport && (
