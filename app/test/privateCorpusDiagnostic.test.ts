@@ -7,14 +7,14 @@ import { join, resolve } from 'node:path'
 import { expect, it, vi } from 'vitest'
 
 it('fails private comparison setup without disclosing paths or changing corpus inputs', () => {
-  for (const scenario of ['empty', 'symlink', 'incomplete', 'arguments', 'duplicate-energy', 'duplicate-asymmetry', 'profile-energy', 'density-profile', 'duplicate-density']) {
+  for (const scenario of ['empty', 'symlink', 'incomplete', 'arguments', 'duplicate-energy', 'duplicate-asymmetry', 'profile-energy', 'density-profile', 'duplicate-density', 'layers-profile', 'duplicate-layers']) {
     const directory = mkdtempSync(join(tmpdir(), 'private-diagnostic-marker-'))
     const marker = 'PRIVATE_DIAGNOSTIC_CONTENT_MARKER'
     const source = join(directory, `${marker}.all`)
     try {
       if (scenario === 'symlink') symlinkSync(join(directory, 'missing-private-target'), source)
       if (scenario === 'incomplete' || scenario === 'arguments') writeFileSync(source, marker)
-      const result = spawnSync(process.execPath, [resolve('scripts/diagnose-private-corpus.mjs'), ...(scenario === 'arguments' ? [`--${marker}`] : scenario === 'duplicate-energy' ? ['--energy', '--energy'] : scenario === 'duplicate-asymmetry' ? ['--asymmetry', '--asymmetry'] : scenario === 'density-profile' ? ['--density', '--profile'] : scenario === 'duplicate-density' ? ['--density', '--density'] : scenario === 'profile-energy' ? ['--profile', '--energy'] : [])], {
+      const result = spawnSync(process.execPath, [resolve('scripts/diagnose-private-corpus.mjs'), ...(scenario === 'arguments' ? [`--${marker}`] : scenario === 'duplicate-energy' ? ['--energy', '--energy'] : scenario === 'duplicate-asymmetry' ? ['--asymmetry', '--asymmetry'] : scenario === 'layers-profile' ? ['--layers', '--profile'] : scenario === 'duplicate-layers' ? ['--layers', '--layers'] : scenario === 'density-profile' ? ['--density', '--profile'] : scenario === 'duplicate-density' ? ['--density', '--density'] : scenario === 'profile-energy' ? ['--profile', '--energy'] : [])], {
         env: { ...process.env, LEGACY_ROOT: directory }, encoding: 'utf8', timeout: 20000,
       })
       expect(result.error).toBeUndefined()

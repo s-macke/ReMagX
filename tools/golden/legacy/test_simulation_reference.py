@@ -75,6 +75,32 @@ class SimulationReferenceTest(unittest.TestCase):
         self.assertEqual(rejected.returncode, 2)
         self.assertEqual(rejected.stdout, '')
 
+    def test_generated_layer_rows_and_matrix_tensor_layout(self):
+        base = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        path = Path(self.directory.name) / 'layers.all'
+        for algorithm, width in [(0, 12), (1, 31)]:
+            path.write_text(base + f'\nalgorithm = {algorithm}\nocautomatic = 0\ndisablescript = 1\n')
+            layers = self.run_fixture(path, '--layers')
+            profile = self.run_fixture(path, '--profile')
+            self.assertEqual(len(layers), len(profile['smooth']) + 1)
+            self.assertTrue(all(len(row) == width and all(map(math.isfinite, row)) for row in layers))
+            self.assertEqual(layers[0][0], 0)
+            self.assertGreater(layers[-1][0], 0)
+            for index, row in enumerate(layers):
+                self.assertEqual(row[1], 0)
+                self.assertEqual(row[6:12], [90, 90, 0, 0, 1, 1])
+                if 0 < index < len(layers) - 1:
+                    segment = profile['segments'][index - 1]
+                    self.assertAlmostEqual(row[0], segment[1] - segment[0])
+                    self.assertEqual(row[2:6], segment[2:6])
+            if algorithm == 1:
+                self.assertEqual(layers[0][12], 0)
+                self.assertEqual(layers[-1][12], 0)
+        for options in [('--layers', '--profile'), ('--layers', '--density'), ('--layers', '--energy'), ('--layers', '--layers')]:
+            rejected = subprocess.run([self.executable, path, *options], capture_output=True, text=True, timeout=30)
+            self.assertEqual(rejected.returncode, 2)
+            self.assertEqual(rejected.stdout, '')
+
     def test_density_grid_boundaries_and_scripted_values(self):
         base = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
         settings = ['mode = 1', 'elementlayerversion = 2', 'ocautomatic = 0', 'disablescript = 1', 'minlayerthickness = 10']
@@ -86,6 +112,10 @@ class SimulationReferenceTest(unittest.TestCase):
         path = Path(self.directory.name) / 'density.all'
         source = base + '\n' + '\n'.join(settings) + '\n'
         path.write_text(source)
+        converted = self.run_fixture(path, '--layers')
+        self.assertEqual(len(converted), 1)
+        self.assertEqual(converted[0][0], 0)
+        self.assertEqual(converted[0][8:12], [0, 0, 1, 1])
         result = self.run_fixture(path, '--density')
         self.assertEqual([row[0] for row in result['smooth']], list(range(-30, 50, 10)))
         self.assertEqual([[row[0] for row in element] for element in result['boundaries']], [[0, 10], [0, 10]])

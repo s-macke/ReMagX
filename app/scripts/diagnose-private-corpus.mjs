@@ -18,11 +18,13 @@ const timeout = 120000
 let browser, server
 try {
   const diagnosticArguments = process.argv.slice(2)
-  if (new Set(diagnosticArguments).size !== diagnosticArguments.length || diagnosticArguments.some(value => !['--energy', '--asymmetry', '--profile', '--density'].includes(value))) throw new Error('Unsupported diagnostic arguments')
+  if (new Set(diagnosticArguments).size !== diagnosticArguments.length || diagnosticArguments.some(value => !['--energy', '--asymmetry', '--profile', '--density', '--layers'].includes(value))) throw new Error('Unsupported diagnostic arguments')
   const energyScan = diagnosticArguments.includes('--energy')
   const asymmetry = diagnosticArguments.includes('--asymmetry')
   const profile = diagnosticArguments.includes('--profile')
   const density = diagnosticArguments.includes('--density')
+  const layerList = diagnosticArguments.includes('--layers')
+  if (layerList && diagnosticArguments.length !== 1) throw new Error('Incompatible diagnostic modes')
   if ((profile || density) && (energyScan || asymmetry || (profile && density))) throw new Error('Incompatible diagnostic modes')
   async function discover(directory) {
     const projects = []
@@ -65,10 +67,13 @@ try {
     }
     let points, referenceError
     try {
-      const output = execFileSync('python3', ['-c', 'import os,resource,sys;resource.setrlimit(resource.RLIMIT_CORE,(0,0));os.execv(sys.argv[1],sys.argv[1:])', executable, path, ...(energyScan ? ['--energy'] : []), ...(asymmetry ? ['--asymmetry'] : []), ...(profile ? ['--profile'] : []), ...(density ? ['--density'] : [])],
+      const output = execFileSync('python3', ['-c', 'import os,resource,sys;resource.setrlimit(resource.RLIMIT_CORE,(0,0));os.execv(sys.argv[1],sys.argv[1:])', executable, path, ...(energyScan ? ['--energy'] : []), ...(asymmetry ? ['--asymmetry'] : []), ...(profile ? ['--profile'] : []), ...(density ? ['--density'] : []), ...(layerList ? ['--layers'] : [])],
         { cwd: dirname(path), stdio: 'pipe', timeout, maxBuffer: 64 * 1024 * 1024 }).toString()
       points = JSON.parse(output)
-      if (density) {
+      if (layerList) {
+        if (!Array.isArray(points) || !points.length || ![12, 31].includes(points[0].length) ||
+            !points.every(row => Array.isArray(row) && row.length === points[0].length && row.every(Number.isFinite))) throw new Error('Invalid reference layers')
+      } else if (density) {
         if (!points || !Array.isArray(points.smooth) || !points.smooth.length || !Array.isArray(points.boundaries) || !points.boundaries.length ||
             !points.smooth.every(row => Array.isArray(row) && row.length === points.boundaries.length + 1 && row.every(Number.isFinite)) ||
             !points.boundaries.every(element => Array.isArray(element) && element.every(row => Array.isArray(row) && row.length === 2 && row.every(Number.isFinite)))) throw new Error('Invalid reference density profile')
@@ -78,7 +83,7 @@ try {
             !points.segments.every(row => Array.isArray(row) && row.length === 6 && row.every(Number.isFinite))) throw new Error('Invalid reference profile')
       } else if (!Array.isArray(points) || !points.length || !points.every(row => Array.isArray(row) && row.length === (asymmetry ? 4 : 2) && row.every(Number.isFinite))) throw new Error('Invalid reference curve')
     } catch (error) { referenceError = error.code === 'ETIMEDOUT' ? 'reference-timeout' : density && error.status === 11 ? 'reference-inapplicable' : density && error.status === 12 ? 'reference-undefined-range' : 'reference-error' }
-    inputs.push({ id: index + 1, source, tables, points, referenceError, energyScan, asymmetry, profile, density })
+    inputs.push({ id: index + 1, source, tables, points, referenceError, energyScan, asymmetry, profile, density, layerList })
     if ((index + 1) % 10 === 0) console.log(JSON.stringify({ stage: 'reference', completed: index + 1, total: projects.length }))
   }
   await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' }, logLevel: 'silent',
@@ -117,10 +122,22 @@ try {
         const segmented = project.calculation.roughnessModel === 'segmentation'
         const tables = input.tables.map(table => parseOpticalTable(table.source, table.name))
         const before = JSON.stringify(project)
-        const method = input.density ? 'densityProfiles' : input.profile ? 'depthProfile' : input.asymmetry ? (input.energyScan ? 'calcEnergyAsymmetry' : 'calcAsymmetry') : (input.energyScan ? 'calcEnergyScan' : 'calcReflectivity')
+        const method = input.layerList ? 'segmentLayers' : input.density ? 'densityProfiles' : input.profile ? 'depthProfile' : input.asymmetry ? (input.energyScan ? 'calcEnergyAsymmetry' : 'calcAsymmetry') : (input.energyScan ? 'calcEnergyScan' : 'calcReflectivity')
         const actual = await withDiagnosticDeadline(service[method](project, undefined, tables), () => service.stop())
         if (JSON.stringify(project) !== before) return { id: input.id, segmented, status: 'input-changed' }
         if (input.referenceError) return { id: input.id, segmented, status: input.referenceError, workerCompleted: true }
+        if (input.layerList) {
+          if (actual.engine !== 'real' || !Array.isArray(actual.layers) || !actual.layers.length) return { id: input.id, status: 'invalid-layer-result' }
+          const matrix = project.calculation.algorithm === 'matrix'
+          if (matrix && actual.layers.some(layer => !layer.dielectricTensor)) return { id: input.id, status: 'missing-layer-tensor' }
+          const names = ['thickness', 'roughness', 'delta', 'beta', 'deltaMag', 'betaMag', 'gamma', 'phi', 'density', 'escapeDepth', 'emptyMaterial', 'unknownTable',
+            ...(matrix ? ['anisotropic', ...Array.from({ length: 18 }, (_, index) => `tensor${index}`)] : [])]
+          const rows = actual.layers.map(layer => [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag,
+            layer.magnetization.gamma, layer.magnetization.phi, layer.density, layer.electronEscapeDepth,
+            Number(layer.material === ''), Number(layer.opticalTable === 'unknown'),
+            ...(matrix ? [Number(layer.dielectricTensor.anisotropic), ...layer.dielectricTensor.values] : [])])
+          return { id: input.id, segmented, ...compareDiagnosticColumns(names.map((name, index) => ({ name, values: rows.map(row => row[index]) })), input.points) }
+        }
         if (input.density) {
           if (actual.engine !== 'real' || !Array.isArray(actual.elements)) return { id: input.id, status: 'invalid-density-result' }
           return { id: input.id, segmented, ...compareDiagnosticDensity({
@@ -152,7 +169,7 @@ try {
   const compared = reports.filter(report => report.points !== undefined)
   const referenceCounts = inputs.reduce((counts, input) => { const key = input.referenceError ?? 'completed'; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
   const referenceCompletedFailures = reports.filter((report, index) => !inputs[index].referenceError && report.status !== 'matched').reduce((counts, report) => { const key = report.category ?? report.status; counts[key] = (counts[key] ?? 0) + 1; return counts }, {})
-  const summary = { scope: `private-${density ? 'density' : profile ? 'profile' : energyScan ? 'energy' : 'qz'}${asymmetry ? '-asymmetry' : ''}-explicit-original-lookup`, projects: reports.length, counts, referenceCounts, referenceCompletedFailures,
+  const summary = { scope: `private-${layerList ? 'layers' : density ? 'density' : profile ? 'profile' : energyScan ? 'energy' : 'qz'}${asymmetry ? '-asymmetry' : ''}-explicit-original-lookup`, projects: reports.length, counts, referenceCounts, referenceCompletedFailures,
     segmentedCompared: compared.filter(report => report.segmented).length,
     segmentedMatched: compared.filter(report => report.segmented && report.status === 'matched').length,
     comparedPoints: compared.reduce((sum, report) => sum + report.points, 0),

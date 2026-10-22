@@ -32,10 +32,11 @@ extern "C" int __wrap_luaL_loadbuffer(lua_State* state, const char* text, size_t
 
 int main(int argc, char** argv) {
     if (argc < 2 || argc > 9) return 2;
-    bool asymmetry = false, energy_scan = false, fixed_angle = false, profile = false, density = false;
+    bool asymmetry = false, energy_scan = false, fixed_angle = false, profile = false, density = false, layer_list = false;
     bool fourier = false, multiply = false, divide = false, column_layout = false;
     for (int index = 2; index < argc; ++index) {
-        if (std::strcmp(argv[index], "--density") == 0 && !density) density = true;
+        if (std::strcmp(argv[index], "--layers") == 0 && !layer_list) layer_list = true;
+        else if (std::strcmp(argv[index], "--density") == 0 && !density) density = true;
         else if (std::strcmp(argv[index], "--profile") == 0 && !profile) profile = true;
         else if (std::strcmp(argv[index], "--column-layout") == 0 && !column_layout) column_layout = true;
         else if (std::strcmp(argv[index], "--asymmetry") == 0 && !asymmetry) asymmetry = true;
@@ -46,6 +47,7 @@ int main(int argc, char** argv) {
         else if (std::strcmp(argv[index], "--divide-pi") == 0 && !divide) divide = true;
         else return 2;
     }
+    if (layer_list && (density || profile || energy_scan || asymmetry || fixed_angle || fourier || multiply || divide || column_layout)) return 2;
     if (density && (profile || energy_scan || asymmetry || fixed_angle || fourier || multiply || divide || column_layout)) return 2;
     if (profile && (energy_scan || asymmetry || fixed_angle || fourier || multiply || divide || column_layout)) return 2;
     if (fixed_angle && !energy_scan) return 2;
@@ -123,7 +125,7 @@ int main(int argc, char** argv) {
         if (fwrite(result.data(), 1, result.size(), output) != result.size()) return 9;
         return fclose(output) == 0 ? 0 : 9;
     }
-    if (profile) {
+    if (profile || layer_list) {
         // GUI GetState followed by SetOCStrict, then the temporary profile hook.
         if (state->ocautomatic) {
             Getdblist(*state); Filldb(*state);
@@ -135,7 +137,7 @@ int main(int argc, char** argv) {
         CVector<Schicht<double>> layers;
         if (FillLayers<double>(*state, state->GetActiveFilm()->mfs, layers) != RX_SUCCESS || layers.empty()) return 8;
         std::ostringstream buffer;
-        buffer << std::setprecision(17) << "{\"smooth\":[";
+        buffer << std::setprecision(17);
         auto write_row = [&](const std::vector<double>& values) {
             buffer << "[";
             for (size_t index = 0; index < values.size(); ++index) {
@@ -146,6 +148,32 @@ int main(int argc, char** argv) {
             buffer << "]";
             return true;
         };
+        if (layer_list) {
+            // Button13Click writes FillLayers output, then assigns dbname unknown.
+            buffer << "[";
+            for (int index = 0; index < layers.size(); ++index) {
+                auto& layer = layers[index];
+                layer.dbname = CString("unknown");
+                std::vector<double> values = {layer.d, layer.sigma, layer.oc.delta, layer.oc.beta,
+                    layer.oc.deltam, layer.oc.betam, layer.maggamma, layer.magphi,
+                    layer.density, layer.electron_escape_depth, layer.material.empty() ? 1. : 0.,
+                    layer.dbname == CString("unknown") ? 1. : 0.};
+                if (state->algorithm == MATRIX) {
+                    values.push_back(layer.oc.epsilontype == ANISOTROPIC ? 1. : 0.);
+                    for (int row = 0; row < 3; ++row) for (int column = 0; column < 3; ++column) {
+                        values.push_back(layer.oc.epsilon.a[row][column].real());
+                        values.push_back(layer.oc.epsilon.a[row][column].imag());
+                    }
+                }
+                if (index) buffer << ",";
+                if (!write_row(values)) return 8;
+            }
+            buffer << "]\n";
+            const auto result = buffer.str();
+            if (fwrite(result.data(), 1, result.size(), output) != result.size()) return 9;
+            return fclose(output) == 0 ? 0 : 9;
+        }
+        buffer << "{\"smooth\":[";
         if (!write_row({layers[0].z, layers[0].oc.delta, layers[0].oc.beta, layers[0].oc.deltam, layers[0].oc.betam})) return 8;
         for (int index = 1; index < layers.size() - 1; ++index) {
             buffer << ",";

@@ -749,3 +749,32 @@ invalid projects without further investigation. No reference or worker times
 out. The all-input acceptancePassed flag stays false and the diagnostic exits
 nonzero, because mode/error cases are not numerical matches. This does not select
 a production error-function policy or establish complete scripting acceptance.
+
+### Original generated layer lists
+
+Run `node app/scripts/diagnose-private-corpus.mjs --layers` to compare the real
+worker's layer conversion against `Button13Click` preparation and original
+`FillLayers`. This option is exclusive with every other diagnostic mode. The
+reference emits finite, buffered 17-digit rows in substrate-to-ambient order:
+thickness, roughness, delta, beta, deltaMag, betaMag, gamma, phi, mass density,
+electron escape depth, empty-material flag and unknown-table flag. Matrix mode
+appends the anisotropic flag and 18 row-major real/imaginary tensor components.
+Scalar modes do not read unused tensor storage. Names are never emitted.
+
+Every generated row is retained, including a compressed single element row and
+the final boundary thickness. Current tables and temporary BeforeCalculation
+execution follow the same preparation used for the original profile diagnostic.
+The worker output is compared column by column at unchanged D-23. Reports contain
+only numeric project IDs, counts, categories and aggregate errors; private input
+files and values stay local. This validates conversion output independently of
+whether the UI can apply a single-row result to its current project schema.
+
+The full 99-project run matches **84/89 available original lists**: 35,576 rows
+and 486,021 values with zero D-23 mismatches in every column, including matrix
+tensor storage. Maximum absolute/log10 errors are
+2.220446049250313e-16/1.55937485146751e-11. Five available references lack worker
+element tables; nine original runs error and one times out. The worker has no
+timeouts and completes the case whose original reference times out; that case
+remains numerically unvalidated. All inputs are accounted for and the diagnostic
+exits nonzero with acceptancePassed false. Production lookup and complete
+conversion acceptance remain open.
