@@ -36,6 +36,22 @@ def evaluate(layers, boundaries, tensors, model, position, samples, state=None):
     return status, list(scalar), list(tensor) if tensor is not None else None
 
 
+def evaluate_prepared(layers, boundaries, tensors, model, position, samples, state=None):
+    arrays = [(ctypes.c_double * len(values))(*values) for values in
+              [[v for row in layers for v in row], boundaries, [v for row in tensors for v in row], samples]]
+    handle = ctypes.c_void_p()
+    status = library.remagx_segmented_optics_prepare(arrays[0], len(layers), arrays[1], arrays[2] if tensors else None,
+        model, arrays[3], len(samples), ctypes.byref(handle))
+    assert status == 0
+    output = (ctypes.c_double * 4)(*([-123.] * 4))
+    tensor = (ctypes.c_double * 18)(*state) if state is not None else None
+    try:
+        status = library.remagx_segmented_optics_sample(handle, position, output, tensor)
+        return status, list(output), list(tensor) if tensor is not None else None
+    finally:
+        library.remagx_segmented_optics_destroy(handle)
+
+
 def cases():
     generator = random.Random(26038)
     result = []
@@ -105,6 +121,38 @@ class SegmentedOpticsTest(unittest.TestCase):
         self.assertEqual(handle.value, 123)
         self.assertEqual(library.remagx_segmented_optics_sample(None, 0, None, None), 1)
         library.remagx_segmented_optics_destroy(None)
+
+    def test_local_prefix_cutoffs_and_overflow_fallback_match_full_traversal(self):
+        samples = [math.erf(-5 + index * 10 / 999) for index in range(1001)]
+        layers = [[thickness, roughness, index * .003, -index * .002, index * .001, .004, 90, 90]
+                  for index, (thickness, roughness) in enumerate(zip([0, 0, 1, 25, 1e-100, 0], [0, 1e-300, 8, 1, 50, 0]))]
+        tensors = [[(-1)**index * (component + 1) * .01 for component in range(18)] for index in range(len(layers))]
+        positions = [-1000., 1000., 1.7e308]
+        boundary = 0.
+        for index, row in enumerate(layers[:-1]):
+            cutoff = boundary + 5 * (row[1] or 1e-10) * math.sqrt(2.)
+            positions.extend([math.nextafter(cutoff, -math.inf), cutoff, math.nextafter(cutoff, math.inf)])
+            boundary += layers[index + 1][0]
+        # Arbitrary nonmonotone positions must not inherit a previous prefix.
+        for position in positions + positions[::-1]:
+            for state in (None, [7.] * 18, [-0.] * 18):
+                expected = evaluate(layers, [], tensors, 2, position, samples, state)
+                actual = evaluate_prepared(layers, [], tensors, 2, position, samples, state)
+                self.assertEqual(actual, expected)
+                if state is not None:
+                    self.assertEqual([math.copysign(1, v) for v in actual[2]], [math.copysign(1, v) for v in expected[2]])
+        overflow_layers = [[0, 1, 1e308, 0, 0, 0, 90, 90], [0, 1, -1e308, 0, 0, 0, 90, 90]]
+        normal_layers = [[0, 1, 1, 0, 0, 0, 90, 90], [0, 1, 2, 0, 0, 0, 90, 90]]
+        fixtures = [(overflow_layers, [], None, samples),
+                    (normal_layers, [[1e308] * 18, [-1e308] * 18], [7.] * 18, samples),
+                    (normal_layers, [], None, [1e308, -1e308] * 500 + [1e308])]
+        for count in (3, 4):
+            stack = [[0 if i == 0 else 1e308, 1, i * .01, 0, 0, 0, 90, 90] for i in range(count)]
+            fixtures.append((stack, [], None, samples))
+        for stack, tensor, state, lookup in fixtures:
+            for position in (0., 1000., 1.7e308):
+                self.assertEqual(evaluate_prepared(stack, [], tensor, 2, position, lookup, state),
+                                 evaluate(stack, [], tensor, 2, position, lookup, state))
 
     def test_sharp_interfaces_global_replacement_and_local_accumulation(self):
         layers = [[0, 0, 2, 4, 6, 8, 90, 90], [100, 0, 4, 6, 8, 10, 90, 90]]

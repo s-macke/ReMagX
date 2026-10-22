@@ -161,6 +161,21 @@ export function checkSegmentedOptics(module, calculate, subdivide, prepareSample
       failure(() => prepared.sample(0), error => error.status === 2)
     } finally { prepared.dispose() }
   }
+  const prefixRequest = { ...request, model: 2, boundaries: null,
+    layers: Array.from({ length: 40 }, (_, index) => [index % 4 ? 2 : 0, index % 5 ? .1 : 5,
+      index * .01, -index * .02, .003, .004, 90, 90]),
+    tensors: Array.from({ length: 40 }, (_, index) => Array(18).fill(index * .01)) }
+  const prefixSampler = prepareSampler(module, prefixRequest)
+  try {
+    for (const position of [1000, 0, 25, 5 * Math.sqrt(2) * 5, 60, -1000, 1000]) {
+      for (const tensorState of [null, Array(18).fill(7), Array(18).fill(-0)]) {
+        const expected = calculate(module, { ...prefixRequest, position, tensorState })
+        const actual = prefixSampler.sample(position, tensorState)
+        ensure([...actual.opticalConstants, ...actual.dielectricTensor].every((value, index) =>
+          Object.is(value, [...expected.opticalConstants, ...expected.dielectricTensor][index])), 'Local prefix traversal mismatch')
+      }
+    }
+  } finally { prefixSampler.dispose() }
   ensure(snapshot === JSON.stringify(request), 'Segmented optics input changed')
   same(before)
 }

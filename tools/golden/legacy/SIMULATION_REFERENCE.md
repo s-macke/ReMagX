@@ -685,3 +685,36 @@ and worker. Five available references still lack element tables, and nine
 other original runs error. The diagnostic correctly exits nonzero with
 acceptancePassed=false. No full-profile speedup factor is established by this
 run; removing validation alone does not resolve the outstanding timeout.
+
+
+### Exact saturated-prefix skipping for local optics
+
+Only one of the timeout case's 80,161 interfaces has equal adjacent scalar
+constants. Equal-layer merging therefore does not explain or remove its workload.
+The prepared local sampler instead caches depths in the original repeated-addition
+order and each prefix's maximum effective roughness. For each sample it searches
+for a prefix whose largest depth and width still satisfy the original strict
+lookup condition below -5. Since thickness is nonnegative, every preceding
+interface then also saturates to -1, giving an exactly zero denominator.
+Those terms can be skipped without changing the order of any remaining term.
+No approximate tail threshold, suffix aggregation or regrouped sum is used.
+
+Cutoff equality remains in the loop. The constructor falls back to full traversal
+if depth or contrast subtraction can overflow, preserving infinity-times-zero
+errors. Negative-zero incoming tensor components likewise retain full traversal.
+The ambient contribution and independent reusable tensor states are unchanged.
+Native tests compare against the unoptimized one-shot entry point at adjacent
+representable cutoff positions, varying roughness and zero thickness, unordered
+queries, signed-zero states, extreme finite inputs and arbitrary lookup contents.
+Node/Chromium checks also exercise nonmonotone queries against full traversal.
+
+
+The completed 99-project rerun inspected on 2026-10-22 has no worker timeouts.
+The large-stack case 22 now completes within the unchanged 120-second deadline;
+its report is reference-timeout (workerCompleted), since the original reference
+still exceeds that limit. Its numerical acceptance remains unproven. The other
+comparisons retain 84/89 available reference matches, 35,492 smooth points plus
+35,408 segments, 389,908 values and zero D-23 mismatches. Maximum absolute/log10
+errors remain 2.220446049250313e-16 / 1.1429968083120912e-11. Five available
+references lack element tables and nine other original runs error. No inputs
+were excluded; acceptancePassed remains false.

@@ -32,7 +32,7 @@ int validate_inputs(const RemagxLayer* layers, size_t layer_count, const double*
 // belongs to the one-shot call or the owned prepared snapshot's constructor.
 int sample_optics(const RemagxLayer* layers, size_t layer_count, const double* boundaries,
     const double* tensors, int model, double position, const double* error_samples,
-    double* output, double* tensor_state) {
+    double* output, double* tensor_state, size_t first_layer = 0, double first_boundary = 0.0) {
     if (!std::isfinite(position) || !output || (tensor_state && !tensors)) return REMAGX_INVALID_ARGUMENT;
     double scalar[4] = {}, result_tensor[18] = {}, tensor_sum[18] = {};
     if (tensor_state) for (size_t component = 0; component < 18; ++component) {
@@ -40,8 +40,8 @@ int sample_optics(const RemagxLayer* layers, size_t layer_count, const double* b
         result_tensor[component] = tensor_state[component];
     }
     const double factor = 1.0 / std::sqrt(2.0);
-    double boundary = 0.0, total_weight = 0.0;
-    for (size_t layer = 0; layer < layer_count; ++layer) {
+    double boundary = first_boundary, total_weight = 0.0;
+    for (size_t layer = first_layer; layer < layer_count; ++layer) {
         const auto& row = layers[layer];
         const double current[4] = {row.delta, row.beta, row.delta_magnetic, row.beta_magnetic};
         if (model == 2) {
@@ -112,6 +112,8 @@ int sample_optics(const RemagxLayer* layers, size_t layer_count, const double* b
 struct RemagxSegmentedOptics {
     std::vector<RemagxLayer> layers;
     std::vector<double> boundaries, tensors, error_samples;
+    std::vector<double> local_boundaries, prefix_widths;
+    bool can_skip_local_prefix = false;
     int model;
 };
 
@@ -138,6 +140,36 @@ extern "C" int remagx_segmented_optics_prepare(const RemagxLayer* layers, size_t
         if (tensors) snapshot->tensors.assign(tensors, tensors + layer_count * 18);
         snapshot->error_samples.assign(error_samples, error_samples + error_sample_count);
         snapshot->model = model;
+        if (model == 2) {
+            // Preserve the original repeated-addition boundaries. A conservative
+            // prefix bound uses its largest depth and largest effective width.
+            // Nonnegative thickness makes depths monotone; neither bound is an
+            // approximation of the lookup's strict saturation comparison.
+            snapshot->can_skip_local_prefix = true;
+            snapshot->local_boundaries.reserve(layer_count);
+            snapshot->prefix_widths.reserve(layer_count - 1);
+            double boundary = 0.0, maximum_width = 0.0;
+            for (size_t layer = 0; layer < layer_count - 1; ++layer) {
+                const auto& current = layers[layer];
+                const auto& next = layers[layer + 1];
+                snapshot->local_boundaries.push_back(boundary);
+                if (!std::isfinite(boundary)) snapshot->can_skip_local_prefix = false;
+                maximum_width = std::max(maximum_width, current.roughness == 0.0 ? 1e-10 : current.roughness);
+                snapshot->prefix_widths.push_back(maximum_width);
+                // Infinity times a saturated zero is still a numerical error.
+                // Keep the original full traversal if subtraction can overflow.
+                const double differences[] = {current.delta - next.delta, current.beta - next.beta,
+                    current.delta_magnetic - next.delta_magnetic, current.beta_magnetic - next.beta_magnetic};
+                for (double value : differences) if (!std::isfinite(value)) snapshot->can_skip_local_prefix = false;
+                if (tensors) for (size_t component = 0; component < 18; ++component)
+                    if (!std::isfinite(tensors[layer * 18 + component] - tensors[(layer + 1) * 18 + component]))
+                        snapshot->can_skip_local_prefix = false;
+                boundary += next.thickness;
+            }
+            // The ambient row is added before its boundary is inspected in the
+            // original loop, so overflow of this final sum is not a new error.
+            snapshot->local_boundaries.push_back(boundary);
+        }
         *prepared = snapshot.release();
         return REMAGX_SUCCESS;
     } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
@@ -147,9 +179,28 @@ extern "C" int remagx_segmented_optics_prepare(const RemagxLayer* layers, size_t
 extern "C" int remagx_segmented_optics_sample(const RemagxSegmentedOptics* prepared,
     double position, double* output, double* tensor_state) {
     if (!prepared) return REMAGX_INVALID_ARGUMENT;
+    size_t first_layer = 0;
+    double first_boundary = 0.0;
+    bool skip = prepared->can_skip_local_prefix && std::isfinite(position);
+    // Preserve signed-zero tensor addition as well as ordinary finite values.
+    if (tensor_state) for (size_t component = 0; component < 18; ++component)
+        if (tensor_state[component] == 0.0 && std::signbit(tensor_state[component])) skip = false;
+    if (skip) {
+        const double factor = 1.0 / std::sqrt(2.0);
+        size_t end = prepared->prefix_widths.size();
+        while (first_layer < end) {
+            const size_t middle = first_layer + (end - first_layer) / 2;
+            // If even the largest boundary/width saturates below -5, every
+            // preceding interface contributes exactly zero. Equality is retained.
+            if (-(position - prepared->local_boundaries[middle]) / prepared->prefix_widths[middle] * factor < -5.0)
+                first_layer = middle + 1;
+            else end = middle;
+        }
+        first_boundary = prepared->local_boundaries[first_layer];
+    }
     return sample_optics(prepared->layers.data(), prepared->layers.size(), prepared->boundaries.data(),
         prepared->tensors.empty() ? nullptr : prepared->tensors.data(), prepared->model,
-        position, prepared->error_samples.data(), output, tensor_state);
+        position, prepared->error_samples.data(), output, tensor_state, first_layer, first_boundary);
 }
 
 extern "C" void remagx_segmented_optics_destroy(RemagxSegmentedOptics* prepared) {
