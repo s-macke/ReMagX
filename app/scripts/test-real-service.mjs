@@ -354,7 +354,7 @@ try {
           repair.sample.layers[1].delta = .123
           tables.push({ name: 'outside', kind: 'db', energy: [100, 200], columns: [[.3, .4], [.1, .2]], warnings: [] })
           let rejected = false
-          try { await service.calcAsymmetry(repair) } catch (error) { rejected = /missing optical table/.test(error.message) }
+          try { await service.calcAsymmetry(repair) } catch (error) { rejected = /Optical database lookup failed/.test(error.message) && /missing optical table/.test(error.message) }
           if (!rejected) throw new Error(`Standalone ${algorithm} must reject missing primaries before Lua repair`)
           tables.pop()
           tables.push({ name: 'lua-override', kind: 'db', energy: [600, 900], columns: [[.004, .004], [.001, .001]], warnings: [] })
@@ -633,6 +633,13 @@ try {
         createLayer({ thickness: 20, roughness: 1, delta: .006, beta: .001, deltaMag: .0004, betaMag: .00004, magnetization: { gamma: 45, phi: 70 } }),
         createLayer(),
       ]
+      const invalidMultilayer = structuredClone(matrix)
+      invalidMultilayer.sample.multilayer = { enabled: true, pattern: '2*(1' }
+      let multilayerRejected = false
+      try { await service.calcReflectivity(invalidMultilayer) } catch (error) {
+        multilayerRejected = /Multilayer expansion failed/.test(error.message) && /closing parenthesis/.test(error.message)
+      }
+      if (!multilayerRejected) throw new Error('Missing multilayer guidance and cause')
       matrix.sample.multilayer = { enabled: true, pattern: '2*(1)' }
       matrix.experiment.energy = 640
       matrix.experiment.qzScan = { ...matrix.experiment.qzScan, qzMin: 0, qzMax: .04, points: 4 }

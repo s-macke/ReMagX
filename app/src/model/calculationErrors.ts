@@ -1,3 +1,6 @@
+export class OpticalDatabaseError extends Error {}
+export class MultilayerError extends Error {}
+
 // Preserve raw Lua diagnostics inside the VM; add user guidance only at the
 // worker boundary. Native C API statuses are not legacy RX_* numeric codes.
 export class ScriptFailure extends Error {
@@ -20,6 +23,12 @@ export function calculationErrorMessage(error: unknown): string {
       ? 'Check the Lua syntax at the reported source line.'
       : 'Check the script values and function arguments at the reported source line.'
     return `Lua script ${error.phase} failed. ${guidance}\n${error.message}`
+  }
+  if (error instanceof OpticalDatabaseError) {
+    return `Optical database lookup failed. Load the named optical-constant tables and check that their energy range covers the calculation.\n${error.message}`
+  }
+  if (error instanceof MultilayerError) {
+    return `Multilayer expansion failed. Check the layer indices, repetition counts and parentheses in the multilayer pattern.\n${error.message}`
   }
   const status = (error as { status?: number })?.status
   const detail = error instanceof Error ? error.message : typeof error === 'string' ? error : ''

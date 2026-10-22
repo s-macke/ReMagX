@@ -1,3 +1,4 @@
+import { OpticalDatabaseError } from './calculationErrors'
 import type { ScriptDielectricTensor } from './scriptTensors'
 import type { OpticalTable } from '../import/tables'
 import type { Project } from './project'
@@ -7,7 +8,7 @@ export type RealTableLookup = (table: OpticalTable, queries: number[], cursor: n
   cursor: number
 }
 
-export class OpticalTableRangeError extends Error {}
+export class OpticalTableRangeError extends OpticalDatabaseError {}
 
 export interface SerialOpticalState extends CompoundOpticalState {
   // Stored pre-script geometry; fit candidates rebuild it before their hooks.
@@ -61,7 +62,7 @@ function refreshState(project: Project, tables: OpticalTable[], energy: number, 
   const dielectricTensors: (Float64Array | null)[] = project.sample.layers.map((_, index) => previousTensors?.[index]?.slice() ?? null)
   const read = (table: OpticalTable, width = 2): Float64Array => {
     const result = lookup(table, [energy], cursors.get(table) ?? 0)
-    if (result.values.length !== width || !result.values.every(Number.isFinite)) throw new Error(`Invalid optical constants in ${table.name}.${table.kind}.`)
+    if (result.values.length !== width || !result.values.every(Number.isFinite)) throw new OpticalDatabaseError(`Invalid optical constants in ${table.name}.${table.kind}.`)
     cursors.set(table, result.cursor)
     return result.values
   }
@@ -71,7 +72,7 @@ function refreshState(project: Project, tables: OpticalTable[], energy: number, 
     const table = name ? tables.find(candidate => candidate.name === name && candidate.kind === 'db') : undefined
     if (!table || !table.energy.length) {
       const message = `Layer ${index}: missing optical table ${name || '(unnamed)'}.db.`
-      if (missing === 'reject') throw new Error(message)
+      if (missing === 'reject') throw new OpticalDatabaseError(message)
       rangeError = message
       return { ...layer }
     }

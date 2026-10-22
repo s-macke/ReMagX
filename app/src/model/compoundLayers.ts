@@ -1,3 +1,4 @@
+import { MultilayerError } from './calculationErrors'
 import type { Project } from './project'
 
 // C API row: thickness, roughness, delta, beta, deltaMag, betaMag, gamma, phi.
@@ -13,7 +14,7 @@ export function compoundLayerIndices(layerCount: number, pattern: string, maximu
   }
   const limit = maximumLayers - 2
   function parse(start: number, depth: number): { indices: number[]; position: number } {
-    if (depth > 128) throw new Error('Multilayer nesting exceeds the supported limit.')
+    if (depth > 128) throw new MultilayerError('Multilayer nesting exceeds the supported limit.')
     const indices: number[] = []
     let digits = ''
     let position = start
@@ -23,21 +24,21 @@ export function compoundLayerIndices(layerCount: number, pattern: string, maximu
       const next = pattern[position + 1]
       if (digits && (character === ',' || next === undefined || next === '\0' || next === ')' || character === '*')) {
         const value = Number(digits)
-        if (!Number.isSafeInteger(value)) throw new Error('Multilayer integer exceeds the supported range.')
+        if (!Number.isSafeInteger(value)) throw new MultilayerError('Multilayer integer exceeds the supported range.')
         if (character === '*') {
-          if (next !== '(') throw new Error("Multilayer repetition requires '(' immediately after '*'.")
+          if (next !== '(') throw new MultilayerError("Multilayer repetition requires '(' immediately after '*'.")
           const group = parse(position + 2, depth + 1)
-          if (pattern[group.position] !== ')') throw new Error('Multilayer repetition is missing its closing parenthesis.')
+          if (pattern[group.position] !== ')') throw new MultilayerError('Multilayer repetition is missing its closing parenthesis.')
           if (group.indices.length && value > Math.floor((limit - indices.length) / group.indices.length)) {
-            throw new Error('Multilayer expansion exceeds the supported layer limit.')
+            throw new MultilayerError('Multilayer expansion exceeds the supported layer limit.')
           }
           if (group.indices.length) for (let repeat = 0; repeat < value; repeat++) {
             for (const index of group.indices) indices.push(index)
           }
           position = group.position
         } else {
-          if (value >= layerCount) throw new Error(`Multilayer layer index ${value} is out of range.`)
-          if (indices.length >= limit) throw new Error('Multilayer expansion exceeds the supported layer limit.')
+          if (value >= layerCount) throw new MultilayerError(`Multilayer layer index ${value} is out of range.`)
+          if (indices.length >= limit) throw new MultilayerError('Multilayer expansion exceeds the supported layer limit.')
           indices.push(value)
         }
         digits = ''
