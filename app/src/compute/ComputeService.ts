@@ -15,6 +15,8 @@ export interface LayerSpectrumQuery { elementIndex?: number; layerIndex: number;
 export interface LayerSpectrum { scriptMessages?: string[]; energy: number[]; first: number[]; second: number[] }
 
 export interface DensityProfiles {
+  engine?: 'real' | 'mock'
+  scriptMessages?: string[]
   z: number[]
   elements: { name: string; density: number[]; boundaries: { z: number; density: number }[] }[]
 }
@@ -108,7 +110,7 @@ export interface ComputeService {
   readonly providesFitPreviews?: boolean
   dielectricTensor(project: Project, query: TensorQuery, onScriptMessages?: (lines: string[]) => void): Promise<TensorPreview>
   databaseValues(project: Project, tables: OpticalTable[]): Promise<DatabaseValues>
-  densityProfiles(project: Project): Promise<DensityProfiles>
+  densityProfiles(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<DensityProfiles>
   scatteringFactors(project: Project, query: ElementSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum>
   layerSpectrum(project: Project, query: LayerSpectrumQuery, onScriptMessages?: (lines: string[]) => void): Promise<LayerSpectrum>
   calcReflectivity(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<ReflectivityCurve>

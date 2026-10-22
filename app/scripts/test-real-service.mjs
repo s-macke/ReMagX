@@ -19,9 +19,11 @@ for (const file of ['remagx-core.mjs', 'remagx-core.wasm']) await copyFile(resol
 const adapter = await readFile(resolve(root, 'engine/wasm/parratt.mjs'), 'utf8')
 const entryCall = '    const status = resolution'
 assert.ok(adapter.includes(entryCall))
+const densityCall = '    checkStatus(module._remagx_element_density'
+assert.ok(adapter.includes(densityCall))
 // Test-only marker immediately before the actual synchronous C API call.
 await writeFile(resolve(destination, 'assets/parratt.mjs'), adapter.replace(entryCall,
-  '    if (qz.length >= 100000) self.postMessage({ realCoreEntered: true })\n' + entryCall))
+  '    if (qz.length >= 100000) self.postMessage({ realCoreEntered: true })\n' + entryCall).replace(densityCall, '    if (positions.length > 200000) self.postMessage({ densityCoreEntered: true })\n' + densityCall))
 const segmentationAdapter = await readFile(resolve(root, 'engine/wasm/segmentation.mjs'), 'utf8')
 const segmentationCall = '    const status = module._remagx_adaptive_segments'
 assert.ok(segmentationAdapter.includes(segmentationCall))
@@ -164,7 +166,12 @@ try {
   assert.ok(segmentedResults.cancellations.every(result => result.stopped === 'ComputeCancelled' && result.milliseconds < 1000), JSON.stringify(segmentedResults.cancellations))
   console.log('Segmented ComputeService: 12 energy/per-point comparisons, explicit lookup guard, binding errors and five native Stop/recovery paths and real depth profiles passed.')
   const elementComparisons = await page.evaluate(async () => {
-    const { createReferenceComputeService, createDefaultProject } = window.realServiceHarness
+    const { createReferenceComputeService, createRealComputeService, createDefaultProject } = window.realServiceHarness
+    const NativeWorker = window.Worker
+    let enteredResolve
+    window.Worker = class extends NativeWorker {
+      constructor(...args) { super(...args); this.addEventListener('message', event => { if (event.data.densityCoreEntered) enteredResolve?.() }) }
+    }
     const service = createReferenceComputeService(Array.from({ length: 1001 }, (_, index) => Math.tanh(-5 + 10 * index / 999)))
     const tables = [{ name: 'Fe', kind: 'ff', energy: [700, 900], columns: [[20, 25], [1, 2]], warnings: [] },
       { name: 'Fe', kind: 'ffm', energy: [720, 880], columns: [[.1, .2], [.01, .02]], warnings: [] }]
@@ -227,11 +234,43 @@ try {
       same(profile.beta, profile.z.map(() => 0))
       if (profile.engine !== 'real' || !profile.z.length || JSON.stringify(profileProject) !== beforeProfile ||
           !profile.scriptMessages?.some(line => line.includes('element-profile'))) throw new Error('Element depth-profile preparation failed')
-    } finally { service.dispose() }
+      const densityProject = structuredClone(profileProject)
+      densityProject.calculation.automaticOpticalConstants = true
+      densityProject.scripts.beforeCalculation = 'Fe:setthickness(1, 10); for i=0,2 do Fe:setdensity(i, Fe:getf1()/1000) end; print("density-view")'
+      const densityBefore = JSON.stringify(densityProject), messages = []
+      const density = await service.densityProfiles(densityProject, lines => messages.push(...lines), tables)
+      same(density.z, Array.from({ length: 70 }, (_, index) => index - 30))
+      same(density.elements[0].density, density.z.map(() => .0225))
+      same(density.elements[0].boundaries.map(value => value.z), [0, 10])
+      same(density.elements[0].boundaries.map(value => value.density), [.0225, .0225])
+      if (density.engine !== 'real' || JSON.stringify(messages) !== '["density-view"]' ||
+          JSON.stringify(density.scriptMessages) !== JSON.stringify(messages) || JSON.stringify(densityProject) !== densityBefore) throw new Error('Density preparation/script lifecycle failed')
+      const replaced = [{ ...tables[0], columns: [[40, 40], [0, 0]] }]
+      const updated = await service.densityProfiles(densityProject, undefined, replaced)
+      same(updated.elements[0].density, updated.z.map(() => .04))
+      const unconfigured = createRealComputeService()
+      try {
+        const message = await unconfigured.densityProfiles(densityProject, undefined, tables).then(() => '', error => error.message)
+        if (!message.includes('explicit error-function lookup')) throw new Error('Density view silently selected a production lookup')
+      } finally { unconfigured.dispose() }
+      const busy = structuredClone(densityProject)
+      busy.scripts.enabled = false; busy.calculation.automaticOpticalConstants = false
+      busy.calculation.segmentation.minThickness = .0002
+      busy.sample.elementProfiles[0].slabs = Array.from({ length: 402 }, (_, index) => ({ thickness: index > 0 && index < 401 ? .05 : 0, roughness: .01, density: .1 }))
+      let deadline
+      const entered = new Promise((resolve, reject) => { enteredResolve = resolve; deadline = setTimeout(() => reject(new Error('Native density core did not start')), 10000) })
+      const pending = service.densityProfiles(busy).then(() => 'finished', error => error.name)
+      try { await entered } finally { clearTimeout(deadline) }
+      const started = performance.now(); service.stop()
+      if (await pending !== 'ComputeCancelled') throw new Error('Native density Stop did not cancel')
+      const recovered = await service.densityProfiles(densityProject, undefined, tables)
+      same(recovered.elements[0].density, density.elements[0].density)
+      if (performance.now() - started >= 1000) throw new Error('Native density Stop/recovery exceeded one second')
+    } finally { service.dispose(); window.Worker = NativeWorker }
     return comparisons
   })
   assert.equal(elementComparisons, 6)
-  console.log('Element ComputeService: six scripted energy/per-point qz comparisons with skipped/repeated energies and input isolation passed.')
+  console.log('Element ComputeService: six scripted energy/per-point qz comparisons, real density grids/boundaries, table replacement, Lua, input isolation and native density Stop/recovery passed.')
   const results = await page.evaluate(async () => {
     const { applyDatabaseValues, projectSchema, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve

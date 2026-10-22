@@ -1,3 +1,4 @@
+import { densityProfilePlot } from '../model/densityProfileView'
 // Recalculates the curve for the current view whenever the project or view changes, debounced so
 // that typing does not flood the worker. Stale results (from an older request) are discarded.
 
@@ -52,11 +53,7 @@ async function calculate(service: ComputeService, project: Project, request: Cal
     return { ...tensorPlot(tensor, plotView === 'tensorDiagonal' ? 'diagonal' : plotView === 'tensorUpper' ? 'upper' : 'lower'), scriptMessages: tensor.scriptMessages }
   }
   if (plotView === 'densityProfiles') {
-    const profiles = await service.densityProfiles(project)
-    return { axis: 'z', x: profiles.z, series: profiles.elements.map(element => ({ label: element.name, y: element.density })),
-      logScale: false, yLabel: 'density (mock)',
-      boundaryMarks: profiles.elements.flatMap((element, seriesIndex) => element.boundaries.map(boundary => ({ x: boundary.z, y: boundary.density, seriesIndex }))),
-    }
+    return densityProfilePlot(await service.densityProfiles(project, onScriptMessages, request.tables ?? []))
   }
   if (plotView === 'scatteringFactors') {
     const spectrum = await service.scatteringFactors(project, { elementIndex: request.elementIndex ?? 0, tables: request.tables ?? [] }, onScriptMessages)

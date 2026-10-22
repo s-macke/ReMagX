@@ -612,7 +612,7 @@ it('uses the current UI table snapshot for manual execution instead of the facto
   service.stop(); await rejected; service.dispose()
 })
 
-it.each(['depthProfile', 'calcReflectivity', 'calcAsymmetry'] as const)('supplies tables to manual %s scripts', async method => {
+it.each(['densityProfiles', 'depthProfile', 'calcReflectivity', 'calcAsymmetry'] as const)('supplies tables to manual %s scripts', async method => {
   const worker = controlledWorker()
   const tables = [{ name: 'A', kind: 'db' as const, energy: [100, 200], columns: [[.01, .02], [0, 0]], warnings: [] }]
   const service = new WorkerComputeService(() => worker, () => tables), project = createDefaultProject()
@@ -625,7 +625,7 @@ it.each(['depthProfile', 'calcReflectivity', 'calcAsymmetry'] as const)('supplie
 })
 
 
-it.each(['depthProfile', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcChi2', 'startFit'] as const)('uses explicit library replacements and clears for %s', async method => {
+it.each(['densityProfiles', 'depthProfile', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcChi2', 'startFit'] as const)('uses explicit library replacements and clears for %s', async method => {
   const worker = controlledWorker(), service = new WorkerComputeService(() => worker, () => { throw new Error('stale factory tables') })
   const project = createDefaultProject()
   for (const tables of [
