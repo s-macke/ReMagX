@@ -235,42 +235,43 @@ try {
       }
       // Explicit test lookup only: this validates composition, not production erf
       // configuration or original-project/optimizer acceptance.
-      for (const algorithm of ['parratt', 'matrix', 'zak']) for (const fitAlgorithm of ['simplex', 'simplex-annealing']) {
+      for (const algorithm of ['parratt', 'matrix', 'zak']) for (const fitAlgorithm of ['simplex', 'simplex-annealing']) for (const automatic of [false, true]) {
         const fit = structuredClone(project)
         fit.calculation.algorithm = algorithm
-        fit.calculation.automaticOpticalConstants = false
+        fit.calculation.automaticOpticalConstants = automatic
+        const fitTables = automatic ? tables : []
         fit.calculation.magnetization.mode = 'none'
         fit.experiment.resolution.angularFwhm = 0
         fit.scripts.enabled = false
         fit.fit.algorithm = fitAlgorithm; fit.fit.occamQ = 0
         fit.experiment.qzScan.useDatasetPoints = false
         fit.experiment.qzScan.qzMin = .015; fit.experiment.qzScan.qzMax = .2; fit.experiment.qzScan.points = 60
-        const reference = await service.calcReflectivity(fit)
+        const reference = await service.calcReflectivity(fit, undefined, fitTables)
         fit.datasets = [{ ...fit.datasets[0], angularResolution: 0,
           columns: { qz: reference.qz, reflectivity: reference.reflectivity } }]
         fit.sample.elementProfiles[0].slabs[1].density = .04
         fit.fit.parameters = [{ target: 'elementDensity', index: 1, elementIndex: 0,
           value: .04, step: 0, lowerBound: .02, upperBound: .08 }]
         const before = JSON.stringify(fit)
-        const initialError = await service.calcChi2(fit)
+        const initialError = await service.calcChi2(fit, undefined, fitTables)
         let lastProgress
-        const result = await service.startFit(fit, progress => { lastProgress = progress })
-        const label = `${algorithm}/${fitAlgorithm}: element density fit`
+        const result = await service.startFit(fit, progress => { lastProgress = progress }, undefined, fitTables)
+        const label = `${algorithm}/${fitAlgorithm}/${automatic ? 'tables' : 'manual'}: element density fit`
         if (!Number.isFinite(initialError) || initialError <= 1e-8) throw new Error(`${label}: target has no measured effect`)
         if (Math.abs(result.values[0] - .05) > 1e-8 || result.chi2 > 1e-14 || result.chi2 >= initialError)
           throw new Error(`${label}: recovery failed (${result.values[0]}, ${result.chi2}, iterations=${result.iterations})`)
         same([result.project.sample.elementProfiles[0].slabs[1].density], result.values)
-        same([await service.calcChi2(result.project)], [result.chi2])
+        same([await service.calcChi2(result.project, undefined, fitTables)], [result.chi2])
         same(lastProgress.values, result.values); same([lastProgress.chi2], [result.chi2])
         if (!lastProgress.datasetPreview || lastProgress.datasetPreview.qz.length !== reference.qz.length)
           throw new Error(`${label}: missing fitted curve`)
-        const replay = await service.calcReflectivity(result.project)
+        const replay = await service.calcReflectivity(result.project, undefined, fitTables)
         same(lastProgress.datasetPreview.reflectivityPlus, replay.reflectivity)
         if (JSON.stringify(fit) !== before) throw new Error(`${label}: changed input`)
         if (algorithm === 'parratt' && fitAlgorithm === 'simplex') {
           const unconfigured = createRealComputeService()
           try {
-            const message = await unconfigured.startFit(fit, () => {}).then(() => '', error => error.message)
+            const message = await unconfigured.startFit(fit, () => {}, undefined, fitTables).then(() => '', error => error.message)
             if (!message.includes('explicit error-function lookup')) throw new Error(`${label}: missing production lookup was not rejected`)
           } finally { unconfigured.dispose() }
         }
@@ -333,7 +334,7 @@ try {
     return comparisons
   })
   assert.equal(elementComparisons, 6)
-  console.log('Element ComputeService: six scripted energy/per-point qz comparisons, six native element-density fits, real density grids/boundaries, table replacement, Lua, input isolation and native density Stop/recovery passed.')
+  console.log('Element ComputeService: six scripted energy/per-point qz comparisons, twelve native element-density fits, real density grids/boundaries, table replacement, Lua, input isolation and native density Stop/recovery passed.')
   const results = await page.evaluate(async () => {
     const { applyDatabaseValues, projectSchema, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } = window.realServiceHarness
     let enteredResolve

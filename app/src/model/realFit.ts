@@ -7,6 +7,7 @@ import { prepareRealFitSimplex } from './realFitSimplex'
 import { evaluateProjectDatasetError, type FitErrorCalculator } from './projectDatasetError'
 import type { RealCalculationEngine, RealBeforeCalculation, ScriptSessionLifetime } from './realCalculation'
 import { refreshPartialCompoundOptics, type SerialOpticalState } from './refreshOpticalConstants'
+import { refreshElementOptics } from './refreshElementOptics'
 import { addFitRegularization } from './fitRegularization'
 import { HC_EV_ANGSTROM } from './units'
 
@@ -93,11 +94,21 @@ export function runRealFit(project: Project, tables: OpticalTable[],
       // CMultiFit refreshes once in the current context before the dataset loop.
       // Filldb's false range return is ignored here; partial updates survive.
       const cursors = new Map(opticalState?.cursors)
-      const refreshed = refreshPartialCompoundOptics(current, tables,
-        HC_EV_ANGSTROM / (HC_EV_ANGSTROM / current.experiment.energy), engine.lookup, cursors, opticalState?.dielectricTensors)
-      opticalState = { layerDepths: opticalState.layerDepths?.slice(), scatteringTensors: opticalState?.scatteringTensors, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
-        dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState?.dielectricState?.[index] ?? null), cursors }
-      current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
+      const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / current.experiment.energy)
+      if (current.sample.mode === 'element') {
+        const refreshed = refreshElementOptics(current, tables, energy, engine.lookup, request => {
+          if (!engine.scatteringTensor) throw new Error('Native element scattering tensors are unavailable.')
+          return engine.scatteringTensor(request)
+        }, cursors, opticalState.scatteringTensors)
+        opticalState = { ...opticalState, scatteringTensors: refreshed.scatteringTensors, cursors }
+        current = { ...current, sample: { ...current.sample, elementProfiles: refreshed.elementProfiles } }
+      } else {
+        const refreshed = refreshPartialCompoundOptics(current, tables,
+          energy, engine.lookup, cursors, opticalState?.dielectricTensors)
+        opticalState = { layerDepths: opticalState.layerDepths?.slice(), scatteringTensors: opticalState?.scatteringTensors, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
+          dielectricState: refreshed.updated.map((updated, index) => updated ? null : opticalState?.dielectricState?.[index] ?? null), cursors }
+        current = { ...current, sample: { ...current.sample, layers: refreshed.layers } }
+      }
     }
     runHook(1) // CMultiFit::Error explicitly renews before every objective.
     let preview: FitDatasetPreview | undefined

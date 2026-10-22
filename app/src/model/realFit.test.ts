@@ -275,3 +275,44 @@ it('omits reference callbacks for zero Q and annealing, and skips refresh on Sto
   expect(runRealFit(project, [], engine, minimize, vi.fn(), () => stopped).stopped).toBe(true)
   expect(engine.fitError).toHaveBeenCalledTimes(2)
 })
+
+
+it.each(['available', 'outside-range', 'missing'] as const)('refreshes automatic element factors before the fit hook: %s', availability => {
+  const { project, engine } = fixture()
+  project.sample.mode = 'element'; project.calculation.automaticOpticalConstants = true
+  project.experiment.energy = 640
+  project.sample.elementProfiles = [{ element: 'Fe', f1: 1, f2: 2, f1Mag: 3, f2Mag: 4,
+    slabs: [{ thickness: 0, roughness: 0, density: .1 }] }]
+  project.fit.parameters = [{ target: 'elementF1', index: null, elementIndex: 0,
+    value: 100, step: 0, lowerBound: 90, upperBound: 110 }]
+  project.scripts.enabled = true; project.scripts.beforeCalculation = '-- observe refreshed state'
+  const table = { name: 'Fe', kind: 'ff' as const, energy: availability === 'outside-range' ? [700, 900] : [600, 900],
+    columns: [[12, 12], [2, 2]], warnings: [] }
+  vi.mocked(engine.lookup).mockReturnValue({ values: new Float64Array([12, 2]), cursor: 4 })
+  engine.scatteringTensor = vi.fn(() => new Float64Array(18).fill(7))
+  const initial = { layers: project.sample.layers, dielectricTensors: project.sample.layers.map(() => null),
+    scatteringTensors: [new Float64Array(18).fill(3)], cursors: new Map([[table, 2]]) }
+  const before = structuredClone(project)
+  const observed = new Error('observed candidate hook')
+  const hook = vi.fn((current, opticalState, renew) => {
+    if (renew === 1) {
+      expect(current.sample.elementProfiles[0].f1).toBe(availability === 'available' ? 12 : 100)
+      expect(Array.from(opticalState.scatteringTensors[0])).toEqual(Array(18).fill(availability === 'available' ? 7 : 3))
+      expect(opticalState.cursors.get(table)).toBe(availability === 'available' ? 4 : 2)
+      expect(current.fit.parameters[0].value).toBe(100)
+      throw observed
+    }
+    return { project: current, opticalState }
+  })
+  const minimize: RealMinimizer = ({ objective }) => {
+    objective(new Float64Array([0]))
+    throw new Error('unreachable')
+  }
+  expect(() => runRealFit(project, availability === 'missing' ? [] : [table], engine, minimize, vi.fn(),
+    () => false, hook, initial)).toThrow(observed)
+  expect(hook).toHaveBeenCalledTimes(2)
+  expect(engine.scatteringTensor).toHaveBeenCalledTimes(availability === 'available' ? 1 : 0)
+  expect(initial.cursors.get(table)).toBe(2)
+  expect(Array.from(initial.scatteringTensors[0])).toEqual(Array(18).fill(3))
+  expect(project).toEqual(before)
+})
