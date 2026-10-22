@@ -106,3 +106,35 @@ it('preserves every measurement column and metadata while isolating refresh and 
   last.datasets[0].columns.qz.push(99)
   expect(workspace.snapshot()).toEqual(replacement)
 })
+
+
+it('copies the complete project graph while retaining shared metadata only within each snapshot', () => {
+  const source = fixture()
+  source.datasets = Array.from({ length: 3 }, (_, index) => ({
+    title: `dataset ${index}`, comment: 'metadata', sourceFile: '', energy: 700,
+    energyShift: -0, angularResolution: 0, intensityScale: 1, intensityOffset: 0,
+    qzShift: 0, errorWeight: 1, polarization: source.experiment.polarization, active: true,
+    columns: { qz: [.01, .02], reflectivity: [1, 1e-200], energy: undefined },
+  }))
+  source.datasets[1].columns = source.datasets[0].columns
+  source.experiment.polarization.beam2 = source.experiment.polarization.beam1
+  const expected = structuredClone(source)
+  const workspace = createScriptArrayWorkspace(source)
+  source.datasets[0].polarization.beam1.sigma.re = 99
+  source.sample.elementProfiles[0].f1 = 99
+  const first = workspace.snapshot()
+  expect(first).toEqual(expected)
+  expect(first.datasets[0].polarization).toBe(first.experiment.polarization)
+  expect(first.datasets[2].polarization.beam2).toBe(first.experiment.polarization.beam1)
+  expect(first.datasets[1].columns).toBe(first.datasets[0].columns)
+  expect(Object.is(first.datasets[0].energyShift, -0)).toBe(true)
+  first.datasets[0].polarization.beam1.sigma.re = -17
+  first.datasets[0].columns.qz.push(.03)
+  first.fit.evolution.randomSeed = 812
+  expect(workspace.snapshot()).toEqual(expected)
+  workspace.replace(first)
+  const refreshed = structuredClone(first)
+  first.datasets[0].polarization.beam1.pi.im = 33
+  first.scripts.parameters[0] = 55
+  expect(workspace.snapshot()).toEqual(refreshed)
+})

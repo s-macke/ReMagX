@@ -151,26 +151,37 @@ export function createScriptArrayWorkspace(source: Project) {
 }
 
 
-// Measurement columns contain only numbers. Copy their arrays directly instead
-// of serializing every point through structuredClone on each script invocation.
-// All remaining project fields still use structuredClone, including dataset
-// metadata. Both directions retain independent, mutable project snapshots.
+// Project is a schema-defined graph of plain records, arrays and primitives.
+// Copy measurement arrays in bulk, then copy the small records directly rather
+// than serializing every dataset's metadata at every script invocation. One map
+// retains shared references within a snapshot, never across snapshots.
 function cloneScriptProject(source: Project): Project {
-  const result: Project = structuredClone({ ...source,
-    datasets: source.datasets.map(dataset => ({ ...dataset, columns: { qz: [] } })),
-  })
-  const copies = new Map<number[], number[]>()
-  source.datasets.forEach((dataset, index) => {
-    const columns = { ...dataset.columns }
-    for (const key of Object.keys(columns) as (keyof typeof columns)[]) {
-      const values = columns[key]
-      if (values !== undefined) {
-        let copy = copies.get(values)
-        if (!copy) { copy = values.slice(); copies.set(values, copy) }
-        columns[key] = copy
-      }
+  const copies = new Map<object, object>()
+  for (const dataset of source.datasets) {
+    for (const values of Object.values(dataset.columns)) {
+      if (values !== undefined && !copies.has(values)) copies.set(values, values.slice())
     }
-    result.datasets[index].columns = columns
-  })
-  return result
+  }
+  function copy(value: unknown): unknown {
+    if (value === null || typeof value !== 'object') return value
+    const previous = copies.get(value)
+    if (previous) return previous
+    if (Array.isArray(value)) {
+      const result: unknown[] = new Array(value.length)
+      copies.set(value, result)
+      value.forEach((entry, index) => { result[index] = copy(entry) })
+      return result
+    }
+    const result: Record<string, unknown> = {}
+    copies.set(value, result)
+    for (const [key, entry] of Object.entries(value)) {
+      // Keep own data properties even for names with special object setters.
+      if (key === '__proto__') Object.defineProperty(result, key, {
+        value: copy(entry), enumerable: true, configurable: true, writable: true,
+      })
+      else result[key] = copy(entry)
+    }
+    return result
+  }
+  return copy(source) as Project
 }
