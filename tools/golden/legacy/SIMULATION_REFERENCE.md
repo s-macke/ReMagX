@@ -805,3 +805,43 @@ The current application explicitly rejects applying one-row conversion results.
 Choosing a corrected homogeneous-medium/no-interface interpretation requires
 D-29 approval, followed by project persistence, editing, preparation and solver
 work. Until then, generated output remains unpadded and the project unchanged.
+
+### Ordinary Simplex Q reference lifecycle
+
+The private synthetic optimizer probe was extended to record each caller-level
+Simplex invocation and its Error callbacks. This is an observation of reference
+ownership, not a fit-quality golden and not an implementation of the optimizer.
+The driver, original optimizer sources and executable remain private. No original
+optimizer code is copied into the public native/WASM implementation.
+
+For the synthetic objective `(candidate - 4)^2 + (reference - candidate)^2`, one
+parameter starts at 1 with bounds [-10, 10] and seed 100. Five ordinary Simplex
+calls produce 14 evaluations. Initialization evaluates two candidates with the
+original reference. Each subsequent call evaluates trials against its selected
+reference, then evaluates that reference itself again. For example, the first
+post-initialization call evaluates candidates near 1.1 and 1.15 using reference
+1.05, followed by candidate/reference 1.05. The next call uses reference near
+1.15. The final reference is about 1.75 although a later trial near 2.55 has already
+been evaluated. Twelve evaluations use a reference different from the saved 1.
+Annealing still performs 12 evaluations with reference fixed at 1.
+
+Repeating ordinary Simplex with saved value 20 (outside the same bounds) yields
+14 evaluations and ten changed-reference evaluations. Initialization exposes
+candidates 20 and 21. The next invocation begins with reference 20 but finishes
+with reference 10; later references include 0 and 5. This demonstrates interaction
+with mutable bound handling. The synthetic objective deliberately always includes
+its square term, including at zero: it tests ownership and call ordering, not the
+production Q helper's strict 1e-6 candidate threshold.
+
+The clean-room optimizer currently reports the best-ever evaluated candidate
+through onProgress after initialization and each completed iteration. That is
+not the same state as the original selected reference, and it has no dedicated
+reference re-evaluation event. runRealFit also retains the best complete evaluated
+project and checks its score against the optimizer result. Therefore connecting
+Q by simply copying progress.parameters would leave reference timing, reporting
+re-evaluation and cross-reference best-score consistency unresolved. The next
+implementation must expose an explicit lifecycle between the independent
+optimizer and project objective, preserve fixed/full parameter mapping and
+cancellation, and validate the final reported project/error under that lifecycle.
+No optimizer trajectory equivalence, bound-policy change or Q acceptance is
+inferred from this probe. Ordinary Simplex with nonzero Q remains rejected.
