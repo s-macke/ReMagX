@@ -20,6 +20,7 @@ export type RealMinimizer = (request: {
   simplex: number[][]
   annealing?: { temperature: number; temperatureStep: number; seed: number }
   objective: (coordinates: Float64Array) => number
+  onReference?: (event: { parameters: Float64Array; phase: 'selected' | 'completed'; iterations: number; evaluations: number }) => void
   shouldStop: () => boolean
   onProgress: (progress: SimplexProgress) => void
 }) => {
@@ -50,10 +51,9 @@ export function runRealFit(project: Project, tables: OpticalTable[],
     throw new Error('Annealing needs a nonnegative finite temperature, a finite temperature step and a uint32 seed.')
   }
   if (!Number.isFinite(project.fit.occamQ)) throw new Error('Invalid fit regularization weight.')
-  if (project.fit.occamQ !== 0 && !annealing) throw new Error('Ordinary Simplex regularization is not implemented yet.')
   // Original Simplex2 retains constructor activevars, including unclipped saved
-  // values. Ordinary Simplex changes that reference and needs separate integration.
-  const regularizationReference = project.fit.parameters.map(parameter => parameter.value)
+  // values. Ordinary Simplex selects a reference before each iteration.
+  let regularizationReference = project.fit.parameters.map(parameter => parameter.value)
   if (!project.fit.parameters.length) throw new Error('Select at least one fit parameter.')
   if (!project.datasets.some(dataset => dataset.active)) throw new Error('Select at least one dataset for fitting.')
   const prepared = prepareRealFitSimplex(project.fit.parameters)
@@ -70,8 +70,11 @@ export function runRealFit(project: Project, tables: OpticalTable[],
   }
   const touched = new Map<number, Set<keyof FitDatasetUpdate['values']>>()
   const best: { result: FitResult | null; preview?: FitDatasetPreview } = { result: null }
-  const objective = (coordinates: Float64Array): number => {
-    const candidate = applyRealFitParameters(current, prepared.decode(coordinates))
+  const evaluate = (values: number[], referenceRefresh = false): number => {
+    const candidate = applyRealFitParameters(current, values)
+    // The legacy reference re-evaluation aliases activevars: VerifyVars clips
+    // the reference itself before Error computes Q. Trial clipping does not.
+    if (referenceRefresh) regularizationReference = candidate.values.slice()
     for (const parameter of current.fit.parameters) {
       const field = parameter.target
       if (field !== 'angularResolution' && field !== 'intensityScale' && field !== 'qzShift' && field !== 'energyShift') continue
@@ -107,15 +110,21 @@ export function runRealFit(project: Project, tables: OpticalTable[],
     current = evaluated.project
     opticalState = evaluated.opticalState ?? opticalState
     const error = addFitRegularization(evaluated.error, project.fit.occamQ, regularizationReference, candidate.values)
-    if (!best.result || error < best.result.chi2) {
+    if (!referenceRefresh && (!best.result || error < best.result.chi2)) {
       // Retain the actual evaluated state. Replaying values against a later state
       // can change coordinate-shift targets or optical constants.
       best.preview = preview
       const datasetUpdates: FitDatasetUpdate[] = Array.from(touched, ([index, fields]) => ({ index,
         values: Object.fromEntries(Array.from(fields, field => [field, current.datasets[index][field]])) }))
-      best.result = { datasetUpdates, project: current, values: candidate.values.slice(), chi2: error, iterations: 0, stopped: false }
+      best.result = { ...(project.fit.occamQ !== 0 ? { regularizationReference: regularizationReference.slice() } : {}),
+        datasetUpdates, project: current, values: candidate.values.slice(), chi2: error, iterations: 0, stopped: false }
     }
     return error
+  }
+  const objective = (coordinates: Float64Array) => evaluate(prepared.decode(coordinates))
+  const onReference = (event: { parameters: Float64Array; phase: 'selected' | 'completed' }) => {
+    if (event.phase === 'selected') regularizationReference = prepared.decode(event.parameters)
+    else if (!shouldStop()) evaluate(regularizationReference, true)
   }
   if (shouldStop()) throw new FitStoppedBeforeEvaluation('Stopped before evaluating a fit candidate.')
   runHook(0, 'temporary') // The CMultiFit constructor compiles and executes the script once.
@@ -127,6 +136,7 @@ export function runRealFit(project: Project, tables: OpticalTable[],
     return result
   }
   const result = minimize({ simplex: prepared.simplex, objective, shouldStop, ...(annealing ? { annealing } : {}),
+    ...(project.fit.occamQ !== 0 && !annealing ? { onReference } : {}),
     onProgress: progress => {
       if (best.result) onProgress({ iteration: progress.iterations, chi2: best.result.chi2, values: best.result.values.slice(),
         ...(best.preview ? { datasetPreview: structuredClone(best.preview) } : {}) })

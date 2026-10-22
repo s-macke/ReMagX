@@ -56,7 +56,6 @@ it('reports unsupported fits, cancellation and numerical failures explicitly', (
   const { project, engine } = fixture()
   const minimize = vi.fn<RealMinimizer>()
   const run = () => runRealFit(project, [], engine, minimize, vi.fn())
-  project.fit.algorithm = 'simplex'; project.fit.occamQ = 1; expect(run).toThrow('regularization')
   project.fit.occamQ = 0; project.datasets.forEach(data => { data.active = false }); expect(run).toThrow('dataset')
   project.datasets[0].active = true
   expect(() => runRealFit(project, [], engine, minimize, vi.fn(), () => true)).toThrow(FitStoppedBeforeEvaluation)
@@ -209,4 +208,70 @@ it('includes signed annealing regularization for fixed rows and rejects nonfinit
     project.fit.occamQ = weight
     expect(() => runRealFit(project, [], engine, minimize, vi.fn())).toThrow('regularization weight')
   }
+})
+
+
+it('maps ordinary Q references, clips only on refresh and preserves the best trial snapshot', () => {
+  const { project, engine } = fixture()
+  project.fit.occamQ = 2
+  project.fit.parameters[0].value = .5 // normalized axis scale .025
+  project.fit.parameters.push({ target: 'intensityScale', index: null, elementIndex: null,
+    value: 2, step: 0, lowerBound: 1, upperBound: 1 })
+  const before = structuredClone(project)
+  const progress = vi.fn()
+  let refresh = false
+  vi.mocked(engine.fitError).mockImplementation(() => ({ error: refresh ? 0 : 1, accepted: 1 }))
+  const minimize: RealMinimizer = ({ objective, onReference, onProgress }) => {
+    expect(onReference).toBeTypeOf('function')
+    // Initialization retains the saved fixed-row reference 2, candidate 1.
+    expect(objective(new Float64Array([0]))).toBe(4)
+    const selected = new Float64Array([40]) // full reference [1.5, 1]
+    onReference!({ parameters: selected, phase: 'selected', iterations: 0, evaluations: 1 })
+    selected[0] = 999 // callback mapping owns its reference
+    // Trial is clipped to 1; selected reference remains 1.5.
+    const score = objective(new Float64Array([40]))
+    expect(score).toBeCloseTo(2.5, 14)
+    refresh = true
+    onReference!({ parameters: new Float64Array([40]), phase: 'completed', iterations: 1, evaluations: 2 })
+    refresh = false
+    // Reference refresh scored zero, but must not replace the native best trial.
+    onProgress({ parameters: new Float64Array([40]), value: score, iterations: 1, evaluations: 2 })
+    expect(objective(new Float64Array([-10]))).toBeCloseTo(3.125, 14) // clipped reference now 1
+    return { termination: 'iteration-limit', parameters: new Float64Array([40]), value: score, iterations: 1, evaluations: 3 }
+  }
+  const result = runRealFit(project, [], engine, minimize, progress)
+  expect(result.chi2).toBeCloseTo(2.5, 14)
+  expect(result.values).toEqual([1, 1])
+  expect(result.regularizationReference?.[0]).toBeCloseTo(1.5, 14)
+  expect(result.regularizationReference?.[1]).toBe(1)
+  expect(result.project.datasets.map(dataset => dataset.qzShift)).toEqual([.5, 1])
+  expect(progress.mock.calls[0][0].values).toEqual([1, 1])
+  expect(engine.fitError).toHaveBeenCalledTimes(8)
+  expect(project).toEqual(before)
+})
+
+it('omits reference callbacks for zero Q and annealing, and skips refresh on Stop', () => {
+  for (const algorithm of ['simplex', 'simplex-annealing'] as const) {
+    const { project, engine } = fixture()
+    project.fit.algorithm = algorithm
+    project.fit.occamQ = algorithm === 'simplex' ? 0 : 1
+    const minimize: RealMinimizer = ({ objective, onReference }) => {
+      expect(onReference).toBeUndefined()
+      return { termination: 'converged', parameters: new Float64Array([0]),
+        value: objective(new Float64Array([0])), iterations: 0, evaluations: 1 }
+    }
+    runRealFit(project, [], engine, minimize, vi.fn())
+  }
+  const { project, engine } = fixture()
+  project.fit.occamQ = 1
+  let stopped = false
+  const minimize: RealMinimizer = ({ objective, onReference }) => {
+    const value = objective(new Float64Array([0]))
+    onReference!({ parameters: new Float64Array([0]), phase: 'selected', iterations: 0, evaluations: 1 })
+    stopped = true
+    onReference!({ parameters: new Float64Array([0]), phase: 'completed', iterations: 1, evaluations: 1 })
+    return { termination: 'stopped', parameters: new Float64Array([0]), value, iterations: 1, evaluations: 1 }
+  }
+  expect(runRealFit(project, [], engine, minimize, vi.fn(), () => stopped).stopped).toBe(true)
+  expect(engine.fitError).toHaveBeenCalledTimes(2)
 })

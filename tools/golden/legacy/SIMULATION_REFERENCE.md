@@ -833,9 +833,9 @@ with mutable bound handling. The synthetic objective deliberately always include
 its square term, including at zero: it tests ownership and call ordering, not the
 production Q helper's strict 1e-6 candidate threshold.
 
-The clean-room optimizer currently reports the best-ever evaluated candidate
-through onProgress after initialization and each completed iteration. That is
-not the same state as the original selected reference, and it has no dedicated
+Before reference lifecycle integration, the clean-room optimizer reported the
+best-ever evaluated candidate through onProgress after initialization and each completed iteration. That is
+not the same state as the original selected reference, and it had no dedicated
 reference re-evaluation event. runRealFit also retains the best complete evaluated
 project and checks its score against the optimizer result. Therefore connecting
 Q by simply copying progress.parameters would leave reference timing, reporting
@@ -844,4 +844,22 @@ implementation must expose an explicit lifecycle between the independent
 optimizer and project objective, preserve fixed/full parameter mapping and
 cancellation, and validate the final reported project/error under that lifecycle.
 No optimizer trajectory equivalence, bound-policy change or Q acceptance is
-inferred from this probe. Ordinary Simplex with nonzero Q remains rejected.
+inferred from this probe. At that audit point, ordinary Simplex with nonzero Q remained rejected.
+
+
+Project integration now consumes the independent optimizer's selected/completed
+reference events. Initialization keeps the saved full reference; selection decodes
+all rows, including fixed bounds. Trials clip their candidates only. Completion
+re-evaluates the selected reference through the usual optical refresh, hook and
+weighted dataset path, clipping the reference itself before Q. A Stop request
+skips this extra evaluation. Callback failures propagate through the WASM adapter.
+
+The independent optimizer's existing best-ever evaluated-trial policy is retained:
+reference refresh advances serial project state but does not enter native ranking,
+evaluation counts or the reported best trial. The returned FitResult includes the
+exact regularizationReference used for its score alongside its evaluated project
+snapshot; subsequent reference changes cannot rewrite that score or its preview.
+No final replay against a later script/dataset state is performed. Ordinary nonzero
+Q is enabled in the development real worker; zero-Q and annealing callbacks remain
+unchanged. These integration checks do not establish original fit-quality acceptance
+or equivalence of optimizer trajectories. Public deployment still uses the mock.

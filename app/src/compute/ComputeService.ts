@@ -97,6 +97,8 @@ export interface FitDatasetUpdate {
 }
 
 export interface FitResult {
+  // Reference used for this evaluated real-fit score; ordinary Simplex changes it.
+  regularizationReference?: number[]
   scriptMessages?: string[]
   // Real fits report exactly which dataset fields were fitted. Absent for the mock.
   datasetUpdates?: FitDatasetUpdate[]

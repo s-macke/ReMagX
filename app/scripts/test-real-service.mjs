@@ -827,6 +827,7 @@ try {
       }
       output.multiParameterFits = []
       output.regularizedFits = []
+      output.ordinaryRegularizedFits = []
       output.realFits = []
       for (const algorithm of ['parratt', 'matrix', 'zak']) for (const fitAlgorithm of ['simplex', 'simplex-annealing']) {
         const fit = createDefaultProject()
@@ -859,6 +860,19 @@ try {
         const replay = fitAlgorithm === 'simplex-annealing' ? await service.startFit(fit, () => {}) : result
         if (JSON.stringify(replay.values) !== JSON.stringify(result.values) || replay.chi2 !== result.chi2 || replay.iterations !== result.iterations)
           throw new Error('Annealing fit did not replay with the default seed')
+        if (fitAlgorithm === 'simplex') {
+          const regularized = structuredClone(fit)
+          regularized.fit.occamQ = .00001
+          const unchanged = JSON.stringify(regularized)
+          const initialError = await service.calcChi2(regularized)
+          const penalized = await service.startFit(regularized, () => {})
+          const repeated = await service.startFit(regularized, () => {})
+          const dataError = await service.calcChi2(penalized.project)
+          output.ordinaryRegularizedFits.push({ algorithm, value: penalized.values[0], chi2: penalized.chi2,
+            expected: dataError + regularized.fit.occamQ * (penalized.regularizationReference[0] - penalized.values[0]) ** 2,
+            dataError, initialError, replay: repeated.chi2 === penalized.chi2 && repeated.values[0] === penalized.values[0],
+            unchanged: unchanged === JSON.stringify(regularized) })
+        }
         if (fitAlgorithm === 'simplex-annealing') {
           const regularized = structuredClone(fit)
           regularized.fit.occamQ = .00001
@@ -1486,6 +1500,13 @@ try {
     assert.equal(result.progressError, result.chi2)
     assert.ok(result.chi2 < 1e-16, `${label}: error ${result.chi2}`)
     assert.ok(Math.abs(result.chi2 - result.dataError) <= 1e-15 + 1e-10 * Math.abs(result.dataError), `${label}: saved fit objective`)
+  }
+  assert.equal(results.ordinaryRegularizedFits.length, 3)
+  for (const result of results.ordinaryRegularizedFits) {
+    assert.ok(result.unchanged && result.replay, `${result.algorithm}: ordinary Q isolation/replay`)
+    assert.ok(Math.abs(result.value - 35) < .01, `${result.algorithm}: ordinary Q thickness recovery`)
+    assert.ok(result.chi2 < result.initialError, `${result.algorithm}: ordinary Q improvement`)
+    assert.ok(Math.abs(result.chi2 - result.expected) <= 1e-15 + 1e-10 * Math.abs(result.expected), `${result.algorithm}: ordinary Q objective snapshot`)
   }
   assert.equal(results.regularizedFits.length, 3)
   for (const result of results.regularizedFits) {
