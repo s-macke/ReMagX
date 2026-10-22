@@ -32,10 +32,11 @@ extern "C" int __wrap_luaL_loadbuffer(lua_State* state, const char* text, size_t
 
 int main(int argc, char** argv) {
     if (argc < 2 || argc > 9) return 2;
-    bool asymmetry = false, energy_scan = false, fixed_angle = false, profile = false;
+    bool asymmetry = false, energy_scan = false, fixed_angle = false, profile = false, density = false;
     bool fourier = false, multiply = false, divide = false, column_layout = false;
     for (int index = 2; index < argc; ++index) {
-        if (std::strcmp(argv[index], "--profile") == 0 && !profile) profile = true;
+        if (std::strcmp(argv[index], "--density") == 0 && !density) density = true;
+        else if (std::strcmp(argv[index], "--profile") == 0 && !profile) profile = true;
         else if (std::strcmp(argv[index], "--column-layout") == 0 && !column_layout) column_layout = true;
         else if (std::strcmp(argv[index], "--asymmetry") == 0 && !asymmetry) asymmetry = true;
         else if (std::strcmp(argv[index], "--energy") == 0 && !energy_scan) energy_scan = true;
@@ -45,6 +46,7 @@ int main(int argc, char** argv) {
         else if (std::strcmp(argv[index], "--divide-pi") == 0 && !divide) divide = true;
         else return 2;
     }
+    if (density && (profile || energy_scan || asymmetry || fixed_angle || fourier || multiply || divide || column_layout)) return 2;
     if (profile && (energy_scan || asymmetry || fixed_angle || fourier || multiply || divide || column_layout)) return 2;
     if (fixed_angle && !energy_scan) return 2;
     if (fourier && (energy_scan || asymmetry) && !column_layout) return 2;
@@ -61,6 +63,66 @@ int main(int argc, char** argv) {
     state->postfft = fourier;
     state->postmultiply = multiply;
     state->postdivide = divide;
+    if (density) {
+        // Unit1.cpp ShowDensityProfilesClick: GetState without SetOCStrict,
+        // temporary BeforeCalculation, then DrawDensityProfiles/GetDensity.
+        if (state->ocautomatic) { Getdblist(*state); Filldb(*state); }
+        else FillTensors(*state);
+        CScript(*state, BEFORECALCULATION, NULL, NULL);
+        if (script_failed) return 7;
+        const auto* film = state->GetActiveFilm();
+        if (film->mode != ELEMENT || film->el.empty()) return 11;
+        const auto& elements = film->el;
+        double total = 0.0, roughness = 0.0;
+        for (int element = 0; element < elements.size(); ++element) {
+            double thickness = 0.0;
+            for (int layer = 1; layer < elements[element].mfs.size() - 1; ++layer)
+                thickness += elements[element].mfs[layer].d;
+            if (thickness > total) {
+                total = thickness;
+                roughness = elements[element].mfs[elements[element].mfs.size() - 2].sigma;
+            }
+        }
+        // The GUI leaves maxsigma uninitialized when no positive stack wins.
+        const double maximum = total + 30.0 + roughness * 2.0;
+        const double step = state->slicing.minlayerthickness;
+        if (total <= 0.0 || !std::isfinite(maximum) || !std::isfinite(step) || step <= 0.0) return 12;
+        std::ostringstream buffer;
+        buffer << std::setprecision(17) << "{\"smooth\":[";
+        size_t count = 0;
+        for (double depth = -30.0; depth < maximum;) {
+            if (++count > 1000000) return 12;
+            if (count > 1) buffer << ",";
+            buffer << "[" << depth;
+            for (int element = 0; element < elements.size(); ++element) {
+                const double value = elements[element].GetDensity(depth);
+                if (!std::isfinite(value)) return 8;
+                buffer << "," << value;
+            }
+            buffer << "]";
+            const double next = depth + step;
+            if (next <= depth) return 12;
+            depth = next;
+        }
+        buffer << "],\"boundaries\":[";
+        for (int element = 0; element < elements.size(); ++element) {
+            if (element) buffer << ",";
+            buffer << "[";
+            double depth = 0.0;
+            for (int layer = 1; layer < elements[element].mfs.size(); ++layer) {
+                if (layer > 1) buffer << ",";
+                const double value = elements[element].GetDensity(depth);
+                if (!std::isfinite(depth) || !std::isfinite(value)) return 8;
+                buffer << "[" << depth << "," << value << "]";
+                if (layer < elements[element].mfs.size() - 1) depth += elements[element].mfs[layer].d;
+            }
+            buffer << "]";
+        }
+        buffer << "]}\n";
+        const auto result = buffer.str();
+        if (fwrite(result.data(), 1, result.size(), output) != result.size()) return 9;
+        return fclose(output) == 0 ? 0 : 9;
+    }
     if (profile) {
         // GUI GetState followed by SetOCStrict, then the temporary profile hook.
         if (state->ocautomatic) {

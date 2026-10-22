@@ -75,6 +75,33 @@ class SimulationReferenceTest(unittest.TestCase):
         self.assertEqual(rejected.returncode, 2)
         self.assertEqual(rejected.stdout, '')
 
+    def test_density_grid_boundaries_and_scripted_values(self):
+        base = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        settings = ['mode = 1', 'elementlayerversion = 2', 'ocautomatic = 0', 'disablescript = 1', 'minlayerthickness = 10']
+        for element, roughness in [('Fe', 5), ('Co', 50)]:
+            settings += ['element = ' + element, 'el_f1 = 1', 'el_f2 = 0',
+                'el_layer = 0', 'el_density = 0.1', 'el_sigma = 100',
+                'el_layer = 1', 'el_d = 10', 'el_density = 0.1', 'el_sigma = ' + str(roughness),
+                'el_layer = 2', 'el_density = 0.1', 'el_sigma = 0']
+        path = Path(self.directory.name) / 'density.all'
+        source = base + '\n' + '\n'.join(settings) + '\n'
+        path.write_text(source)
+        result = self.run_fixture(path, '--density')
+        self.assertEqual([row[0] for row in result['smooth']], list(range(-30, 50, 10)))
+        self.assertEqual([[row[0] for row in element] for element in result['boundaries']], [[0, 10], [0, 10]])
+        self.assertTrue(all(math.isclose(value, .1, rel_tol=1e-10, abs_tol=1e-15)
+            for row in result['smooth'] for value in row[1:]))
+        path.write_text(source + 'disablescript = 0\nscriptline = Fe:setthickness(1,20); for i=0,2 do Fe:setdensity(i,0.25) end\n')
+        scripted = self.run_fixture(path, '--density')
+        self.assertEqual(scripted['smooth'][-1][0], 50)
+        self.assertTrue(all(math.isclose(row[1], .25, rel_tol=1e-10, abs_tol=1e-15) for row in scripted['smooth']))
+        self.assertEqual([row[0] for row in scripted['boundaries'][0]], [0, 20])
+        path.write_text(source.replace('el_d = 10', 'el_d = 0'))
+        for options, code in [(('--density',), 12), (('--density', '--profile'), 2), (('--density', '--density'), 2)]:
+            failed = subprocess.run([self.executable, path, *options], capture_output=True, text=True, cwd=self.directory.name, timeout=30)
+            self.assertEqual(failed.returncode, code)
+            self.assertEqual(failed.stdout, '')
+
     def test_profile_default_segmentation_is_local_when_key_is_absent(self):
         source = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
         source = re.sub(r'^segmentationmodel\s*=.*$', '', source, flags=re.MULTILINE)

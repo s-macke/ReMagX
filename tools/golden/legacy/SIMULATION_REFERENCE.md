@@ -718,3 +718,34 @@ comparisons retain 84/89 available reference matches, 35,492 smooth points plus
 errors remain 2.220446049250313e-16 / 1.1429968083120912e-11. Five available
 references lack element tables and nine other original runs error. No inputs
 were excluded; acceptancePassed remains false.
+
+
+### Original element-density profiles
+
+Run `node app/scripts/diagnose-private-corpus.mjs --density` for the element-density
+view. This option is exclusive with --profile, --energy and --asymmetry. The
+native adapter also accepts --density alone, using GUI GetState preparation
+(partial automatic refresh or FillTensors), one temporary BeforeCalculation
+execution and the original element GetDensity method. The output contains a
+common-grid smooth matrix (depth then ordered element densities) and separate
+boundary coordinate/density pairs for each element. No element names are emitted.
+Range selection, strict upper endpoint and repeated addition follow
+DrawDensityProfiles. The original uninitialized range for zero total interior
+thickness is explicitly rejected, as are invalid/nonadvancing/oversized grids.
+Output remains finite, buffered and 17-digit.
+
+The comparator preserves element order and boundary grouping and checks every
+value with unchanged D-23. Native exit 11 means the density view is inapplicable
+(non-element mode/no elements); exit 12 identifies an undefined or unsupported
+grid. These are kept separate from generic reference errors and timeouts. All
+99 inputs are attempted; none is removed to improve the comparison result.
+
+The first full run matches **15/15 available original references**, comprising
+4,189 common-grid points, 827 boundary marks and 31,681 numerical values. All
+column/boundary mismatch counts and maximum absolute/log10 differences are zero.
+Eighty inputs are inapplicable to the element-only view. Four remaining original
+runs error and the worker reports script failures; these are not evidence of
+invalid projects without further investigation. No reference or worker times
+out. The all-input acceptancePassed flag stays false and the diagnostic exits
+nonzero, because mode/error cases are not numerical matches. This does not select
+a production error-function policy or establish complete scripting acceptance.

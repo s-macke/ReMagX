@@ -36,3 +36,23 @@ export function compareDiagnosticProfile(actual: { smooth: number[][]; segments:
     mismatchesByColumn: { ...smooth.mismatchesByColumn, ...segments.mismatchesByColumn },
     maximumAbsolute: Math.max(smooth.maximumAbsolute, segments.maximumAbsolute), maximumLog10: Math.max(smooth.maximumLog10, segments.maximumLog10) }
 }
+
+export function compareDiagnosticDensity(actual: { smooth: number[][]; boundaries: number[][][] }, reference: { smooth: number[][]; boundaries: number[][][] }) {
+  const count = reference.boundaries.length
+  if (!count || !reference.smooth.length || actual.boundaries.length !== count ||
+      [...actual.smooth, ...reference.smooth].some(row => row.length !== count + 1) ||
+      [...actual.boundaries, ...reference.boundaries].some(element => element.some(row => row.length !== 2)) ||
+      actual.boundaries.some((element, index) => element.length !== reference.boundaries[index].length)) return { status: 'length-mismatch' as const }
+  const smooth = compareDiagnosticColumns(Array.from({ length: count + 1 }, (_, index) => ({
+    name: index ? `element${index - 1}` : 'coordinate', values: actual.smooth.map(row => row[index]),
+  })), reference.smooth)
+  const marks = compareDiagnosticColumns([{ name: 'boundaries', values: actual.boundaries.flat(2) }], reference.boundaries.flat(2).map(value => [value]))
+  if (!('points' in smooth)) return smooth
+  if (!('points' in marks)) return marks
+  const mismatches = smooth.mismatches + marks.mismatches
+  return { status: mismatches ? 'numerical-mismatch' as const : 'matched' as const, points: reference.smooth.length,
+    boundaryCount: reference.boundaries.reduce((sum, element) => sum + element.length, 0),
+    comparedValues: smooth.comparedValues + marks.comparedValues, mismatches,
+    mismatchesByColumn: { ...smooth.mismatchesByColumn, ...marks.mismatchesByColumn },
+    maximumAbsolute: Math.max(smooth.maximumAbsolute, marks.maximumAbsolute), maximumLog10: Math.max(smooth.maximumLog10, marks.maximumLog10) }
+}

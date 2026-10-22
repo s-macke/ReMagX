@@ -1,6 +1,8 @@
 // Test-only sanitization: never return input text, filenames or unknown details.
 // Specific capability/data failures precede broad words such as "scattering".
 export function diagnosticCategory(message: string): string {
+  if (message.includes('Define elements to show their density profiles')) return 'density-mode'
+  if (message.includes('legacy density-profile range is undefined')) return 'density-range'
   if (message.includes('comparison-timeout')) return 'worker-timeout'
   if (message.includes('planned for a later release')) return 'deferred-algorithm'
   if (message.includes('Full .F scattering tensor refresh is unavailable')) return 'scattering-tensor-decision'
