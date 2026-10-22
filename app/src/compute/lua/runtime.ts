@@ -1,3 +1,4 @@
+import { scriptFailure } from '../../model/calculationErrors'
 import { installScriptOutput } from './output'
 import { installProjectFunctions, type ScriptProjectFunctions } from './functions'
 import type { ScriptFactorLookup } from '../../model/scriptFactors'
@@ -80,7 +81,7 @@ export class LuaSession {
       this.compiled = true
     } catch (error) {
       this.close()
-      throw error
+      throw scriptFailure('compilation', error)
     } finally {
       if (this.engine) engine.global.setTop(stackTop)
     }
@@ -118,7 +119,7 @@ export class LuaSession {
         energyScanQz: read('energyscan_qz'), renewOpticalConstants: 0 }
     } catch (error) {
       this.close()
-      throw error
+      throw scriptFailure('execution', error)
     } finally {
       this.finishExecution(engine, stackTop)
     }
@@ -129,15 +130,17 @@ export class LuaSession {
     const engine = this.activeEngine()
     const stackTop = engine.global.getTop()
     this.executionDepth++
+    let phase: 'compilation' | 'execution' = 'compilation'
     try {
       // No wrapper lines: Lua diagnostics refer to the user's actual source line.
       engine.global.loadString(source, `@${name}`)
+      phase = 'execution'
       engine.global.runSync()
       this.activeEngine()
     } catch (error) {
       // A failed script may have changed globals; never reuse that partial state.
       this.close()
-      throw error
+      throw scriptFailure(phase, error)
     } finally {
       this.finishExecution(engine, stackTop)
     }

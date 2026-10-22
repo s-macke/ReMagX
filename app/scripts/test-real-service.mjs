@@ -370,8 +370,12 @@ try {
         }
         scripted.scripts.beforeCalculation = 'delta[1] = 0.1\nlocal x = 1\nerror("broken calculation")'
         let failed = false
-        try { await service.calcReflectivity(scripted) } catch (error) { failed = /BeforeCalculation:3:/.test(error.message) }
-        if (!failed) throw new Error('Missing Lua line-3 error')
+        try { await service.calcReflectivity(scripted) } catch (error) { failed = /Lua script execution failed/.test(error.message) && /BeforeCalculation:3:/.test(error.message) }
+        if (!failed) throw new Error('Missing Lua execution phase or line-3 error')
+        scripted.scripts.beforeCalculation = 'local x = 1\nlocal = 2'
+        failed = false
+        try { await service.calcReflectivity(scripted) } catch (error) { failed = /Lua script compilation failed/.test(error.message) && /BeforeCalculation:2:/.test(error.message) }
+        if (!failed) throw new Error('Missing Lua compilation phase or line-2 error')
         scripted.scripts.beforeCalculation = JSON.parse(before).scripts.beforeCalculation
         if (JSON.stringify(scripted) !== before) throw new Error('Script changed caller project')
       }
