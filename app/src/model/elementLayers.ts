@@ -15,8 +15,7 @@ export type ElementDensitySampler = (profile: Project['sample']['elementProfiles
 
 // Element2Material orchestration, independent of the unresolved erfftable sampler.
 // Call after table refresh and BeforeCalculation. No fallback density approximation.
-export function prepareElementLayers(project: Project, sampleDensity: ElementDensitySampler,
-  calculate: ElementOpticsCalculator, scatteringTensors: readonly Float64Array[] = [], maximumSamples = 1000000) {
+export function prepareElementSampling(project: Project, scatteringTensors: readonly Float64Array[] = [], maximumSamples = 1000000) {
   if (project.sample.mode !== 'element') throw new Error('Element layer preparation requires element mode.')
   const { minThickness: step, tolerance } = project.calculation.segmentation
   if (!Number.isFinite(step) || step <= 0 || !Number.isFinite(tolerance) || tolerance < 0 ||
@@ -50,15 +49,28 @@ export function prepareElementLayers(project: Project, sampleDensity: ElementDen
   }
   const maximumDepth = totalThickness + 30 + terminalRoughness * 2
   if (!Number.isFinite(maximumDepth)) throw new Error('Element depth range overflow.')
+  const depths: number[] = []
+  for (let depth = -30; depth <= maximumDepth;) {
+    if (depths.length >= maximumSamples) throw new Error('Element sampling exceeds the supported limit.')
+    depths.push(depth)
+    const next = depth + step
+    if (next <= depth) throw new Error('Element depth grid does not advance.')
+    depth = next
+  }
+  return { profiles, depths, matrix, factor, gamma, phi, tolerance, scatteringTensors }
+}
+
+export function convertSampledElementLayers(prepared: ReturnType<typeof prepareElementSampling>,
+  sampleDensity: (profile: Project['sample']['elementProfiles'][number], depth: number, sampleIndex: number) => number,
+  calculate: ElementOpticsCalculator) {
+  const { profiles, depths, matrix, factor, gamma, phi, tolerance, scatteringTensors } = prepared
   const layers: PreparedCompoundLayer[] = []
   const positions: number[] = []
   const tensors: (Float64Array | null)[] = []
   let previous = [-1e99, -1e99, -1e99, -1e99]
-  let samples = 0
-  for (let depth = -30; depth <= maximumDepth;) {
-    if (++samples > maximumSamples) throw new Error('Element sampling exceeds the supported limit.')
+  for (const [sampleIndex, depth] of depths.entries()) {
     const elements = profiles.map(profile => {
-      const density = sampleDensity(profile, depth)
+      const density = sampleDensity(profile, depth, sampleIndex)
       if (!Number.isFinite(density)) throw new Error('Invalid sampled element density.')
       return [density, profile.f1, profile.f2, profile.f1Mag, profile.f2Mag] as PreparedElementOptics['elements'][number]
     })
@@ -79,11 +91,14 @@ export function prepareElementLayers(project: Project, sampleDensity: ElementDen
       positions[index] = depth
       tensors[index] = matrix ? result.dielectricTensor!.slice() : null
     }
-    const next = depth + step
-    if (next <= depth) throw new Error('Element depth grid does not advance.')
-    depth = next
   }
   // ztod includes the final boundary; the first thickness remains its default zero.
   for (let index = 1; index < layers.length; index++) layers[index][0] = positions[index] - positions[index - 1]
-  return { layers, positions, dielectricTensors: tensors, samples }
+  return { layers, positions, dielectricTensors: tensors, samples: depths.length }
+}
+
+
+export function prepareElementLayers(project: Project, sampleDensity: ElementDensitySampler,
+  calculate: ElementOpticsCalculator, scatteringTensors: readonly Float64Array[] = [], maximumSamples = 1000000) {
+  return convertSampledElementLayers(prepareElementSampling(project, scatteringTensors, maximumSamples), sampleDensity, calculate)
 }

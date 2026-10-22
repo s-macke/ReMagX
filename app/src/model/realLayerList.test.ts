@@ -41,7 +41,7 @@ it('preserves a compressed single element row and script-updated global directio
   project.scripts.beforeCalculation = 'synthetic hook'
   const original = structuredClone(project)
   const core = engine()
-  core.elementPreparation = { errorSamples: Array(1001).fill(0), density: () => new Float64Array([0]),
+  core.elementPreparation = { errorSamples: Array(1001).fill(0), density: request => new Float64Array(request.positions.length),
     optics: () => ({ opticalConstants: new Float64Array([.01, .02, -.03, -.04]), dielectricTensor: null }) }
   const hook = vi.fn((current, opticalState) => {
     current.calculation.magnetization.direction = { gamma: 12, phi: 34 }

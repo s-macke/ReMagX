@@ -27,7 +27,7 @@ it.each(['parratt', 'zak', 'matrix'] as const)('prepares serial %s element energ
       matrixEnergy: vi.fn(() => new Float64Array(8).fill(.1)),
       lookup: vi.fn((_table, energy, cursor) => ({ values: new Float64Array([energy[0] / 10, 0]), cursor: cursor + 1 })),
       scatteringTensor: request => new Float64Array(18).fill(request.factors[0]),
-      elementPreparation: { errorSamples: Array(1001).fill(0), density: request => new Float64Array([request.positions[0] + 31]),
+      elementPreparation: { errorSamples: Array(1001).fill(0), density: request => new Float64Array(request.positions.map(depth => depth + 31)),
         optics: request => ({ opticalConstants: new Float64Array([request.elements[0][0] * 1e-6, 0, 0, 0]),
           dielectricTensor: request.scatteringTensors ? new Float64Array(request.scatteringTensors[0]) : null }) },
     }

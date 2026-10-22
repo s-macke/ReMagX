@@ -22,7 +22,7 @@ it.each(['parratt', 'zak', 'matrix'] as const)('routes %s element qz after refre
     lookup: () => { order.push('refresh'); return { values: new Float64Array([3, 4]), cursor: 1 } },
     elementPreparation: { errorSamples: Array(1001).fill(0), density: request => {
       order.push('density'); expect(request.slabs[1][0]).toBe(20)
-      return new Float64Array([request.positions[0] + 31])
+      return new Float64Array(request.positions.map(depth => depth + 31))
     }, optics: request => {
       expect(request.elements[0].slice(1)).toEqual([5, 4, 0, 0])
       if (algorithm === 'matrix') expect(request.scatteringTensors).toEqual([Array(18).fill(7)])
