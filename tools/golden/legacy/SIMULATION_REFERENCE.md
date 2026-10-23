@@ -1192,3 +1192,33 @@ remain quiet for several minutes. Keep build inputs unchanged until it finishes.
 
 At introduction the complete baseline and prepared-table runs were still in
 progress. The tool's existence is not evidence of full spectrum acceptance.
+
+
+### Built-in Chantler request preparation (D-37/D-38)
+
+The real worker now resolves built-in element tables once per request, before
+optical preparation and Lua construction. A lazy module contains the static
+asset. The saved useChantlerDatabase flag and active element mode are required.
+An existing nonempty .ff table wins even when the requested energy lies outside
+its range; absent/empty primary tables may use the original exact-name lookup.
+Duplicate Ti/absent Tl semantics are retained. Imported .ffm/.F companions stay
+available, including the existing explicit .F assignment guard. Generated arrays
+are fresh per request and never enter the browser material library.
+
+The spectrum reference diagnostic now includes 72 additional enabled-fallback
+and local-priority cases, including Mg/Ti, Lua setf, all three algorithms and
+manual/automatic initialization. Uranium is excluded from that unchanged-original
+oracle because of its undefined trailing read; its approved 277-row behavior is
+checked against the verified stored-data asset instead. The public real-service
+runner also exercises built-in/imported-table equivalence for twelve qz/energy
+beam curves, six synthetic element-density recoveries, database magnetic values,
+Lua setf, disabled fallback, local-table precedence and the Uranium endpoint.
+Segmentation tests still inject an explicit test lookup. This does not select a
+production error-function policy or replace the deployed mock.
+
+Final local validation of this increment: 234 original-reference cases/21,726
+values match D-23; the complete Chromium real-service suite, 536 app tests, lint
+and build pass. `build/chantler-spectrum-reference-report.json` retains the local
+report and its asset/native/WASM provenance hashes. The running private full
+spectrum diagnostics predate this integration and cannot establish its corpus
+acceptance.

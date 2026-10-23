@@ -76,7 +76,7 @@ it('updates imported element factors and tensors while retaining skipped automat
   const native = engine(() => ({ values: new Float64Array([26, .5]), cursor: 0 }))
   const result = realDatabaseValues(project, [table('ff', 'Fe')], native)
   expect(result.updates).toEqual([{ index: 0, first: 26, second: .5, firstMag: 0, secondMag: 0, scatteringTensor: Array(18).fill(126) }])
-  expect(result.warnings.some(warning => warning.includes('Built-in element tables'))).toBe(true)
+  expect(result.warnings.some(warning => warning.includes('Co: no ff table; scalar values kept.'))).toBe(true)
   const updated = applyDatabaseValues(project, result)
   expect(updated.sample.elementProfiles[0]).toMatchObject({ f1: 26, f2: .5, f1Mag: 0, f2Mag: 0, scatteringTensor: Array(18).fill(126) })
   expect(updated.sample.elementProfiles[1]).toBe(project.sample.elementProfiles[1])

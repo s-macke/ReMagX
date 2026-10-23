@@ -1,3 +1,4 @@
+import { checkChantlerService } from './chantler-service-checks.mjs'
 import { execFileSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
@@ -61,6 +62,7 @@ try {
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
+  await checkChantlerService(page, JSON.parse(await readFile(resolve(root, 'app/src/data/chantler.json'), 'utf8')))
   const broadenedRecoveries = await page.evaluate(async reference => {
     const { importAllFile, precisionFixture, createRealComputeService } = window.realServiceHarness
     const service = createRealComputeService()

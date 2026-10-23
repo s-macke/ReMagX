@@ -27,7 +27,7 @@ export function refreshElementOptics(project: Project, tables: readonly OpticalT
   const elementProfiles = project.sample.elementProfiles.map((profile, index) => {
     const primary = profile.element ? tables.find(table => table.name === profile.element && table.kind === 'ff') : undefined
     if (!primary?.energy.length) {
-      rangeError = `Element ${index}: missing ${profile.element || '(unnamed)'}.ff table; built-in tables are unavailable.`
+      rangeError = `Element ${index}: missing ${profile.element || '(unnamed)'}.ff table.`
       return { ...profile }
     }
     if (energy < primary.energy[0] || energy > primary.energy.at(-1)!) {

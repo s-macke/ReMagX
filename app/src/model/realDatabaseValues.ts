@@ -25,7 +25,7 @@ export function realDatabaseValues(project: Project, tables: OpticalTable[], eng
     const label = `${mode === 'compound' ? 'Layer' : 'Element'} ${index}: ${name || '(no table name)'}`
     const primary = tables.find(table => table.name === name && table.kind === primaryKind && name !== '')
     if (!primary?.energy.length) {
-      result.warnings.push(`${label}: no ${primaryKind} table; scalar values kept.${mode === 'element' ? ' Built-in element tables are not available yet.' : ''}`)
+      result.warnings.push(`${label}: no ${primaryKind} table; scalar values kept.`)
       return
     }
     if (energy < primary.energy[0] || energy > primary.energy.at(-1)!) {

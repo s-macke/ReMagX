@@ -56,6 +56,27 @@ try {
       cases.push({ source, points, mode, algorithm, automatic, scriptIndex, kind, layerIndex, elementIndex })
     }
   }
+  // Original ReadElement fallback versus the same flag with local tables present.
+  // Uranium is excluded from this unchanged-original oracle because D-38 fixes
+  // its original out-of-bounds read; its stored-data checks are separate.
+  for (const builtinVariant of ['fallback', 'local-priority']) for (const algorithm of [0, 1, 2])
+    for (const automatic of [0, 1]) for (const scripted of [false, true]) {
+      const names = builtinVariant === 'fallback' ? ['Mg', 'Ti'] : ['Fe', 'Ni']
+      const selectedElements = elements.replaceAll('Fe', names[0]).replaceAll('Ni', names[1])
+      for (const [kind, layerIndex, elementIndex] of [['factors', 0, 0], ['factors', 0, 1], ['optical', 1, 1]]) {
+        const source = fixture + `\nmode = 1\nalgorithm = ${algorithm}\nocautomatic = ${automatic}\nusechantlerdatabase = 1\nenergy = 777\ndisablescript = ${scripted ? 0 : 1}\n` +
+          selectedElements + (scripted ? `scriptline = ${names[0]}:setf(energy); ${names[1]}:setf(energy); f1[0] = f1[0] + 0.25\n` : '')
+        const path = resolve(temporary, 'project.all')
+        await writeFile(path, source)
+        let points
+        try { points = JSON.parse(execFileSync(executable, [path, kind, String(layerIndex), String(elementIndex)],
+          { cwd: temporary, stdio: 'pipe', timeout: 30000 }).toString()) }
+        catch { throw new Error(`Spectrum case ${cases.length}: native fallback preparation failed`) }
+        if (!points.length || points.some(row => row.length !== 3 || !row.every(Number.isFinite)))
+          throw new Error(`Spectrum case ${cases.length}: invalid native fallback output`)
+        cases.push({ source, points, mode: 'element', builtinVariant, algorithm, automatic, scriptIndex: Number(scripted), kind, layerIndex, elementIndex })
+      }
+    }
   await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' },
     build: { outDir: destination, emptyOutDir: true,
       rollupOptions: { input: resolve(root, 'app/test/real-service/entry.ts'), output: { entryFileNames: 'entry.js' } } } })
@@ -108,7 +129,7 @@ try {
         if (JSON.stringify(project) !== snapshot) throw new Error('Spectrum case: input mutated')
         reports.push({ ...settings, mismatches: caseMismatches, firstMismatch })
       }
-      return { acceptancePassed: cases.length === 162 && mismatches === 0, cases: cases.length, values, mismatches, reports }
+      return { acceptancePassed: cases.length === 234 && mismatches === 0, cases: cases.length, values, mismatches, reports }
     } finally { service.dispose() }
   }, { cases, tables })
   const provenance = {}
@@ -117,6 +138,7 @@ try {
     publicFixture: resolve(root, 'app/test/fixtures/default.all'),
     adapter: resolve(root, 'tools/golden/legacy/spectrum_reference.cpp'),
     buildHelper: resolve(root, 'tools/golden/legacy/build_simulation_reference.py'),
+    chantlerAsset: resolve(root, 'app/src/data/chantler.json'),
     sourceManifest: resolve(root, 'tools/golden/legacy/simulation_sources.json'),
     nativeExecutable: executable, wasm: resolve(wasm, 'remagx-core.wasm'),
   })) provenance[name] = createHash('sha256').update(await readFile(path)).digest('hex')
