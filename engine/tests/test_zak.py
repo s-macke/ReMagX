@@ -367,6 +367,17 @@ def wasm_payload():
             payload.append(dict(kind='energy', stacks=[pack(stack) for stack in stacks], energy=energies,
                 qz=points, enabled=enabled, magnetic=number%2, analyzer=number%3, mode=mode,
                 beam1=first, beam2=second, angularWidth=angular, energyWidth=width, expected=expected))
+    # Public synthetic cancellation regression: each beam alone passed with the
+    # old WASM arithmetic, but normalized asymmetry exceeded D-23 by 9.8 times.
+    delta = .0001
+    layers = [Layer(0, 0, delta, delta*.1, 0, 0, 90, 90),
+              Layer(100, 1, delta*.5, delta*.05, delta, delta*.1, 90, 90),
+              Layer(0, 0, 0, 0, 0, 0, 90, 90)]
+    first, second = (math.sqrt(.5), 0, 0, math.sqrt(.5)), (math.sqrt(.5), 0, 0, -math.sqrt(.5))
+    status, expected = evaluate_qz(layers, [.167], beam1=first, beam2=second)
+    assert status == 0
+    payload.append(dict(kind='qz', layers=pack(layers), qz=[.167], energy=640,
+        magnetic=1, mode=1, beam1=first, beam2=second, expected=expected, verifyAsymmetry=True))
     return payload
 
 def worker_reference():

@@ -134,6 +134,7 @@ try {
   console.log(`Chromium Visnovsky: ${matrixCount} intensities matched native.`)
   let zakCount = 0
   input.zak.forEach((item, index) => {
+    if (item.verifyAsymmetry) checkAsymmetry(result.zakResults[index], item.expected, `Zak case ${index}`)
     assert.equal(result.zakResults[index].length, item.expected.length)
     result.zakResults[index].forEach((value, beam) => {
       const target = item.expected[beam]
@@ -142,7 +143,7 @@ try {
       zakCount++
     })
   })
-  assert.equal(zakCount, 15696)
+  assert.equal(zakCount, 15698)
   console.log(`Chromium Zak: ${zakCount} intensities matched native.`)
   assert.equal(result.lineShapeResults.length, 1218)
   input.lineShapes.forEach((item, index) => assert.ok(Math.abs(result.lineShapeResults[index] - item.expected) <= 1e-15 + 1e-10 * Math.abs(item.expected)))

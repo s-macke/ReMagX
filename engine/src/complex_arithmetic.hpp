@@ -46,6 +46,13 @@ inline double reference_cosine(double value) {
     return std::cos(value);
 #endif
 }
+inline double reference_sine(double value) {
+#ifdef REMAGX_REFERENCE_MATH
+    return remagx_reference_math_sin(value);
+#else
+    return std::sin(value);
+#endif
+}
 inline double reference_inverse_sine(double value) {
 #ifdef REMAGX_REFERENCE_MATH
     return remagx_reference_math_asin(value);

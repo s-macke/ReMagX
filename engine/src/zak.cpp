@@ -1,3 +1,4 @@
+#include "complex_arithmetic.hpp"
 #include "remagx/core.h"
 #include "matrix_algebra.hpp"
 #include <limits>
@@ -42,9 +43,9 @@ int modes(const RemagxLayer& layer, double angle, double wave_number, int magnet
 }
 void roughen(Matrix& matrix, double roughness, double wave_number, Complex previous, Complex current) {
     if (roughness == 0.0) return;
-    const Complex sum_factor = std::exp(-wave_number * wave_number * (previous + current) *
+    const Complex sum_factor = remagx::reference_complex_exponential(-wave_number * wave_number * (previous + current) *
         (previous + current) * roughness * roughness / 2.0);
-    const Complex difference_factor = std::exp(-wave_number * wave_number * (previous - current) *
+    const Complex difference_factor = remagx::reference_complex_exponential(-wave_number * wave_number * (previous - current) *
         (previous - current) * roughness * roughness / 2.0);
     for (int row = 0; row < 2; ++row) for (int column = 0; column < 2; ++column) {
         matrix.entries[row][column] *= difference_factor;
@@ -112,7 +113,7 @@ extern "C" int remagx_zak_qz(const RemagxLayer* layers, size_t layer_count,
             if ((scan_mode == REMAGX_MONOCHROMATIC && std::abs(ratio) >= 1.0) ||
                 (scan_mode == REMAGX_DICHROIC && ratio > 1.0)) return REMAGX_QZ_ERROR;
             if (ratio < 0.0) continue;
-            const int status = remagx_zak(layers, layer_count, std::asin(ratio), wave_number, magnetic_enabled,
+            const int status = remagx_zak(layers, layer_count, remagx::reference_inverse_sine(ratio), wave_number, magnetic_enabled,
                 beam1, scan_mode == REMAGX_DICHROIC ? beam2 : beam1, analyzer, &results[index]);
             if (status != REMAGX_SUCCESS) return status;
             if (scan_mode == REMAGX_MONOCHROMATIC) results[index].beam2 = 0.0;

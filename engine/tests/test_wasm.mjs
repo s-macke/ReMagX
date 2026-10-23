@@ -167,6 +167,7 @@ for (const [caseIndex, prepared] of input.zak.entries()) {
   const actual = prepared.kind === 'energy' ? calculateZakEnergyScan(module, prepared) : prepared.kind === 'qz' ? calculateZakQz(module, prepared) : calculateZak(module, prepared)
   assert.equal(JSON.stringify(prepared), snapshot)
   assert.equal(actual.length, prepared.expected.length)
+  if (prepared.verifyAsymmetry) checkAsymmetry(actual, prepared.expected, `Zak case ${caseIndex}`)
   actual.forEach((value, index) => {
     const target = prepared.expected[index]
     assert.ok(Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target),
@@ -174,7 +175,7 @@ for (const [caseIndex, prepared] of input.zak.entries()) {
     zakCount++
   })
 }
-assert.equal(zakCount, 15696)
+assert.equal(zakCount, 15698)
 const zakSingle = input.zak[0]
 const zakQz = input.zak.find(item => item.kind === 'qz' && item.mode === 1 && item.resolution?.width > 1e-10)
 const zakEnergy = input.zak.find(item => item.kind === 'energy' && item.mode === 1 && item.energyWidth > 1e-10)

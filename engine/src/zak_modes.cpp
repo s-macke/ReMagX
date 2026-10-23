@@ -1,3 +1,4 @@
+#include "complex_arithmetic.hpp"
 #include "remagx/core.h"
 #include <algorithm>
 #include <cmath>
@@ -15,13 +16,13 @@ extern "C" int remagx_zak_modes(const double* refractive_index, const double* ma
     const Complex index(refractive_index[0], refractive_index[1]);
     const Complex magnetic(magnetic_constant[0], magnetic_constant[1]), imaginary(0.0, 1.0);
     if (angle < 1e-4) angle = 1e-4;
-    const Complex tangential = std::cos(angle);
-    const Complex normal_root = std::sqrt(index * index - tangential * tangential);
-    const Complex tangent_direction = tangential / index, normal_direction = normal_root / index;
-    const Complex forward_direction = std::cos(phi) * normal_direction + tangent_direction * std::sin(gamma) * std::sin(phi);
-    const Complex backward_direction = -std::cos(phi) * normal_direction + tangent_direction * std::sin(gamma) * std::sin(phi);
-    const Complex forward_rotation = 0.5 * wave_number * index * thickness * magnetic / normal_direction * forward_direction;
-    const Complex backward_rotation = 0.5 * wave_number * index * thickness * magnetic / normal_direction * backward_direction;
+    const Complex tangential = remagx::reference_cosine(angle);
+    const Complex normal_root = remagx::reference_complex_square_root(index * index - tangential * tangential);
+    const Complex tangent_direction = remagx::reference_complex_divide(tangential, index), normal_direction = remagx::reference_complex_divide(normal_root, index);
+    const Complex forward_direction = remagx::reference_cosine(phi) * normal_direction + tangent_direction * remagx::reference_sine(gamma) * remagx::reference_sine(phi);
+    const Complex backward_direction = -remagx::reference_cosine(phi) * normal_direction + tangent_direction * remagx::reference_sine(gamma) * remagx::reference_sine(phi);
+    const Complex forward_rotation = remagx::reference_complex_divide(0.5 * wave_number * index * thickness * magnetic, normal_direction) * forward_direction;
+    const Complex backward_rotation = remagx::reference_complex_divide(0.5 * wave_number * index * thickness * magnetic, normal_direction) * backward_direction;
     Complex interface_matrix[16] = {}, propagation_matrix[16] = {};
     // SetMatrixLine in the original writes a column, not a row.
     auto column = [](Complex* matrix, int column_index, Complex first, Complex second, Complex third, Complex fourth) {
@@ -29,23 +30,23 @@ extern "C" int remagx_zak_modes(const double* refractive_index, const double* ma
         matrix[8 + column_index] = third; matrix[12 + column_index] = fourth;
     };
     if (thickness != 0.0) {
-        const Complex forward = std::exp(-imaginary * wave_number * index * normal_direction * thickness);
+        const Complex forward = remagx::reference_complex_exponential(-imaginary * wave_number * index * normal_direction * thickness);
         column(propagation_matrix, 0, forward, forward * forward_rotation, 0.0, 0.0);
         column(propagation_matrix, 1, -forward * forward_rotation, forward, 0.0, 0.0);
-        column(propagation_matrix, 2, 0.0, 0.0, 1.0 / forward, -1.0 / forward * backward_rotation);
-        column(propagation_matrix, 3, 0.0, 0.0, 1.0 / forward * backward_rotation, 1.0 / forward);
+        column(propagation_matrix, 2, 0.0, 0.0, remagx::reference_complex_divide(1.0, forward), remagx::reference_complex_divide(-1.0, forward) * backward_rotation);
+        column(propagation_matrix, 3, 0.0, 0.0, remagx::reference_complex_divide(1.0, forward) * backward_rotation, remagx::reference_complex_divide(1.0, forward));
     }
     column(interface_matrix, 0, 1.0, 0.0, 1.0, 0.0);
     column(interface_matrix, 1,
-        imaginary / 2.0 * tangent_direction / normal_direction * magnetic * (tangent_direction * forward_direction - 2.0 * std::sin(phi) * std::sin(gamma)),
-        normal_direction + magnetic * imaginary * tangent_direction * std::sin(phi) * std::cos(gamma),
-        -imaginary / 2.0 * tangent_direction / normal_direction * magnetic * (tangent_direction * backward_direction - 2.0 * std::sin(phi) * std::sin(gamma)),
-        -normal_direction + magnetic * imaginary * tangent_direction * std::sin(phi) * std::cos(gamma));
+        remagx::reference_complex_divide(imaginary / 2.0 * tangent_direction, normal_direction) * magnetic * (tangent_direction * forward_direction - 2.0 * remagx::reference_sine(phi) * remagx::reference_sine(gamma)),
+        normal_direction + magnetic * imaginary * tangent_direction * remagx::reference_sine(phi) * remagx::reference_cosine(gamma),
+        -remagx::reference_complex_divide(imaginary / 2.0 * tangent_direction, normal_direction) * magnetic * (tangent_direction * backward_direction - 2.0 * remagx::reference_sine(phi) * remagx::reference_sine(gamma)),
+        -normal_direction + magnetic * imaginary * tangent_direction * remagx::reference_sine(phi) * remagx::reference_cosine(gamma));
     column(interface_matrix, 2, imaginary * index * magnetic * forward_direction / 2.0, -index,
         imaginary * index * magnetic * backward_direction / 2.0, -index);
     column(interface_matrix, 3, normal_direction * index,
-        imaginary * index * forward_direction * magnetic / 2.0 / normal_direction,
-        -normal_direction * index, -imaginary * index * backward_direction * magnetic / 2.0 / normal_direction);
+        remagx::reference_complex_divide(imaginary * index * forward_direction * magnetic / 2.0, normal_direction),
+        -normal_direction * index, -remagx::reference_complex_divide(imaginary * index * backward_direction * magnetic / 2.0, normal_direction));
     double packed_boundary[32], packed_propagation[32];
     auto pack = [](const Complex* source, double* target) {
         for (int entry = 0; entry < 16; ++entry) {
