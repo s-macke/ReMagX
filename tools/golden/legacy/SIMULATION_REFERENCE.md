@@ -1110,3 +1110,35 @@ returned parameter/project consistency and replayed chi-square. The private-sour
 243-case diagnostic also requires all six recoveries. These synthetic tests use
 the established recovery limits (parameter error below 1e-6, chi-square at most
 1e-16); they do not replace D-28 original-optimizer or full-corpus acceptance.
+
+
+### Independent spectrum entry points
+
+`python3 tools/golden/legacy/build_simulation_reference.py --spectrum --output build/legacy-spectrum-reference`
+builds the separate `spectrum_reference.cpp` adapter using the same reviewed
+99-file original dependency/hash gate. The original source tree is unchanged
+and no optimizer implementation is linked. Invoke it in a directory containing
+the project's tables as `reference project.all optical|magnetic|factors layerIndex elementIndex`
+(indices are zero-based). Output is finite, buffered 17-digit `[energy, first, second]`
+rows; failed preparation or scripts publish no partial curve.
+
+The adapter follows the GUI spectrum handlers' initial optical preparation,
+non-strict table loading, local script lifetime and per-energy refresh. Selected
+element optical output sums every element's density contribution at the selected
+slab; it does not substitute a segmented-layer calculation. Scattering-factor
+plots skip energy zero, while optical energy zero is rejected as invalid output.
+
+`node app/scripts/diagnose-spectrum-reference.mjs --require-parity` builds that
+reference and compares 162 public synthetic cases against the actual WASM worker.
+All 1,458 values currently match D-23. Cases cover three solver settings, both
+automatic/manual initial preparation, compound optical/magnetic and selected
+element factor/slab spectra, different table ranges and scripts that modify
+constants, densities and energy. The diagnostic checks immutable web inputs and
+records source/adapter/build/executable/WASM provenance. It uses only the public
+default fixture and generated synthetic tables, never the private corpus.
+
+Run the native adapter checks with
+`LEGACY_ROOT=old/reMagX3 python3 -m unittest discover -s tools/golden/legacy -p test_spectrum_reference.py`.
+They check known outputs, unchanged input files, suppressed partial output on
+Lua/selection errors, zero-energy handling and absence of optimizer symbols.
+Full original-project spectrum acceptance remains open.

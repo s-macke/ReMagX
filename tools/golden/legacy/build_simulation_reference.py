@@ -28,9 +28,11 @@ def inputs(root):
     return cpp_flags, c_flags, cpp_sources, c_sources
 
 
-def build(legacy_root, output, compiler='g++', c_compiler='gcc'):
+def build(legacy_root, output, compiler='g++', c_compiler='gcc', *, spectrum=False):
     root = Path(legacy_root).resolve()
     cpp_flags, c_flags, cpp_sources, c_sources = inputs(root)
+    if spectrum:
+        cpp_sources[0] = HERE / 'spectrum_reference.cpp'
     closure = dependencies(compiler, cpp_flags, cpp_sources) + dependencies(c_compiler, c_flags, c_sources)
     manifest = json.loads((HERE / 'simulation_sources.json').read_text())['sha256']
     verify_dependencies(closure, root, manifest, cpp_sources[0])
@@ -53,15 +55,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--legacy-root', type=Path, default=REPOSITORY / 'old/reMagX3')
     parser.add_argument('--output', type=Path, default=REPOSITORY / 'build/legacy-simulation-reference')
+    parser.add_argument('--spectrum', action='store_true', help='Build the separate spectrum boundary adapter.')
     parser.add_argument('--compiler', default='g++')
     parser.add_argument('--c-compiler', default='gcc')
     args = parser.parse_args()
     try:
-        build(args.legacy_root, args.output, args.compiler, args.c_compiler)
+        build(args.legacy_root, args.output, args.compiler, args.c_compiler, spectrum=args.spectrum)
     except (ValueError, OSError, subprocess.CalledProcessError):
         print('Private simulation reference build failed; diagnostics withheld.', file=sys.stderr)
         return 1
-    print('Private simulation reference built; full-project acceptance remains open.')
+    print(f'Private {"spectrum" if args.spectrum else "simulation"} reference built; full-project acceptance remains open.')
     return 0
 
 
