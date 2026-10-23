@@ -304,6 +304,19 @@ script errors. Maximum absolute difference across compared values was
 supplementary. The runner exits nonzero unless every project matches, and this
 run reported `acceptancePassed=false`.
 
+The 2026-10-23 run after built-in Chantler integration attempts all 99 projects
+and matches 89 at unchanged D-23 across 69,919 points (139,838 values). All 17
+compared segmented projects match. There are no coordinate or intensity tolerance
+failures; maximum absolute difference is 2.050137837272814e-12 and maximum positive
+log10 difference is 8.972023124442785e-11. Of 90 successful original references,
+one uses algorithm 3 (Parratt without multiple scattering), deferred by D-25 and
+explicitly rejected by the real worker. The other nine projects fail in both
+implementations: four missing element-table cases, one other-table case and four
+script cases. The runner exits 1 with `acceptancePassed=false`; none of those
+unavailable cases is silently excluded or accepted. This supersedes the earlier
+78-project comparison for this configuration, without attributing every newly
+passing case solely to Chantler or establishing production/full-engine acceptance.
+
 Only numeric project IDs, categories and aggregate metrics are printed. IDs follow
 sorted local paths and are stable only for an unchanged tree. Raw reference/browser
 errors and paths are withheld. This diagnostic covers qz reflectivity with an
