@@ -15,7 +15,8 @@ test('tensor groups export the correct components and Material Settings shows re
   const chooser = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: 'Load tables…', exact: true }).click()
   const row = (energy: number, offset: number) => `${energy} ${Array.from({ length: 18 }, (_, index) => index + offset).join(' ')}`
-  await (await chooser).setFiles({ name: 'Co.e', mimeType: 'text/plain', buffer: Buffer.from(`${row(700, 0)}\n${row(800, 2)}`) })
+  await (await chooser).setFiles([{ name: 'Co.e', mimeType: 'text/plain', buffer: Buffer.from(`${row(700, 0)}\n${row(800, 2)}`) },
+    { name: 'Co.db', mimeType: 'text/plain', buffer: Buffer.from('700 .001 .0001\n800 .001 .0001') }])
   await expect(page.getByLabel('Plot axis: energy', { exact: true })).toBeVisible()
   const copy = async () => {
     const menu = page.locator('.plot-panel__export')
@@ -32,6 +33,8 @@ test('tensor groups export the correct components and Material Settings shows re
   await choose('Show bottom off diagonal part of dielectric tensor')
   await expect(page.locator('.plot-panel__legend')).toContainText('Re ε_yx')
   expect(await copy()).toContain('700\t6\t700\t7\t700\t12\t700\t13\t700\t14\t700\t15')
+  // Material Settings uses tables only when automatic optical updates are enabled.
+  await page.getByRole('radio', { name: 'automatic (ignore manual setting)', exact: true }).check()
   await choose('Properties')
   const dialog = page.getByRole('dialog', { name: 'Material Settings', exact: true })
   await expect(dialog.getByRole('textbox', { name: 'ε_zz imaginary', exact: true })).toHaveAttribute('readonly', '')
@@ -42,6 +45,7 @@ test('tensor groups export the correct components and Material Settings shows re
     return field.left >= cell.left && field.right <= cell.right
   }))).toBe(true)
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true })).toBeDisabled()
   await expect(cell).toHaveValue('10')
 })

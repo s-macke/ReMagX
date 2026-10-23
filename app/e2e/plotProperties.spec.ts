@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures'
+import { test, expect, loadEnergyTables } from './fixtures'
 
 test('plot properties validate, apply and cancel ranges and appearance independently of other views', async ({ page }) => {
   const errors: string[] = []
@@ -37,6 +37,7 @@ test('plot properties validate, apply and cancel ranges and appearance independe
   await page.getByRole('button', { name: 'Properties', exact: true }).click()
   await expect(dialog.getByLabel('X max', { exact: true })).toHaveValue('0.4')
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await loadEnergyTables(page)
   await page.getByRole('button', { name: 'Energy Scan', exact: true }).click()
   await expect(page.getByLabel('Plot axis: energy', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Properties', exact: true }).click()

@@ -15,7 +15,7 @@ test('Materials preserves read-only fields, discards Cancel/Escape and applies e
     const group = input.closest('fieldset')!.getBoundingClientRect()
     return bounds.left >= group.left && bounds.right <= group.right
   }))).toBe(true)
-  await expect(dialog).toContainText('Mock tensor preview')
+  await expect(dialog).toContainText('Real tensor preview')
   await expect(dialog.getByRole('textbox', { name: 'ε_xx real', exact: true })).toHaveAttribute('readonly', '')
   await dialog.getByRole('textbox', { name: 'Chemical Formula', exact: true }).fill('cancelled')
   await dialog.getByRole('checkbox', { name: 'Fit Gamma', exact: true }).check()

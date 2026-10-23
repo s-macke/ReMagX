@@ -266,7 +266,7 @@ export function ElementModeSection() {
           ))}
         </tbody>
       </table>
-      <Note>Element mode is not calculated by the mock engine yet.</Note>
+      <Note>Element calculations require the production profile lookup, which is not configured yet.</Note>
     </>
   )
 }

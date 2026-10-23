@@ -261,7 +261,7 @@ button[aria-pressed='true'] {
   color: var(--danger);
 }
 
-.status-bar__mock {
+.status-bar__engine {
   font-style: italic;
 }
 

@@ -4,22 +4,27 @@ import type { WorkerRequest } from './protocol'
 
 // Worker startup shared by the default entry and explicit-sample reference harnesses.
 // No production lookup generator is selected by this function.
-export function startRealWorker(errorSamples?: readonly number[]) {
+export function startRealWorker(errorSamples?: readonly number[], assetVersion?: string) {
   if (errorSamples !== undefined && (errorSamples.length !== 1001 || !Array.from(errorSamples).every(Number.isFinite))) {
     throw new Error('Worker segmentation requires 1001 finite lookup samples.')
   }
   const samples = errorSamples === undefined ? undefined : Array.from(errorSamples)
   let luaRuntime: ReturnType<typeof createBrowserLuaRuntime> | undefined
   const handle = createRealRequestHandler(response => self.postMessage(response), async () => {
-    const coreUrl = new URL('./remagx-core.mjs', self.location.href).href
-    const adapterUrl = new URL('./parratt.mjs', self.location.href).href
-    const fitErrorUrl = new URL('./fit_error.mjs', self.location.href).href
-    const optimizerUrl = new URL('./optimizer.mjs', self.location.href).href
+    const assetUrl = (name: string) => {
+      const url = new URL(name, self.location.href)
+      if (assetVersion) url.searchParams.set('v', assetVersion)
+      return url.href
+    }
+    const coreUrl = assetUrl('./remagx-core.mjs')
+    const adapterUrl = assetUrl('./parratt.mjs')
+    const fitErrorUrl = assetUrl('./fit_error.mjs')
+    const optimizerUrl = assetUrl('./optimizer.mjs')
     const [core, adapter, fitErrorAdapter, optimizerAdapter] = await Promise.all([
       import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl), import(/* @vite-ignore */ fitErrorUrl), import(/* @vite-ignore */ optimizerUrl),
     ])
-    const instance = await core.default()
-    const segmentationAdapter = samples ? await import(/* @vite-ignore */ new URL('./segmentation.mjs', self.location.href).href) : undefined
+    const instance = await core.default(assetVersion ? { locateFile: (name: string) => assetUrl(name) } : undefined)
+    const segmentationAdapter = samples ? await import(/* @vite-ignore */ assetUrl('./segmentation.mjs')) : undefined
     const segmentation: RealEngine['segmentation'] = samples ? {
       errorSamples: samples,
       sample: request => segmentationAdapter.calculateSegmentedOptics(instance, request),

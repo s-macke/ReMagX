@@ -32,7 +32,7 @@ Output:
 
 | Path | Content |
 | --- | --- |
-| `site/` | Static app, preserving the current deployed mock-engine scope |
+| `site/` | Static app including the real WASM engine |
 | `native/libremagx_core.so` | Linux library for this container's native toolchain |
 | `wasm/` | Real core and JavaScript adapters, separate from the deployed site |
 | `toolchain.json` | Exact tool versions reported during the build |

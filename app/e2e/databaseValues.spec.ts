@@ -24,9 +24,9 @@ for (const mode of ['compound', 'element'] as const) test(`database action updat
   await cell.press('Shift+F10')
   await page.getByRole('menuitem', { name: mode === 'compound' ? 'Get optical constants from database' : 'Get f1/f2 from database', exact: true }).click()
   const report = page.getByRole('dialog', { name: 'Database update', exact: true })
-  await expect(report).toContainText(`Updated ${mode === 'compound' ? 3 : 2}`)
+  await expect(report).toContainText(`Updated ${mode === 'compound' ? 4 : 2}`)
   await expect(report).toContainText('magnetic values set to zero')
-  if (mode === 'compound') await expect(report).toContainText('vacuum: no db table; values kept')
+  if (mode === 'compound') await expect(report).toContainText('vacuum: no db table; scalar values kept')
   await report.getByRole('button', { name: 'Close', exact: true }).click()
   if (mode === 'compound') {
     for (const name of ['δ of layer bulk', 'δ of layer 1', 'δ of layer 2']) await expect(page.getByRole('textbox', { name, exact: true })).toHaveValue('2')

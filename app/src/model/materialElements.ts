@@ -29,9 +29,9 @@ export function formulaContributions(formula: string, density: number) {
   return { contributions, warnings }
 }
 
-// Invoked only by the worker. The mock does not run multilayer/Lua expansion.
+// Invoked only by the worker; callers must supply an already expanded material stack.
 export function convertMaterialElements(project: Project): ElementConversion {
-  if (project.sample.multilayer.enabled) throw new Error('Material to Elements needs multilayer-script expansion, which is not available in the mock engine.')
+  if (project.sample.multilayer.enabled) throw new Error('Material to Elements needs multilayer-script expansion, which is not implemented yet.')
   const elements: ElementProfile[] = []
   const warnings: string[] = []
   project.sample.layers.forEach((layer, index) => {

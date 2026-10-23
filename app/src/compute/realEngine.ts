@@ -1,3 +1,4 @@
+import { convertMaterialElements } from '../model/materialElements'
 import { calculationErrorMessage } from '../model/calculationErrors'
 import { realLayerList } from '../model/realLayerList'
 import { realDensityProfiles } from '../model/realDensityProfiles'
@@ -31,8 +32,12 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     let lookupSession: ReturnType<NonNullable<RealEngine['createLookupSession']>> | undefined
     try {
-      if (message.kind !== 'segmentLayers' && message.kind !== 'densityProfiles' && message.kind !== 'depthProfile' && message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
+      if (message.kind !== 'materialToElements' && message.kind !== 'segmentLayers' && message.kind !== 'densityProfiles' && message.kind !== 'depthProfile' && message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
+      }
+      if (message.kind === 'materialToElements') {
+        send({ id: message.id, type: 'result', result: convertMaterialElements(message.project) })
+        return
       }
       if (message.kind === 'reflectivity' || message.kind === 'asymmetry' ||
           message.kind === 'energyScan' || message.kind === 'energyAsymmetry' ||

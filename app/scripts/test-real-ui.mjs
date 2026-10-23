@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { copyFile, mkdir, readFile, readdir } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { dirname, extname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
@@ -9,25 +9,15 @@ import { chromium } from '@playwright/test'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const destination = resolve(root, 'build/real-ui-test')
 const wasm = resolve(process.argv[2] ?? resolve(root, 'build/wasm'))
-// Test-only replacement at build time; the deployed factory and bundle stay mock.
-let replaced = false
+// Exercise the production engine factory and asset packaging.
+process.env.WASM_DIRECTORY = wasm
 await build({ root: resolve(root, 'app'), configFile: resolve(root, 'app/vite.config.ts'),
   build: { outDir: destination, emptyOutDir: true }, plugins: [{ name: 'real-ui-test', enforce: 'pre',
     transform(code, id) {
-      if (id.endsWith('/src/state/useCalculation.ts')) {
-        assert.ok(code.includes('sharedService ??= new WorkerComputeService()'))
-        replaced = true
-        return "import { createRealComputeService } from '../compute/realComputeService'\n" +
-          code.replace('sharedService ??= new WorkerComputeService()', 'sharedService ??= createRealComputeService()')
-      }
       if (id.endsWith('/src/main.tsx')) return code +
         "\nimport { createRealUiFixture } from '../test/real-ui/fixture'\nObject.assign(window, { createRealUiFixture })\n"
     },
   }] })
-assert.ok(replaced)
-await mkdir(resolve(destination, 'assets'), { recursive: true })
-for (const name of ['remagx-core.mjs', 'remagx-core.wasm']) await copyFile(resolve(wasm, name), resolve(destination, 'assets', name))
-for (const name of ['parratt.mjs', 'fit_error.mjs', 'optimizer.mjs']) await copyFile(resolve(root, 'engine/wasm', name), resolve(destination, 'assets', name))
 const assets = new Map()
 async function collect(directory, prefix = '') {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -39,7 +29,8 @@ async function collect(directory, prefix = '') {
 await collect(destination)
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm' }
 const server = createServer((request, response) => {
-  const path = request.url === '/' ? '/index.html' : request.url
+  const pathname = new URL(request.url, 'http://localhost').pathname
+  const path = pathname === '/' ? '/index.html' : pathname
   const asset = assets.get(path)
   response.writeHead(asset ? 200 : 404, { 'Content-Type': types[extname(path)] ?? 'application/octet-stream' })
   response.end(asset ?? 'Not found')
@@ -118,7 +109,7 @@ try {
       }
     }
   })
-  await page.route('**/assets/realWorker-*.js', async route => {
+  await page.route('**/assets/worker-*.js', async route => {
     const response = await route.fetch()
     await route.fulfill({ response, body: `${await response.text()}
       const original = self.onmessage;

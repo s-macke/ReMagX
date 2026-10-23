@@ -1,5 +1,4 @@
-// Worker-side request handling for the mock engine. Kept free of worker globals so it can be
-// tested directly; worker.ts only wires it to postMessage.
+// Mock handler retained for isolated tests. The production worker uses realEngine.
 
 import { mockLayerConversion } from './mockLayerConversion'
 import { convertMaterialElements } from '../model/materialElements'

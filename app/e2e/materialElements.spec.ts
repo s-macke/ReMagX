@@ -24,7 +24,7 @@ for (const existing of [false, true]) test(`Material to Elements previews and re
   await open.click()
   await dialog.getByRole('button', { name: 'Replace element data', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'f1 of Si', exact: true })).toHaveValue('0')
-  await expect(page.getByLabel('Plot axis: z', { exact: true })).toBeVisible()
+  await expect(page.locator('.status-bar__error')).toContainText('error-function lookup')
   await page.getByRole('button', { name: 'Next element', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'f1 of Fe', exact: true })).toHaveValue('0')
   await expect(page.getByRole('textbox', { name: 'thickness of slab 1', exact: true })).toHaveValue('20')

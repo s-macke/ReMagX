@@ -1,11 +1,4 @@
-// Compute Web Worker entry point. Today it hosts the TypeScript mock engine; later the
-// WebAssembly engine is loaded here behind the same message protocol.
+// Production compute entry: real double-precision WASM, with no mock fallback.
+import { startRealWorker } from './realWorkerRuntime'
 
-import { createRequestHandler } from './mockEngine'
-import type { WorkerRequest } from './protocol'
-
-const handle = createRequestHandler((response) => self.postMessage(response))
-
-self.onmessage = (event: MessageEvent<WorkerRequest>) => {
-  void handle(event.data)
-}
+startRealWorker(undefined, import.meta.env.REMAGX_CORE_VERSION)

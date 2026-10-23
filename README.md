@@ -1,27 +1,37 @@
 # ReMagX (web)
 
 Browser-local rewrite of ReMagX, a program for simulating and fitting (resonant magnetic) X-ray
-reflectivity of thin-film multilayers. The UI is React + TypeScript; numerics will run as
+reflectivity of thin-film multilayers. The UI is React + TypeScript; numerics run as
 WebAssembly compiled from the C++ core, in double precision.
 
 **Try it:** https://s-macke.github.io/ReMagX/ (built automatically from `main`)
 
-> **Note:** the web version is a mock for now. The UI is being built first, and the
-> calculations behind it are a simplified stand-in (scalar Parratt in TypeScript), not the real
-> ReMagX engine. Do not use its results for analysis yet. The real engine (C++ core compiled to
-> WebAssembly) comes later.
+> **Engine preview:** calculations use the real C++ core compiled to WebAssembly,
+> entirely in the browser. Full original-project validation is still in progress.
+> Adaptive segmentation, generated depth profiles and element calculations that need
+> the production error-function lookup remain unavailable pending its configuration.
+> Unsupported operations report errors; there is no mock fallback.
 
 Project website of the original ReMagX: https://remagx.org/
 
 ## Development
 
+Build the core with the Emscripten version pinned in `engine/emscripten.version`
+(and its environment activated):
+
 ```sh
+emcmake cmake -S engine -B build/wasm -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake --build build/wasm --parallel 2
 cd app
 npm ci
 npm run dev     # local dev server
 npm test        # unit tests
 npm run build   # static site in app/dist
 ```
+
+`npm run build` packages the core from `build/wasm`; missing assets fail the build.
+Set `WASM_DIRECTORY` to use a different core build directory. The dev server uses
+the same local assets.
 
 Every push to `main` builds `app/` and publishes it to GitHub Pages
 (`.github/workflows/pages.yml`).

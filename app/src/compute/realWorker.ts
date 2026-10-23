@@ -1,4 +1,4 @@
 import { startRealWorker } from './realWorkerRuntime'
 
-// The deployed app still uses the mock; this real entry has no default lookup.
+// Explicit real-engine entry for integration harnesses; no default lookup.
 startRealWorker()

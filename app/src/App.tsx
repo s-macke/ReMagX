@@ -293,7 +293,7 @@ function Workspace() {
           </span>
           {calculationError && <button type="button" onClick={() => setCalculationErrorDetails(calculationError)}>Error details</button>}
         </span>
-        <span className="status-bar__mock">Mock calculation, not the real ReMagX engine</span>
+        <span className="status-bar__engine">ReMagX WASM · double precision</span>
       </footer>
       {calculationErrorDetails !== null && calculationErrorDetails === calculationError && <Dialog title="Calculation error" onClose={() => setCalculationErrorDetails(null)}>
         <pre className="dialog__pre calculation-error__detail">{calculationError}</pre>
@@ -362,8 +362,8 @@ function Workspace() {
             .
           </p>
           <p>
-            <strong>Early preview:</strong> the user interface is being built first. Calculations use a simplified mock, not the real ReMagX
-            engine; do not use the results for analysis.
+            <strong>Engine preview:</strong> calculations use the real ReMagX WebAssembly engine. Full validation against original
+            projects is still in progress. Unsupported calculations report an error.
           </p>
           <p>
             Source code (GPL-3.0):{' '}

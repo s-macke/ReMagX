@@ -66,7 +66,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }) {
           <CheckboxField label="Use Chantler database" checked={calculation.useChantlerDatabase} onChange={(v) => edit((p) => void (p.calculation.useChantlerDatabase = v))} />
         </fieldset>
       </div>
-      <Note>All calculations use double precision. The mock engine only implements Parratt with Nevot & Croce roughness.</Note>
+      <Note>All calculations use the double-precision WebAssembly engine: Parratt, Matrix and Zak.</Note>
     </Dialog>
   )
 }

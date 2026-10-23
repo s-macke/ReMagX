@@ -30,7 +30,7 @@ it('prepares and routes requests, shares initialization, and returns the establi
   expect(calculate.mock.calls.map(([request]) => request.mode)).toEqual([0, 1])
 })
 
-it('rejects unsupported work before loading, retries failed initialization, and translates native errors', async () => {
+it('converts materials without loading physics, retries failed initialization, and translates native errors', async () => {
   const messages: WorkerResponse[] = []
   const load = vi.fn().mockRejectedValueOnce(new Error('Module load failed')).mockResolvedValue({ calculate: () => { throw Object.assign(new Error(), { status: 4 }) }, fitError: vi.fn(), lookup: vi.fn(), energyScan: vi.fn(), matrixEnergy: vi.fn(), zakQz: vi.fn(), zakEnergy: vi.fn(), dielectricTensor: vi.fn(() => ({ values: new Float64Array(18), anisotropic: false })), matrixQz: vi.fn() })
   const handle = createRealRequestHandler(message => messages.push(message), load)
@@ -41,7 +41,9 @@ it('rejects unsupported work before loading, retries failed initialization, and 
   await handle({ id: 3, kind: 'reflectivity', project })
   expect(load).toHaveBeenCalledTimes(2)
   expect(messages).toEqual([
-    { id: 1, type: 'error', message: 'The real engine does not support materialToElements yet.' },
+    expect.objectContaining({ id: 1, type: 'result', result: expect.objectContaining({ elements: [
+      expect.objectContaining({ element: 'Cu' }), expect.objectContaining({ element: 'Co' }),
+    ] }) }),
     { id: 2, type: 'error', message: 'Module load failed' },
     { id: 3, type: 'error', message: 'Qz exceeds the legacy calculation boundary. Check the qz values and energy; the incident angle cannot exceed 90 degrees.' },
   ])

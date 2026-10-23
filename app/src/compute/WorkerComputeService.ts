@@ -60,7 +60,7 @@ export class WorkerComputeService implements ComputeService {
   private readonly getTables?: () => OpticalTable[]
   private stopTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(createPort: () => WorkerPort = createWorker, getTables?: () => OpticalTable[], providesFitPreviews = false, supportsElementLayerConversion = false) {
+  constructor(createPort: () => WorkerPort = createWorker, getTables?: () => OpticalTable[], providesFitPreviews = createPort === createWorker, supportsElementLayerConversion = createPort === createWorker) {
     this.supportsElementLayerConversion = supportsElementLayerConversion
     this.providesFitPreviews = providesFitPreviews
     this.createWorker = createPort

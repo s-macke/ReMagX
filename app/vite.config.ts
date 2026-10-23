@@ -1,3 +1,4 @@
+import { wasmAssets } from './wasmAssets.ts'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
@@ -5,7 +6,8 @@ import { defineConfig } from 'vitest/config'
 // (GitHub Pages project sites, a local file server, ...).
 export default defineConfig({
   base: './',
-  plugins: [react()],
+  plugins: [react(), wasmAssets()],
+  worker: { format: 'es' },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'test/**/*.test.ts'],

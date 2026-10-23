@@ -40,7 +40,7 @@ function ConversionDialog({ onClose }: { onClose: () => void }) {
     <button type="button" onClick={close}>Cancel</button>
   </>}>
     <p>Convert the retained material stack using legacy formula syntax and atomic masses. The material stack stays available. Existing element data will be replaced; Undo restores it.</p>
-    <p>Scattering factors start at zero, as in legacy conversion. Load tables and use “Get f1/f2 from database” before calculations. Multilayer-script expansion is not available in the mock engine.</p>
+    <p>Scattering factors start at zero, as in legacy conversion. Load tables and use “Get f1/f2 from database” before calculations.</p>
     {stale && <p role="alert">The project or fit session changed. Close this preview and run the action again.</p>}
     {error ? <p role="alert">{error}</p> : !result ? <p>Converting… <button type="button" onClick={() => computeService().stop()}>Stop calculation</button></p> : <>
       <p>{result.elements.length} element(s): {result.elements.map(element => element.element).join(', ') || 'none'}. {source.project.sample.elementProfiles.length} existing element stack(s) will be replaced.</p>

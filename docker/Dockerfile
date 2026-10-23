@@ -29,7 +29,7 @@ RUN npm test --prefix app \
     && npm run lint --prefix app \
     && npm run build --prefix app
 
-# Export files, not a web server. The site retains its current mock-engine scope.
+# Export files, not a web server. The site includes the real WASM engine.
 FROM scratch AS artifacts
 COPY --from=build /work/app/dist /site/
 COPY --from=build /work/build/engine/libremagx_core.so /native/libremagx_core.so
