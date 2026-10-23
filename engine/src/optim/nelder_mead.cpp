@@ -1,5 +1,7 @@
 // Independent implementation of the algorithm in Lagarias et al. (1998), section 2.
 // https://doi.org/10.1137/S1052623496303470
+// Adaptive ordinary-simplex coefficients: Gao and Han (2012), equation 4.1.
+// https://doi.org/10.1007/s10589-010-9329-3
 // Thermal comparisons: Cardoso, Salcedo and de Azevedo (1996), equations 9-10.
 // https://doi.org/10.1016/0098-1354(95)00221-9
 // No Numerical Recipes implementation was used. See optimizer.h for API policy.
@@ -21,6 +23,7 @@ struct Vertex { std::vector<double> parameters; double value = 0.0; double score
 class Search {
 public:
     size_t dimension;
+    bool adaptive;
     const RemagxSimplexOptions& options;
     RemagxObjective objective;
     RemagxShouldStop should_stop;
@@ -37,8 +40,8 @@ public:
     std::vector<Vertex> initial_refinement_vertices;
 
     Search(const double* initial, size_t count, const RemagxSimplexOptions& settings,
-           RemagxObjective evaluate, RemagxShouldStop stop, RemagxFitProgress notify, void* user, const RemagxAnnealingOptions* annealing, RemagxSimplexReference reference)
-        : dimension(count), options(settings), objective(evaluate), should_stop(stop),
+           RemagxObjective evaluate, RemagxShouldStop stop, RemagxFitProgress notify, void* user, const RemagxAnnealingOptions* annealing, RemagxSimplexReference reference, bool use_adaptive)
+        : dimension(count), adaptive(use_adaptive), options(settings), objective(evaluate), should_stop(stop),
           progress(notify), reference_callback(reference), context(user), temperature(annealing ? annealing->temperature : 0.0),
           temperature_step(annealing ? annealing->temperature_step : 0.0),
           random(annealing ? annealing->seed : 0), best{std::vector<double>(count), 0.0} {
@@ -110,6 +113,10 @@ public:
         return true;
     }
     int run() {
+        const double count = static_cast<double>(dimension);
+        const double expansion = adaptive && dimension >= 2 ? 1.0 + 2.0 / count : 2.0;
+        const double contraction = adaptive && dimension >= 2 ? 0.75 - 0.5 / count : 0.5;
+        const double shrink_factor = adaptive && dimension >= 2 ? 1.0 - 1.0 / count : 0.5;
         for (auto& vertex : vertices) evaluate(vertex);
         notify();
         for (;;) {
@@ -154,24 +161,24 @@ public:
             Vertex reflected = trial(-1.0);
             bool shrink = false;
             if (reflected.score < vertices.front().score) {
-                Vertex expanded = trial(-2.0);
+                Vertex expanded = trial(-expansion);
                 vertices.back() = expanded.score < reflected.score ? std::move(expanded) : std::move(reflected);
             } else if (reflected.score < vertices[dimension - 1].score) {
                 vertices.back() = std::move(reflected);
             } else if (reflected.score < vertices.back().score) {
-                Vertex contracted = trial(-0.5);
+                Vertex contracted = trial(-contraction);
                 if (contracted.score <= reflected.score) vertices.back() = std::move(contracted);
                 else shrink = true;
             } else {
-                Vertex contracted = trial(0.5);
+                Vertex contracted = trial(contraction);
                 if (contracted.score < vertices.back().score) vertices.back() = std::move(contracted);
                 else shrink = true;
             }
             if (shrink) {
                 for (size_t row = 1; row <= dimension; ++row) {
                     for (size_t column = 0; column < dimension; ++column)
-                        vertices[row].parameters[column] = 0.5 * vertices.front().parameters[column] +
-                            0.5 * vertices[row].parameters[column];
+                        vertices[row].parameters[column] = (1.0 - shrink_factor) * vertices.front().parameters[column] +
+                            shrink_factor * vertices[row].parameters[column];
                     evaluate(vertices[row]);
                 }
             }
@@ -192,7 +199,7 @@ public:
 static int run_optimizer(const double* initial, size_t dimension,
     const RemagxSimplexOptions* options, RemagxObjective objective, RemagxShouldStop should_stop,
     RemagxFitProgress progress, void* context, double* output, RemagxFitSummary* summary,
-    const RemagxAnnealingOptions* annealing, RemagxSimplexReference reference = nullptr) {
+    const RemagxAnnealingOptions* annealing, RemagxSimplexReference reference = nullptr, bool adaptive = false) {
     if (!initial || !dimension || !options || !objective || !output || !summary ||
         !options->max_iterations || !std::isfinite(options->parameter_tolerance) ||
         !std::isfinite(options->objective_tolerance) || options->parameter_tolerance < 0.0 ||
@@ -204,7 +211,7 @@ static int run_optimizer(const double* initial, size_t dimension,
     for (size_t index = 0; index < dimension * (dimension + 1); ++index)
         if (!std::isfinite(initial[index])) return REMAGX_INVALID_ARGUMENT;
     try {
-        Search search(initial, dimension, *options, objective, should_stop, progress, context, annealing, reference);
+        Search search(initial, dimension, *options, objective, should_stop, progress, context, annealing, reference, adaptive);
         try { search.summary.termination = search.run(); }
         catch (const Halt& halt) { search.summary.termination = halt.reason; }
         if (search.summary.has_best) std::copy(search.best.parameters.begin(), search.best.parameters.end(), output);
@@ -237,4 +244,12 @@ extern "C" int remagx_simplex_annealing(const double* initial, size_t dimension,
         !std::isfinite(options->temperature_step)) return REMAGX_INVALID_ARGUMENT;
     return run_optimizer(initial, dimension, &options->simplex, objective, should_stop, progress,
                          context, output, summary, options);
+}
+
+extern "C" int remagx_nelder_mead_adaptive(const double* initial, size_t dimension,
+    const RemagxSimplexOptions* options, RemagxObjective objective, RemagxShouldStop should_stop,
+    RemagxFitProgress progress, RemagxSimplexReference reference, void* context,
+    double* output, RemagxFitSummary* summary) {
+    return run_optimizer(initial, dimension, options, objective, should_stop, progress,
+                         context, output, summary, nullptr, reference, true);
 }

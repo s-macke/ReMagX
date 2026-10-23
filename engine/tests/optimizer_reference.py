@@ -23,6 +23,9 @@ annealing = library.remagx_simplex_annealing
 annealing.argtypes = [Pointer, ctypes.c_size_t, ctypes.POINTER(AnnealingOptions), Objective,
                      ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, Pointer, ctypes.POINTER(Summary)]
 annealing.restype = ctypes.c_int
+adaptive = library.remagx_nelder_mead_adaptive
+adaptive.argtypes = function.argtypes[:6] + [ctypes.c_void_p] + function.argtypes[6:]
+adaptive.restype = ctypes.c_int
 cases = []
 for dimension in [1, 2, 5]:
     simplex = [[-2.0] * dimension for _ in range(dimension + 1)]
@@ -37,11 +40,18 @@ cases.extend(dict(kind='quadratic', simplex=[[0, 0], [1, 0], [0, 1]], annealing=
                   temperature=temperature, temperatureStep=step, seed=4294967295,
                   maxIterations=500 if step >= 0 else 5000)
              for temperature, step in [(0, 0), (2, -.02), (1, 0), (1, .01)])
+for dimension in [1, 2, 5, 20, 28]:
+    simplex = [[1.0] * dimension for _ in range(dimension + 1)]
+    for index in range(dimension): simplex[index + 1][index] += .05
+    cases.append(dict(kind='sphere', simplex=simplex, adaptive=True))
 for case in cases:
     dimension = len(case['simplex'][0])
     @Objective
     def objective(parameters, count, context, output):
-        if case['kind'] == 'flat': value = 1.0
+        if case['kind'] == 'sphere':
+            value = 0.0
+            for index in range(count): value += parameters[index] * parameters[index]
+        elif case['kind'] == 'flat': value = 1.0
         elif case['kind'] == 'double-well':
             squared = parameters[0] * parameters[0] - 4
             value = squared * squared + .3 * parameters[0]
@@ -63,7 +73,10 @@ for case in cases:
     if case.get('annealing'):
         options = AnnealingOptions(options, case['temperature'], case['temperatureStep'], case['seed'])
         invoke = annealing
-    status = invoke(initial, dimension, ctypes.byref(options), objective, None, None, None, output, ctypes.byref(summary))
+    if case.get('adaptive'):
+        status = adaptive(initial, dimension, ctypes.byref(options), objective, None, None, None, None, output, ctypes.byref(summary))
+    else:
+        status = invoke(initial, dimension, ctypes.byref(options), objective, None, None, None, output, ctypes.byref(summary))
     assert status == 0 and summary.has_best
     case['expected'] = dict(parameters=list(output), value=summary.value,
         iterations=summary.iterations, evaluations=summary.evaluations,

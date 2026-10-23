@@ -7,7 +7,7 @@ function minimize(module, {
   simplex, objective, shouldStop = () => false, onProgress = () => {}, onReference,
   maxEvaluations = 10000, maxIterations = 5000,
   parameterTolerance = 1e-9, objectiveTolerance = 1e-14,
-}, annealing) {
+}, annealing, adaptive = false) {
   const dimension = simplex?.[0]?.length
   const unsigned = value => Number.isInteger(value) && value > 0 && value <= 0xffffffff
   if (!Array.isArray(simplex) || !unsigned(dimension) || simplex.length !== dimension + 1 ||
@@ -82,7 +82,9 @@ function minimize(module, {
       } catch (error) { rememberError(error); return 1 }
     }, 'iiiiiii') : 0
     const invoke = annealing ? module._remagx_simplex_annealing : module._remagx_nelder_mead
-    const status = reference
+    const status = adaptive
+      ? module._remagx_nelder_mead_adaptive(initial, dimension, options, evaluate, stop, progress, reference, 0, best, summary)
+      : reference
       ? module._remagx_nelder_mead_with_reference(initial, dimension, options, evaluate, stop, progress, reference, 0, best, summary)
       : invoke(initial, dimension, options, evaluate, stop, progress, 0, best, summary)
     if (callbackFailed) throw callbackError
@@ -115,4 +117,9 @@ export function minimizeAnnealing(module, request) {
     throw new TypeError('Invalid annealing temperature, step or seed')
   }
   return minimize(module, request, { temperature, temperatureStep, seed })
+}
+
+// Dimension-dependent ordinary simplex; annealing retains its existing policy.
+export function minimizeAdaptiveSimplex(module, request) {
+  return minimize(module, request, undefined, true)
 }

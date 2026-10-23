@@ -74,6 +74,18 @@ int remagx_nelder_mead_with_reference(const double* initial_simplex, size_t dime
                        RemagxSimplexReference reference, void* context,
                        double* best_parameters, RemagxFitSummary* summary);
 
+// Gao and Han (2012), equation 4.1: reflection 1, expansion 1+2/n,
+// contraction .75-.5/n, shrink 1-1/n for n>=2. One dimension retains standard
+// coefficients; two dimensions are identical to ordinary Nelder-Mead. This can
+// improve high-dimensional searches but does not guarantee a better local basin.
+// All bounds, budget, Stop, atomic-output and reference-callback policies above
+// apply unchanged. The reference callback may be NULL. Annealing is separate.
+int remagx_nelder_mead_adaptive(const double* initial_simplex, size_t dimension,
+                       const RemagxSimplexOptions* options, RemagxObjective objective,
+                       RemagxShouldStop should_stop, RemagxFitProgress progress,
+                       RemagxSimplexReference reference, void* context,
+                       double* best_parameters, RemagxFitSummary* summary);
+
 // Thermal simplex comparisons follow Cardoso et al. (1996), equations 9-10.
 // True objective values determine reported best/progress, never perturbed scores.
 // Temperature advances by temperature_step after each completed simplex iteration,

@@ -39,7 +39,7 @@ export function startRealWorker(errorSamples?: readonly number[]) {
       gaussLorentzianImag: (...parameters) => adapter.calculateGaussLorentzianImag(instance, parameters),
       minimize: request => request.annealing
         ? optimizerAdapter.minimizeAnnealing(instance, { ...request, ...request.annealing })
-        : optimizerAdapter.minimizeSimplex(instance, request),
+        : optimizerAdapter.minimizeAdaptiveSimplex(instance, request),
       fitError: request => fitErrorAdapter.calculateFitError(instance, request),
       scatteringTensor: request => adapter.calculateScatteringTensor(instance, request),
       dielectricTensor: request => adapter.calculateDielectricTensor(instance, request),

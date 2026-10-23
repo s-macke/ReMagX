@@ -1,5 +1,5 @@
 // Shared checks run against actual WASM in Node and a Chromium module worker.
-export function checkOptimizer(module, minimize, cases, calculateParratt, calculateFitError, minimizeAnnealing) {
+export function checkOptimizer(module, minimize, cases, calculateParratt, calculateFitError, minimizeAnnealing, minimizeAdaptive) {
   const check = (condition, message) => { if (!condition) throw new Error(`Optimizer: ${message}`) }
   const close = (value, target) => Number.isFinite(value) && Math.abs(value - target) <= 1e-15 + 1e-10 * Math.abs(target)
   const expectThrow = (run, matches) => {
@@ -8,6 +8,7 @@ export function checkOptimizer(module, minimize, cases, calculateParratt, calcul
     check(thrown, 'missing exception')
   }
   const objectiveFor = kind => point => {
+    if (kind === 'sphere') { let sum = 0; for (const value of point) sum += value * value; return sum }
     if (kind === 'flat') return 1
     if (kind === 'double-well') {
       const squared = point[0] * point[0] - 4
@@ -27,7 +28,7 @@ export function checkOptimizer(module, minimize, cases, calculateParratt, calcul
   for (const item of cases) {
     const snapshot = JSON.stringify(item.simplex)
     let lastValue = Infinity, progressCount = 0, evaluations = 0
-    const invoke = item.annealing ? minimizeAnnealing : minimize
+    const invoke = item.adaptive ? minimizeAdaptive : item.annealing ? minimizeAnnealing : minimize
     const result = invoke(module, { ...item, objective: point => {
       evaluations++
       const value = objectiveFor(item.kind)(point)
@@ -182,6 +183,10 @@ export function checkOptimizer(module, minimize, cases, calculateParratt, calcul
     // Exercise the annealing ABI through all common Stop/callback/growth/cleanup paths.
     checkOptimizer(module, (instance, options) => minimizeAnnealing(instance, { ...cold, ...options }),
       [], calculateParratt, calculateFitError)
+  }
+  if (minimizeAdaptive) {
+    // The same reference, Stop, failure, memory-growth and cleanup checks apply.
+    checkOptimizer(module, minimizeAdaptive, [], calculateParratt, calculateFitError)
   }
   return { cases: cases.length, validation: true, stop: true, growth: true, cleanup: true, reflectivity: true }
 }

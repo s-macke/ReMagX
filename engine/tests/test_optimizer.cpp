@@ -401,14 +401,14 @@ int reference_event(const double* parameters, size_t count, int phase,
     if (harness.cancel_on_selection && phase == REMAGX_REFERENCE_SELECTED) harness.stop_after = evaluations;
     return phase == harness.fail_phase ? 1 : 0;
 }
-void reference_lifecycle() {
+void reference_lifecycle(bool adaptive = false) {
     const double initial[] = {0, 1};
     const auto quadratic = [](const std::vector<double>& point) { return (point[0] - 4) * (point[0] - 4); };
     auto options = defaults(); options.max_iterations = 2;
     ReferenceHarness observed; observed.function = quadratic;
     double best = 123; RemagxFitSummary summary{};
     const auto invoke = [&](ReferenceHarness& harness, RemagxSimplexReference callback) {
-        return remagx_nelder_mead_with_reference(initial, 1, &options, objective, stop, progress,
+        return (adaptive ? remagx_nelder_mead_adaptive : remagx_nelder_mead_with_reference)(initial, 1, &options, objective, stop, progress,
             callback, static_cast<Harness*>(&harness), &best, &summary);
     };
     require(invoke(observed, reference_event) == REMAGX_SUCCESS, "reference search failed");
@@ -452,8 +452,58 @@ void reference_lifecycle() {
     require(invoke(converged, reference_event) == REMAGX_SUCCESS && converged.events.empty() &&
         summary.termination == REMAGX_FIT_CONVERGED, "converged simplex emitted reference event");
 }
+void adaptive_moves() {
+    const size_t dimension = 4;
+    std::vector<double> simplex(20, 0.0), best(dimension);
+    for (size_t i = 0; i < dimension; ++i) simplex[(i + 1) * dimension + i] = 1.0;
+    auto options = defaults(); options.max_iterations = 1;
+    const auto invoke = [&](Harness& harness) {
+        RemagxFitSummary result{};
+        require(remagx_nelder_mead_adaptive(simplex.data(), dimension, &options, objective, stop, progress,
+            nullptr, &harness, best.data(), &result) == REMAGX_SUCCESS && result.iterations == 1,
+            "adaptive single move failed");
+    };
+    Harness expansion; expansion.function = [](const auto& point) { return point[3]; };
+    invoke(expansion);
+    require(expansion.visited.back() == std::vector<double>({.625, .625, .625, -1.5}),
+        "adaptive expansion coefficient");
+    Harness outside; outside.function = [](const auto& point) { return (point[3] + .2) * (point[3] + .2); };
+    invoke(outside);
+    require(outside.visited.back() == std::vector<double>({.40625, .40625, .40625, -.625}),
+        "adaptive outside contraction coefficient");
+    Harness flat; flat.function = [](const auto&) { return 1.0; };
+    invoke(flat);
+    require(flat.visited.size() == 11 && flat.visited[6] == std::vector<double>({.09375, .09375, .09375, .625}),
+        "adaptive inside contraction coefficient");
+    for (size_t row = 0; row < dimension; ++row) for (size_t column = 0; column < dimension; ++column)
+        require(flat.visited[7 + row][column] == (row == column ? .75 : 0.0), "adaptive shrink coefficient");
+}
+void adaptive_search() {
+    for (size_t dimension : {size_t(1), size_t(2), size_t(28)}) {
+        const auto sphere = [](const std::vector<double>& point) {
+            double value = 0.0;
+            for (double coordinate : point) value += coordinate * coordinate;
+            return value;
+        };
+        std::vector<double> simplex((dimension + 1) * dimension, 1.0), best(dimension), ordinary_best(dimension);
+        for (size_t i = 0; i < dimension; ++i) simplex[(i + 1) * dimension + i] += .05;
+        Harness harness; harness.function = sphere;
+        auto options = defaults(); RemagxFitSummary summary{};
+        require(remagx_nelder_mead_adaptive(simplex.data(), dimension, &options, objective, stop, progress,
+            nullptr, &harness, best.data(), &summary) == REMAGX_SUCCESS, "adaptive search failed");
+        require(summary.termination == REMAGX_FIT_CONVERGED && summary.value < 1e-16,
+            "adaptive sphere did not converge within the shared budget");
+        Harness ordinary; ordinary.function = sphere;
+        const auto standard = run(simplex, dimension, ordinary, ordinary_best, options);
+        if (dimension <= 2) require(harness.visited == ordinary.visited && best == ordinary_best &&
+            summary.iterations == standard.iterations && summary.evaluations == standard.evaluations,
+            "adaptive changed one/two dimensional search");
+        else require(standard.termination == REMAGX_FIT_ITERATION_LIMIT && standard.value > .001,
+            "high-dimensional comparison no longer exposes the standard search limit");
+    }
+}
 int main() {
-    try { convergence(); reflectivity_recovery(); moves_and_limits(); stop_and_errors(); annealing(); reference_lifecycle(); }
+    try { convergence(); reflectivity_recovery(); moves_and_limits(); stop_and_errors(); annealing(); reference_lifecycle(); reference_lifecycle(true); adaptive_moves(); adaptive_search(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "Native simplex: recovery, deterministic moves, limits, Stop and atomic errors passed.\n";
 }
