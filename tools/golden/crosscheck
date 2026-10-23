@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""Run the private Wine/native AC-6 gate from any working directory."""
+from pathlib import Path
+import runpy
+import sys
+
+folder = Path(__file__).resolve().parent / 'legacy'
+sys.path.insert(0, str(folder))
+runpy.run_path(str(folder / 'crosscheck_wine.py'), run_name='__main__')

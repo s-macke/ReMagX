@@ -961,3 +961,49 @@ Infrastructure checks use only synthetic data:
 ```sh
 node --test app/scripts/test-fit-reference-inputs.mjs
 ```
+
+### Wine 2.3.1 crosscheck (AC-6)
+
+From the repository root:
+
+```sh
+tools/golden/crosscheck --output build/wine-crosscheck
+```
+
+This opt-in local tool builds the private original simulation adapter, copies the
+private corpus, and runs each `.all` through the shipped `bin/ReMagX_Terminal.exe`
+under Wine and then through the native adapter when Wine supplies a finite curve.
+It uses the DLLs from `bin/`, supplemented by missing DLLs from `remagx-terminal/`,
+and verifies the terminal's `-v` output identifies version 2.3.1. That version exits
+1 for `-v` despite successfully printing its version; calculation status is checked
+separately. Wine runs with an isolated temporary prefix and an owned foreground
+persistent wineserver. File-backed output capture avoids waiting for inherited
+output pipes held by Wine background services. Cleanup terminates only that prefix.
+
+The comparison uses the raw ordered qz/R pairs and **1e-6 relative**, without an
+absolute allowance, interpolation, normalization or version-specific correction.
+Length differences fail. Explicit terminal `#error` diagnostics are listed as unavailable. Unexplained
+nonzero exits, timeouts and invalid output do not prove unavailability and prevent
+acceptance. At least one
+matched curve is required, so an all-error run cannot pass. Input-tree hashes detect
+changes to projects or companions and stop a contaminated run. No private paths or
+curve values appear in console output. Detailed stdout/stderr, input and executable
+hashes, and the manifest stay below the new, git-ignored `build/` destination.
+
+`--native build/legacy-wine-crosscheck-reference` reuses an explicitly chosen native
+adapter instead of rebuilding it. `--timeout` sets the per-process observation limit
+(default 120 seconds). `--case-ids 1,2` selects stable numeric IDs for diagnostics;
+a subset cannot pass full-corpus acceptance. The default checks all projects in the
+supplied `--legacy-root` (normally the complete `old/reMagX3` tree). Exit status is
+zero only when that full comparison passes. A completed report with mismatches
+correctly exits nonzero; do not treat process completion as numerical acceptance.
+
+The initial public-default-fixture diagnostic finds 145 reflectivity mismatches
+among 600 compared qz/R values, with maximum relative error about 1.40e-6. Changing
+only the synthetic fixture's `fastresolution` to zero gives zero mismatches. The
+2.3.1 terminal binary contains the old nine-weight block whose sum is 0.999999;
+the 2.6 source uses nineteen weights. The fast, zero-resolution discrepancy is
+consistent with the older sum and seven-significant-digit terminal printing.
+This observation explains a candidate version difference; it does **not** authorize
+normalizing results, changing the production 2.6 calculation, or waiving AC-6 cases.
+The unmodified comparison remains a failure and corpus acceptance stays open.
