@@ -663,12 +663,13 @@
     {
       "name": "segmentation-actions",
       "status": "ported",
-      "reason": "Compound-mode To layer list requests a worker mock conversion, previews layer/reference changes, and applies atomically with undo. Stale project/library/session results cannot apply. Stop/Cancel terminate pending work. Real adaptive and element-mode conversion remain explicit engine obligations; the UI labels fixed mock intervals.",
+      "reason": "To layer list follows ComputeService capabilities: the mock supports compound mode; real services also enable element conversion. Labeled previews apply atomically with undo and retain element mode/profiles/targets. Stale project/library/session/service results cannot apply. Stop/Cancel target the original service. Actual-WASM Chromium checks cover element application, tensors, undo/redo, stale tables, single-row rejection and blocked-script Stop/recovery with an explicit test lookup. Production lookup, single-layer semantics and full original-project acceptance remain open.",
       "references": [
         "app/src/ui/LayerConversionDialog.tsx",
         "app/src/model/layerConversion.ts",
         "app/src/compute/mockLayerConversion.ts",
-        "app/e2e/segmentation.spec.ts"
+        "app/e2e/segmentation.spec.ts",
+        "app/scripts/test-real-service.mjs"
       ],
       "entries": [
         "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Button13",

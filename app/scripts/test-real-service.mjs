@@ -112,6 +112,120 @@ try {
   }, qzEnergyReference)
   assert.equal(broadenedRecoveries.length, 6)
   console.log('Public original qz energy curves and both optimizers:', broadenedRecoveries)
+  // Real element conversion through production controls, preview and reducer.
+  await page.evaluate(() => {
+    const { createDefaultProject, createReferenceComputeService, mountLayerConversion } = window.realServiceHarness
+    const project = createDefaultProject()
+    project.sample.mode = 'element'
+    project.sample.elementProfiles = [{ element: 'Fe', f1: 26, f2: 1, f1Mag: 0, f2Mag: 0,
+      slabs: [{ thickness: 0, roughness: 2, density: .1 },
+        { thickness: 20, roughness: 3, density: .05 }, { thickness: 0, roughness: 0, density: 0 }] }]
+    project.calculation.automaticOpticalConstants = false
+    project.calculation.segmentation.minThickness = 1
+    project.calculation.magnetization.mode = 'none'
+    project.experiment.energy = 800
+    project.scripts.enabled = true
+    project.scripts.beforeCalculation = 'print("conversion-ui")'
+    project.fit.parameters = [{ target: 'elementDensity', index: 1, elementIndex: 0,
+      value: .05, step: .001, lowerBound: .01, upperBound: .1 }]
+    project.calculation.algorithm = 'matrix'
+    window.conversionProject = project
+    window.mountConversion = value => mountLayerConversion(value,
+      createReferenceComputeService(Array.from({ length: 1001 }, (_, index) => Math.tanh(-5 + 10 * index / 999))))
+    window.conversionUi = mountLayerConversion(project)
+  })
+  const conversionButton = page.getByRole('button', { name: 'To layer list', exact: true })
+  const conversionDialog = page.getByRole('dialog', { name: 'To layer list', exact: true })
+  const applyConversion = conversionDialog.getByRole('button', { name: 'Apply layers', exact: true })
+  assert.equal(await conversionButton.isDisabled(), true)
+  await page.evaluate(() => { window.conversionUi.dispose(); window.conversionUi = window.mountConversion(window.conversionProject) })
+  const beforeConversion = await page.evaluate(() => window.conversionUi.snapshot())
+  assert.equal(await conversionButton.isEnabled(), true)
+  await conversionButton.click()
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('dialog button')).some(button =>
+    button.textContent === 'Apply layers' && !button.disabled))
+  assert.match(await conversionDialog.textContent(), /Real conversion/)
+  assert.match(await conversionDialog.textContent(), /conversion-ui/)
+  assert.match(await conversionDialog.textContent(), /Element Mode are retained/)
+  await applyConversion.click()
+  const convertedState = await page.evaluate(() => window.conversionUi.snapshot())
+  assert.equal(convertedState.project.sample.mode, 'element')
+  assert.deepEqual(convertedState.project.sample.elementProfiles, beforeConversion.project.sample.elementProfiles)
+  assert.deepEqual(convertedState.project.fit.parameters, beforeConversion.project.fit.parameters)
+  assert.notDeepEqual(convertedState.project.sample.layers, beforeConversion.project.sample.layers)
+  assert.ok(convertedState.project.sample.layers.length > 1)
+  assert.ok(convertedState.project.sample.layers.every(layer => layer.dielectricTensor && layer.roughness === 0))
+  assert.equal(convertedState.history.past.length, 1)
+  await page.evaluate(() => window.conversionUi.dispatch({ type: 'undo' }))
+  assert.deepEqual(await page.evaluate(() => window.conversionUi.snapshot().project), beforeConversion.project)
+  await page.evaluate(() => window.conversionUi.dispatch({ type: 'redo' }))
+  assert.deepEqual(await page.evaluate(() => window.conversionUi.snapshot().project), convertedState.project)
+  await conversionButton.click()
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('dialog button')).some(button =>
+    button.textContent === 'Apply layers' && !button.disabled))
+  await page.evaluate(() => window.conversionUi.dispatch({ type: 'clearOpticalTables' }))
+  assert.equal(await applyConversion.isDisabled(), true)
+  assert.match(await conversionDialog.textContent(), /table library or compute service changed/)
+  await conversionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  assert.deepEqual(await page.evaluate(() => window.conversionUi.snapshot().project), convertedState.project)
+  await page.evaluate(() => {
+    window.conversionUi.dispose()
+    const project = structuredClone(window.conversionProject)
+    project.sample.elementProfiles[0].slabs.forEach(slab => { slab.density = .1; slab.roughness = 0 })
+    window.conversionUi = window.mountConversion(project)
+  })
+  const singleLayerBefore = await page.evaluate(() => window.conversionUi.snapshot().project)
+  await conversionButton.click()
+  await conversionDialog.getByRole('alert').waitFor()
+  assert.match(await conversionDialog.textContent(), /Conversion produced one layer/)
+  assert.equal(await applyConversion.isDisabled(), true)
+  await conversionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  assert.deepEqual(await page.evaluate(() => window.conversionUi.snapshot().project), singleLayerBefore)
+  await page.evaluate(() => window.conversionUi.dispose())
+  await page.evaluate(() => {
+    const NativeWorker = window.Worker
+    window.conversionWorkerBlocked = false
+    window.Worker = class extends NativeWorker {
+      constructor(...args) {
+        super(...args)
+        this.addEventListener('message', event => {
+          if (event.data.type === 'scriptMessages' && event.data.lines?.includes('conversion-blocked'))
+            window.conversionWorkerBlocked = true
+        })
+      }
+    }
+    const project = structuredClone(window.conversionProject)
+    project.scripts.beforeCalculation = 'print("conversion-blocked"); while true do end'
+    window.conversionUi = window.mountConversion(project)
+    // The worker is created lazily; restore this constructor after it starts.
+    window.restoreConversionWorker = () => { window.Worker = NativeWorker }
+  })
+  const blockedConversionBefore = await page.evaluate(() => window.conversionUi.snapshot().project)
+  await conversionButton.click()
+  await page.waitForFunction(() => window.conversionWorkerBlocked)
+  const conversionStopMilliseconds = await page.evaluate(async () => {
+    const button = Array.from(document.querySelectorAll('dialog button')).find(button => button.textContent === 'Stop calculation')
+    const started = performance.now()
+    button.click()
+    while (!document.querySelector('dialog [role="alert"]')) await new Promise(requestAnimationFrame)
+    return performance.now() - started
+  })
+  assert.ok(conversionStopMilliseconds < 1000, `Conversion Stop took ${conversionStopMilliseconds} ms`)
+  assert.match(await conversionDialog.getByRole('alert').textContent(), /Stopped/)
+  assert.equal(await applyConversion.isDisabled(), true)
+  await conversionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  assert.deepEqual(await page.evaluate(() => window.conversionUi.snapshot().project), blockedConversionBefore)
+  await page.evaluate(() => {
+    window.restoreConversionWorker()
+    window.conversionUi.dispatch({ type: 'loadProject', project: window.conversionProject, fileName: 'recovery.json' })
+  })
+  await conversionButton.click()
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('dialog button')).some(button =>
+    button.textContent === 'Apply layers' && !button.disabled))
+  await conversionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.evaluate(() => window.conversionUi.dispose())
+  console.log(`Element conversion UI: mock guard, actual-WASM preview/application, preserved element data/targets, undo/redo, stale tables, single-layer rejection and blocked-script Stop/recovery passed (${conversionStopMilliseconds.toFixed(1)} ms).`)
+
   const segmentedResults = await page.evaluate(async () => {
     const { createSegmentedComputeService, createRealComputeService, createDefaultProject, createLayer } = window.realServiceHarness
     const NativeWorker = window.Worker

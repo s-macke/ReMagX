@@ -2,6 +2,8 @@
 // OpticalConstantsFrame, ElementFrame, MagnetizationDirectionFrame, MzFrame.
 
 import { useState } from 'react'
+import type { ComputeService } from '../../compute/ComputeService'
+import { computeService } from '../../state/useCalculation'
 import { tableKinds } from '../../import/tables'
 import { datasetMetadata, deleteDataset, moveDataset, updateDataset } from '../../model/datasets'
 import { buildProfileSpline, profileBindingOptions, removeMagneticProfile } from '../../model/magneticProfiles'
@@ -89,21 +91,21 @@ export function DatasetSection() {
   )
 }
 
-export function SegmentationSection() {
+export function SegmentationSection({ service = computeService() }: { service?: ComputeService }) {
   const { project, illustrateSegmentation, fitStatus, databaseUpdate } = useAppState()
   const [conversionOpen, setConversionOpen] = useState(false)
   const dispatch = useDispatch()
   const edit = useEditProject()
   const s = project.calculation.segmentation
   const active = project.calculation.roughnessModel === 'segmentation'
+  const unsupportedMode = project.sample.mode === 'element' && !service.supportsElementLayerConversion
   return (
     <>
       {!active && <Note>Used when the roughness approximation is set to layer segmentation (Preferences).</Note>}
       <CheckboxField label="Illustrate Segmentation" checked={illustrateSegmentation} onChange={value => dispatch({ type: 'setIllustrateSegmentation', value })} />
-      <Note>Mock profiles illustrate fixed sampling intervals. Adaptive segmentation follows with the real engine.</Note>
-      <button type="button" disabled={project.sample.mode !== 'compound' || fitStatus.running || fitStatus.evaluating || databaseUpdate.busy} onClick={() => setConversionOpen(true)}>To layer list</button>
-      {project.sample.mode !== 'compound' && <Note>Switch to compound mode to convert the material layer list.</Note>}
-      {conversionOpen && <LayerConversionDialog onClose={() => setConversionOpen(false)} />}
+      <button type="button" disabled={unsupportedMode || fitStatus.running || fitStatus.evaluating || databaseUpdate.busy} onClick={() => setConversionOpen(true)}>To layer list</button>
+      {unsupportedMode && <Note>The current compute engine supports conversion only in compound mode.</Note>}
+      {conversionOpen && <LayerConversionDialog service={service} onClose={() => setConversionOpen(false)} />}
       <NumberField label="minimal layer thickness" unit="Å" min={0} value={s.minThickness} onChange={(v) => edit((p) => void (p.calculation.segmentation.minThickness = v))} />
       <NumberField label="maximal layer thickness" unit="Å" min={0} value={s.maxThickness} onChange={(v) => edit((p) => void (p.calculation.segmentation.maxThickness = v))} />
       <NumberField label="gradient scale" value={s.gradientScale} onChange={(v) => edit((p) => void (p.calculation.segmentation.gradientScale = v))} />

@@ -49,6 +49,7 @@ export const STOP_TIMEOUT_MS = 250
 const createWorker = (): WorkerPort => new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerPort
 
 export class WorkerComputeService implements ComputeService {
+  readonly supportsElementLayerConversion: boolean
   readonly providesFitPreviews: boolean
   private nextId = 1
   private readonly pending = new Map<number, Pending>()
@@ -59,7 +60,8 @@ export class WorkerComputeService implements ComputeService {
   private readonly getTables?: () => OpticalTable[]
   private stopTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(createPort: () => WorkerPort = createWorker, getTables?: () => OpticalTable[], providesFitPreviews = false) {
+  constructor(createPort: () => WorkerPort = createWorker, getTables?: () => OpticalTable[], providesFitPreviews = false, supportsElementLayerConversion = false) {
+    this.supportsElementLayerConversion = supportsElementLayerConversion
     this.providesFitPreviews = providesFitPreviews
     this.createWorker = createPort
     this.getTables = getTables
