@@ -40,6 +40,7 @@ let count = 0, maxLogError = 0, zeros = 0, nonpositiveMismatches = 0
 for (const [caseIndex, prepared] of cases.entries()) {
   const snapshot = JSON.stringify(prepared)
   const actual = calculate(prepared)
+  if (prepared.verifyAsymmetry) checkAsymmetry(actual, prepared.expected, `Parratt case ${caseIndex}`)
   assert.equal(JSON.stringify(prepared), snapshot)
   actual.forEach((value, index) => {
     const target = prepared.expected[index]
@@ -56,7 +57,7 @@ for (const [caseIndex, prepared] of cases.entries()) {
     count++
   })
 }
-assert.equal(count, 14880)
+assert.equal(count, 14884)
 let tableValues = 0
 for (const table of input.tables) {
   const snapshot = JSON.stringify(table)

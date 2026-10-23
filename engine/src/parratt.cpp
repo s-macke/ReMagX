@@ -1,3 +1,4 @@
+#include "complex_arithmetic.hpp"
 #include "remagx/core.h"
 #include <algorithm>
 #include <cmath>
@@ -20,11 +21,12 @@ struct InterfaceReflection { Complex sigma; Complex pi; };
 // This code contains no optimizer or Numerical Recipes implementation.
 InterfaceReflection interface_reflection(const RemagxLayer& lower, Complex lower_index,
                                           Complex upper_index, Complex lower_wave, Complex upper_wave) {
-    Complex pi_reflection = (lower_index * lower_index * upper_wave - upper_index * upper_index * lower_wave) /
-                            (lower_index * lower_index * upper_wave + upper_index * upper_index * lower_wave);
-    Complex sigma_reflection = (upper_wave - lower_wave) / (upper_wave + lower_wave);
+    Complex pi_reflection = remagx::reference_complex_divide(
+        lower_index * lower_index * upper_wave - upper_index * upper_index * lower_wave,
+        lower_index * lower_index * upper_wave + upper_index * upper_index * lower_wave);
+    Complex sigma_reflection = remagx::reference_complex_divide(upper_wave - lower_wave, upper_wave + lower_wave);
     if (lower.roughness != 0.0) {
-        const Complex damping = std::exp(lower_wave * upper_wave * (lower.roughness * lower.roughness) * -2.0);
+        const Complex damping = remagx::reference_complex_exponential(lower_wave * upper_wave * (lower.roughness * lower.roughness) * -2.0);
         pi_reflection = pi_reflection * damping;
         sigma_reflection = sigma_reflection * damping;
     }
@@ -34,8 +36,8 @@ InterfaceReflection interface_reflection(const RemagxLayer& lower, Complex lower
 double calculate_point(const RemagxLayer* layers, size_t layer_count, const RemagxParrattPoint& point,
                        double sigma_weight, double pi_weight, int tensor, int analyzer,
                        std::vector<Complex>& indices, std::vector<Complex>& waves) {
-    const double cosine = std::cos(point.angle_radians);
-    const double sine = std::sin(point.angle_radians);
+    const double cosine = remagx::reference_cosine(point.angle_radians);
+    const double sine = remagx::reference_sine(point.angle_radians);
     const double cosine_squared = cosine * cosine;
     for (size_t index = 0; index < layer_count; ++index) {
         const auto& layer = layers[index];
@@ -47,21 +49,23 @@ double calculate_point(const RemagxLayer* layers, size_t layer_count, const Rema
                     (refractive_index * (1.0 - cosine_squared) + second_index * cosine_squared) * pi_weight;
             } else {
                 refractive_index += Complex(layer.delta_magnetic, -layer.beta_magnetic) * point.magnetization *
-                    (cosine * std::sin(layer.phi_degrees * (pi / 180.0)) * std::sin(layer.gamma_degrees * (pi / 180.0)) +
-                     sine * std::cos(layer.phi_degrees * (pi / 180.0)));
+                    (cosine * remagx::reference_sine(layer.phi_degrees * (pi / 180.0)) * remagx::reference_sine(layer.gamma_degrees * (pi / 180.0)) +
+                     sine * remagx::reference_cosine(layer.phi_degrees * (pi / 180.0)));
             }
         }
         indices[index] = refractive_index;
-        Complex wave = std::sqrt(refractive_index * refractive_index - cosine_squared) * point.vacuum_wave_number;
+        Complex wave = remagx::reference_complex_square_root(refractive_index * refractive_index - cosine_squared) * point.vacuum_wave_number;
         if (wave.real() == 0.0) wave = Complex(1e-100, wave.imag());
         waves[index] = wave;
     }
     auto reflection = interface_reflection(layers[0], indices[0], indices[1], waves[0], waves[1]);
     for (size_t index = 1; index + 1 < layer_count; ++index) {
-        const Complex propagation = std::exp(Complex(0.0, 2.0) * waves[index] * layers[index].thickness);
+        const Complex propagation = remagx::reference_complex_exponential(Complex(0.0, 2.0) * waves[index] * layers[index].thickness);
         const auto boundary = interface_reflection(layers[index], indices[index], indices[index + 1], waves[index], waves[index + 1]);
-        reflection.pi = (boundary.pi + reflection.pi * propagation) / (boundary.pi * reflection.pi * propagation + 1.0);
-        reflection.sigma = (boundary.sigma + reflection.sigma * propagation) / (boundary.sigma * reflection.sigma * propagation + 1.0);
+        reflection.pi = remagx::reference_complex_divide(boundary.pi + reflection.pi * propagation,
+            boundary.pi * reflection.pi * propagation + 1.0);
+        reflection.sigma = remagx::reference_complex_divide(boundary.sigma + reflection.sigma * propagation,
+            boundary.sigma * reflection.sigma * propagation + 1.0);
     }
     const double sigma = (reflection.sigma * std::conj(reflection.sigma)).real() * sigma_weight;
     const double pi_intensity = (reflection.pi * std::conj(reflection.pi)).real() * pi_weight;
@@ -144,7 +148,7 @@ extern "C" int remagx_parratt_qz(const RemagxLayer* layers, size_t layer_count,
             if ((scan_mode == REMAGX_MONOCHROMATIC && std::abs(ratio) >= 1.0) ||
                 (scan_mode == REMAGX_DICHROIC && ratio > 1.0)) return REMAGX_QZ_ERROR;
             if (ratio < 0.0) continue;
-            points.push_back({std::asin(ratio), wave_number, static_cast<double>(magnetization_enabled)});
+            points.push_back({remagx::reference_inverse_sine(ratio), wave_number, static_cast<double>(magnetization_enabled)});
             positions.push_back(index);
         }
         if (!points.empty()) {

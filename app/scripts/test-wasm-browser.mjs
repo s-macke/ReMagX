@@ -103,6 +103,7 @@ try {
   console.log(`Chromium optimizer: ${result.optimizerResults.cases} native comparisons, callbacks, Stop, memory growth and cleanup passed.`)
   let count = 0, maxLogError = 0
   for (const [caseIndex, prepared] of cases.entries()) {
+    if (prepared.verifyAsymmetry) checkAsymmetry(result.values[caseIndex], prepared.expected, `Parratt case ${caseIndex}`)
     assert.equal(result.values[caseIndex].length, prepared.expected.length)
     result.values[caseIndex].forEach((value, index) => {
       const target = prepared.expected[index]
@@ -116,7 +117,7 @@ try {
       count++
     })
   }
-  assert.equal(count, 14880)
+  assert.equal(count, 14884)
   let matrixCount = 0, asymmetryCount = 0
   input.matrices.forEach((item, index) => {
     assert.equal(result.matrixResults[index].length, item.expected.length)

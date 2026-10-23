@@ -181,6 +181,20 @@ class NativeParrattTest(unittest.TestCase):
             self.assertEqual(status, 0)
             width, fast = prepared['resolution']
             qz_cases.append(dict(prepared, resolution=dict(width=width, fast=bool(fast)), expected=[value for pair in values for value in pair]))
+        # Public synthetic cancellation cases: individual beams can pass D-23
+        # while their normalized difference exposes platform math rounding.
+        for delta, thickness, coordinate in [(1e-5, 100, .0315),
+                                               (1e-4, 40, .001 + 2347 * .0001)]:
+            prepared = dict(layers=[
+                [0, 1, delta, delta * .1, 0, 0, 90, 90],
+                [thickness, 1, delta * .5, delta * .05, 0, 0, 90, 90],
+                [0, 0, 0, 0, 0, 0, 90, 90]],
+                qz=[coordinate], energy=640, magnetic=0, mode=1,
+                beam1=[1, 0, 0, 0], beam2=[0, 0, 1, 0])
+            status, values = calculate_qz(**prepared)
+            self.assertEqual(status, 0)
+            qz_cases.append(dict(**prepared, verifyAsymmetry=True,
+                expected=[value for pair in values for value in pair]))
         table_cases = []
         table_lookup = NativeTable(library).lookup
         for table in synthetic_table_cases():
