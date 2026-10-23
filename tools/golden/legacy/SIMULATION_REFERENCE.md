@@ -1053,3 +1053,11 @@ is not a check against the shipped Windows 2.6 DLL, actual-WASM acceptance or th
 separately specified Wine 2.3.1 AC-6 gate. Curves printed despite Lua failures are
 not silently accepted as valid reference data. The original optimizer-containing
 executable, build provenance, runner and detailed results remain private.
+
+Failure triage confirms that the five table cases issue missing-file (`ENOENT`)
+requests for required `.ff`/`.db` files at their project locations. Same-named
+files elsewhere remain unverified candidates, not automatic replacements.
+The four Lua cases read `par[0]` without saved script parameters. Their runtime
+error reports chunk line 4, corresponding to stored script line 3 because the
+original compiler adds `function Start()`. Original sources and projects remain
+unchanged; no parameter defaults or acceptance exclusions are inferred.
