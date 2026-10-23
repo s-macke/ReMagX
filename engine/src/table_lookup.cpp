@@ -3,21 +3,32 @@
 #include <cmath>
 #include <limits>
 #include <new>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
-extern "C" int remagx_table_lookup(const double* energies, const double* values, size_t row_count,
-                       size_t column_count, const double* queries, size_t query_count,
-                       size_t* cursor, double* output) {
-    if (!column_count || column_count > 20 || !queries || !query_count || !cursor || !output ||
-        (row_count && (!energies || !values))) return REMAGX_INVALID_ARGUMENT;
-    if (row_count > std::numeric_limits<size_t>::max() / column_count ||
-        query_count > std::numeric_limits<size_t>::max() / column_count) return REMAGX_ALLOCATION_ERROR;
-    for (size_t row = 0; row < row_count; ++row) {
+struct RemagxTable {
+    std::vector<double> energies;
+    std::vector<double> values;
+    size_t columns;
+};
+
+namespace {
+int validate_table(const double* energies, const double* values, size_t rows, size_t columns) {
+    if (!columns || columns > 20 || (rows && (!energies || !values))) return REMAGX_INVALID_ARGUMENT;
+    if (rows > std::numeric_limits<size_t>::max() / columns) return REMAGX_ALLOCATION_ERROR;
+    for (size_t row = 0; row < rows; ++row)
         if (!std::isfinite(energies[row]) || (row && energies[row] < energies[row - 1])) return REMAGX_INVALID_ARGUMENT;
-    }
-    for (size_t index = 0; index < row_count * column_count; ++index)
+    for (size_t index = 0; index < rows * columns; ++index)
         if (!std::isfinite(values[index])) return REMAGX_INVALID_ARGUMENT;
+    return REMAGX_SUCCESS;
+}
+
+// Both entry points use exactly the same interpolation and caller-owned cursor.
+int lookup_values(const double* energies, const double* values, size_t row_count,
+    size_t column_count, const double* queries, size_t query_count, size_t* cursor, double* output) {
+    if (!queries || !query_count || !cursor || !output) return REMAGX_INVALID_ARGUMENT;
+    if (query_count > std::numeric_limits<size_t>::max() / column_count) return REMAGX_ALLOCATION_ERROR;
     for (size_t index = 0; index < query_count; ++index)
         if (!std::isfinite(queries[index])) return REMAGX_INVALID_ARGUMENT;
     try {
@@ -56,3 +67,43 @@ extern "C" int remagx_table_lookup(const double* energies, const double* values,
     } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
       catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
 }
+
+} // namespace
+
+extern "C" int remagx_table_lookup(const double* energies, const double* values, size_t row_count,
+    size_t column_count, const double* queries, size_t query_count, size_t* cursor, double* output) {
+    if (!column_count || column_count > 20 || !queries || !query_count || !cursor || !output ||
+        (row_count && (!energies || !values))) return REMAGX_INVALID_ARGUMENT;
+    if (row_count > std::numeric_limits<size_t>::max() / column_count ||
+        query_count > std::numeric_limits<size_t>::max() / column_count) return REMAGX_ALLOCATION_ERROR;
+    const int status = validate_table(energies, values, row_count, column_count);
+    if (status != REMAGX_SUCCESS) return status;
+    return lookup_values(energies, values, row_count, column_count, queries, query_count, cursor, output);
+}
+
+extern "C" int remagx_table_prepare(const double* energies, const double* values, size_t row_count,
+    size_t column_count, RemagxTable** prepared) {
+    if (!prepared) return REMAGX_INVALID_ARGUMENT;
+    const int status = validate_table(energies, values, row_count, column_count);
+    if (status != REMAGX_SUCCESS) return status;
+    try {
+        auto snapshot = std::make_unique<RemagxTable>();
+        snapshot->columns = column_count;
+        if (row_count) {
+            snapshot->energies.assign(energies, energies + row_count);
+            snapshot->values.assign(values, values + row_count * column_count);
+        }
+        *prepared = snapshot.release();
+        return REMAGX_SUCCESS;
+    } catch (const std::bad_alloc&) { return REMAGX_ALLOCATION_ERROR; }
+      catch (const std::length_error&) { return REMAGX_ALLOCATION_ERROR; }
+}
+
+extern "C" int remagx_table_lookup_prepared(const RemagxTable* prepared, const double* queries,
+    size_t query_count, size_t* cursor, double* output) {
+    if (!prepared) return REMAGX_INVALID_ARGUMENT;
+    return lookup_values(prepared->energies.data(), prepared->values.data(), prepared->energies.size(),
+        prepared->columns, queries, query_count, cursor, output);
+}
+
+extern "C" void remagx_table_destroy(RemagxTable* prepared) { delete prepared; }

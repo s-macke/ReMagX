@@ -36,6 +36,62 @@ class TableLookupTest(unittest.TestCase):
         self.assertEqual(library.remagx_table_lookup(None, None, 1, 2, None, 1, None, None), 1)
 
 
+class PreparedTableTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        pointer = ctypes.POINTER(ctypes.c_double)
+        library.remagx_table_prepare.argtypes = [pointer, pointer, ctypes.c_size_t, ctypes.c_size_t, ctypes.POINTER(ctypes.c_void_p)]
+        library.remagx_table_prepare.restype = ctypes.c_int
+        library.remagx_table_lookup_prepared.argtypes = [ctypes.c_void_p, pointer, ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t), pointer]
+        library.remagx_table_lookup_prepared.restype = ctypes.c_int
+        library.remagx_table_destroy.argtypes = [ctypes.c_void_p]
+        library.remagx_table_destroy.restype = None
+
+    def prepare(self, energies, columns):
+        energy = (ctypes.c_double * len(energies))(*energies)
+        values = [columns[column][row] for row in range(len(energies)) for column in range(len(columns))]
+        data = (ctypes.c_double * len(values))(*values)
+        handle = ctypes.c_void_p()
+        self.assertEqual(library.remagx_table_prepare(energy, data, len(energies), len(columns), ctypes.byref(handle)), 0)
+        self.addCleanup(library.remagx_table_destroy, handle)
+        return handle, energy, data
+
+    def sample(self, handle, queries, cursor, columns):
+        inputs = (ctypes.c_double * len(queries))(*queries)
+        output = (ctypes.c_double * (len(queries) * columns))(*([-123] * (len(queries) * columns)))
+        position = ctypes.c_size_t(cursor)
+        status = library.remagx_table_lookup_prepared(handle, inputs, len(queries), ctypes.byref(position), output)
+        return status, list(output), position.value
+
+    def test_all_lookup_sequences_match_one_shot_exactly(self):
+        for case in synthetic_table_cases():
+            handle, _, _ = self.prepare(case['energy'], case['columns'])
+            width = len(case['columns'])
+            expected = lookup(case['energy'], list(zip(*case['columns'])), case['queries'], case['cursor'], width)
+            self.assertEqual(self.sample(handle, case['queries'], case['cursor'], width), expected)
+
+    def test_snapshot_ownership_and_cursor_history(self):
+        handle, energies, values = self.prepare([1, 2, 2, 3], [[10, 20, 30, 40]])
+        energies[0] = 999
+        values[0] = 999
+        self.assertEqual(self.sample(handle, [1, 2, 2, 2, 2], 0, 1), (0, [10, 20, 20, 30, 30], 3))
+        self.assertEqual(self.sample(handle, [2], 3, 1), (0, [30], 3))
+
+    def test_validation_and_failure_leave_handles_outputs_and_cursors_unchanged(self):
+        energies = (ctypes.c_double * 2)(2, 1)
+        values = (ctypes.c_double * 2)(1, 2)
+        handle = ctypes.c_void_p(123)
+        self.assertEqual(library.remagx_table_prepare(energies, values, 2, 1, ctypes.byref(handle)), 1)
+        self.assertEqual(handle.value, 123)
+        prepared, _, _ = self.prepare([1, 2, 3], [[1, 1e308, -1e308]])
+        self.assertEqual(self.sample(prepared, [1, 2.5], 19, 1), (2, [-123, -123], 19))
+        self.assertEqual(self.sample(prepared, [math.nan], 19, 1), (1, [-123], 19))
+        self.assertEqual(self.sample(None, [1], 19, 1), (1, [-123], 19))
+        empty, _, _ = self.prepare([], [[], []])
+        self.assertEqual(self.sample(empty, [1, 2], 19, 2), (0, [0, 0, 0, 0], 19))
+        library.remagx_table_destroy(None)
+
+
 @unittest.skipUnless(os.environ.get('LEGACY_ROOT'), 'private table comparison not requested')
 class OriginalTableTest(unittest.TestCase):
     def test_original_lookup_sequences(self):

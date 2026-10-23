@@ -1142,3 +1142,23 @@ Run the native adapter checks with
 They check known outputs, unchanged input files, suppressed partial output on
 Lua/selection errors, zero-energy handling and absence of optimizer symbols.
 Full original-project spectrum acceptance remains open.
+
+
+### Native prepared-table validation (2026-10-23)
+
+Request-owned table sessions now use an opaque native snapshot. Preparation
+validates and copies the immutable table once; subsequent queries validate only
+query/cursor/output inputs and call the same interpolation implementation as the
+one-shot API. Explicit destruction releases the snapshot. Per-caller cursor
+history, duplicate energies, range behavior and atomic failure remain unchanged.
+New native tests compare prepared and one-shot paths and cover snapshot isolation,
+invalid preparation, numerical failure and empty tables. Shared Node/Chromium
+checks also track native handles across allocation failures and disposal.
+
+A separate private single-selection experiment compares 92,997 values from a
+30,999-point element spectrum with the unchanged original adapter: all match,
+and original/copied input trees remain unchanged. Its local report is
+`build/prepared-spectrum-single-selection-report.json`. This experiment is not
+full corpus acceptance; the all-selection baseline remains a separate run.
+A local 30,000-row/3,000-query timing improved from about 466 ms to 104 ms;
+this measures table lookup only and does not establish overall spectrum speed.

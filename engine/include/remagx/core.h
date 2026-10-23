@@ -431,6 +431,16 @@ void remagx_segmented_optics_destroy(RemagxSegmentedOptics* prepared);
 int remagx_table_lookup(const double* energies, const double* values, size_t row_count,
                        size_t column_count, const double* queries, size_t query_count,
                        size_t* cursor, double* output);
+// Owned, immutable table snapshot. Preparation validates/copies the table once;
+// later lookups validate queries only and retain the one-shot cursor arithmetic.
+// Preparation failure leaves *prepared unchanged. Destroy once (NULL allowed);
+// handles must not be used after destruction. Cursor/output remain atomic on errors.
+typedef struct RemagxTable RemagxTable;
+int remagx_table_prepare(const double* energies, const double* values, size_t row_count,
+    size_t column_count, RemagxTable** prepared);
+int remagx_table_lookup_prepared(const RemagxTable* prepared, const double* queries,
+    size_t query_count, size_t* cursor, double* output);
+void remagx_table_destroy(RemagxTable* prepared);
 // Original Fourier postprocessing of R only: qz^4, legacy window, forward DFT,
 // magnitudes with DC discarded. Outputs each have floor(count/2) entries.
 // Count must be 2..1,000,000; outputs must not overlap and are atomic on errors.

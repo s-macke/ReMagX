@@ -10,9 +10,15 @@ export function checkTableSessions(module, createSession, lookup, references = [
       result.values.forEach((value, index) => ensure(Math.abs(value - table.expected[index]) <= 1e-15 + 1e-10 * Math.abs(table.expected[index]), 'Prepared native table mismatch'))
     }
   } finally { session.dispose() }
-  for (let failAt = 0; failAt <= 5; failAt++) {
-    const owned = new Set(); let allocations = 0
+  for (let failAt = 0; failAt <= 6; failAt++) {
+    const owned = new Set(), handles = new Set(); let allocations = 0
     const wrapped = new Proxy(module, { get(target, key) {
+      if (key === '_remagx_table_prepare') return (...args) => {
+        const status = target._remagx_table_prepare(...args)
+        if (status === 0) handles.add(new DataView(target.HEAPF64.buffer).getUint32(args[4], true))
+        return status
+      }
+      if (key === '_remagx_table_destroy') return handle => { ensure(handles.delete(handle), 'Invalid table handle destroy'); target._remagx_table_destroy(handle) }
       if (key === '_malloc') return bytes => { if (++allocations === failAt) return 0; const pointer = target._malloc(bytes); if (pointer) owned.add(pointer); return pointer }
       if (key === '_free') return pointer => { ensure(owned.delete(pointer), 'Invalid table free'); target._free(pointer) }
       return target[key]
@@ -38,7 +44,7 @@ export function checkTableSessions(module, createSession, lookup, references = [
       fails(() => current.lookup({ energy: [1, 2, 3], columns: [[1, 1e308, -1e308]] }, [1, 2.5]))
       ensure(current.lookup(table, [1]).values[0] === 10, 'Session failed to recover')
     } finally { current.dispose(); current.dispose() }
-    ensure(owned.size === 0, 'Table session leaked')
+    ensure(owned.size === 0 && handles.size === 0, 'Table session leaked')
     fails(() => current.lookup(table, [1]))
   }
 }

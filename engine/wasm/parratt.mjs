@@ -126,14 +126,14 @@ export function lookupTable(module, table, queries, cursor = 0) {
 }
 
 // Own immutable table snapshots for one worker request. Cursors remain caller-owned.
-// The native entry still validates its buffers; this removes repeated JS copies.
+// Native snapshots validate immutable table data once and retain the original lookup arithmetic.
 export function createTableLookupSession(module) {
   const tables = new Map()
   let disposed = false
   function dispose() {
     if (disposed) return
     disposed = true
-    for (const table of tables.values()) for (const pointer of table.pointers) module._free(pointer)
+    for (const table of tables.values()) module._remagx_table_destroy(table.handle)
     tables.clear()
   }
   return { dispose, lookup(table, queries, cursor = 0) {
@@ -148,31 +148,24 @@ export function createTableLookupSession(module) {
           !Array.from(table.columns).every(column => validVector(column, table.energy.length, true))) {
         throw new TypeError('Invalid optical-table lookup input')
       }
-      const rows = table.energy.length, columns = table.columns.length, pointers = []
-      const allocate = count => {
-        const bytes = count * 8
-        if (!Number.isSafeInteger(bytes) || bytes > 0x7fffffff) throw new RangeError('Optical-table buffer too large')
-        const pointer = module._malloc(bytes)
-        if (!pointer) throw new Error('Optical-table allocation failed')
-        pointers.push(pointer)
-        return pointer
-      }
-      try {
+      const rows = table.energy.length, columns = table.columns.length
+      const handle = withBuffers(module, allocate => {
         const energy = rows ? allocate(rows) : 0, values = rows ? allocate(rows * columns) : 0
+        const preparedPointer = allocate(1)
         if (rows) module.HEAPF64.set(table.energy, energy / 8)
-        for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+        for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++)
           module.HEAPF64[values / 8 + row * columns + column] = table.columns[column][row]
-        }
-        prepared = { rows, columns, energy, values, pointers }
-        tables.set(table, prepared)
-      } catch (error) { for (const pointer of pointers) module._free(pointer); throw error }
+        checkStatus(module._remagx_table_prepare(energy, values, rows, columns, preparedPointer), 'Optical-table preparation')
+        return new DataView(module.HEAPF64.buffer).getUint32(preparedPointer, true)
+      })
+      prepared = { handle, columns }
+      tables.set(table, prepared)
     }
     return withBuffers(module, allocate => {
       const query = allocate(queries.length), position = allocate(1), output = allocate(queries.length * prepared.columns)
       module.HEAPF64.set(queries, query / 8)
       new DataView(module.HEAPF64.buffer).setUint32(position, cursor, true)
-      checkStatus(module._remagx_table_lookup(prepared.energy, prepared.values, prepared.rows, prepared.columns,
-        query, queries.length, position, output), 'Optical-table lookup')
+      checkStatus(module._remagx_table_lookup_prepared(prepared.handle, query, queries.length, position, output), 'Optical-table lookup')
       return { values: module.HEAPF64.slice(output / 8, output / 8 + queries.length * prepared.columns),
         cursor: new DataView(module.HEAPF64.buffer).getUint32(position, true) }
     })
