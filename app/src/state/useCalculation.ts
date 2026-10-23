@@ -1,3 +1,4 @@
+import { spectrumPlot } from '../model/spectrumView'
 import { densityProfilePlot } from '../model/densityProfileView'
 // Recalculates the curve for the current view whenever the project or view changes, debounced so
 // that typing does not flood the worker. Stale results (from an older request) are discarded.
@@ -46,7 +47,7 @@ export function discardComputeService(): void {
   sharedService = null
 }
 
-async function calculate(service: ComputeService, project: Project, request: CalculationRequest, onScriptMessages?: (lines: string[]) => void): Promise<CalculatedCurve & { scriptMessages?: string[] }> {
+export async function calculateView(service: ComputeService, project: Project, request: CalculationRequest, onScriptMessages?: (lines: string[]) => void): Promise<CalculatedCurve & { scriptMessages?: string[] }> {
   const { scanKind, displayMode: mode, plotView } = request
   if (plotView === 'tensorDiagonal' || plotView === 'tensorUpper' || plotView === 'tensorLower') {
     const tensor = await service.dielectricTensor(project, { layerIndex: request.layerIndex ?? 0, tables: request.tables ?? [], spectrum: true }, onScriptMessages)
@@ -57,20 +58,16 @@ async function calculate(service: ComputeService, project: Project, request: Cal
   }
   if (plotView === 'scatteringFactors') {
     const spectrum = await service.scatteringFactors(project, { elementIndex: request.elementIndex ?? 0, tables: request.tables ?? [] }, onScriptMessages)
-    return { scriptMessages: spectrum.scriptMessages, axis: 'energy', x: spectrum.energy, series: [
-      { label: 'f1', y: spectrum.first }, { label: 'f2', y: spectrum.second },
-    ], logScale: false, yLabel: 'f1 / f2 (table preview)' }
+    return spectrumPlot(spectrum, plotView)
   }
   if (plotView === 'opticalSpectrum' || plotView === 'magneticSpectrum') {
     const magnetic = plotView === 'magneticSpectrum'
     const spectrum = await service.layerSpectrum(project, { elementIndex: request.elementIndex ?? 0, layerIndex: request.layerIndex ?? 0, magnetic, tables: request.tables ?? [] }, onScriptMessages)
-    return { scriptMessages: spectrum.scriptMessages, axis: 'energy', x: spectrum.energy, series: [
-      { label: magnetic ? 'δm' : 'δ', y: spectrum.first }, { label: magnetic ? 'βm' : 'β', y: spectrum.second },
-    ], logScale: false, yLabel: magnetic ? 'δm / βm (table preview)' : project.sample.mode === 'element' ? 'δ / β (mock slab preview)' : 'δ / β (table preview)' }
+    return spectrumPlot(spectrum, plotView)
   }
   if (plotView !== 'scan') {
-    const profile = await service.depthProfile(project)
-    return profilePlot(profile, plotView === 'magneticProfile', request.illustrateSegmentation ?? true)
+    const profile = await service.depthProfile(project, onScriptMessages, request.tables ?? [])
+    return { ...profilePlot(profile, plotView === 'magneticProfile', request.illustrateSegmentation ?? true), scriptMessages: profile.scriptMessages }
   }
   if (scanKind === 'energyScan') {
     if (mode !== 'monochromatic') {
@@ -135,7 +132,7 @@ export function useCalculation(project: Project, request: CalculationRequest, pa
           onScriptMessages?.(lines)
         }
       }
-      calculate(computeService(), project, { scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables }, receiveMessages)
+      calculateView(computeService(), project, { scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables }, receiveMessages)
         .then(({ scriptMessages, ...curve }) => {
           if (active && id === requestId.current) {
             setState({ curve, error: null, busy: false, stopped: false })

@@ -15,7 +15,7 @@ export function mockLayerSpectrum(project: Project, query: LayerSpectrumQuery): 
   if (table.columns.length < 2 || table.columns.slice(0, 2).some(column => column.length !== table.energy.length || column.some(value => !Number.isFinite(value))) || table.energy.some(value => !Number.isFinite(value))) {
     throw new ComputeError(`The ${name}.${kind} table has invalid spectrum columns.`)
   }
-  return { energy: [...table.energy], first: [...table.columns[0]], second: [...table.columns[1]] }
+  return { engine: 'mock', energy: [...table.energy], first: [...table.columns[0]], second: [...table.columns[1]] }
 }
 
 // Like the compound preview, this does not yet evaluate Filldb or Lua scripts.
@@ -31,7 +31,7 @@ export function mockScatteringFactors(project: Project, query: ElementSpectrumQu
   // The legacy plot omits zero-energy rows.
   const indices = table.energy.flatMap((energy, index) => energy === 0 ? [] : [index])
   if (!indices.length) throw new ComputeError(`The ${name}.ff table has no nonzero energies to plot.`)
-  return { energy: indices.map(index => table.energy[index]), first: indices.map(index => table.columns[0][index]), second: indices.map(index => table.columns[1][index]) }
+  return { engine: 'mock', energy: indices.map(index => table.energy[index]), first: indices.map(index => table.columns[0][index]), second: indices.map(index => table.columns[1][index]) }
 }
 
 // Density-weighted slab preview. Linear interpolation/endpoint holding is mock-only;
@@ -56,5 +56,5 @@ function mockElementOpticalSpectrum(project: Project, query: LayerSpectrumQuery)
     if (sum.some(value => !Number.isFinite(value))) throw new ComputeError('Element optical spectrum exceeds the supported numeric range.')
     return sum
   })
-  return { energy: grid, first: values.map(value => value[0]), second: values.map(value => value[1]) }
+  return { engine: 'mock', energy: grid, first: values.map(value => value[0]), second: values.map(value => value[1]) }
 }

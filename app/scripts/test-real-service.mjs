@@ -227,7 +227,7 @@ try {
   console.log(`Element conversion UI: mock guard, actual-WASM preview/application, preserved element data/targets, undo/redo, stale tables, single-layer rejection and blocked-script Stop/recovery passed (${conversionStopMilliseconds.toFixed(1)} ms).`)
 
   const segmentedResults = await page.evaluate(async () => {
-    const { createSegmentedComputeService, createRealComputeService, createDefaultProject, createLayer } = window.realServiceHarness
+    const { calculateView, createSegmentedComputeService, createRealComputeService, createDefaultProject, createLayer } = window.realServiceHarness
     const NativeWorker = window.Worker
     let enteredResolve
     window.Worker = class extends NativeWorker {
@@ -298,6 +298,36 @@ try {
       same((await service.calcReflectivity(project)).reflectivity, baseline.reflectivity)
       const unavailable = await unconfigured.calcReflectivity(project).then(() => '', error => error.message)
       if (!unavailable.includes('explicit error-function lookup')) throw new Error('Default worker silently selected a lookup')
+      const viewProject = structuredClone(project)
+      viewProject.scripts.enabled = true
+      viewProject.scripts.beforeCalculation = 'print("profile-view"); delta[1] = delta[1] * 2'
+      const viewSnapshot = JSON.stringify(viewProject)
+      const replacementTables = structuredClone(tables)
+      replacementTables[1].columns[0] = [.03, .04]
+      const expectedProfile = await service.depthProfile(viewProject, undefined, replacementTables)
+      const fallbackProfile = await service.depthProfile(viewProject)
+      if (JSON.stringify(expectedProfile.delta) === JSON.stringify(fallbackProfile.delta)) throw new Error('Profile table replacement has no effect')
+      for (const plotView of ['opticalProfile', 'magneticProfile']) {
+        const messages = []
+        const curve = await calculateView(service, viewProject, { scanKind: 'reflectivity', displayMode: 'monochromatic',
+          plotView, illustrateSegmentation: false, tables: replacementTables }, lines => messages.push(...lines))
+        same(curve.x, expectedProfile.z)
+        same(curve.series[0].y, plotView === 'opticalProfile' ? expectedProfile.delta : expectedProfile.deltaMag)
+        same(curve.series[1].y, plotView === 'opticalProfile' ? expectedProfile.beta : expectedProfile.betaMag)
+        if (!messages.includes('profile-view') || !curve.scriptMessages?.includes('profile-view') || !curve.yLabel.includes('real'))
+          throw new Error('Profile view lost real provenance or Lua messages')
+        const missing = await calculateView(service, viewProject, { scanKind: 'reflectivity', displayMode: 'monochromatic',
+          plotView, tables: [] }).then(() => '', error => error.message)
+        if (!missing.includes('missing optical table')) throw new Error('Cleared profile tables reused service fallback')
+      }
+      const failedView = structuredClone(viewProject)
+      failedView.scripts.beforeCalculation = 'print("profile-view-failure"); error("profile-view-failure")'
+      const failureMessages = []
+      const viewFailure = await calculateView(service, failedView, { scanKind: 'reflectivity', displayMode: 'monochromatic',
+        plotView: 'opticalProfile', tables: replacementTables }, lines => failureMessages.push(...lines)).then(() => '', error => error.message)
+      if (!viewFailure.includes('profile-view-failure') || !failureMessages.includes('profile-view-failure'))
+        throw new Error('Failed profile view lost streamed Lua diagnostics')
+      if (JSON.stringify(viewProject) !== viewSnapshot) throw new Error('Profile view changed its project')
       const profileProject = structuredClone(project)
       profileProject.calculation.roughnessModel = 'nevot-croce'
       profileProject.calculation.automaticOpticalConstants = false
@@ -355,7 +385,7 @@ try {
   })
   assert.equal(segmentedResults.comparisons, 12)
   assert.ok(segmentedResults.cancellations.every(result => result.stopped === 'ComputeCancelled' && result.milliseconds < 1000), JSON.stringify(segmentedResults.cancellations))
-  console.log('Segmented ComputeService: 12 energy/per-point comparisons, explicit lookup guard, binding errors and six native Stop/recovery paths, real depth profiles and layer conversion passed.')
+  console.log('Segmented ComputeService: 12 energy/per-point comparisons, explicit lookup guard, binding errors and six native Stop/recovery paths, real depth profiles, UI table replacement/clearing and Lua diagnostics, and layer conversion passed.')
   const elementComparisons = await page.evaluate(async () => {
     const { createReferenceComputeService, createRealComputeService, createDefaultProject } = window.realServiceHarness
     const NativeWorker = window.Worker
@@ -1340,6 +1370,8 @@ try {
         { name: 'sample', kind: 'm', energy: [100, 150, 200], columns: [[3, 3, 3], [4, 4, 4]], warnings: [] },
       ]
       output.realMagneticSpectrum = await service.layerSpectrum(spectrumProject, { layerIndex: 0, magnetic: true, tables: spectrumTables })
+      output.realMagneticPlot = await window.realServiceHarness.calculateView(service, spectrumProject,
+        { scanKind: 'reflectivity', displayMode: 'monochromatic', plotView: 'magneticSpectrum', layerIndex: 0, tables: spectrumTables })
       for (const automatic of [false, true]) {
         const scriptedSpectrum = structuredClone(spectrumProject)
         scriptedSpectrum.experiment.energy = 150
@@ -1369,6 +1401,10 @@ try {
       const spectrumSnapshot = JSON.stringify(spectrumProject)
       output.realFactors = await service.scatteringFactors(spectrumProject, { elementIndex: 0, tables: factorTables })
       output.realElementSpectrum = await service.layerSpectrum(spectrumProject, { elementIndex: 0, layerIndex: 0, magnetic: false, tables: factorTables })
+      output.realSpectrumPlots = []
+      for (const plotView of ['scatteringFactors', 'opticalSpectrum']) output.realSpectrumPlots.push(
+        await window.realServiceHarness.calculateView(service, spectrumProject,
+          { scanKind: 'reflectivity', displayMode: 'monochromatic', plotView, elementIndex: 0, layerIndex: 0, tables: factorTables }))
       output.realSpectrumUnchanged = spectrumSnapshot === JSON.stringify(spectrumProject)
       for (const automatic of [false, true]) {
         const scripted = structuredClone(spectrumProject)
@@ -1650,9 +1686,19 @@ try {
       for (const point of [1, 2]) assert.ok(Math.abs(results.realTensorSpectrum.tensors[point][component][field] - imported) <= 1e-15 + 1e-10 * Math.abs(imported))
     }
   }
-  assert.deepEqual(results.realMagneticSpectrum, { energy: [100, 150, 200], first: [9, 3, 3], second: [8, 4, 4] })
-  assert.deepEqual(results.realFactors, { energy: [100, 150, 200], first: [26, 26, 26], second: [.5, .5, .5] })
+  assert.deepEqual(results.realMagneticSpectrum, { engine: 'real', energy: [100, 150, 200], first: [9, 3, 3], second: [8, 4, 4] })
+  assert.deepEqual(results.realFactors, { engine: 'real', energy: [100, 150, 200], first: [26, 26, 26], second: [.5, .5, .5] })
   assert.ok(results.realSpectrumUnchanged)
+  assert.equal(results.realElementSpectrum.engine, 'real')
+  for (const [plot, spectrum, label] of [[results.realMagneticPlot, results.realMagneticSpectrum, 'δm / βm (real)'],
+    [results.realSpectrumPlots[0], results.realFactors, 'f1 / f2 (real)'],
+    [results.realSpectrumPlots[1], results.realElementSpectrum, 'δ / β (real)']]) {
+    assert.equal(plot.yLabel, label)
+    assert.equal(plot.axis, 'energy')
+    assert.equal(plot.logScale, false)
+    assert.deepEqual(plot.x, spectrum.energy)
+    assert.deepEqual(plot.series.map(series => series.y), [spectrum.first, spectrum.second])
+  }
   for (const [index, energy] of results.realElementSpectrum.energy.entries()) {
     for (const [field, factor] of [['first', 26], ['second', .5]]) {
       const expected = factor * 2 / energy / energy * .0004151761541 * 1e6

@@ -94,7 +94,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
           }) : undefined
           const result = message.kind === 'layerSpectrum' ? realLayerSpectrum(message.project, message.spectrum, engine.lookup, engine.scatteringTensor, hook)
             : realScatteringFactors(message.project, message.spectrum, engine.lookup, engine.scatteringTensor, hook)
-          send({ id: message.id, type: 'result', result: { ...result, ...(session ? { scriptMessages } : {}) } })
+          send({ id: message.id, type: 'result', result: { ...result, engine: 'real', ...(session ? { scriptMessages } : {}) } })
         } finally { session?.close() }
         return
       }

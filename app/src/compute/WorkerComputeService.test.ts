@@ -376,8 +376,8 @@ describe('mock layer spectrum service', () => {
       { name: 'Co', kind: 'db' as const, energy: [700, 800], columns: [[0.1, 0.2], [0.03, 0.04]], warnings: [] },
       { name: 'Co', kind: 'm' as const, energy: [710, 810], columns: [[-0.01, 0.02], [0, -0.03]], warnings: [] },
     ]
-    expect(await service.layerSpectrum(project, { layerIndex: 1, magnetic: false, tables })).toEqual({ energy: [700, 800], first: [0.1, 0.2], second: [0.03, 0.04] })
-    expect(await service.layerSpectrum(project, { layerIndex: 1, magnetic: true, tables })).toEqual({ energy: [710, 810], first: [-0.01, 0.02], second: [0, -0.03] })
+    expect(await service.layerSpectrum(project, { layerIndex: 1, magnetic: false, tables })).toEqual({ engine: 'mock', energy: [700, 800], first: [0.1, 0.2], second: [0.03, 0.04] })
+    expect(await service.layerSpectrum(project, { layerIndex: 1, magnetic: true, tables })).toEqual({ engine: 'mock', energy: [710, 810], first: [-0.01, 0.02], second: [0, -0.03] })
     expect(project).toEqual(before)
     service.dispose()
   })
@@ -404,8 +404,8 @@ describe('mock element scattering-factor service', () => {
       { name: 'Co', kind: 'ff' as const, energy: [0, 700, 800], columns: [[99, -2, 3], [99, 0, 4]], warnings: [] },
       { name: 'Ni', kind: 'ff' as const, energy: [710, 810], columns: [[5, 6], [7, 8]], warnings: [] },
     ]
-    expect(await service.scatteringFactors(project, { elementIndex: 0, tables })).toEqual({ energy: [700, 800], first: [-2, 3], second: [0, 4] })
-    expect(await service.scatteringFactors(project, { elementIndex: 1, tables })).toEqual({ energy: [710, 810], first: [5, 6], second: [7, 8] })
+    expect(await service.scatteringFactors(project, { elementIndex: 0, tables })).toEqual({ engine: 'mock', energy: [700, 800], first: [-2, 3], second: [0, 4] })
+    expect(await service.scatteringFactors(project, { elementIndex: 1, tables })).toEqual({ engine: 'mock', energy: [710, 810], first: [5, 6], second: [7, 8] })
     await expect(service.scatteringFactors(project, { elementIndex: 0, tables: [] })).rejects.toThrow('Load Co.ff')
     await expect(service.scatteringFactors(project, { elementIndex: 2, tables })).rejects.toThrow('Select an element')
     await expect(service.scatteringFactors(project, { elementIndex: 0, tables: [{ ...tables[0], columns: [[1], [2]] }] })).rejects.toThrow('invalid scattering-factor')

@@ -14,7 +14,7 @@ export interface LayerConversionResult { layers: Layer[]; engine: 'real' | 'mock
 export interface TensorQuery { layerIndex: number; tables: OpticalTable[]; spectrum: boolean }
 export interface ElementSpectrumQuery { elementIndex: number; tables: OpticalTable[] }
 export interface LayerSpectrumQuery { elementIndex?: number; layerIndex: number; magnetic: boolean; tables: OpticalTable[] }
-export interface LayerSpectrum { scriptMessages?: string[]; energy: number[]; first: number[]; second: number[] }
+export interface LayerSpectrum { engine?: 'real' | 'mock'; scriptMessages?: string[]; energy: number[]; first: number[]; second: number[] }
 
 export interface DensityProfiles {
   engine?: 'real' | 'mock'

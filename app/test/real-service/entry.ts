@@ -1,3 +1,4 @@
+import { calculateView } from '../../src/state/useCalculation'
 import { mountLayerConversion } from './conversionUi'
 import { compareDiagnosticDensity, compareDiagnosticColumns, compareDiagnosticProfile } from './diagnosticComparison'
 import { diagnosticCategory, withDiagnosticDeadline } from './diagnosticCategory'
@@ -24,4 +25,4 @@ const createReferenceComputeService = (samples: readonly number[]) => {
     return worker as unknown as WorkerPort
   }, undefined, true, true)
 }
-Object.assign(window, { realServiceHarness: { mountLayerConversion, compareDiagnosticDensity, compareDiagnosticProfile, compareDiagnosticColumns, diagnosticCategory, withDiagnosticDeadline, createReferenceComputeService, parseOpticalTable, createSegmentedComputeService, applyDatabaseValues, projectSchema, renderFourierPlot, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } })
+Object.assign(window, { realServiceHarness: { calculateView, mountLayerConversion, compareDiagnosticDensity, compareDiagnosticProfile, compareDiagnosticColumns, diagnosticCategory, withDiagnosticDeadline, createReferenceComputeService, parseOpticalTable, createSegmentedComputeService, applyDatabaseValues, projectSchema, renderFourierPlot, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } })
