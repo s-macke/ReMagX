@@ -14,7 +14,12 @@ import { runProjectHook } from './projectHook'
 export function createBeforeCalculation(session: LuaSession, engine: RealCalculationEngine,
   tables: OpticalTable[], emit: (message: string) => void = () => {},
   resolvedTables = new Map<number, OpticalTable>()): RealBeforeCalculation {
-  return createProjectScript('BeforeCalculation', session, engine, tables, emit, resolvedTables)
+  const hook = createProjectScript('BeforeCalculation', session, engine, tables, emit, resolvedTables)
+  hook.createTemporary = () => {
+    const child = session.createChildSession()
+    return { hook: createProjectScript('BeforeCalculation', child, engine, tables, emit, resolvedTables), close: () => child.close() }
+  }
+  return hook
 }
 
 /** Bind one selected legacy program to caller-prepared project/optical state.

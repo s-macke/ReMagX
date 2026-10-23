@@ -67,6 +67,25 @@ try {
         ].join('\n')
       await addCase(source, { algorithm, magnetic: 1, fast, shift, scan: 'dataset' })
     }
+  // The original GUI's monochromatic DLL entry includes energy broadening.
+  // Exercise its threshold and composition with both angular-resolution paths.
+  for (const algorithm of [0, 1, 2]) for (const energyWidth of [0, 1e-6, 30])
+    for (const resolution of [0, .001]) for (const fast of [0, 1]) for (const dataset of [false, true]) {
+      let source = fixture + `\nalgorithm = ${algorithm}\nmagnetizationmode = 1\nnumberofpoints = 8\nenergyresolution = ${energyWidth}\nresolution = ${resolution}\nfastresolution = ${fast}\n`
+      if (dataset) source += 'usemeasurementqz = 1\ndatasetnumber = 1\ndatasetqztranslation = 0.007\n' +
+        [.03, .1, .03, .2].map(qz => `dataset_qz = ${qz}\ndataset_R0 = 1\n`).join('') + 'activedatasetindex = 1\n'
+      await addCase(source, { algorithm, magnetic: 1, energyWidth, resolution, fast, scan: dataset ? 'dataset' : 'generated', qzEnergyResolution: true })
+    }
+  for (const algorithm of [0, 1, 2]) for (const automatic of [false, true])
+    for (const script of ['', 'calls = (calls or 0) + 1; thickness[1] = 30 + calls', 'thickness[1] = thickness[1] + 0.1']) {
+      const source = fixture + `\nalgorithm = ${algorithm}\nnumberofpoints = 8\nenergyresolution = 20\nocautomatic = ${automatic ? 1 : 0}\n` +
+        (script ? `disablescript = 0\nscriptline = ${script}\n` : '')
+      await addCase(source, { algorithm, automatic, script, energyWidth: 20, scan: 'generated', qzEnergyResolution: true })
+    }
+  for (const algorithm of [0, 1, 2]) for (const fast of [0, 1]) {
+    const source = fixture + `\nalgorithm = ${algorithm}\nnumberofpoints = 8\nenergyresolution = 30\nfastresolution = ${fast}\naveraging = 1\nray1sigmare = 0\nray1sigmaim = 0\nray1pire = 1\nray1piim = 0\n`
+    await addCase(source, { algorithm, fast, corrections: true, energyWidth: 30, scan: 'generated', qzEnergyResolution: true })
+  }
   for (const algorithm of [0, 1, 2]) for (const definition of [0, 1])
     for (const resolution of [0, .001]) for (const fast of [0, 1]) {
       const source = fixture + `\nalgorithm = ${algorithm}\nmagnetizationmode = 1\nasymmetrydef = ${definition}\nresolution = ${resolution}\nfastresolution = ${fast}\n`
@@ -136,7 +155,7 @@ try {
         const snapshot = JSON.stringify(project)
         const actual = settings.scan === 'energy'
           ? settings.asymmetry ? await service.calcEnergyAsymmetry(project, undefined, tables) : await service.calcEnergyScan(project, undefined, tables)
-          : settings.asymmetry ? await service.calcAsymmetry(project) : await service.calcReflectivity(project)
+          : settings.asymmetry ? await service.calcAsymmetry(project, undefined, tables) : await service.calcReflectivity(project, undefined, tables)
         const coordinates = settings.scan === 'energy' ? actual.energy : actual.qz
         const columns = settings.asymmetry
           ? [actual.reflectivityPlus, actual.reflectivityMinus, actual.asymmetry] : [actual.reflectivity]

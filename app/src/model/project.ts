@@ -127,7 +127,7 @@ export const experimentSchema = z.object({
     angularFwhm: nonNegative,
     angularPoints: z.number().int().min(1), // sampling points of the Gaussian convolution
     fastConvolution: z.boolean(), // angular resolution
-    energyFwhm: nonNegative, // energy scans only
+    energyFwhm: nonNegative, // energy scans and monochromatic qz broadening
     energyPoints: z.number().int().min(1),
     energyFastConvolution: z.boolean(),
   }),

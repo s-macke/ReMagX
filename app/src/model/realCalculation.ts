@@ -1,3 +1,4 @@
+import { calculateQzEnergyResolution } from './qzEnergyResolution'
 import { prepareElementCalculationStack, type ElementPreparationEngine } from './sampledElementLayers'
 import { refreshElementOptics } from './refreshElementOptics'
 import { prepareRealSegmentedStack } from './segmentedCompoundStack'
@@ -45,13 +46,23 @@ export type ScriptSessionLifetime = 'temporary' | 'existing'
 
 // nestedSession describes state.script at hook entry: constructor hooks run
 // before assignment, so nested calculations need fresh temporary sessions.
-export type RealBeforeCalculation = (project: Project, opticalState: SerialOpticalState, renewOpticalConstants?: number, nestedSession?: ScriptSessionLifetime) => {
+export type RealBeforeCalculation = ((project: Project, opticalState: SerialOpticalState, renewOpticalConstants?: number, nestedSession?: ScriptSessionLifetime) => {
   project: Project; opticalState: SerialOpticalState
-}
+}) & { createTemporary?: () => { hook: RealBeforeCalculation; close(): void } }
 
 // Shared calculation preparation for plots and dataset objectives.
 export function calculateRealCurve(original: Project, tables: OpticalTable[], engine: RealCalculationEngine,
   scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous?: SerialOpticalState, beforeCalculation?: RealBeforeCalculation, scriptLifetime: ScriptSessionLifetime = 'temporary'): RealCurve {
+  if (scan === 'qz' && mode === 'monochromatic' && original.experiment.resolution.energyFwhm > 1e-6) {
+    return calculateQzEnergyResolution(original, previous, beforeCalculation, scriptLifetime,
+      (project, state, hook, coordinates) => calculateInnerCurve(project, tables, engine, scan, mode, state, hook, scriptLifetime, coordinates))
+  }
+  return calculateInnerCurve(original, tables, engine, scan, mode, previous, beforeCalculation, scriptLifetime)
+}
+
+function calculateInnerCurve(original: Project, tables: OpticalTable[], engine: RealCalculationEngine,
+  scan: 'qz' | 'energy', mode: 'monochromatic' | 'dichroic', previous: SerialOpticalState | undefined,
+  beforeCalculation: RealBeforeCalculation | undefined, scriptLifetime: ScriptSessionLifetime, coordinates?: number[]): RealCurve {
   const prepareStack = (project: Project, state: SerialOpticalState) => {
     if (project.sample.mode !== 'element') return prepareRealSegmentedStack(project, state, engine)
     if (!engine.elementPreparation) throw new Error('Element preparation requires an explicit error-function lookup and numerical engine.')
@@ -119,15 +130,15 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   const segmented = prepareStack(packedProject, { layers: project.sample.layers,
     layerDepths, dielectricTensors, dielectricState, scatteringTensors, cursors })
   if (project.calculation.algorithm === 'matrix') {
-    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, project.sample.mode === 'element' ? undefined : dielectricTensors, undefined, segmented)
+    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, project.sample.mode === 'element' ? undefined : dielectricTensors, coordinates, segmented)
     qz = request.qz
     values = engine.matrixQz(request)
   } else if (project.calculation.algorithm === 'zak') {
-    const request = prepareZakQzRequest(packedProject, mode, undefined, segmented?.layers)
+    const request = prepareZakQzRequest(packedProject, mode, coordinates, segmented?.layers)
     qz = request.qz
     values = engine.zakQz(request)
   } else {
-    const request = prepareParrattQzRequest(packedProject, mode, undefined, segmented?.layers)
+    const request = prepareParrattQzRequest(packedProject, mode, coordinates, segmented?.layers)
     qz = request.qz
     values = engine.calculate(request)
   }
@@ -135,7 +146,14 @@ export function calculateRealCurve(original: Project, tables: OpticalTable[], en
   // ran; opticalState retains tensors but does not contain element profiles.
   if (!scriptedProject && project.sample.mode === 'element') scriptedProject = { ...project,
     calculation: { ...project.calculation, automaticOpticalConstants: original.calculation.automaticOpticalConstants } }
-  const result = postprocessParrattResult(project, qz, values, mode, undefined, engine.fourier)
+  // CalcReflectivityEnergyResolution uses a fresh CDataSet for each sample:
+  // it has no measured energy column and its default first beam is sigma.
+  // This affects postprocessing only; the solver still uses state polarization.
+  const postProject = coordinates ? { ...project,
+    experiment: { ...project.experiment, qzScan: { ...project.experiment.qzScan, useDatasetPoints: false } },
+    calculation: { ...project.calculation, postProcessing: { ...project.calculation.postProcessing, divideByCos2ThetaSquared: false } },
+  } : project
+  const result = postprocessParrattResult(postProject, qz, values, mode, undefined, engine.fourier)
   return { ...result, ...(transform ? { axis: 'depth' as const } : {}), opticalState: { layers: project.sample.layers, layerDepths: layerDepths.slice(), dielectricTensors, dielectricState, scatteringTensors, cursors },
     finalEnergy: project.experiment.energy, ...(scriptedProject ? { scriptedProject } : {}) }
 }

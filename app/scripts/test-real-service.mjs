@@ -453,6 +453,8 @@ try {
           const calls = index === 0 ? 2 : 3
           const reference = structuredClone(scripted)
           reference.scripts.enabled = false; reference.experiment.qzScan.useDatasetPoints = false
+          // These are raw energy-scan samples; convolution is applied once below.
+          reference.experiment.resolution.energyFwhm = 0
           reference.experiment.qzScan.points = 2
           reference.experiment.qzScan.qzMin = reference.experiment.qzScan.qzMax = scripted.datasets[0].columns.qz[index]
           reference.experiment.energy = scripted.datasets[0].columns.energy[index] + (dichroic ? 0 : 10)

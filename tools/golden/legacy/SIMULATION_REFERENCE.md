@@ -1061,3 +1061,23 @@ The four Lua cases read `par[0]` without saved script parameters. Their runtime
 error reports chunk line 4, corresponding to stored script line 3 because the
 original compiler adds `function Start()`. Original sources and projects remain
 unchanged; no parameter defaults or acceptance exclusions are inferred.
+
+
+### Actual-WASM monochromatic qz energy broadening
+
+`app/scripts/diagnose-project-reference.mjs --require-parity` now includes the
+energy-broadened qz entry point across Parratt, Matrix and Zak, threshold and
+active widths, generated/measured coordinates, fast/exact angular resolution,
+automatic tables, script lifecycle and qz⁴/π/averaging options. All 243 cases
+(53,250 values) pass D-23. The real worker composes nineteen native calculations
+serially, preserving optical/script state and restoring nominal energy. Nested
+Lua retains its original unbroadened call path.
+
+Original per-sample temporary datasets have no measurement-energy column and
+classify their first beam as sigma for postprocessing, independently of solver
+polarization. This is retained. Fourier combined with active qz energy broadening
+remains unavailable pending review of the original inner/outer array-length
+mismatch. The zero-broadening private fit references remain valid, but their
+private boundary adapter needs the same wrapper before generating nonzero-width
+fit references. These checks do not close full-project acceptance or authorize
+production lookup configuration.
