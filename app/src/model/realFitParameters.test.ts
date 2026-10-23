@@ -98,3 +98,25 @@ it('rejects invalid candidates/bounds and missing targets atomically', () => {
   project.fit.parameters = [parameter('thickness', 100)]
   expect(() => applyRealFitParameters(project, [1])).toThrow('supported target')
 })
+
+it('retains missing script fit rows while skipping only their unavailable assignments', () => {
+  const project = fixture()
+  project.scripts.parameters = [3]
+  project.fit.parameters = [parameter('scriptParameter', null), parameter('scriptParameter', -1),
+    parameter('scriptParameter', 1), parameter('scriptParameter', 20),
+    parameter('scriptParameter', 0), parameter('thickness', 1)]
+  const before = structuredClone(project)
+  const result = applyRealFitParameters(project, [-2000, 2, 4, 5, 6, 7])
+  expect(result.values).toEqual([-1000, 2, 4, 5, 6, 7])
+  expect(result.project.fit.parameters.map(row => row.value)).toEqual(result.values)
+  expect(result.project.fit.parameters.map(row => row.index)).toEqual([null, -1, 1, 20, 0, 1])
+  expect(result.project.scripts.parameters).toEqual([6])
+  expect(result.project.sample.layers[1].thickness).toBe(7)
+  expect(project).toEqual(before)
+  // A later candidate uses the current script array, without dropping old rows.
+  result.project.scripts.parameters.push(0)
+  const next = applyRealFitParameters(result.project, result.values)
+  expect(next.project.scripts.parameters).toEqual([6, 4])
+  project.scripts.parameters = []
+  expect(applyRealFitParameters(project, [1, 2, 3, 4, 5, 6]).project.scripts.parameters).toEqual([])
+})

@@ -31,6 +31,11 @@ export function applyRealFitParameters(project: Project, candidate: readonly num
       case 'intensityScale':
         for (const dataset of result.datasets) if (dataset.active) dataset.intensityScale = value
         break
+      case 'scriptParameter':
+        // CStateHandler::ImplementFitVariable explicitly skips missing script
+        // slots. Keep the bounded fit row for the optimizer and Q penalty.
+        writeFitTarget(result, parameter, value)
+        break
       default:
         if (!writeFitTarget(result, parameter, value)) {
           throw new Error(`Fit parameter ${index + 1} (${parameter.target}) has no supported target in this project.`)
