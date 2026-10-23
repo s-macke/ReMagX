@@ -246,6 +246,8 @@ async function run() {
           const single = structuredClone(project)
           single.scripts.enabled = false
           single.experiment.energy = energies[point]
+          // Raw samples: the reference applies energy convolution once below.
+          single.experiment.resolution.energyFwhm = 0
           single.sample.layers[1].thickness = (energies[point] - 600) * 2
           single.datasets[0].columns = { qz: [coordinates[point]], reflectivity: [1] }
           single.sample.layers.forEach((layer, index) => {
