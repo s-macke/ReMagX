@@ -139,6 +139,7 @@ try {
     const service = createRealComputeService()
     let values = 0, maxLog10Error = 0, mismatches = 0, zeroPairs = 0, nonpositiveMismatches = 0
     const reports = []
+    const objectiveReports = []
     try {
       for (let index = 0; index < cases.length; ++index) {
         const { source, points, settings } = cases[index]
@@ -180,9 +181,28 @@ try {
             maxLog10Error = Math.max(maxLog10Error, Math.abs(Math.log10(primary[row]) - Math.log10(points[row][1])))
         }
         reports.push({ ...settings, mismatches: caseMismatches, mismatchesByColumn, firstMismatch, firstMismatchDetail, maxAbsoluteError })
+        if (settings.qzEnergyResolution && settings.scan === 'generated' && settings.resolution === 0 &&
+            settings.fast === 0 && [0, 30].includes(settings.energyWidth)) {
+          // The unchanged original Error is zero at these known synthetic curves.
+          // This checks objective compatibility (D-23), not fit quality (D-28).
+          const objectiveProject = structuredClone(project)
+          objectiveProject.fit.parameters = []
+          objectiveProject.activeDatasetIndex = 0
+          objectiveProject.datasets = [{ title: 'Synthetic original curve', comment: '', sourceFile: '',
+            energy: project.experiment.energy, energyShift: 0, qzShift: 0,
+            angularResolution: project.experiment.resolution.angularFwhm, intensityScale: 1, intensityOffset: 0,
+            active: true, errorWeight: 1, polarization: structuredClone(project.experiment.polarization),
+            columns: { qz: points.map(row => row[0]), reflectivity: points.map(row => row[1]) } }]
+          const objectiveSnapshot = JSON.stringify(objectiveProject)
+          const error = await service.calcChi2(objectiveProject, undefined, tables)
+          if (!Number.isFinite(error) || error < 0) throw new Error(`Project ${index}: invalid objective`)
+          const passed = error <= 1e-15
+          objectiveReports.push({ algorithm: settings.algorithm, energyWidth: settings.energyWidth, error, passed })
+          if (JSON.stringify(objectiveProject) !== objectiveSnapshot) throw new Error(`Project ${index}: objective input mutated`)
+        }
         if (JSON.stringify(project) !== snapshot) throw new Error(`Project ${index}: input mutated`)
       }
-      return { acceptancePassed: mismatches === 0, projects: cases.length, values, mismatches, maxLog10Error, zeroPairs, nonpositiveMismatches, reports }
+      return { acceptancePassed: mismatches === 0 && objectiveReports.length === 6 && objectiveReports.every(row => row.passed), objectiveReports, projects: cases.length, values, mismatches, maxLog10Error, zeroPairs, nonpositiveMismatches, reports }
     } finally { service.dispose() }
   }, { cases, tables })
   console.log(JSON.stringify(result, null, 2))

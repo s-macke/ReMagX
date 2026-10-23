@@ -1081,3 +1081,14 @@ mismatch. The zero-broadening private fit references remain valid, but their
 private boundary adapter needs the same wrapper before generating nonzero-width
 fit references. These checks do not close full-project acceptance or authorize
 production lookup configuration.
+
+
+The private original-fit adapter has subsequently been corrected to call the
+outer qz and energy-scan DLL functions, with its old artifacts retained.
+Nine 1,000-call Simplex references replay exactly; a separate five-call annealing
+comparison matches (the full annealing reference was not replayed here).
+Six synthetic one-shot original Error evaluations verify zero objective at the
+known curves with correct beam metadata. The maintained actual-WASM diagnostic
+now also requires six zero-reference chi-square comparisons under D-23, with
+unchanged project inputs; all pass. This checks objective compatibility and does
+not introduce absolute slack into D-28's separate optimizer-quality criterion.
