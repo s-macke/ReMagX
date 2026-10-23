@@ -108,9 +108,35 @@ jobs:
           PYTHON
           exit 1
       - name: Verify real engine through ComputeService
-        run: node scripts/test-real-service.mjs ../build/wasm
+        run: |
+          comparison_log="$RUNNER_TEMP/remagx-service-comparison.log"
+          if node scripts/test-real-service.mjs ../build/wasm 2>&1 | tee "$comparison_log"; then
+            exit 0
+          fi
+          # Public synthetic fixtures only; never add private-corpus output here.
+          python3 - "$comparison_log" <<'PYTHON'
+          import pathlib, sys
+          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-6000:]
+          for index in range(0, len(message), 2000):
+              part = message[index:index + 2000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title=Real ComputeService failed (part {index // 2000 + 1})::" + part)
+          PYTHON
+          exit 1
       - name: Verify full UI responsiveness with the real engine
-        run: node scripts/test-real-ui.mjs ../build/wasm
+        run: |
+          comparison_log="$RUNNER_TEMP/remagx-ui-comparison.log"
+          if node scripts/test-real-ui.mjs ../build/wasm 2>&1 | tee "$comparison_log"; then
+            exit 0
+          fi
+          # Public synthetic fixtures only; never add private-corpus output here.
+          python3 - "$comparison_log" <<'PYTHON'
+          import pathlib, sys
+          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-6000:]
+          for index in range(0, len(message), 2000):
+              part = message[index:index + 2000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title=Real UI failed (part {index // 2000 + 1})::" + part)
+          PYTHON
+          exit 1
       - run: npm run test:e2e
 
       - uses: actions/configure-pages@v5
