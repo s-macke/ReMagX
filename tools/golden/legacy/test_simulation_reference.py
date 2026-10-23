@@ -55,6 +55,20 @@ class SimulationReferenceTest(unittest.TestCase):
         libraries = subprocess.run(['ldd', self.executable], check=True, capture_output=True, text=True).stdout
         self.assertNotIn('liblua', libraries)
 
+    def test_monochromatic_energy_resolution_is_applied_on_the_original_qz_grid(self):
+        fixture = (REPOSITORY / 'app/test/fixtures/default.all').read_text()
+        path = Path(self.directory.name) / 'qz-energy-resolution.all'
+        results = []
+        for width in [0, 1e-6, 30]:
+            path.write_text(fixture + f'\nnumberofpoints = 12\nenergyresolution = {width}\n')
+            results.append(self.run_fixture(path))
+        plain, threshold, broadened = results
+        self.assertEqual(plain, threshold)
+        self.assertEqual([row[0] for row in plain], [row[0] for row in broadened])
+        self.assertTrue(all(math.isfinite(value) for row in broadened for value in row))
+        self.assertTrue(any(abs(a[1] - b[1]) > 1e-10 * abs(a[1]) + 1e-15
+                            for a, b in zip(plain, broadened)))
+
     def test_depth_profile_smooth_values_and_slice_boundaries(self):
         result = self.run_fixture(REPOSITORY / 'app/test/fixtures/default.all', '--profile')
         self.assertEqual(set(result), {'smooth', 'segments'})

@@ -1007,3 +1007,27 @@ consistent with the older sum and seven-significant-digit terminal printing.
 This observation explains a candidate version difference; it does **not** authorize
 normalizing results, changing the production 2.6 calculation, or waiving AC-6 cases.
 The unmodified comparison remains a failure and corpus acceptance stays open.
+
+
+### Monochromatic energy resolution in the reference adapter
+
+The original GUI calls `CalcReflectivityDLL`, whose double branch calls
+`CalcReflectivityEnergyResolution<double>`. The simulation adapter now follows
+that same entry point for monochromatic qz curves. Previously it called the inner
+`CalcReflectivity` directly and therefore omitted nonzero energy broadening.
+The wrapper delegates unchanged at energy resolution <= 1e-6; the regression test
+checks that boundary, retained qz coordinates, finite output and a changed curve
+for a nonzero width. Energy scans and asymmetry retain their separate entry points.
+Only the maintained adapter changed; original sources remain unmodified.
+
+No project in the current 99-file corpus sets energy resolution above this
+threshold. Consequently this correction does not explain the earlier Wine 2.3.1
+mismatches, and it does not invalidate that diagnostic solely on this basis.
+Original terminal 2.6.1 comparisons are distinct from AC-6, which still specifies
+the shipped Wine 2.3.1 executable. Neither check replaces actual-WASM acceptance.
+
+Independent checks with the unchanged-source 2.6.1 terminal cover Parratt, Matrix
+and Zak at widths 0, 1e-6 and 30 eV. All nine corrected comparisons pass at 1e-6
+relative (terminal formatting); the previous adapter fails all three 30 eV cases.
+All 20 private-source simulation tests pass. These synthetic checks establish this
+wrapper correction, not full project/corpus or actual-WASM acceptance.

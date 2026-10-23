@@ -236,7 +236,7 @@ int main(int argc, char** argv) {
     }
     const int status = energy_scan
         ? (asymmetry ? CalcDicEScan<double>(data, *state) : CalcEScanEnergyResolution<double>(data, *state))
-        : (asymmetry ? CalcAsymmetrie<double>(data, *state) : CalcReflectivity<double>(data, *state));
+        : (asymmetry ? CalcAsymmetrie<double>(data, *state) : CalcReflectivityEnergyResolution<double>(data, *state));
     if (script_failed) return 10;
     if (status != RX_SUCCESS) return 7;
     // Diagnostic metadata only: do not index mismatched columns or publish a curve.
