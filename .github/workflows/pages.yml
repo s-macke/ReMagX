@@ -84,6 +84,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - run: npm run test:fit-reference-inputs
       - name: Verify element preparation and qz routing with actual WASM
         run: WASM_MODULE=../build/wasm/remagx-core.mjs npm test -- --run test/elementPreparationWasm.test.ts
       - run: npm run build

@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:corpus": "node scripts/run-corpus.mjs",
-    "test:e2e": "tsc -p tsconfig.e2e.json && playwright test"
+    "test:e2e": "tsc -p tsconfig.e2e.json && playwright test",
+    "test:fit-references": "node scripts/test-fit-references.mjs",
+    "test:fit-reference-inputs": "node --test scripts/test-fit-reference-inputs.mjs"
   },
   "dependencies": {
     "@codemirror/language": "^6.13.1",
