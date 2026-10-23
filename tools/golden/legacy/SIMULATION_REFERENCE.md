@@ -1162,3 +1162,33 @@ and original/copied input trees remain unchanged. Its local report is
 full corpus acceptance; the all-selection baseline remains a separate run.
 A local 30,000-row/3,000-query timing improved from about 466 ms to 104 ms;
 this measures table lookup only and does not establish overall spectrum speed.
+
+
+### Private all-selection spectrum diagnostic
+
+After building the matching WASM module, run from the repository root:
+
+```sh
+WASM_DIRECTORY=/absolute/path/to/wasm-build node app/scripts/diagnose-private-spectra.mjs
+```
+
+`LEGACY_ROOT` defaults to `old/reMagX3`. The runner copies and hashes the private
+input tree, builds the separate unchanged-source spectrum adapter, and compares
+actual Chromium worker output against original results. It attempts every `.all`
+project, every compound layer's optical and magnetic selection, and every element's
+scattering factors and stored slab optical selections. There is no subset switch.
+Original subprocesses and worker requests have independent 120-second deadlines.
+Unavailable grids, script errors, timeouts, preparation failures and mismatches
+remain failures; they cannot silently reduce the acceptance denominator.
+
+The final JSON report uses numeric IDs and sanitized categories, with aggregate
+errors and input/adapter/manifest/executable/WASM/diagnostic hashes. It prints no
+private names, curves, input values or script text. Only compiled test assets are
+served on localhost. Both original and copied input trees must remain unchanged.
+Success requires all selections for all 99 projects to match D-23. This does not
+supply private CI access or approve production lookup/data policy. Progress is
+reported every 25 selections and after each project; large spectra may therefore
+remain quiet for several minutes. Keep build inputs unchanged until it finishes.
+
+At introduction the complete baseline and prepared-table runs were still in
+progress. The tool's existence is not evidence of full spectrum acceptance.
