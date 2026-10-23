@@ -61,6 +61,24 @@ async function timedClick(page, locator, selector) {
   await locator.click()
   return page.evaluate(() => window.clickElapsed)
 }
+async function expectMissingOpticalTable(page, trigger) {
+  const count = await page.evaluate(() => window.tableRequests.length)
+  await trigger()
+  // Opening a project debounces its redraw. Wait for this action's error reply,
+  // not the preceding project's still-visible footer or detail button.
+  await page.waitForFunction(count => window.tableRequests.slice(count).some(request =>
+    window.tableReplies[request.id] === 'error'), count)
+  await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  // The footer shows the actionable summary; the dialog retains the full
+  // table diagnostic. Exercise the same detail/close path available to users.
+  await page.getByRole('button', { name: 'Error details', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Calculation error', exact: true })
+  await dialog.waitFor()
+  assert.match(await page.locator('.status-bar__error').textContent(), /Optical database lookup failed/)
+  assert.match(await dialog.locator('.calculation-error__detail').textContent(), /missing optical table/)
+  await page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'hidden' })
+}
 try {
   browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
@@ -218,8 +236,7 @@ try {
     await page.getByRole('radio', { name: mode, exact: true }).check()
     await page.waitForTimeout(200)
     const count = await page.locator('.debug-log').evaluate(node => node.textContent.split('energy-ui:0').length)
-    await page.getByRole('button', { name: 'Energy Scan', exact: true }).click()
-    await page.waitForFunction(() => document.querySelector('.status-bar__error')?.textContent.includes('missing optical table'))
+    await expectMissingOpticalTable(page, () => page.getByRole('button', { name: 'Energy Scan', exact: true }).click())
     await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
     assert.equal(await page.locator('.debug-log').evaluate(node => node.textContent.split('energy-ui:0').length), count)
   }
@@ -308,8 +325,7 @@ try {
   libraryProject.fit.errorFunction = 'lin-chi2'
   libraryProject.sample.layers.forEach((layer, index) => { layer.opticalTable = `ui-${index}` })
   libraryProject.scripts.beforeCalculation = 'assert(delta[1] > 0); print("library:", delta[1])'
-  await openProject(libraryProject)
-  await page.waitForFunction(() => document.querySelector('.status-bar__error')?.textContent.includes('missing optical table'))
+  await expectMissingOpticalTable(page, () => openProject(libraryProject))
   await page.getByRole('tab', { name: 'Sample', exact: true }).click()
   await page.getByRole('button', { name: 'Optical Constants Database', exact: true }).click()
   async function loadLibrary(delta) {
@@ -342,8 +358,7 @@ try {
   await checkRequest('chi2', () => page.getByRole('button', { name: 'χ²', exact: true }).click(), .015)
   await checkRequest('fit', () => page.getByRole('button', { name: 'Start', exact: true }).click(), .015)
   await page.getByRole('tab', { name: 'Sample', exact: true }).click()
-  await page.getByRole('button', { name: 'Delete optical constants cache', exact: true }).click()
-  await page.waitForFunction(() => document.querySelector('.status-bar__error')?.textContent.includes('missing optical table'))
+  await expectMissingOpticalTable(page, () => page.getByRole('button', { name: 'Delete optical constants cache', exact: true }).click())
   const cleared = await page.evaluate(() => window.tableRequests.at(-1))
   assert.deepEqual(cleared.tables, [])
   assert.deepEqual(failures, [])
