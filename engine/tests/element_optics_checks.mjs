@@ -1,4 +1,4 @@
-export function checkElementOptics(module, calculate, cases) {
+export function checkElementOptics(module, calculate, cases, calculateQz) {
   const ensure = (value, message) => { if (!value) throw new Error(message) }
   const failure = (operation, predicate) => {
     try { operation() } catch (error) {
@@ -22,6 +22,20 @@ export function checkElementOptics(module, calculate, cases) {
     })
     ensure(JSON.stringify(item) === before, 'Element inputs changed')
   }
+  // Synthetic element-to-reflectivity chain: a one-ulp refractive-index error
+  // can exceed D-23 after forming asymmetry. Reference: unchanged native core.
+  const optics = Array.from(calculate(module, {
+    elements: [[0.02, 10, 1, 0, 0]], factor: 0.00001,
+  }).opticalConstants)
+  const beams = calculateQz(module, {
+    layers: [[0, 0, ...optics, 90, 90], [40, 0, ...optics.map(value => value * 0.5), 90, 90],
+      [0, 0, 0, 0, 0, 0, 90, 90]],
+    qz: [0.0791], energy: 640, beam1: [1, 0, 0, 0], beam2: [0, 0, 1, 0], magnetic: 0, mode: 1,
+  })
+  const asymmetry = (beams[0] - beams[1]) / (beams[0] + beams[1])
+  const expectedAsymmetry = 0.03019450803468125
+  ensure(Math.abs(asymmetry - expectedAsymmetry) <= 1e-15 + 1e-10 * Math.abs(expectedAsymmetry),
+    'Element square-root rounding changed synthetic asymmetry')
   const prepared = cases.find(item => item.elements.length > 0 && item.scatteringTensors)
   const scalar = { ...prepared, scatteringTensors: null }
   for (const change of [

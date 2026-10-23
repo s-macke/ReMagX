@@ -249,7 +249,7 @@ assert.throws(() => calculateVisnovskyEnergyScan(module, shortStack), TypeError)
 assert.throws(() => calculateVisnovskyEnergyScan(module, { ...matrixEnergyPrepared, qz: [0, 0, 0, 1e10] }), { status: 4 })
 assert.deepEqual(Array.from(calculateVisnovskyEnergyScan(module, { ...matrixEnergyPrepared,
   enabled: [0, 0, 0, 0], mode: 0, beam2: null, energyWidth: 0 })), [1, 0, 1, 0, 1, 0, 1, 0])
-assert.equal(checkElementOptics(module, calculateElementOptics, input.elementOptics), 5200)
+assert.equal(checkElementOptics(module, calculateElementOptics, input.elementOptics, calculateParrattQz), 5200)
 console.log('WASM/native element optics: 5,200 values, validation, growth and cleanup passed.')
 assert.equal(checkScattering(module, calculateScatteringTensor, input.scattering), 8640)
 console.log('WASM/native scattering tensors: 8,640 components, validation, growth and cleanup passed.')

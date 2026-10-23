@@ -1,3 +1,4 @@
+#include "complex_arithmetic.hpp"
 #include "remagx/core.h"
 #include <algorithm>
 #include <cmath>
@@ -33,7 +34,7 @@ extern "C" int remagx_element_optics(const double* elements, size_t element_coun
         }
     }
     for (double value : scalar) if (!std::isfinite(value)) return REMAGX_NUMERICAL_ERROR;
-    const Complex index = std::sqrt(Complex(1.0 - scalar[0], scalar[1]));
+    const Complex index = remagx::reference_complex_square_root(Complex(1.0 - scalar[0], scalar[1]));
     scalar[0] = 1.0 - index.real();
     scalar[1] = index.imag();
     for (double value : scalar) if (!std::isfinite(value)) return REMAGX_NUMERICAL_ERROR;

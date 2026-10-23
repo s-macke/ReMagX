@@ -1235,3 +1235,26 @@ and build pass. `build/chantler-spectrum-reference-report.json` retains the loca
 report and its asset/native/WASM provenance hashes. The running private full
 spectrum diagnostics predate this integration and cannot establish its corpus
 acceptance.
+
+
+## Element optical square-root correction and qz asymmetry
+
+The full 2026-10-23 qz-asymmetry rerun after the element optical square-root
+correction matches 89 of 99 projects: 69,919 points/279,676 coordinate, plus,
+minus and asymmetry values, zero D-23 failures. All 17 compared segmented
+projects and the three saved difference-definition projects match. Maximum
+absolute error is 9.049150317963495e-13; maximum positive-pair log10 error is
+1.2047252084812499e-11. Nine original references fail table/script preparation.
+The D-25 deferred-solver project, previously completed by the original, reaches
+the unchanged 120-second reference deadline in this run and is still explicitly
+rejected by the worker. The diagnostic exits 1 with acceptancePassed=false.
+
+Before the correction, one normalized-asymmetry value failed while both beam
+intensities passed. Its generated element stack differed in delta/beta by at most
+2.220446049250313e-16/2.168404344971009e-19. Using the existing pinned complex
+square-root routine in element_optics.cpp alone makes all 2,000 values of that
+isolated project identical to the original. Parratt-only math trials did not
+remove the failure and are not part of the change. A wholly synthetic regression
+checks the element-to-Parratt asymmetry chain at D-23 against the unchanged native
+core, without publishing private inputs. This remains explicit-original-lookup
+validation, not a production error-function policy or complete energy/fit acceptance.
