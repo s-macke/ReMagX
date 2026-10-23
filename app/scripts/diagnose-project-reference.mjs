@@ -140,6 +140,7 @@ try {
     let values = 0, maxLog10Error = 0, mismatches = 0, zeroPairs = 0, nonpositiveMismatches = 0
     const reports = []
     const objectiveReports = []
+    const recoveryReports = []
     try {
       for (let index = 0; index < cases.length; ++index) {
         const { source, points, settings } = cases[index]
@@ -198,11 +199,34 @@ try {
           if (!Number.isFinite(error) || error < 0) throw new Error(`Project ${index}: invalid objective`)
           const passed = error <= 1e-15
           objectiveReports.push({ algorithm: settings.algorithm, energyWidth: settings.energyWidth, error, passed })
+          if (settings.energyWidth === 30) for (const optimizer of ['simplex', 'simplex-annealing']) {
+            const fitProject = structuredClone(objectiveProject)
+            const target = project.sample.layers[1].thickness
+            fitProject.sample.layers[1].thickness = target - 2
+            fitProject.fit.algorithm = optimizer
+            fitProject.fit.occamQ = 0
+            fitProject.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null,
+              value: target - 2, step: .5, lowerBound: target - 5, upperBound: target + 5 }]
+            const fitSnapshot = JSON.stringify(fitProject)
+            const initialError = await service.calcChi2(fitProject, undefined, tables)
+            const fit = await service.startFit(fitProject, () => {}, undefined, tables)
+            const replay = await service.calcChi2(fit.project, undefined, tables)
+            const value = fit.values[0]
+            const stored = fit.project.sample.layers[1].thickness
+            const passed = [initialError, value, stored, fit.chi2, replay].every(Number.isFinite) &&
+              initialError > fit.chi2 && fit.chi2 >= 0 && replay >= 0 &&
+              Math.abs(value - target) < 1e-6 && fit.chi2 <= 1e-16 &&
+              Math.abs(stored - value) <= 1e-15 + 1e-10 * Math.abs(value) &&
+              Math.abs(replay - fit.chi2) <= 1e-15 + 1e-10 * Math.abs(fit.chi2)
+            recoveryReports.push({ algorithm: settings.algorithm, optimizer, target, value,
+              initialError, chi2: fit.chi2, replay, iterations: fit.iterations, passed })
+            if (JSON.stringify(fitProject) !== fitSnapshot) throw new Error(`Project ${index}: fit input mutated`)
+          }
           if (JSON.stringify(objectiveProject) !== objectiveSnapshot) throw new Error(`Project ${index}: objective input mutated`)
         }
         if (JSON.stringify(project) !== snapshot) throw new Error(`Project ${index}: input mutated`)
       }
-      return { acceptancePassed: mismatches === 0 && objectiveReports.length === 6 && objectiveReports.every(row => row.passed), objectiveReports, projects: cases.length, values, mismatches, maxLog10Error, zeroPairs, nonpositiveMismatches, reports }
+      return { acceptancePassed: mismatches === 0 && objectiveReports.length === 6 && objectiveReports.every(row => row.passed) && recoveryReports.length === 6 && recoveryReports.every(row => row.passed), objectiveReports, recoveryReports, projects: cases.length, values, mismatches, maxLog10Error, zeroPairs, nonpositiveMismatches, reports }
     } finally { service.dispose() }
   }, { cases, tables })
   console.log(JSON.stringify(result, null, 2))

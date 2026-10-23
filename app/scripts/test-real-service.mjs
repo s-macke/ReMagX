@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
 import { mkdir, readFile, readdir, copyFile, writeFile } from 'node:fs/promises'
 import { dirname, extname, resolve } from 'node:path'
@@ -8,6 +9,16 @@ import { chromium } from '@playwright/test'
 import { build } from 'vite'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const qzEnergyReference = JSON.parse(await readFile(resolve(root, 'app/test/fixtures/qz-energy-reference.json'), 'utf8'))
+assert.equal(qzEnergyReference.schemaVersion, 1)
+assert.equal(qzEnergyReference.source, 'app/test/fixtures/default.all')
+assert.deepEqual(qzEnergyReference.cases.map(entry => entry.algorithm), [0, 1, 2])
+for (const [path, expected] of [
+  [qzEnergyReference.source, qzEnergyReference.sourceSha256],
+  ['tools/golden/legacy/simulation_reference.cpp', qzEnergyReference.adapterSha256],
+  ['tools/golden/legacy/simulation_sources.json', qzEnergyReference.legacyManifestSha256],
+]) assert.equal(createHash('sha256').update(await readFile(resolve(root, path))).digest('hex'), expected,
+  `Stale public qz energy reference provenance: ${path}`)
 const destination = resolve(root, 'build/real-service-test')
 const wasmDirectory = resolve(process.argv[2] ?? resolve(root, 'build/wasm'))
 await build({ configFile: false, root: resolve(root, 'app'), base: './', worker: { format: 'es' },
@@ -50,6 +61,57 @@ try {
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
+  const broadenedRecoveries = await page.evaluate(async reference => {
+    const { importAllFile, precisionFixture, createRealComputeService } = window.realServiceHarness
+    const service = createRealComputeService()
+    const reports = []
+    const close = (actual, expected) => Number.isFinite(actual) && Number.isFinite(expected) &&
+      Math.abs(actual - expected) <= 1e-15 + 1e-10 * Math.abs(expected)
+    try {
+      for (const { algorithm, settings, curve } of reference.cases) {
+        if (curve.length !== 8 || curve.some(row => row.length !== 2 || !row.every(Number.isFinite)))
+          throw new Error('Invalid public qz reference curve')
+        const { project } = importAllFile(precisionFixture + settings)
+        const snapshot = JSON.stringify(project)
+        const actual = await service.calcReflectivity(project)
+        if (actual.qz.length !== curve.length || actual.reflectivity.length !== curve.length ||
+            curve.some(([qz, value], index) => !close(actual.qz[index], qz) || !close(actual.reflectivity[index], value)))
+          throw new Error(`Public broadened qz reference mismatch: solver ${algorithm}`)
+        if (JSON.stringify(project) !== snapshot) throw new Error('Public reference input mutated')
+        project.activeDatasetIndex = 0
+        project.datasets = [{ title: 'Public original curve', comment: '', sourceFile: '',
+          energy: project.experiment.energy, energyShift: 0, qzShift: 0,
+          angularResolution: project.experiment.resolution.angularFwhm, intensityScale: 1, intensityOffset: 0,
+          active: true, errorWeight: 1, polarization: structuredClone(project.experiment.polarization),
+          columns: { qz: curve.map(row => row[0]), reflectivity: curve.map(row => row[1]) } }]
+        for (const optimizer of ['simplex', 'simplex-annealing']) {
+          const fitProject = structuredClone(project)
+          const target = project.sample.layers[1].thickness
+          fitProject.sample.layers[1].thickness = target - 2
+          fitProject.fit.algorithm = optimizer
+          fitProject.fit.occamQ = 0
+          fitProject.fit.parameters = [{ target: 'thickness', index: 1, elementIndex: null,
+            value: target - 2, step: .5, lowerBound: target - 5, upperBound: target + 5 }]
+          const fitSnapshot = JSON.stringify(fitProject)
+          const initialError = await service.calcChi2(fitProject)
+          const fit = await service.startFit(fitProject, () => {})
+          const replay = await service.calcChi2(fit.project)
+          const value = fit.values[0]
+          // Synthetic known-truth recovery, not D-28 original-optimizer fit quality.
+          if (![initialError, value, fit.chi2, replay].every(Number.isFinite) ||
+              initialError <= fit.chi2 || fit.chi2 < 0 || replay < 0 ||
+              Math.abs(value - target) >= 1e-6 || fit.chi2 > 1e-16 ||
+              !close(fit.project.sample.layers[1].thickness, value) || !close(replay, fit.chi2) ||
+              JSON.stringify(fitProject) !== fitSnapshot)
+            throw new Error(`Public broadened fit recovery failed: solver ${algorithm}, ${optimizer}`)
+          reports.push({ algorithm, optimizer, target, value, chi2: fit.chi2 })
+        }
+      }
+      return reports
+    } finally { service.dispose() }
+  }, qzEnergyReference)
+  assert.equal(broadenedRecoveries.length, 6)
+  console.log('Public original qz energy curves and both optimizers:', broadenedRecoveries)
   const segmentedResults = await page.evaluate(async () => {
     const { createSegmentedComputeService, createRealComputeService, createDefaultProject, createLayer } = window.realServiceHarness
     const NativeWorker = window.Worker

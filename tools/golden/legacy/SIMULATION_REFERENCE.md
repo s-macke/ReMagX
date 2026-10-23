@@ -1092,3 +1092,21 @@ known curves with correct beam metadata. The maintained actual-WASM diagnostic
 now also requires six zero-reference chi-square comparisons under D-23, with
 unchanged project inputs; all pass. This checks objective compatibility and does
 not introduce absolute slack into D-28's separate optimizer-quality criterion.
+
+
+### Public broadened-qz regression reference
+
+`python3 tools/golden/legacy/capture_public_qz_energy.py` regenerates
+`app/test/fixtures/qz-energy-reference.json` solely from the committed public
+default example, with three solvers, eight points and 30 eV energy broadening.
+The build verifies original source hashes; no original file is modified.
+The generator accepts no private project input and records fixture, adapter and
+source-manifest hashes. Its output contains public synthetic curves only.
+
+The existing Chromium `test-real-service.mjs` CI runner verifies these hashes,
+compares coordinates and reflectivity at D-23, and recovers thickness 10 from
+initial 8 using both optimizers for all three solvers. It checks unchanged input,
+returned parameter/project consistency and replayed chi-square. The private-source
+243-case diagnostic also requires all six recoveries. These synthetic tests use
+the established recovery limits (parameter error below 1e-6, chi-square at most
+1e-16); they do not replace D-28 original-optimizer or full-corpus acceptance.

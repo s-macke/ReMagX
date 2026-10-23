@@ -31,6 +31,7 @@ file in the same commit.
 ## Rules
 
 ### Always
+- Keep original legacy sources unchanged; place build adapters and generated artifacts outside the source tree.
 - Use **double precision** for all numerics; no float, long double or arbitrary precision (F-3).
 - Use **descriptive English names** in new code. Never carry over legacy or IDE-generated
   identifiers (`Button1Click`, `TFrame4`, `Edit17`, `Schicht`, `RechenHilfe`, …). Legacy names
@@ -551,3 +552,5 @@ Quality gates:
 - [x] Real-worker monochromatic qz energy broadening: 19 original double-precision samples at fixed incident angles, serial optical/tensor/project updates and nominal-energy restoration, for standalone curves and shared fit/dataset-error evaluation. Standalone samples use fresh temporary Lua sessions; existing fit sessions retain globals; nested Lua retains its distinct unbroadened entry. Per-sample postprocessing follows the original temporary dataset defaults. Six domain tests cover boundaries, unchanged inputs, lifecycle, failure cleanup and nested-Lua behavior; 243 original/actual-WASM comparisons (53,250 values) pass D-23, including automatic tables, scripts and qz⁴/π/averaging options. Energy-broadened Fourier remains unavailable pending the existing semantics review. All 533 app tests, lint/build and the full Chromium real-service suite pass; full corpus and production rollout remain open.
 
 - [x] Corrected private original-fit adapter dispatch to match the original DLL's outer qz/energy functions, retaining previous reference artifacts and all original sources unchanged. Nine 1,000-call Simplex results replay exactly; a five-call annealing old/new comparison also matches (not a full annealing replay). Six known-truth original Error evaluations confirm zero objective with correct broadening. Six maintained actual-WASM chi-square checks pass D-23 alongside all 243 curve comparisons. Inputs/beam metadata and immutable-state checks remain explicit; this does not establish optimizer-quality acceptance. All 533 app tests, lint and build pass.
+
+- [x] Public qz energy-broadening goldens from the committed default example now cover Parratt/Matrix/Zak in the actual-WASM Chromium CI runner, with source/adapter/manifest hash checks. Both optimizers recover synthetic thickness 10 from initial 8 for all three solvers, with unchanged inputs and consistent returned parameters/project/recomputed chi-square. The private-source diagnostic also requires all six recoveries alongside its 243 curve comparisons. These synthetic recoveries do not close original-optimizer fit-quality or full-corpus acceptance. All 533 app tests, lint/build and the full Chromium real-service suite pass. Original sources remain unchanged.
