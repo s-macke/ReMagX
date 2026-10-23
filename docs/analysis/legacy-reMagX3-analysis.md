@@ -688,3 +688,74 @@ intensity scale recovers within 1e-8. These unchanged thresholds are fixture ass
 not new corpus-golden tolerances. All cases pass without further production changes.
 This remains one-parameter synthetic evidence, not original-optimizer or general
 multi-parameter fit acceptance.
+
+
+## 8. Built-in scattering-data provenance and redistribution review (2026-10-23)
+
+The active fallback is specifically Chantler: `shared/MaterialConstantsHelper.cpp`
+`ReadElement` first tries local files and calls `GetChantlerTable` only when that
+fails and `usechantlerdatabase` is enabled. `shared/periodic_table.cpp` stores the
+indexed `data_chantler` array and supplies tables for Z=1–92. This source trace
+identifies the implementation path, not the exact upstream edition or a licence.
+The array uses single-precision storage; any future double-valued asset must be
+checked against the actual stored legacy values, not merely the decimal text.
+No original files were edited and no table values were copied into git.
+
+Primary-source findings, checked 2026-10-23:
+
+- [NIST SRD 66](https://www.nist.gov/pml/x-ray-form-factor-attenuation-and-scattering-tables)
+  identifies the Chantler database and explicitly reserves copyright. It reports
+  a January 2005 data-content update. This does not identify the edition embedded
+  in ReMagX.
+- [NIST's licensing policy](https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications)
+  distinguishes SRD from other NIST works. The broad permission for non-SRD data
+  is not evidence that this SRD compilation can be redistributed.
+- [SRD terms](https://shop.nist.gov/ccrz__CCPage?pageKey=SRDTC) address reproduction
+  permission and developer uses. The [linked database disclaimer](https://www.nist.gov/pml/database-disclaimer)
+  concerns warranties and endorsement, not an affirmative redistribution grant.
+- [CXRO's scattering-factor page](https://henke.lbl.gov/optical_constants/asf.html)
+  offers both current and 1994 Henke files and lists later element updates. Its
+  linked [Berkeley Lab terms](https://www.lbl.gov/terms-and-conditions/) do not
+  establish a specific licence for bundling these tables. Berkeley Lab lists its
+  [Intellectual Property Office](https://ipo.lbl.gov/berkeley-lab-resources-for-agreements/)
+  as the contact for data-use permission.
+
+Conclusion for D-13/D-31: redistribution clearance is **not established** by the
+reviewed evidence. This is not a finding that permission cannot be obtained.
+An existing author permission or an explicit upstream licence must cover the
+identified edition, public static-asset distribution and redistribution by
+recipients. Preserve its attribution/notice requirements. NIST lists `data@nist.gov`
+for SRD inquiries. No inquiry has been sent; the user has been asked whether an
+existing permission is available. Henke is not an approved numerical substitute
+for the original Chantler fallback. Shipping built-in data remains open.
+
+
+### User-confirmed redistribution permission, same day (D-37)
+
+After the review above, the user explicitly confirmed: "Weiterverteilung erlaubt."
+The repository therefore proceeds with the original embedded Chantler data under
+D-37. This updates the project's permission status; it does not turn the reviewed
+upstream pages into a general redistribution licence. The asset records the
+confirmation, source hash, reference URL and copyright attribution. No Henke
+replacement or numerical deviation is authorized.
+
+`python3 tools/data/chantler.py` compiles a separate adapter against six
+hash-checked, unchanged original dependencies. It calls GetChantlerTable for each
+atomic number and exports the actual stored values with round-trip precision.
+`python3 tools/data/chantler.py --check` requires byte-for-byte reproduction of
+`app/src/data/chantler.json`. The initial export detected an original Uranium index endpoint beyond the stored
+array: 20,256 requested rows versus 20,255 stored rows overall (278 versus 277
+for Uranium). A safe exporter must check the array bounds before calling the
+original routine. The user approved using exactly the 277 stored Uranium rows (D-38).
+This work packages data only; worker fallback integration and full original
+project acceptance are separate implementation work.
+
+The completed asset contains 92 elements, 20,255 rows and 60,765 values. The
+exporter uses the unchanged original getter for elements 1–91 and reads only the
+277 defined stored rows for Uranium under D-38. Its range guard requires the
+exact reviewed dimensions; it cannot silently clamp a different malformed table.
+The original source files remain unchanged. Public checks validate coverage,
+ordering, finite values, original storage representation and correction metadata;
+local original-source reproduction compares the entire exported object exactly.
+Public CI runs those data checks without requiring original sources. The original
+source reproduction is opt-in via `LEGACY_ROOT`.

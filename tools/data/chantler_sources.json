@@ -1,0 +1,10 @@
+{
+  "sha256": {
+    "shared/CString.h": "1e905908293ce39709af893a2384efc247f83d28ddf362b60a2829a3fe9b3ef7",
+    "shared/CTable.cpp": "9bb120fd9bb4495d0262556c7c4b40549c3719f73a720cf7fc1ee67608186ddd",
+    "shared/CTable.h": "8eda6ac7752643db11e7489c68b3df42dbc31ff8a3b638ee76a37065f5c2a078",
+    "shared/CVector.h": "1824aaf04b4492f58478545ac3415e470fefebcdea2541ff410f53ce9d1e82be",
+    "shared/periodic_table.cpp": "4a085ec6103fd2fa16832938d4015dde8d29a7e9752fee1e01e08f388e87b408",
+    "shared/periodic_table.h": "0b913c22e1a2f36b9c34dd40ef7e5dcaa11757113a4c7f481d3d81e0e4d304a4"
+  }
+}

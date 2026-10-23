@@ -38,6 +38,7 @@ jobs:
           python3 -m unittest discover -s ../tools/inventory -p 'test_*.py'
           ../tools/inventory/check
           python3 -m unittest discover -s ../tools/golden/legacy -p 'test_*.py'
+          python3 -m unittest discover -s ../tools/data -p 'test_*.py'
 
       - name: Build and test native numerical core
         run: |

@@ -170,8 +170,8 @@ and this checklist for implementation status; the external Steps 0–8 have not 
 
 ### Current backlog
 
-This is the authoritative list of remaining requirements. There are 37 open requirements:
-17 implementation, eight validation and twelve decisions. They overlap and differ in size;
+This is the authoritative list of remaining requirements. There are 36 open requirements:
+17 implementation, eight validation and eleven decisions. They overlap and differ in size;
 the counts are not a completion percentage. Completed increments and their historical
 limitations are recorded separately below. Read this backlog for current work; the checked
 entries are historical implementation evidence, not a second list of outstanding tasks.
@@ -226,7 +226,6 @@ Full-engine/corpus acceptance is still open.
 - [ ] **Decision:** Summary window (legacy `guidll/SummaryForm`): chart sizing, refresh, clipboard exports, axis scaling and error display; decide on its const-qz-from-energy conversion before implementation
 - [ ] **Decision:** Review hidden experimental/test controls for scope (inventory group `hidden-tools-decision`); no implicit decision to port or drop them
 - [ ] **Decision:** Decide on the legacy layer-table "coupl." column (no `.all` key)
-- [ ] **Decision:** Built-in periodic-table/Chantler asset (D-13); licence check of the Chantler/Henke data before shipping it (D-31)
 - [ ] **Decision:** Connect private-corpus access in CI and require the strict runner (D-17.3, D-20, AC-4). The choice of a private repository/read-only credential or a self-hosted runner is pending; Pages still does not supply the corpus. No private data may enter public logs or artifacts.
 - [ ] **Decision:** Resolve the legacy error-function's single-precision intermediates versus the double-only requirement: narrowly scoped legacy-rounding compatibility, or a separately reviewed full-double numerical deviation. Neither option nor a golden-tolerance exception has been approved; see the compatibility study in the engine implementation evidence below.
 - [ ] **Decision:** Resolve the spline value at exactly the first usable knot (the second stored knot): the original implementation reads before its array. Choose the continuous stored knot value or retain explicit rejection at that coordinate. No correction is approved; this blocks endpoint acceptance within magnetic-profile integration (D-29; decision journal, 2026-10-16 endpoint trace).
@@ -568,3 +567,5 @@ Quality gates:
 - [x] Added a private all-project/all-selection spectrum diagnostic using the unchanged original adapter and actual Chromium worker. It requires 99 projects and all selected compound/element/slab spectra at D-23, records unavailable cases as failures, hashes original/copied inputs and emits only numeric IDs/sanitized diagnostics. Full runs remain pending; this tooling increment does not close original-project spectrum acceptance.
 
 - [x] Actual-WASM calculation error UI coverage: native qz boundary, malformed multilayer pattern and real Lua compilation/execution failures now exercise actionable footer guidance and the full-detail dialog. Source line/program diagnostics survive; a script that mutates thickness before failing leaves the saved project and undo history unchanged. Every error is followed by successful qz calculation. Existing real database tests remain included. The complete Chromium real-UI suite passes with 10,000 points/102 layers and Stop under one second. Generic numerical/allocation error acceptance remains open.
+
+- [x] Built-in Chantler redistribution decision (D-13/D-31/D-37): after the primary-source review, the user confirmed redistribution permission for the original embedded tables. A separate exporter reads the unchanged original implementation through six hash-checked dependencies with provenance and copyright attribution. The user also approved retaining exactly the 277 stored Uranium rows, excluding the original out-of-bounds read (D-38). The asset contains all 92 elements/20,255 rows/60,765 values; public data checks and exact local original-source reproduction verify it. No Henke substitution, updated upstream dataset or further physics change is approved. Worker fallback integration and full-project validation remain implementation work.
