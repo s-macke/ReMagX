@@ -1258,3 +1258,22 @@ remove the failure and are not part of the change. A wholly synthetic regression
 checks the element-to-Parratt asymmetry chain at D-23 against the unchanged native
 core, without publishing private inputs. This remains explicit-original-lookup
 validation, not a production error-function policy or complete energy/fit acceptance.
+
+
+## Updated full monochromatic energy comparison
+
+The 2026-10-23 run with current table/element integration attempts all 99 unchanged
+projects and matches all 23 successful original energy references at D-23:
+21,057 points/42,114 coordinate and reflectivity values, zero mismatches,
+including four segmented projects. Maximum absolute error is
+1.8735013540549517e-16; maximum positive-pair log10 error is
+2.4922286456785514e-12. Both previously timed-out worker scans finish within the
+unchanged 120-second deadline in this run. This is current end-to-end evidence,
+not a controlled attribution of the runtime improvement to one change.
+
+The other 76 projects still fail the original energy reference; their qz validity
+is a separate matter. Worker categories are 14 other, 56 table, five missing
+element-table and one D-25 deferred algorithm. No valid original reference remains
+unmatched, but acceptancePassed remains false and the runner exits 1. This retains
+the explicit private original lookup; two-beam energy and complete production
+acceptance are not established by this monochromatic run.
