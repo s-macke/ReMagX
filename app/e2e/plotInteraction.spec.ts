@@ -29,3 +29,23 @@ test('wheel zoom and Zoom Out change the visible range; Scale restores it', asyn
   await page.mouse.move(0, 0)
   await expect(page.getByLabel('Cursor coordinates', { exact: true })).toHaveText('X: —  Y: —')
 })
+
+test('repeated logarithmic wheel zoom out stays responsive and Scale recovers', async ({ page }) => {
+  test.setTimeout(20_000)
+  await page.goto('/')
+  const overlay = page.locator('.u-over')
+  await expect(overlay).toBeVisible()
+  const bounds = (await overlay.boundingBox())!
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+  const coordinates = page.getByLabel('Cursor coordinates', { exact: true })
+  await expect(coordinates).not.toContainText('—')
+  const initial = await coordinates.textContent()
+  for (let i = 0; i < 12; i++) {
+    await page.mouse.wheel(0, 100)
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    expect(await coordinates.textContent()).not.toMatch(/NaN|Infinity/)
+  }
+  await page.getByRole('button', { name: 'Scale', exact: true }).click()
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+  await expect(coordinates).toHaveText(initial!)
+})

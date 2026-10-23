@@ -266,6 +266,7 @@ Remaining work reconciled with the source inventory (2026-10-16):
 
 Missing legacy controls and windows:
 - [x] Plot navigation (legacy `Chart1`): mouse-wheel zoom, "Zoom Out", cursor coordinate readout and Scale reset; linear and logarithmic ranges verified.
+- [x] Logarithmic wheel-zoom freeze: default logarithmic axes now generate bounded, independently computed decimal ticks instead of the plotting library’s additive tick loop. Regression checks cover repeated zoom-out and Scale recovery in Chromium, plus finite ordered tick generation across the double range.
 - [x] Plot exports: clipboard data as paired x/y columns including held curves, clipboard graphic as PNG, Save Picture as JPEG with current axes, zoom and legend; browser clipboard denial is reported.
 - [x] Plot Properties: axis ranges and tick interval counts, log toggles, background/border and eight pen colours, line width, font size and points; validated Apply/Cancel, settings isolated per plot view.
 - [x] Layer/element cell Fit (On/Off): context menu and Shift+F10, highlighting, undo and synchronized parameter list; covers compound thickness/optical values and element slab/scattering-factor values, using existing Fit-tab defaults.

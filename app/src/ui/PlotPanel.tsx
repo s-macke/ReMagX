@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 import { diagramClipboardText, diagramSeries } from '../import/asciiData'
-import { plotTicks, type PlotProperties } from '../model/plotProperties'
+import { logarithmicPlotTicks, plotTicks, type PlotProperties } from '../model/plotProperties'
 import { PlotPropertiesDialog } from './PlotPropertiesDialog'
 import { plotImage } from './plotImage'
 import { zoomPlotRange } from '../model/plotZoom'
@@ -147,11 +147,12 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       }] },
       cursor: { drag: { x: true, y: true, uni: 20 } },
       axes: [
-        { stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'angle' ? 'theta (°)' : curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : curve.axis === 'depth' ? 'Fourier depth (Å)' : 'z (Å), 0 = substrate surface' },
+        { splits: logX ? (_plot, _index, min, max) => logarithmicPlotTicks(min, max) : undefined, stroke: text, grid: { stroke: grid }, ticks: { stroke: grid }, label: curve.axis === 'angle' ? 'theta (°)' : curve.axis === 'qz' ? 'qz (1/Å)' : curve.axis === 'energy' ? 'energy (eV)' : curve.axis === 'depth' ? 'Fourier depth (Å)' : 'z (Å), 0 = substrate surface' },
         logY
           ? {
               stroke: text,
               // Only decades get grid lines, ticks and labels.
+              splits: (_plot, _index, min, max) => logarithmicPlotTicks(min, max),
               grid: { stroke: grid, filter: decadesOnly },
               ticks: { stroke: grid, filter: decadesOnly },
               size: 60,
