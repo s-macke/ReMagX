@@ -361,6 +361,61 @@ try {
   await expectMissingOpticalTable(page, () => page.getByRole('button', { name: 'Delete optical constants cache', exact: true }).click())
   const cleared = await page.evaluate(() => window.tableRequests.at(-1))
   assert.deepEqual(cleared.tables, [])
+  // Exercise real failure paths through project loading, worker preparation/native
+  // calculation, footer guidance and the full-detail dialog. No error reply is injected.
+  const valid = structuredClone(project)
+  valid.sample.layers = [valid.sample.layers[0], valid.sample.layers[1], valid.sample.layers.at(-1)]
+  valid.experiment.qzScan = { ...valid.experiment.qzScan, points: 4, useDatasetPoints: false }
+  valid.datasets = []; valid.activeDatasetIndex = null; valid.fit.parameters = []
+  valid.scripts.enabled = false; valid.calculation.automaticOpticalConstants = false
+  // The preceding library checks leave the energy view selected. Select qz
+  // explicitly so its native boundary, rather than strict energy-table loading,
+  // is the operation under test.
+  await expectMissingOpticalTable(page, () => openProject(valid))
+  await page.getByRole('radio', { name: 'Monochromatic', exact: true }).check()
+  const readyResults = await page.evaluate(() => window.resultCount)
+  await page.getByRole('button', { name: 'Reflectivity', exact: true }).click()
+  await page.waitForFunction(count => window.resultCount > count, readyResults)
+  await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+  const qzFailure = structuredClone(valid)
+  qzFailure.experiment.qzScan.qzMin = 10; qzFailure.experiment.qzScan.qzMax = 11
+  const multilayerFailure = structuredClone(valid)
+  multilayerFailure.sample.multilayer = { enabled: true, pattern: '0, 2*(1, 2' }
+  const compilationFailure = structuredClone(valid)
+  compilationFailure.scripts.enabled = true
+  compilationFailure.scripts.beforeCalculation = 'local value = 1\nif then'
+  const executionFailure = structuredClone(valid)
+  executionFailure.scripts.enabled = true
+  executionFailure.scripts.beforeCalculation = 'thickness[1] = 99\nerror("real-ui-source-line")'
+  for (const [input, summary, detail] of [
+    [qzFailure, /Qz exceeds the legacy calculation boundary/, /incident angle cannot exceed 90 degrees/],
+    [multilayerFailure, /Multilayer expansion failed/, /closing parenthesis/],
+    [compilationFailure, /Lua script compilation failed/, /BeforeCalculation.*:2:/s],
+    [executionFailure, /Lua script execution failed/, /BeforeCalculation.*:2:.*real-ui-source-line/s],
+  ]) {
+    const count = await page.evaluate(() => window.tableRequests.length)
+    await openProject(input)
+    await page.waitForFunction(count => window.tableRequests.slice(count).some(request =>
+      window.tableReplies[request.id] === 'error'), count)
+    await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+    assert.match(await page.locator('.status-bar__error').textContent(), summary)
+    await page.getByRole('button', { name: 'Error details', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Calculation error', exact: true })
+    await dialog.waitFor()
+    assert.match(await dialog.locator('.calculation-error__detail').textContent(), detail)
+    await page.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'hidden' })
+    assert.ok(await page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true }).isDisabled())
+    const saved = await saveProject()
+    for (const key of ['sample', 'experiment', 'scripts', 'calculation', 'datasets', 'fit'])
+      assert.deepEqual(saved[key], input[key], `Real calculation failure changed ${key}`)
+    const results = await page.evaluate(() => window.resultCount)
+    await openProject(valid)
+    await page.waitForFunction(count => window.resultCount > count, results)
+    await page.waitForFunction(() => document.querySelector('.mode-panel__stop')?.disabled)
+    assert.equal(await page.locator('.status-bar__error').count(), 0)
+  }
+  console.log('Real UI errors: native qz, multilayer, Lua compilation/execution guidance, full source diagnostics, unchanged saved project/undo and recovery passed.')
   assert.deepEqual(failures, [])
   console.log(JSON.stringify({ realUi: 'passed', points: 10000, layers: 102, tabMilliseconds, stopMilliseconds, blockedStops, manualStopMilliseconds }))
 } finally {
