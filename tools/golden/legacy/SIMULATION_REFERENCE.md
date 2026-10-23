@@ -1031,3 +1031,25 @@ and Zak at widths 0, 1e-6 and 30 eV. All nine corrected comparisons pass at 1e-6
 relative (terminal formatting); the previous adapter fails all three 30 eV cases.
 All 20 private-source simulation tests pass. These synthetic checks establish this
 wrapper correction, not full project/corpus or actual-WASM acceptance.
+
+
+### Original 2.6.1 terminal corpus diagnostic
+
+The full original terminal builds privately from unchanged
+`server/ReMagX_Terminal.cpp` and its original dependencies. Its 99-project
+comparison with the GUI-prepared adapter records 88 direct matches, two qz/curve
+mismatches, five terminal table-preparation failures and four adapter Lua-error
+rejections. All 155 tracked original source/header hashes remain unchanged.
+
+Both mismatches arise because terminal `ButtonReflectivity` adds `data.qzshift`
+after `data.Adapt` already applied it. GUI `Button3Click` and the adapter apply
+this once. Synthetic positive/negative/zero shifts reproduce the difference;
+aligning coordinates only in temporary diagnostic copies of the two affected
+projects yields zero mismatches at the terminal's 1e-6 relative criterion.
+Original files remain untouched and these raw mismatches are not waived.
+
+This comparison checks distinct entry paths of the same source generation. It
+is not a check against the shipped Windows 2.6 DLL, actual-WASM acceptance or the
+separately specified Wine 2.3.1 AC-6 gate. Curves printed despite Lua failures are
+not silently accepted as valid reference data. The original optimizer-containing
+executable, build provenance, runner and detailed results remain private.
