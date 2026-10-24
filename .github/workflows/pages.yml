@@ -124,6 +124,7 @@ jobs:
           run_native_check node scripts/test-native-fit-parameters.mjs ../build/engine/project_fit_tests
           run_native_check node scripts/test-native-dataset.mjs ../build/engine/project_dataset_tests ../build/wasm
           run_native_check node scripts/test-native-fit-curves.mjs ../build/engine/project_dataset_tests ../build/wasm
+          run_native_check node scripts/test-native-fit-start.mjs ../build/engine/project_dataset_tests ../build/wasm
           run_native_check node scripts/test-native-terminal.mjs ../build/engine/remagx-terminal ../build/wasm
       - run: npm run lint
       - run: npm test

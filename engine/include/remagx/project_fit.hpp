@@ -42,6 +42,8 @@ class ProjectFitObjective {
 public:
     ProjectFitObjective(const ProjectDocument& project, std::vector<OpticalTable> tables);
     ~ProjectFitObjective();
+    // GetState and strict fit-start preparation; call before candidate evaluation.
+    ProjectDocument prepare_standalone();
     ProjectObjectiveResult evaluate(const std::vector<double>& candidate,
         const std::vector<double>& reference, bool refresh_reference = false);
 private:

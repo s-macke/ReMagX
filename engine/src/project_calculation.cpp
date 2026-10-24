@@ -71,7 +71,7 @@ std::vector<double> terminal_coordinates(const ProjectDocument& project) {
     finite_column(result.qz);
     return result.qz;
 }
-enum class CalculationContext { terminal, fit_dataset, fit_energy_sample, energy_point, refresh_only };
+enum class CalculationContext { terminal, fit_dataset, fit_energy_sample, energy_point, refresh_only, strict_refresh };
 struct OpticalState {
     std::vector<RemagxLayer> layers;
     std::vector<std::array<double, 18>> tensors;
@@ -138,7 +138,9 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     const bool element_mode = project.string("/sample/mode") == "element";
     require(project.string("/experiment/scattering") == "reflection", "Transmission is unavailable in this calculation path.");
     const bool energy_point = context == CalculationContext::energy_point;
-    const bool automatic = energy_point || project.boolean("/calculation/automaticOpticalConstants");
+    const bool strict_refresh = context == CalculationContext::strict_refresh;
+    const bool refresh_only = strict_refresh || context == CalculationContext::refresh_only;
+    const bool automatic = energy_point || strict_refresh || project.boolean("/calculation/automaticOpticalConstants");
     if (project.boolean("/scripts/enabled")) {
         const auto script = project.string("/scripts/beforeCalculation");
         require(script.find_first_not_of(" \t\n\r\f\v") == std::string::npos, "Native terminal BeforeCalculation Lua execution is not integrated yet.");
@@ -195,8 +197,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     size_t count = 0;
     if (element_mode) {
         const bool prepared = prepare_project_elements(project, energy, layers, matrix, tables, result.warnings,
-            previous ? &previous->elements : nullptr, energy_point, context == CalculationContext::refresh_only);
-        if (context == CalculationContext::refresh_only) return result;
+            previous ? &previous->elements : nullptr, energy_point, refresh_only, strict_refresh);
+        if (refresh_only) return result;
         if (!prepared) {
             result.plus.assign(result.qz.size(), 1); result.minus.assign(result.qz.size(), dichroic ? 1 : 0);
             return result;
@@ -278,7 +280,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
             }
             stored_layers.push_back(layer);
         }
-        if (context == CalculationContext::refresh_only || (energy_point && range_error)) {
+        require(!strict_refresh || !range_error, "Strict compound optical refresh requires all primary tables in range.");
+        if (refresh_only || (energy_point && range_error)) {
             if (previous) *previous = {std::move(stored_layers), std::move(tensors),
                 std::move(retained_tensor), std::move(anisotropic), std::move(cursors), {}};
             result.plus.assign(result.qz.size(), 1); result.minus.assign(result.qz.size(), dichroic ? 1 : 0);
@@ -471,10 +474,71 @@ struct ProjectFitObjective::State {
     std::vector<OpticalTable> tables;
     OpticalState optical;
     double weight;
+    bool started = false;
 };
 ProjectFitObjective::ProjectFitObjective(const ProjectDocument& project, std::vector<OpticalTable> tables)
     : state_(std::make_unique<State>(State{project, std::move(tables), {}, project.number("/fit/occamQ")})) {}
 ProjectFitObjective::~ProjectFitObjective() = default;
+ProjectDocument ProjectFitObjective::prepare_standalone() {
+    require(!state_->started, "Fit preparation must precede candidate evaluation.");
+    auto project = state_->project;
+    OpticalState optical;
+    const bool automatic = project.boolean("/calculation/automaticOpticalConstants");
+    const int tensor = project.string("/calculation/tensorContribution") == "tetragonal" ? REMAGX_TETRAGONAL : REMAGX_ISOTROPIC;
+    const int magnetic = project.string("/calculation/magnetization/mode") == "none" ? 0 : 1;
+    const size_t count = project.array_size("/sample/layers");
+    optical.tensors.resize(count); optical.retained.assign(count, true); optical.anisotropic.assign(count, false);
+    optical.cursors.assign(state_->tables.size(), 0);
+    for (size_t index = 0; index < count; ++index) {
+        const auto path = "/sample/layers/" + std::to_string(index);
+        RemagxLayer layer{project.number(path + "/thickness"), project.number(path + "/roughness"),
+            project.number(path + "/delta"), project.number(path + "/beta"), project.number(path + "/deltaMag"),
+            project.number(path + "/betaMag"), project.number(path + "/magnetization/gamma"), project.number(path + "/magnetization/phi")};
+        optical.layers.push_back(layer);
+        if (automatic) {
+            if (project.contains(path + "/dielectricTensor")) {
+                optical.anisotropic[index] = project.boolean(path + "/dielectricTensor/anisotropic");
+                for (size_t part = 0; part < 18; ++part) optical.tensors[index][part] = project.number(path + "/dielectricTensor/values/" + std::to_string(part));
+            }
+        } else {
+            int anisotropic = 0;
+            status_check(remagx_dielectric_tensor(&layer, tensor, magnetic, optical.tensors[index].data(), &anisotropic));
+            optical.anisotropic[index] = anisotropic != 0;
+        }
+    }
+    const size_t elements = project.array_size("/sample/elementProfiles");
+    optical.elements.tensors.resize(elements * 18, 0); optical.elements.cursors.assign(state_->tables.size(), 0);
+    for (size_t index = 0; index < elements; ++index) {
+        const auto path = "/sample/elementProfiles/" + std::to_string(index);
+        optical.elements.factors.push_back({project.number(path + "/f1"), project.number(path + "/f2"),
+            project.number(path + "/f1Mag"), project.number(path + "/f2Mag")});
+        if (automatic) {
+            if (project.contains(path + "/scatteringTensor"))
+                for (size_t part = 0; part < 18; ++part) optical.elements.tensors[index * 18 + part] = project.number(path + "/scatteringTensor/" + std::to_string(part));
+        } else status_check(remagx_scattering_tensor(optical.elements.factors[index].data(),
+            project.number("/calculation/magnetization/direction/gamma"), project.number("/calculation/magnetization/direction/phi"),
+            tensor, magnetic, optical.elements.tensors.data() + index * 18));
+    }
+    const auto refresh = [&](CalculationContext context) {
+        const std::vector<double> coordinates;
+        calculate_inner(project, false, state_->tables, &coordinates, project.number("/experiment/energy"), &optical, context);
+        project = write_optical_state(project, optical, project.number("/experiment/energy"));
+    };
+    if (automatic) refresh(CalculationContext::refresh_only);
+    bool active = false, energy_scan = false;
+    for (size_t index = 0; index < project.array_size("/datasets"); ++index) {
+        const auto path = "/datasets/" + std::to_string(index);
+        if (!project.boolean(path + "/active")) continue;
+        active = true;
+        require(project.array_size(path + "/columns/qz") > 0, "An active fit dataset contains no data.");
+        energy_scan = energy_scan || (project.contains(path + "/columns/energy") && project.array_size(path + "/columns/energy") > 0);
+    }
+    require(active, "Select at least one dataset for fitting.");
+    if (automatic) refresh(CalculationContext::strict_refresh);
+    if (energy_scan) refresh(CalculationContext::strict_refresh);
+    state_->project = project; state_->optical = std::move(optical);
+    return project;
+}
 ProjectObjectiveResult ProjectFitObjective::evaluate(const std::vector<double>& values,
     const std::vector<double>& reference, bool refresh_reference) {
     auto candidate = apply_project_fit_parameters(state_->project, values);
@@ -504,7 +568,7 @@ ProjectObjectiveResult ProjectFitObjective::evaluate(const std::vector<double>& 
     auto actual_reference = refresh_reference ? candidate.values : reference;
     const double error = fit_regularization(evaluated.error, state_->weight, actual_reference, candidate.values);
     ProjectObjectiveResult result{evaluated.project, candidate.values, actual_reference, error};
-    state_->project = evaluated.project; state_->optical = std::move(optical);
+    state_->project = evaluated.project; state_->optical = std::move(optical); state_->started = true;
     return result;
 }
 }

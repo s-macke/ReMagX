@@ -12,5 +12,5 @@ struct ElementOpticalState {
 };
 bool prepare_project_elements(const ProjectDocument& project, double energy,
     std::vector<RemagxLayer>& layers, std::vector<RemagxMatrixLayer>& matrix,
-    const std::vector<OpticalTable>& tables, std::vector<std::string>& warnings, ElementOpticalState* previous, bool energy_point = false, bool refresh_only = false);
+    const std::vector<OpticalTable>& tables, std::vector<std::string>& warnings, ElementOpticalState* previous, bool energy_point = false, bool refresh_only = false, bool strict_refresh = false);
 }

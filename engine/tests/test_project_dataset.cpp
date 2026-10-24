@@ -38,6 +38,7 @@ int main() {
                 if (input.contains("tables")) for (const auto& table : input.at("tables"))
                     tables.push_back(remagx::parse_optical_table(table.at("text").get<std::string>(), table.at("name").get<std::string>(), table.at("kind").get<std::string>()));
                 remagx::ProjectFitObjective objective(current, std::move(tables));
+                if (input.value("prepareFit", false)) objective.prepare_standalone();
                 Json results = Json::array();
                 for (const auto& step : input.at("candidates")) {
                     try {

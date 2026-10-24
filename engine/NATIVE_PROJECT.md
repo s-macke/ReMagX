@@ -268,3 +268,22 @@ Expected values come from the production mapping, refresh, dataset and Q helpers
 This proves the objective component, not the complete runRealFit lifecycle.
 Standalone initial tensor/strict-optics preparation, native Lua, optimizer event
 wiring, best-result tracking and fitted JSON output remain integration work.
+
+
+## Standalone fit initialization
+
+`ProjectFitObjective::prepare_standalone` now mirrors fit-start GetState and
+prepareStandaloneFit. Manual mode builds both stored films' tensors before any
+candidate is applied; automatic mode starts from stored tensors and performs
+partial refresh. Active/nonempty datasets are required. Separate strict refreshes
+run for automatic constants and for active energy data, preserving shared cursors
+when both apply. Failure leaves the objective's project/state untouched, and
+preparation after a successful candidate is rejected. Native Lua remains pending.
+
+The focused `test-native-fit-start.mjs` gate compares 32 cases with the actual
+prepareStandaloneFit + runRealFit fixed-parameter path across all solvers, both
+material modes and qz/energy scans. It changes geometry and optical scalar targets
+in the first candidate to verify that initial manual tensor state is retained.
+Missing/out-of-range primary tables and inactive/empty datasets reject explicitly.
+This completes the implemented non-scripted initialization component; native
+optimizer wiring, cancellation, best-result tracking and fitted output remain.
