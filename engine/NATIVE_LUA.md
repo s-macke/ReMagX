@@ -36,6 +36,13 @@ Lua globals. Structure changes require a fresh session. The renew flag is consum
 before execution, as in the web workspace. Calculation orchestration is not yet
 connected.
 
+Prepared dielectric tensors can be installed before compilation and replaced
+without invalidating aliases. All 18 component arrays use the original type IDs;
+ID 24 remains unavailable. Reads as well as writes mark the touched tensor
+anisotropic. Snapshots return component values and classifications independently
+of the saved project. This does not yet connect tensor construction/refresh or
+the solver to the script session.
+
 Run the focused comparison after building `project_lua_tests` and installing
 app dependencies:
 
@@ -43,17 +50,18 @@ app dependencies:
 node app/scripts/test-native-lua.mjs build/engine/project_lua_tests build/wasm
 ```
 
-Thirty-one public synthetic cases compare directly with the actual Wasmoon
+Thirty-eight public synthetic cases compare directly with the actual Wasmoon
 runtime, including persistent globals, replaced Start, numeric strings,
 array aliases, element methods, repeated workspace refresh, scalar writeback, native/WASM
-table lookup with duplicate energies and magnetic/tensor companions, failures and
+table lookup with duplicate energies and magnetic/tensor companions, all 18
+dielectric component arrays and retained aliases after tensor refresh, failures and
 unchanged inputs. A separate native-only case
 verifies protected global readback when a metatable throws. The existing
 Wasmoon boundary panics for that case; it is not claimed as parity evidence.
 No corpus or broad terminal comparison is needed for this isolated component.
 
 Remaining work: dynamic array bounds,
-tensor/solution bindings, project functions and output, calculation-owned
+solution bindings, tensor construction/refresh functions, project functions and output, calculation-owned
 hook state, nested calls and cancellation. Standard-library availability must
 be reviewed against the web runtime before activating native scripts. Existing
 unresolved script-semantics decisions still apply.

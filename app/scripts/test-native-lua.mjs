@@ -109,6 +109,37 @@ try {
     requests.push({ project: JSON.stringify(project), source, repeat: 4, tables })
   }
   assert.equal(expected.filter(result => result.ok).length, 16)
+  const { createScriptTensorWorkspace } = await server.ssrLoadModule('/src/model/scriptTensors.ts')
+  const initialTensors = Array.from({length: project.sample.layers.length}, (_, layer) => ({
+    values: Array.from({length: 18}, (_, index) => layer + index / 100), anisotropic: false }))
+  const replacementTensors = initialTensors.map(tensor => ({values: tensor.values.map(value => value + 1), anisotropic: false}))
+  const tensorNames = ['xx','xy','xz','yx','yy','yz','zx','zy','zz'].flatMap(name => [`e${name}_r`, `e${name}_i`])
+  const tensorCases = [
+    { source: tensorNames.map((name, index) => `par[0]=${name}[1]; ${name}[1]=par[0]+${index}/1000`).join('; ') },
+    { source: "local value=exx_r[0]; assert(value>=0); Fe:setf1(7); assert(f1[0]==7)" },
+    { source: "saved=saved or array.new(1,33); saved[1]=saved[1]+0.25; f1[0]=9; assert(Fe:getf1()==9)", replacementTensors },
+    { source: "local value=exx_r[0]", replacementTensors: [] },
+    { source: "array.new(1,24)" }, { source: "ezz_i[100]=1" }, { source: "exx_r[0]=0/0" },
+  ]
+  for (const test of tensorCases) {
+    const workspace = createScriptArrayWorkspace(project)
+    const decode = values => values.map(tensor => ({...tensor, values: Float64Array.from(tensor.values)}))
+    const tensors = createScriptTensorWorkspace(decode(initialTensors))
+    const session = await runtime.createSession()
+    try {
+      session.installArrays(new Map([...workspace.arrays, ...tensors.arrays])); session.installElements(workspace.elements)
+      session.compile(test.source, 'BeforeCalculation')
+      let result
+      for (let index = 0; index < 2; ++index) {
+        if (index && test.replacementTensors) tensors.replace(decode(test.replacementTensors))
+        result = session.runHook(hook)
+      }
+      expected.push(JSON.parse(JSON.stringify({ok: true, project: workspace.snapshot(), hook: result,
+        tensors: tensors.snapshot().map(tensor => ({...tensor, values: Array.from(tensor.values)}))})))
+    } catch { expected.push({ok: false}) } finally { session.close() }
+    requests.push({project: JSON.stringify(project), ...test, tensors: initialTensors, repeat: 2})
+  }
+  assert.equal(expected.filter(result => result.ok).length, 19)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),
@@ -119,5 +150,5 @@ try {
   assert.equal(run.status, 0, run.stderr || String(run.error))
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
   assert.deepEqual(actual, expected)
-  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length} parity cases and one native protected-readback case passed.`)
+  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length} parity cases and one native protected-readback case passed.`)
 } finally { await server.close() }

@@ -7,6 +7,7 @@
 #include <optional>
 #include <vector>
 #include <array>
+#include <deque>
 
 static_assert(LUA_VERSION_NUM == 504, "Native scripting requires the web-compatible Lua 5.4 API");
 static_assert(std::is_same<lua_Number, double>::value && sizeof(lua_Number) == 8 &&
@@ -18,6 +19,8 @@ struct NumericArray {
     int type;
     std::vector<std::string> paths;
     std::vector<double> values;
+    std::vector<ScriptDielectricTensor>* tensors = nullptr;
+    size_t tensor_offset = 0;
 };
 struct ArrayHandle { NumericArray* array; double maximum; };
 double numeric_argument(lua_State* vm, int index, bool integer) {
@@ -37,12 +40,22 @@ size_t array_index(lua_State* vm, ArrayHandle* handle) {
 }
 int array_get(lua_State* vm) {
     auto* handle = array_handle(vm); const size_t index = array_index(vm, handle);
-    lua_pushnumber(vm, handle->array->values[index]); return 1;
+    auto* array = handle->array;
+    if (array->tensors) {
+        (*array->tensors)[index].anisotropic = true;
+        lua_pushnumber(vm, (*array->tensors)[index].values[array->tensor_offset]);
+    } else lua_pushnumber(vm, array->values[index]);
+    return 1;
 }
 int array_set(lua_State* vm) {
     const double value = numeric_argument(vm, 3, false);
     auto* handle = array_handle(vm); const size_t index = array_index(vm, handle);
-    handle->array->values[index] = value; return 0;
+    auto* array = handle->array;
+    if (array->tensors) {
+        (*array->tensors)[index].anisotropic = true;
+        (*array->tensors)[index].values[array->tensor_offset] = value;
+    } else array->values[index] = value;
+    return 0;
 }
 int array_size(lua_State* vm) { lua_pushnumber(vm, array_handle(vm)->maximum); return 1; }
 void push_array(lua_State* vm, NumericArray* array, double maximum) {
@@ -50,13 +63,13 @@ void push_array(lua_State* vm, NumericArray* array, double maximum) {
     *handle = {array, maximum}; luaL_getmetatable(vm, "LuaBook.array"); lua_setmetatable(vm, -2);
 }
 int array_new(lua_State* vm) {
-    auto* arrays = static_cast<std::vector<NumericArray>*>(lua_touserdata(vm, lua_upvalueindex(1)));
+    auto* arrays = static_cast<std::deque<NumericArray>*>(lua_touserdata(vm, lua_upvalueindex(1)));
     const double maximum = numeric_argument(vm, 1, true), type = numeric_argument(vm, 2, true);
     for (auto& array : *arrays) if (type == array.type) { push_array(vm, &array, maximum); return 1; }
     return luaL_error(vm, "array.new: unsupported type");
 }
 int install_arrays(lua_State* vm) {
-    auto* arrays = static_cast<std::vector<NumericArray>*>(lua_touserdata(vm, 1));
+    auto* arrays = static_cast<std::deque<NumericArray>*>(lua_touserdata(vm, 1));
     luaL_newmetatable(vm, "LuaBook.array");
     lua_pushcfunction(vm, array_get); lua_setfield(vm, -2, "__index");
     lua_pushcfunction(vm, array_set); lua_setfield(vm, -2, "__newindex"); lua_pop(vm, 1);
@@ -203,9 +216,11 @@ struct ProjectLuaSession::State {
     bool compiled = false;
     double wavelength = 0, renew_optical_constants = 0;
     std::optional<ProjectDocument> project;
-    std::vector<NumericArray> arrays;
+    std::deque<NumericArray> arrays;
     std::vector<ElementBinding> elements;
     ScriptTables tables;
+    bool tensors_installed = false;
+    std::vector<ScriptDielectricTensor> tensors;
     ~State() { if (vm) lua_close(vm); }
 };
 ProjectLuaSession::ProjectLuaSession() : state_(std::make_unique<State>()) {
@@ -218,7 +233,7 @@ void ProjectLuaSession::close() noexcept { state_.reset(); }
 void ProjectLuaSession::install_project_arrays(const ProjectDocument& project) {
     if (!state_) throw ProjectDocumentError("Lua session is closed.");
     if (state_->project) throw ProjectDocumentError("Project arrays already installed.");
-    std::vector<NumericArray> arrays;
+    std::deque<NumericArray> arrays;
     const auto add = [&](const char* name, int type, const char* owner, const char* field) {
         NumericArray array{name, type, {}, {}};
         for (size_t index = 0; index < project.array_size(owner); ++index) {
@@ -268,7 +283,7 @@ void ProjectLuaSession::install_project_arrays(const ProjectDocument& project) {
 ProjectDocument ProjectLuaSession::project_snapshot() const {
     if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
     std::vector<std::pair<std::string, double>> edits;
-    for (const auto& array : state_->arrays) for (size_t index = 0; index < array.values.size(); ++index)
+    for (const auto& array : state_->arrays) for (size_t index = 0; index < array.paths.size(); ++index)
         edits.emplace_back(array.paths[index], array.values[index]);
     for (const auto& binding : state_->elements) {
         edits.emplace_back(binding.path + "/f1Mag", binding.magnetic_first);
@@ -281,6 +296,42 @@ ProjectDocument ProjectLuaSession::project_snapshot() const {
         }
     }
     return state_->project->with_calculation_numbers(edits);
+}
+namespace {
+void validate_script_tensors(const std::vector<ScriptDielectricTensor>& tensors) {
+    for (const auto& tensor : tensors) for (const double value : tensor.values)
+        if (!std::isfinite(value)) throw ProjectDocumentError("Invalid script dielectric tensor");
+}
+}
+void ProjectLuaSession::install_tensors(const std::vector<ScriptDielectricTensor>& tensors) {
+    if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
+    if (state_->compiled || state_->tensors_installed) throw ProjectDocumentError("Install tensors once before compiling Lua");
+    validate_script_tensors(tensors);
+    state_->tensors = tensors;
+    const char* names[] = {"exx_r", "exx_i", "exy_r", "exy_i", "exz_r", "exz_i",
+        "eyx_r", "eyx_i", "eyy_r", "eyy_i", "eyz_r", "eyz_i", "ezx_r", "ezx_i", "ezy_r", "ezy_i", "ezz_r", "ezz_i"};
+    // Deque appends preserve addresses held by existing element and array userdata.
+    for (size_t offset = 0; offset < 18; ++offset) {
+        const int type = static_cast<int>((offset % 2 == 0 ? 15 : 25) + offset / 2);
+        state_->arrays.push_back({names[offset], type, {}, std::vector<double>(tensors.size()), &state_->tensors, offset});
+    }
+    lua_pushcfunction(state_->vm, install_arrays); lua_pushlightuserdata(state_->vm, &state_->arrays);
+    if (lua_pcall(state_->vm, 1, 0, 0) != LUA_OK) {
+        const char* message = lua_tostring(state_->vm, -1);
+        const std::string detail = message ? message : "Cannot install tensor arrays";
+        close(); throw ProjectDocumentError(detail);
+    }
+    state_->tensors_installed = true;
+}
+void ProjectLuaSession::replace_tensors(const std::vector<ScriptDielectricTensor>& tensors) {
+    if (!state_ || !state_->tensors_installed) throw ProjectDocumentError("No active Lua tensor workspace.");
+    if (tensors.size() != state_->tensors.size()) throw ProjectDocumentError("Script tensor layer count changed");
+    validate_script_tensors(tensors);
+    state_->tensors = tensors;
+}
+std::vector<ScriptDielectricTensor> ProjectLuaSession::tensor_snapshot() const {
+    if (!state_ || !state_->tensors_installed) throw ProjectDocumentError("No active Lua tensor workspace.");
+    return state_->tensors;
 }
 void ProjectLuaSession::install_tables(const std::vector<OpticalTable>& tables) {
     if (!state_) throw ProjectDocumentError("Lua session is closed.");
