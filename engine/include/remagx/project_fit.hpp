@@ -1,5 +1,7 @@
 #pragma once
 #include "project_document.hpp"
+#include "optical_tables.hpp"
+#include <memory>
 #include <vector>
 namespace remagx {
 // Dimensionless initialization metadata for the maintained clean-room optimizer.
@@ -28,4 +30,22 @@ ProjectFitCandidate apply_project_fit_parameters(const ProjectDocument& project,
 // ordinary Simplex rounds. Do not substitute the initially saved parameter list.
 double fit_regularization(double error, double weight, const std::vector<double>& reference,
                           const std::vector<double>& candidate);
+
+struct ProjectObjectiveResult {
+    ProjectDocument project;
+    std::vector<double> values, reference;
+    double error;
+};
+// Persistent candidate state for the optimizer. Caller owns reference selection.
+// Construction does not replace standalone strict optical/Lua preparation.
+class ProjectFitObjective {
+public:
+    ProjectFitObjective(const ProjectDocument& project, std::vector<OpticalTable> tables);
+    ~ProjectFitObjective();
+    ProjectObjectiveResult evaluate(const std::vector<double>& candidate,
+        const std::vector<double>& reference, bool refresh_reference = false);
+private:
+    struct State;
+    std::unique_ptr<State> state_;
+};
 }

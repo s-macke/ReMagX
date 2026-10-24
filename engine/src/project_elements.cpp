@@ -20,7 +20,7 @@ struct Element {
 }
 bool prepare_project_elements(const ProjectDocument& project, double energy,
     std::vector<RemagxLayer>& layers, std::vector<RemagxMatrixLayer>& matrix,
-    const std::vector<OpticalTable>& tables, std::vector<std::string>& warnings, ElementOpticalState* previous, bool energy_point) {
+    const std::vector<OpticalTable>& tables, std::vector<std::string>& warnings, ElementOpticalState* previous, bool energy_point, bool refresh_only) {
     const bool automatic = energy_point || project.boolean("/calculation/automaticOpticalConstants");
     const double step = project.number("/calculation/segmentation/minThickness");
     const double tolerance = project.number("/calculation/segmentation/tolerance");
@@ -100,13 +100,13 @@ bool prepare_project_elements(const ProjectDocument& project, double energy,
         }
         elements.push_back(std::move(element));
     }
-    if (energy_point && range_error) {
+    if (refresh_only || (energy_point && range_error)) {
         if (previous) {
             previous->factors.clear();
             for (const auto& element : elements) previous->factors.push_back(element.factors);
             previous->tensors = std::move(tensors); previous->cursors = std::move(cursors);
         }
-        return false;
+        return refresh_only;
     }
     const double maximum_depth = total_thickness + 30 + terminal_roughness * 2;
     require(std::isfinite(maximum_depth), "Element depth range overflow.");

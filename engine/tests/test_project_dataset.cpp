@@ -2,6 +2,7 @@
 #include "remagx/project_calculation.hpp"
 #include "json.hpp"
 #include "remagx/core.h"
+#include "remagx/project_fit.hpp"
 #include <cmath>
 #include <iostream>
 using Json = nlohmann::json;
@@ -31,6 +32,24 @@ int main() {
                 std::vector<std::pair<std::string, double>> edits;
                 for (const auto& edit : input.at("edits")) edits.emplace_back(edit.at(0).get<std::string>(), edit.at(1).get<double>());
                 current = current.with_calculation_numbers(edits);
+            }
+            if (input.contains("candidates")) {
+                std::vector<remagx::OpticalTable> tables;
+                if (input.contains("tables")) for (const auto& table : input.at("tables"))
+                    tables.push_back(remagx::parse_optical_table(table.at("text").get<std::string>(), table.at("name").get<std::string>(), table.at("kind").get<std::string>()));
+                remagx::ProjectFitObjective objective(current, std::move(tables));
+                Json results = Json::array();
+                for (const auto& step : input.at("candidates")) {
+                    try {
+                        const auto result = objective.evaluate(step.at("values").get<std::vector<double>>(),
+                            step.at("reference").get<std::vector<double>>(), step.value("refresh", false));
+                        results.push_back({{"ok", true}, {"project", Json::parse(result.project.serialize())},
+                            {"values", result.values}, {"reference", result.reference}, {"error", result.error}});
+                    } catch (const remagx::ProjectDocumentError&) { results.push_back({{"ok", false}}); }
+                }
+                if (original.serialize() != before) throw std::runtime_error("Candidate evaluation changed its input");
+                std::cout << Json{{"results", results}}.dump() << '\n';
+                continue;
             }
             if (input.value("serial", false)) {
                 std::vector<remagx::OpticalTable> tables;

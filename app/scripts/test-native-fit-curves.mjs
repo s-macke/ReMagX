@@ -251,6 +251,73 @@ try {
     } else assert.equal(actual, expected, path)
   }
   serialActual.forEach((value, index) => compareSerial(value, serialExpected[index], `Serial dataset case ${index + 1}`))
+  const { applyRealFitParameters } = await server.ssrLoadModule('/src/model/realFitParameters.ts')
+  const { addFitRegularization } = await server.ssrLoadModule('/src/model/fitRegularization.ts')
+  const { refreshPartialCompoundOptics } = await server.ssrLoadModule('/src/model/refreshOpticalConstants.ts')
+  const { refreshElementOptics } = await server.ssrLoadModule('/src/model/refreshElementOptics.ts')
+  const { rebuildLayerDepths } = await server.ssrLoadModule('/src/model/layerDepths.ts')
+  const objectiveInputs = [], objectiveExpected = []
+  for (const fixture of serialInputs.slice(0,48)) {
+    const project = JSON.parse(fixture.project), element = project.sample.mode === 'element'
+    project.activeDatasetIndex = 0
+    project.fit.occamQ = .03
+    const row = (target, value, index, lowerBound, upperBound) => ({ target, value, index, elementIndex: 0, step: 1, lowerBound, upperBound })
+    project.fit.parameters = [row(element ? 'elementThickness' : 'thickness', 90, 1, 1, 200),
+      row(element ? 'elementF1' : 'delta', element ? 25 : 2e-5, element ? 0 : 1, 0, 100),
+      row('qzShift', .002, null, 0, .1), row('intensityScale', 1, null, .1, 10)]
+    const opticalValue = element ? 28 : 3e-5
+    const reference = project.fit.parameters.map(parameter => parameter.value)
+    const candidates = [
+      { values: [90,opticalValue,.002,1], reference },
+      { values: [100,opticalValue * 1.1,.003,1.1], reference },
+      { values: [1000,opticalValue * 1.2,.004,1.2], reference, refresh: true },
+      { values: [120,opticalValue,.005,1], reference: [] },
+      { values: [], reference },
+      { values: [110,opticalValue * 1.3,.006,1.3], reference },
+      { values: [110,opticalValue * 1.3,.006,1.3], reference: [105,opticalValue,.005,1] },
+    ]
+    const tables = fixture.tables.map(table => parseOpticalTable(table.text, `${table.name}.${table.kind}`))
+    let current = project
+    let state = element ? storedOpticalState(project) : { layers: project.sample.layers,
+      dielectricTensors: project.sample.layers.map(() => null), cursors: new Map() }
+    const results = []
+    for (const step of candidates) {
+      try {
+        const candidate = applyRealFitParameters(current, step.values)
+        let trial = candidate.project
+        let nextState = { ...state, cursors: new Map(state.cursors), layerDepths: rebuildLayerDepths(trial, state.layerDepths?.[0]) }
+        if (trial.calculation.automaticOpticalConstants) {
+          const energy = 12398.326 / (12398.326 / trial.experiment.energy)
+          if (element) {
+            const refreshed = refreshElementOptics(trial, tables, energy, engine.lookup, engine.scatteringTensor, nextState.cursors, nextState.scatteringTensors)
+            trial = { ...trial, sample: { ...trial.sample, elementProfiles: refreshed.elementProfiles } }
+            nextState = { ...nextState, scatteringTensors: refreshed.scatteringTensors }
+          } else {
+            const refreshed = refreshPartialCompoundOptics(trial, tables, energy, engine.lookup, nextState.cursors, nextState.dielectricTensors)
+            trial = { ...trial, sample: { ...trial.sample, layers: refreshed.layers } }
+            nextState = { ...nextState, layers: refreshed.layers, dielectricTensors: refreshed.dielectricTensors,
+              dielectricState: refreshed.updated.map((updated, index) => updated ? null : nextState.dielectricState?.[index] ?? null) }
+          }
+        }
+        const evaluated = evaluateProjectDatasetError(trial, tables,
+          { ...engine, fitError: request => calculateFitError(instance, request) }, nextState)
+        const actualReference = step.refresh ? candidate.values : step.reference
+        const error = addFitRegularization(evaluated.error, project.fit.occamQ, actualReference, candidate.values)
+        results.push(JSON.parse(JSON.stringify({ ok: true, project: evaluated.project, values: candidate.values, reference: actualReference, error })))
+        current = evaluated.project; state = evaluated.opticalState
+      } catch { results.push({ ok: false }) }
+    }
+    assert.equal(results.filter(result => result.ok).length, 5, 'Candidate fixture must include five successful transitions')
+    objectiveInputs.push({ project: JSON.stringify(project), tables: fixture.tables, candidates })
+    objectiveExpected.push({ results })
+  }
+  const objectiveRun = spawnSync(executable, [], { input: objectiveInputs.map(value => JSON.stringify(value)).join('\n') + '\n',
+    encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120000 })
+  assert.equal(objectiveRun.status, 0, objectiveRun.stderr || String(objectiveRun.error))
+  const objectiveActual = objectiveRun.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
+  assert.equal(objectiveActual.length, objectiveExpected.length)
+  objectiveActual.forEach((value, index) => compareSerial(value, objectiveExpected[index], `Candidate sequence ${index + 1}`))
+  console.log(`Native fit objective: ${objectiveInputs.length} seven-candidate sequences passed.`)
   console.log(`Native serial dataset evaluation: ${serialInputs.length} actual-WASM comparisons passed.`)
   console.log(`Native fit curves and errors: ${successes} actual-WASM comparisons passed.`)
 } finally { await server.close() }

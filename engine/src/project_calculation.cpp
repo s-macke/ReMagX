@@ -1,5 +1,6 @@
 #include "remagx/project_calculation.hpp"
 #include "remagx/core.h"
+#include "remagx/project_fit.hpp"
 #include "remagx/compound_layers.hpp"
 #include "project_segmentation.hpp"
 #include "project_elements.hpp"
@@ -70,7 +71,7 @@ std::vector<double> terminal_coordinates(const ProjectDocument& project) {
     finite_column(result.qz);
     return result.qz;
 }
-enum class CalculationContext { terminal, fit_dataset, fit_energy_sample, energy_point };
+enum class CalculationContext { terminal, fit_dataset, fit_energy_sample, energy_point, refresh_only };
 struct OpticalState {
     std::vector<RemagxLayer> layers;
     std::vector<std::array<double, 18>> tensors;
@@ -194,7 +195,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     size_t count = 0;
     if (element_mode) {
         const bool prepared = prepare_project_elements(project, energy, layers, matrix, tables, result.warnings,
-            previous ? &previous->elements : nullptr, energy_point);
+            previous ? &previous->elements : nullptr, energy_point, context == CalculationContext::refresh_only);
+        if (context == CalculationContext::refresh_only) return result;
         if (!prepared) {
             result.plus.assign(result.qz.size(), 1); result.minus.assign(result.qz.size(), dichroic ? 1 : 0);
             return result;
@@ -276,7 +278,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
             }
             stored_layers.push_back(layer);
         }
-        if (energy_point && range_error) {
+        if (context == CalculationContext::refresh_only || (energy_point && range_error)) {
             if (previous) *previous = {std::move(stored_layers), std::move(tensors),
                 std::move(retained_tensor), std::move(anisotropic), std::move(cursors), {}};
             result.plus.assign(result.qz.size(), 1); result.minus.assign(result.qz.size(), dichroic ? 1 : 0);
@@ -423,21 +425,9 @@ ProjectCurve calculate_fit_dataset(const PreparedFitDataset& dataset, const std:
     OpticalState state;
     return calculate_dataset(dataset, tables, state);
 }
-ProjectDatasetEvaluation evaluate_project_datasets(const ProjectDocument& source, const std::vector<OpticalTable>& tables) {
-    ProjectDatasetEvaluation result{0, source, {}, {}};
-    OpticalState state;
-    for (size_t index = 0; index < source.array_size("/datasets"); ++index) {
-        if (!source.boolean("/datasets/" + std::to_string(index) + "/active")) continue;
-        const auto prepared = prepare_fit_dataset(result.project, index);
-        auto curve = calculate_dataset(prepared, tables, state);
-        const auto error = evaluate_fit_dataset(prepared, {curve.qz, curve.energy, curve.plus, curve.minus, curve.asymmetry});
-        result.error += error.weighted;
-        require(std::isfinite(result.error), "Weighted dataset total exceeds the finite double range.");
-        double final_energy = prepared.energy_scan ? curve.energy.back() : prepared.project.number("/experiment/energy");
-        if (!prepared.energy_scan && !prepared.dichroic && prepared.project.number("/experiment/resolution/energyFwhm") > 1e-6)
-            final_energy = 12398.326 / (12398.326 / final_energy);
+static ProjectDocument write_optical_state(const ProjectDocument& project, const OpticalState& state, double final_energy) {
         std::vector<std::pair<std::string, double>> edits{{"/experiment/energy", final_energy}};
-        if (prepared.project.string("/sample/mode") == "element") {
+        if (project.string("/sample/mode") == "element") {
             for (size_t element = 0; element < state.elements.factors.size(); ++element) {
                 const std::string path = "/sample/elementProfiles/" + std::to_string(element) + "/";
                 size_t field = 0;
@@ -452,9 +442,69 @@ ProjectDatasetEvaluation evaluate_project_datasets(const ProjectDocument& source
                 edits.emplace_back(path + "deltaMag", values.delta_magnetic); edits.emplace_back(path + "betaMag", values.beta_magnetic);
             }
         }
-        result.project = prepared.project.with_calculation_numbers(edits);
+        return project.with_calculation_numbers(edits);
+}
+static ProjectDatasetEvaluation evaluate_datasets(const ProjectDocument& source, const std::vector<OpticalTable>& tables, OpticalState& state) {
+    ProjectDatasetEvaluation result{0, source, {}, {}};
+    for (size_t index = 0; index < source.array_size("/datasets"); ++index) {
+        if (!source.boolean("/datasets/" + std::to_string(index) + "/active")) continue;
+        const auto prepared = prepare_fit_dataset(result.project, index);
+        auto curve = calculate_dataset(prepared, tables, state);
+        const auto error = evaluate_fit_dataset(prepared, {curve.qz, curve.energy, curve.plus, curve.minus, curve.asymmetry});
+        result.error += error.weighted;
+        require(std::isfinite(result.error), "Weighted dataset total exceeds the finite double range.");
+        double final_energy = prepared.energy_scan ? curve.energy.back() : prepared.project.number("/experiment/energy");
+        if (!prepared.energy_scan && !prepared.dichroic && prepared.project.number("/experiment/resolution/energyFwhm") > 1e-6)
+            final_energy = 12398.326 / (12398.326 / final_energy);
+        result.project = write_optical_state(prepared.project, state, final_energy);
         result.indices.push_back(index); result.curves.push_back(std::move(curve));
     }
+    return result;
+}
+
+ProjectDatasetEvaluation evaluate_project_datasets(const ProjectDocument& source, const std::vector<OpticalTable>& tables) {
+    OpticalState state;
+    return evaluate_datasets(source, tables, state);
+}
+struct ProjectFitObjective::State {
+    ProjectDocument project;
+    std::vector<OpticalTable> tables;
+    OpticalState optical;
+    double weight;
+};
+ProjectFitObjective::ProjectFitObjective(const ProjectDocument& project, std::vector<OpticalTable> tables)
+    : state_(std::make_unique<State>(State{project, std::move(tables), {}, project.number("/fit/occamQ")})) {}
+ProjectFitObjective::~ProjectFitObjective() = default;
+ProjectObjectiveResult ProjectFitObjective::evaluate(const std::vector<double>& values,
+    const std::vector<double>& reference, bool refresh_reference) {
+    auto candidate = apply_project_fit_parameters(state_->project, values);
+    auto optical = state_->optical;
+    // Candidate optical targets override the previous scalar snapshot. Tensor and
+    // cursor history remain separate; automatic refresh may subsequently replace them.
+    for (size_t layer = 0; layer < optical.layers.size(); ++layer) {
+        const auto path = "/sample/layers/" + std::to_string(layer) + "/";
+        optical.layers[layer].delta = candidate.project.number(path + "delta");
+        optical.layers[layer].beta = candidate.project.number(path + "beta");
+        optical.layers[layer].delta_magnetic = candidate.project.number(path + "deltaMag");
+        optical.layers[layer].beta_magnetic = candidate.project.number(path + "betaMag");
+    }
+    for (size_t element = 0; element < optical.elements.factors.size(); ++element) {
+        const auto path = "/sample/elementProfiles/" + std::to_string(element) + "/";
+        size_t field = 0;
+        for (const auto* name : {"f1", "f2", "f1Mag", "f2Mag"})
+            optical.elements.factors[element][field++] = candidate.project.number(path + name);
+    }
+    if (candidate.project.boolean("/calculation/automaticOpticalConstants")) {
+        const std::vector<double> coordinates;
+        calculate_inner(candidate.project, false, state_->tables, &coordinates,
+            candidate.project.number("/experiment/energy"), &optical, CalculationContext::refresh_only);
+        candidate.project = write_optical_state(candidate.project, optical, candidate.project.number("/experiment/energy"));
+    }
+    auto evaluated = evaluate_datasets(candidate.project, state_->tables, optical);
+    auto actual_reference = refresh_reference ? candidate.values : reference;
+    const double error = fit_regularization(evaluated.error, state_->weight, actual_reference, candidate.values);
+    ProjectObjectiveResult result{evaluated.project, candidate.values, actual_reference, error};
+    state_->project = evaluated.project; state_->optical = std::move(optical);
     return result;
 }
 }

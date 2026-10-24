@@ -248,3 +248,23 @@ by the web helper; it now supplies the production initialization.
 
 This is one dataset pass. Persistent state across optimizer candidates, candidate
 refresh hooks, native Lua, Q/reference callbacks and fitted output remain open.
+
+
+## Persistent candidate objective and Q
+
+`ProjectFitObjective` retains the current project, optical tensors and lookup
+cursors between candidate calls. Each call applies bounded values in order,
+synchronizes candidate optical scalar targets into the retained state, performs
+the automatic pre-dataset refresh at the current energy, evaluates datasets and
+adds Q using the caller's explicit reference. Reference-refresh calls use the
+bounded candidate itself as the reference. Only successful calls commit the next
+state; returned project/value/reference snapshots do not alias later candidates.
+
+The maintained comparison covers 48 sequences of seven calls (336 candidate
+attempts): compound/element mode, all solvers, manual/automatic optics, mixed scan
+orders, energy broadening, changed scalar/geometry/shift/scale targets, clipping,
+explicit Q references and recovery after invalid references/candidate lengths.
+Expected values come from the production mapping, refresh, dataset and Q helpers.
+This proves the objective component, not the complete runRealFit lifecycle.
+Standalone initial tensor/strict-optics preparation, native Lua, optimizer event
+wiring, best-result tracking and fitted JSON output remain integration work.
