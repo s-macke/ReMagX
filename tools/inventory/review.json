@@ -5,9 +5,11 @@
     {
       "name": "experiment-controls",
       "status": "ported",
-      "reason": "Energy, scan, resolution, simulation and polarization controls update the project. Physics semantics remain engine-phase work under D-33.",
+      "reason": "Energy, scan, resolution, simulation and polarization controls update the project. D-39 production requests use the real WASM worker; complete numerical acceptance remains in AGENTS.md.",
       "references": [
-        "app/src/ui/sections/ExperimentSections.tsx"
+        "app/src/ui/sections/ExperimentSections.tsx",
+        "app/src/compute/worker.ts",
+        "app/src/model/realCalculation.ts"
       ],
       "entries": [
         "client/EScanFrame.dfm::Frame13",
@@ -111,12 +113,14 @@
     {
       "name": "sample-controls",
       "status": "ported",
-      "reason": "Segmentation settings, element navigation, optical cache and magnetization controls exist. Imported optical tables now persist in the per-browser material library; real-engine evaluation and built-in data/licensing remain separate checklist tasks.",
+      "reason": "Segmentation settings, element navigation, optical cache and magnetization controls exist. Imported tables persist in the browser library. Production uses native optical/profile preparation and the approved built-in Chantler fallback; full-project acceptance remains separate.",
       "references": [
         "app/src/ui/sections/SampleSections.tsx",
         "app/src/state/useMaterialLibrary.ts",
         "app/src/state/materialLibraryStorage.ts",
-        "app/e2e/materialLibrary.spec.ts"
+        "app/e2e/materialLibrary.spec.ts",
+        "app/src/compute/realEngine.ts",
+        "app/src/model/chantlerTables.ts"
       ],
       "entries": [
         "client/AdaptiveLayerSegmentationForm.dfm::Frame6",
@@ -190,10 +194,12 @@
     {
       "name": "fit-controls",
       "status": "ported",
-      "reason": "Fit settings, parameter editing, value transfer and mock fit controls exist. Additional targets, full objective semantics and multi-dataset calculations remain engine-phase work.",
+      "reason": "Fit settings, parameter editing and value transfer feed the real worker Simplex/annealing path, weighted datasets and Q regularization. Complete original-project fit-quality acceptance remains open.",
       "references": [
         "app/src/ui/sections/FitSections.tsx",
-        "app/src/model/fitTargets.ts"
+        "app/src/model/fitTargets.ts",
+        "app/src/model/realFit.ts",
+        "app/src/model/projectDatasetError.ts"
       ],
       "entries": [
         "client/DebugFrame.dfm::Frame20",
@@ -429,11 +435,13 @@
     {
       "name": "script-editor",
       "status": "ported",
-      "reason": "Default/BeforeCalculation editors, line readout, snippets and editor/browser editing commands exist. Execution/output semantics remain engine-phase work.",
+      "reason": "Default/BeforeCalculation editors, snippets, execution controls and output are connected to the real worker with atomic project application and cancellation. Full legacy Lua API acceptance, including the pending nested-calculation error semantics, remains open.",
       "references": [
         "app/src/ui/ScriptWindow.tsx",
         "app/src/ui/LuaEditor.tsx",
-        "app/src/model/scriptSnippets.ts"
+        "app/src/model/scriptSnippets.ts",
+        "app/src/compute/realEngine.ts",
+        "app/e2e/scriptMenus.spec.ts"
       ],
       "entries": [
         "client/Unit1.cpp::event:1936341fc6722b5f:1",
@@ -459,9 +467,10 @@
     {
       "name": "preferences-controls",
       "status": "ported",
-      "reason": "Preferences preserve project settings; selectable physics options do not establish engine support (D-33).",
+      "reason": "Preferences preserve project settings. D-39 uses the real WASM engine, but stored options do not imply support for deferred physics or unresolved Fourier semantics.",
       "references": [
-        "app/src/ui/PreferencesDialog.tsx"
+        "app/src/ui/PreferencesDialog.tsx",
+        "app/src/model/realAlgorithm.ts"
       ],
       "entries": [
         "client/Unit1.cpp::item:e218b01e56ab9166:1",
@@ -517,12 +526,13 @@
     {
       "name": "dataset-properties",
       "status": "ported",
-      "reason": "Selected dataset editor covers title/comment, energy or energy shift according to stored columns, angular resolution, scale/offset/qz shift/error weight, both complex beam polarizations, and read-only Type/File/Datapoints metadata. Numerical use of dataset settings remains engine-phase work.",
+      "reason": "Selected dataset editor covers title/comment, energy/energy shift, angular resolution, scale/offset/qz shift/error weight, complex beam polarizations and read-only metadata. Real fit preparation consumes these settings; full numerical acceptance remains separate.",
       "references": [
         "app/src/ui/sections/SampleSections.tsx",
         "app/src/ui/BeamEditor.tsx",
         "app/src/model/datasets.ts",
-        "app/e2e/datasets.spec.ts"
+        "app/e2e/datasets.spec.ts",
+        "app/src/model/fitDataset.ts"
       ],
       "entries": [
         "client/DatasetFrame.dfm::Frame9/DataListEditor",
@@ -663,13 +673,15 @@
     {
       "name": "segmentation-actions",
       "status": "ported",
-      "reason": "To layer list follows ComputeService capabilities: the mock supports compound mode; real services also enable element conversion. Labeled previews apply atomically with undo and retain element mode/profiles/targets. Stale project/library/session/service results cannot apply. Stop/Cancel target the original service. Actual-WASM Chromium checks cover element application, tensors, undo/redo, stale tables, single-row rejection and blocked-script Stop/recovery with an explicit test lookup. Production lookup, single-layer semantics and full original-project acceptance remain open.",
+      "reason": "To layer list uses ComputeService capabilities and real production conversion with the D-41 double lookup. Previews apply atomically with undo, preserving element mode/profiles/targets; stale results cannot apply and Stop targets the original service. Single-row semantics and final original-project review remain open.",
       "references": [
         "app/src/ui/LayerConversionDialog.tsx",
         "app/src/model/layerConversion.ts",
-        "app/src/compute/mockLayerConversion.ts",
         "app/e2e/segmentation.spec.ts",
-        "app/scripts/test-real-service.mjs"
+        "app/scripts/test-real-service.mjs",
+        "app/src/model/realLayerList.ts",
+        "app/src/compute/realWorkerRuntime.ts",
+        "app/e2e/realEngine.spec.ts"
       ],
       "entries": [
         "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/Button13",
@@ -693,12 +705,14 @@
     {
       "name": "magnetic-fit-controls",
       "status": "ported",
-      "reason": "Four active legacy profile Fit checkboxes synchronize with the parameter list and undo; deletion preserves surviving target and coupling identities. Real profile fitting remains engine work.",
+      "reason": "Four active legacy profile Fit checkboxes synchronize with the parameter list and undo; deletion preserves surviving target/coupling identities. Real fit parameter mapping and native profile preparation exist; endpoint/binding decisions and original-project fit acceptance remain open.",
       "references": [
         "app/src/ui/FitCheckbox.tsx",
         "app/src/ui/sections/SampleSections.tsx",
         "app/src/model/magneticProfiles.ts",
-        "app/e2e/profileFit.spec.ts"
+        "app/e2e/profileFit.spec.ts",
+        "app/src/model/realFitParameters.ts",
+        "app/src/model/segmentedCompoundStack.ts"
       ],
       "entries": [
         "client/Unit1.cpp::event:2eef42fbff4b8770:1",
@@ -734,11 +748,12 @@
     {
       "name": "materials",
       "status": "ported",
-      "reason": "Properties opens the Material Settings dialog: read-only structural/optical values, draft formula/density/gamma/phi and per-layer Fit flags, atomic OK/undo, Cancel/Escape, and preservation of concurrent changes to unedited fields. Tensor display is a separate labelled mock preview; hidden Fill Dielectric Tensor stays pending scope.",
+      "reason": "Material Settings provides read-only structural/optical values, draft formula/density/gamma/phi and Fit flags, atomic OK/undo, Cancel and concurrent-edit preservation. The separate tensor view uses the real worker. Hidden Fill Dielectric Tensor remains a scope decision.",
       "references": [
         "app/src/ui/MaterialSettingsDialog.tsx",
         "app/src/model/materialSettings.ts",
-        "app/e2e/materialSettings.spec.ts"
+        "app/e2e/materialSettings.spec.ts",
+        "app/src/model/realTensor.ts"
       ],
       "entries": [
         "client/Unit1.cpp::event:5cd33e7c993169f9:1",
@@ -942,9 +957,10 @@
     {
       "name": "electric-field",
       "status": "deferred",
-      "reason": "Electric-field visualization and its wave/phase controls are later under D-26; the mock depth-profile view already exists.",
+      "reason": "Electric-field visualization and its wave/phase controls are later under D-26. The separate optical/magnetic depth-profile view uses the production WASM engine.",
       "references": [
-        "AGENTS.md"
+        "AGENTS.md",
+        "app/src/model/realDepthProfile.ts"
       ],
       "entries": [
         "client/LayerSystemForm.dfm::LayerSystem",
@@ -1163,11 +1179,13 @@
     {
       "name": "magnetic-profile-spline",
       "status": "ported",
-      "reason": "Build spline creates the legacy nine samples and enables spline mode; five interior y values are editable, boundary points are preserved, Gaussian controls are hidden in spline mode, and edits support undo and JSON save. Interpolation in calculations remains real-engine work.",
+      "reason": "Build spline creates the legacy nine samples and enables spline mode; five interior y values are editable with preserved boundaries, undo and JSON save. Native/WASM profile interpolation is integrated for defined coordinates; the first-knot decision and full acceptance remain open.",
       "references": [
         "app/src/model/magneticProfiles.ts",
         "app/src/ui/sections/SampleSections.tsx",
-        "app/e2e/profileSpline.spec.ts"
+        "app/e2e/profileSpline.spec.ts",
+        "app/src/model/segmentedCompoundStack.ts",
+        "engine/src/gaussian_profile.cpp"
       ],
       "entries": [
         "client/MzFrame.dfm::Frame8/Button7",
@@ -1177,12 +1195,13 @@
     {
       "name": "compound-spectrum-menu",
       "status": "ported",
-      "reason": "Compound delta/beta and magnetic spectrum menu actions use ComputeService and the worker. Mock-phase previews use loaded .db/.m samples; true per-energy optical refresh, tensor conversion and Lua execution remain engine obligations.",
+      "reason": "Compound optical/magnetic spectrum actions use ComputeService and the real worker for per-energy table refresh, tensor handling and BeforeCalculation. Full spectrum/original-project acceptance remains open.",
       "references": [
         "app/src/ui/LayerSpectrumMenu.tsx",
-        "app/src/compute/mockSpectrum.ts",
         "app/src/state/useCalculation.ts",
-        "app/e2e/layerSpectrum.spec.ts"
+        "app/e2e/layerSpectrum.spec.ts",
+        "app/src/model/compoundSpectrum.ts",
+        "app/src/model/realSpectrum.ts"
       ],
       "entries": [
         "client/Unit1.cpp::item:d41f4c83dbad7376:1",
@@ -1192,12 +1211,13 @@
     {
       "name": "element-scattering-factors",
       "status": "ported",
-      "reason": "Element-mode Show Scattering Factors f1/f2 uses ComputeService and the worker, follows element selection, reports missing tables and plots/export imported .ff samples without zero-energy rows. Mock view is labelled table preview; per-energy Filldb and BeforeCalculation evaluation remain engine work.",
+      "reason": "Show Scattering Factors follows element selection through ComputeService. Production resolves imported/Chantler tables and per-energy BeforeCalculation, reports missing data and supports plot exports. Full original-project spectrum acceptance remains open.",
       "references": [
         "app/src/ui/sections/SampleSections.tsx",
-        "app/src/compute/mockSpectrum.ts",
         "app/src/state/useCalculation.ts",
-        "app/e2e/scatteringFactors.spec.ts"
+        "app/e2e/scatteringFactors.spec.ts",
+        "app/src/model/elementSpectrum.ts",
+        "app/src/model/realSpectrum.ts"
       ],
       "entries": [
         "client/ElementFrame.dfm::ElementFrame/Element/ShowScatteringFactorsButton",
@@ -1207,13 +1227,14 @@
     {
       "name": "element-density-profiles",
       "status": "ported",
-      "reason": "Sample section and element toolbar show all element density profiles through the compute worker on a shared depth axis, with slab boundary marks, live edits, undo and exports. Mock uses bounded sampling and approximate smoothing; legacy-exact sampling, density evaluation and scripts remain engine work.",
+      "reason": "Sample/toolbar actions show all element density profiles through the real worker with the production double lookup, shared depth axis, slab boundaries, edits, undo and exports. Final original-project/manual review remains open.",
       "references": [
-        "app/src/compute/mockDensityProfiles.ts",
         "app/src/ui/Toolbar.tsx",
         "app/src/ui/PlotPanel.tsx",
         "app/src/ui/sections/SampleSections.tsx",
-        "app/e2e/densityProfiles.spec.ts"
+        "app/e2e/densityProfiles.spec.ts",
+        "app/src/model/realDensityProfiles.ts",
+        "app/e2e/realEngine.spec.ts"
       ],
       "entries": [
         "client/ElementFrame.dfm::ElementFrame/ShowDensityProfilesButton",
@@ -1224,12 +1245,13 @@
     {
       "name": "materials-tensor-display",
       "status": "ported",
-      "reason": "Read-only real and imaginary 3×3 matrices through ComputeService, with labelled mock .e interpolation or scalar construction and blocked-request Stop. No project mutation. Real tensor evaluation and Lua remain engine work.",
+      "reason": "Read-only real/imaginary 3x3 matrices use native tensor preparation through ComputeService, with Stop and no project mutation. This UI record does not close full tensor/physics acceptance.",
       "references": [
         "AGENTS.md",
         "app/src/ui/MaterialSettingsDialog.tsx",
         "app/src/ui/MaterialTensorPreview.tsx",
-        "app/e2e/tensorViews.spec.ts"
+        "app/e2e/tensorViews.spec.ts",
+        "app/src/model/realTensor.ts"
       ],
       "entries": [
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1",
@@ -1258,13 +1280,13 @@
     {
       "name": "database-update-actions",
       "status": "ported",
-      "reason": "Both context-menu actions update every matching entry in the active stack through ComputeService. Mock linear interpolation applies scalar values in one undo step; missing/out-of-range primary tables are retained and reported, absent magnetic tables zero their values with a report. Project/table/session guards reject stale results. Legacy interpolation, built-in data and tensors remain engine work.",
+      "reason": "Database actions update the active stack through native interpolation/tensor preparation and approved Chantler fallback. Reports retain skips/ranges/missing magnetic data; updates are atomic with undo and stale-result guards. Full .F element assignment remains pending its decision.",
       "references": [
-        "app/src/compute/mockDatabaseValues.ts",
         "app/src/model/databaseValues.ts",
         "app/src/state/useDatabaseUpdate.ts",
         "app/src/ui/DatabaseUpdateReport.tsx",
-        "app/e2e/databaseValues.spec.ts"
+        "app/e2e/databaseValues.spec.ts",
+        "app/src/model/realDatabaseValues.ts"
       ],
       "entries": [
         "client/Unit1.cpp::item:58ef0caf1cc257a9:1",
@@ -1274,11 +1296,12 @@
     {
       "name": "dielectric-tensor-spectra",
       "status": "ported",
-      "reason": "Three legacy component groups through ComputeService; diagonal 1−Re and Im, off-diagonal Re and Im. Mock previews prefer .e grid, fall back to .db, and report missing data. Real Filldb/BeforeCalculation remains engine work.",
+      "reason": "Three legacy component groups use real per-energy table refresh and BeforeCalculation: diagonal 1-Re/Im and off-diagonal Re/Im. Table grids and missing-data errors are retained; full original-project acceptance remains open.",
       "references": [
-        "app/src/compute/mockTensor.ts",
         "app/src/model/tensorView.ts",
-        "app/e2e/tensorViews.spec.ts"
+        "app/e2e/tensorViews.spec.ts",
+        "app/src/model/realTensor.ts",
+        "app/src/model/compoundSpectrum.ts"
       ],
       "entries": [
         "client/Unit1.cpp::item:61a2b426cc67354c:1",
@@ -1289,11 +1312,12 @@
     {
       "name": "element-optical-spectrum-menu",
       "status": "ported",
-      "reason": "Element table context action selects the slab and uses the selected element energy grid. Worker mock sums density-weighted, linearly interpolated scattering factors across all elements, with missing-table/slab errors and no project mutation. Full Filldb/Lua evaluation remains engine work. Separators organize the implemented menu groups.",
+      "reason": "The element context action selects the slab and energy grid; the real worker prepares density-weighted element optics with per-energy refresh/Lua. Missing-table/slab errors and project preservation remain explicit. Full original-project acceptance remains open.",
       "references": [
-        "app/src/compute/mockSpectrum.ts",
         "app/src/ui/LayerTable.tsx",
-        "app/e2e/scatteringFactors.spec.ts"
+        "app/e2e/scatteringFactors.spec.ts",
+        "app/src/model/realSpectrum.ts",
+        "app/src/model/elementSpectrum.ts"
       ],
       "entries": [
         "client/Unit1.cpp::item:044c0db584147fff:1",
@@ -1306,11 +1330,12 @@
     {
       "name": "segmentation-illustration",
       "status": "ported",
-      "reason": "Default-on display checkbox switches both optical profiles between smooth curves and steps with zero-boundary strokes. Worker mock supplies fixed sampling intervals, explicitly labelled as such. Real adaptive slices remain engine work. Exports use the displayed points; toggling does not edit project data.",
+      "reason": "The display checkbox switches optical/magnetic profiles between smooth curves and steps with boundary strokes. Production profiles use native adaptive preparation and the D-41 full-double lookup. Exports use displayed points; toggling does not edit project data. Final numerical review remains open.",
       "references": [
         "app/src/model/profileView.ts",
-        "app/src/compute/mockPhysics.ts",
-        "app/e2e/segmentation.spec.ts"
+        "app/e2e/segmentation.spec.ts",
+        "app/src/model/realDepthProfile.ts",
+        "app/e2e/realEngine.spec.ts"
       ],
       "entries": [
         "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/CheckBox1"

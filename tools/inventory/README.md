@@ -42,15 +42,17 @@ inspection when their corresponding feature is ported.
 There are no wildcard rules or default classifications. Every ID must appear exactly once.
 A snapshot digest also forces review when properties or handlers change without changing IDs.
 
-- **ported**: the described UI behavior has an implementation reference. Under D-33 this does
-  not certify real physics, full numerical parity or browser acceptance tests.
+- **ported**: the described UI behavior has an implementation reference. D-39 production
+  uses the real WASM worker; this label still does not certify full numerical parity or
+  complete engine acceptance. Current reasons distinguish implemented paths from pending review.
 - **dropped**: the rationale cites an existing decision or the agreed Dropped checklist.
 - **deferred**: incomplete work, with a phase of `ui`, `engine`, `later`, or `decision`.
   UI and engine entries remain MVP obligations; they are not silently moved out of scope.
   Decision entries need clarification before implementation, not before inventorying them.
 
 Mixed components are conservatively deferred if part of their UI behavior is missing.
-For example, the layer grid exists but its context menu/selection behavior remains incomplete.
+For example, the layer grid and context menus exist, but the legacy coupl. column still
+needs a scope decision.
 The source-level count includes labels and containers; it is not a feature-completion percentage.
 AC-12 passing means everything is accounted for, not that the MVP is finished.
 
