@@ -4,7 +4,12 @@
 #include "project_dataset.hpp"
 #include "optical_tables.hpp"
 #include <vector>
+#include <functional>
 namespace remagx {
+struct ProjectCalculationOptions {
+    std::function<void(const std::string&)> script_output;
+    std::function<bool()> should_stop;
+};
 struct ProjectCurve {
     std::vector<double> qz;
     std::vector<double> plus;
@@ -20,7 +25,8 @@ struct ProjectCurve {
 // (monochromatic Fourier only). Other preparation rejects explicitly.
 // No input mutation and no partial curve on failure.
 ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic,
-                                   const std::vector<OpticalTable>& tables = {});
+                                   const std::vector<OpticalTable>& tables = {},
+                                   const ProjectCalculationOptions& options = {});
 // Calculate one prepared qz dataset, including monochromatic energy broadening.
 // Rejects energy datasets; use calculate_fit_dataset for either scan type.
 ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset,

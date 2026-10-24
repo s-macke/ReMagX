@@ -1,9 +1,11 @@
 # Native Lua integration in progress
 
 `ProjectLuaSession` owns a Lua 5.4 session and isolated numeric project arrays.
-It is not enabled in terminal calculations yet: nonempty enabled
-BeforeCalculation scripts still reject until the complete bridge is connected.
-This component does not establish full script acceptance.
+Lua-enabled builds now execute BeforeCalculation for unsegmented compound
+terminal qz scans without monochromatic energy broadening. Scripts run after
+optical refresh and before multilayer packing/solver calls; stderr receives
+script messages. Scripted fits, element/segmented scans and energy broadening
+still reject explicitly. Full script acceptance remains open.
 
 Build with a system Lua 5.4 development library (Debian/Ubuntu:
 `liblua5.4-dev`), then enable `-DREMAGX_BUILD_NATIVE_LUA=ON` when configuring
@@ -69,8 +71,8 @@ termination and %.14g numeric message text). Numeric workspace values are never
 changed by message formatting. Library functions are captured before scripts can
 replace globals. Callback failures become catchable Lua errors without C++
 exceptions crossing the Lua boundary. Captured callback dependencies must outlive
-the session, including Lua finalizers during close. Terminal stderr routing still
-belongs to the pending calculation integration.
+the session, including Lua finalizers during close. Terminal qz integration routes messages to stderr; scientific stdout is buffered
+until the whole calculation succeeds.
 
 `ProjectScriptHook` composes the bindings into a reusable prepared project hook.
 Its caller supplies current project, dielectric/scattering tensors, table cursors
@@ -88,7 +90,8 @@ the session and prevent result publication, even when Lua catches the interrupt
 and returns. This is cooperative: a script can replace debug hooks or repeatedly
 catch errors, and long-running C calls are not interrupted by instruction hooks.
 No process-level deadline or native one-second cancellation guarantee is claimed.
-The eventual terminal orchestration must retain an external termination path.
+The terminal now uses the first SIGINT for cooperative Stop and restores default
+SIGINT handling so a second interrupt terminates even a script that disables hooks.
 The count hook is installed only when a stop predicate is supplied.
 
 Run the focused comparison after building `project_lua_tests` and installing

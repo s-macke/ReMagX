@@ -20,7 +20,7 @@ The `.all` extension is case-insensitive; reports and unknown-key summaries go t
 stderr. Legacy files are read-only. See `NATIVE_PROJECT.md` for import rules. The supported
 calculation path supports compound mode with manual or automatic optical constants,
 Nevot–Croce or adaptive compound roughness, and element mode with saved or automatically refreshed factors/tensors.
-It requires no nonempty enabled BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
+Scripted paths currently require an optional Lua-enabled build and are limited as described below. Parratt, Matrix and Zak support both complex beams,
 analyzers, magnetic/tetragonal settings and exact/fast angular convolution.
 Manual compound preparation rebuilds dielectric tensors from scalar values, as the web
 engine does; stored automatic tensor overrides are ignored in manual mode.
@@ -151,7 +151,7 @@ does not use this energy broadening setting. Broadening together with Fourier
 remains explicitly unavailable, as in the web implementation, pending review of
 the original mismatched array lengths.
 
-Native Lua, standalone energy-scan commands, transactional file replacement
+Remaining Lua integration, standalone energy-scan commands, transactional file replacement
 and `-convert` remain to be integrated. `-map` follows the separately
 agreed map implementation. Unsupported commands/settings report an error; they
 never run a simplified calculation while silently ignoring active preparation.
@@ -194,7 +194,7 @@ numerical overflow, missing input, input preservation and successful recovery.
 The existing tetragonal/magnetization-off singularity at zero incidence is checked
 against the WASM numerical-error status; it is not hidden by shifting coordinates
 or substituting a result. Direct `.all` entry-point checks cover both commands/all three solvers, report
-visibility, input preservation, invalid versions/schema and unsupported Lua.
+visibility, input preservation, invalid versions/schema and Lua failures and unsupported scripted paths.
 Native/web schema and bit-exact serialization checks
 remain separate. These checks establish the implemented integration, not full
 original-terminal or full-corpus acceptance.
@@ -218,10 +218,36 @@ settings, not measurement rounding or changes to numerical comparison tolerance.
 Ctrl+C requests cooperative cancellation between objective calls and returns the
 best evaluated project if one exists; stopping before any candidate is an error.
 The callback-level Stop-before-start path is tested; OS-signal timing is not yet
-covered by an automated test. Nonempty enabled BeforeCalculation Lua still rejects.
+covered by an automated test. Scripted fitting remains unavailable; the compound qz script path is described below.
 
 The focused fit-start gate now covers 47 actual-WASM initialization/optimizer
 cases: three solvers, adaptive/annealing, explicit Q references, work limits,
 fixed rows, Stop-before-start, failure and recovery. CLI smoke checks cover qz and
 energy fitted JSON, missing-table failure with empty stdout and input preservation.
 No original-optimizer convergence/corpus acceptance is implied.
+
+## Compound qz scripts
+
+Install system Lua 5.4 development headers/library and configure with
+`-DREMAGX_BUILD_NATIVE_LUA=ON` to enable BeforeCalculation for `-refl`/`-dicrefl`
+in compound mode with Nevot-Croce roughness and no monochromatic energy
+broadening. Default/Docker builds without this option still reject active scripts.
+Automatic table refresh precedes the hook; scalar values, tensors, energy,
+angular width and epsilon then feed the three existing solvers. Script output
+is sent to stderr. Project inputs stay unchanged and failures publish no
+scientific stdout. Scripted element/segmented/fit/energy paths remain unavailable.
+
+The first Ctrl+C requests cooperative Stop; a second Ctrl+C terminates the
+process using default SIGINT handling, including scripts that disable debug hooks.
+This does not impose an automatic wall-clock deadline. The focused gate covers
+12 native/actual-WASM comparisons, three rejection cases and two real SIGINT
+checks (cooperative loop and disabled-hook loop):
+
+```
+node app/scripts/test-native-scripted-qz.mjs build/engine/remagx-terminal build/wasm
+```
+
+The original all-zero-tensor fixture failed in both native and WASM Matrix:
+SetDeltaBeta without an imported tensor followed by direct tensor access marks
+the zero tensor anisotropic. The valid integration fixture explicitly calls
+FillTensors before component editing. No solver or tolerance was changed.

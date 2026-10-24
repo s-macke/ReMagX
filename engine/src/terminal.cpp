@@ -12,8 +12,8 @@
 #include <string>
 
 namespace {
-volatile std::sig_atomic_t fit_stop_requested = 0;
-void stop_fit(int) { fit_stop_requested = 1; }
+volatile std::sig_atomic_t stop_requested = 0;
+void stop_calculation(int) { stop_requested = 1; std::signal(SIGINT, SIG_DFL); }
 }
 
 int main(int argc, char** argv) {
@@ -30,7 +30,8 @@ int main(int argc, char** argv) {
                      "Generated qz grid: 0..qzMax inclusive (original terminal behavior).\n"
                      "-fit writes the fitted JSON project to stdout; diagnostics go to stderr.\n"
                      "Ctrl+C stops fitting and returns the best evaluated project, if available.\n"
-                     "Native Lua and -convert integration remain pending.\n";
+                     "Lua-enabled builds support unsegmented compound qz scripts without energy broadening.\n"
+                     "Other scripted calculation paths and -convert remain pending.\n";
         return 0;
     }
     if (argc != 3 || (std::string(argv[1]) != "-refl" && std::string(argv[1]) != "-dicrefl" && std::string(argv[1]) != "-fit")) {
@@ -65,12 +66,14 @@ int main(int argc, char** argv) {
             energy_tables = energy_tables || (project.boolean(path + "/active") &&
                 project.contains(path + "/columns/energy") && project.array_size(path + "/columns/energy") > 0);
         }
-        const auto tables = remagx::load_project_tables(project, warnings, energy_tables);
+        const bool scripts = project.boolean("/scripts/enabled") &&
+            project.string("/scripts/beforeCalculation").find_first_not_of(" \t\n\r\f\v") != std::string::npos;
+        const auto tables = remagx::load_project_tables(project, warnings, energy_tables || scripts);
         if (fitting) {
             for (const auto& warning : warnings) std::cerr << warning << '\n';
-            std::signal(SIGINT, stop_fit);
+            std::signal(SIGINT, stop_calculation);
             remagx::ProjectFitOptions options;
-            options.should_stop = [] { return fit_stop_requested != 0; };
+            options.should_stop = [] { return stop_requested != 0; };
             const auto result = remagx::run_project_fit(project, tables, options);
             const auto output = result.best.project.serialize();
             std::cerr << std::setprecision(std::numeric_limits<double>::max_digits10)
@@ -79,7 +82,11 @@ int main(int argc, char** argv) {
             std::cout << output << '\n';
             return std::cout ? 0 : 1;
         }
-        const auto curve = remagx::calculate_terminal_qz(project, dichroic, tables);
+        std::signal(SIGINT, stop_calculation);
+        remagx::ProjectCalculationOptions options;
+        options.should_stop = [] { return stop_requested != 0; };
+        options.script_output = [](const std::string& message) { std::cerr << message << '\n'; };
+        const auto curve = remagx::calculate_terminal_qz(project, dichroic, tables, options);
         warnings.insert(warnings.end(), curve.warnings.begin(), curve.warnings.end());
         for (const auto& warning : warnings) std::cerr << warning << '\n';
         // Prepare all output before publishing any scientific rows.

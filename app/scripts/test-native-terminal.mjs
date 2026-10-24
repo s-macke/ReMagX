@@ -487,7 +487,7 @@ try {
     }
   }
   for (const content of ['fileversion=2\n', 'layer=0\nlayer_d=-1\n',
-    'scriptline=print(1)\n']) {
+    'scriptline=error("public diagnostic")\n']) {
     await writeFile(legacyFilename, content)
     const actual = run(['-refl', legacyFilename])
     assert.equal(actual.status, 1)

@@ -1,3 +1,6 @@
+#ifdef REMAGX_NATIVE_LUA
+#include "remagx/project_lua.hpp"
+#endif
 #include "remagx/project_calculation.hpp"
 #include "remagx/core.h"
 #include "remagx/project_fit.hpp"
@@ -129,10 +132,12 @@ static void postprocess_curve(const ProjectDocument& project, ProjectCurve& resu
     }
 }
 
-static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroic,
+static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichroic,
     const std::vector<OpticalTable>& tables, const std::vector<double>* coordinates = nullptr,
     double sample_energy = 0, OpticalState* previous = nullptr,
-    CalculationContext context = CalculationContext::terminal) {
+    CalculationContext context = CalculationContext::terminal, const ProjectCalculationOptions* options = nullptr) {
+    (void)options;
+    auto project = original;
     const auto algorithm = project.string("/calculation/algorithm");
     require(algorithm == "parratt" || algorithm == "matrix" || algorithm == "zak", "This solver is unavailable in the native terminal.");
     const bool element_mode = project.string("/sample/mode") == "element";
@@ -141,9 +146,16 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     const bool strict_refresh = context == CalculationContext::strict_refresh;
     const bool refresh_only = strict_refresh || context == CalculationContext::refresh_only;
     const bool automatic = energy_point || strict_refresh || project.boolean("/calculation/automaticOpticalConstants");
-    if (project.boolean("/scripts/enabled")) {
-        const auto script = project.string("/scripts/beforeCalculation");
-        require(script.find_first_not_of(" \t\n\r\f\v") == std::string::npos, "Native terminal BeforeCalculation Lua execution is not integrated yet.");
+    const bool scripted = project.boolean("/scripts/enabled") &&
+        project.string("/scripts/beforeCalculation").find_first_not_of(" \t\n\r\f\v") != std::string::npos;
+    if (scripted) {
+#ifdef REMAGX_NATIVE_LUA
+        require(!element_mode && project.string("/calculation/roughnessModel") == "nevot-croce" &&
+            context == CalculationContext::terminal && options,
+            "Native Lua currently supports unsegmented compound terminal qz scans without energy broadening; other script calculation paths remain pending.");
+#else
+        throw ProjectDocumentError("Native terminal was built without Lua support.");
+#endif
     }
     const bool segmented = project.string("/calculation/roughnessModel") == "segmentation";
     const bool fourier = project.boolean("/calculation/postProcessing/fourierTransform");
@@ -176,10 +188,10 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
                 correction_energies.push_back(project.number(dataset + "/columns/energy/" + std::to_string(index)));
         }
     }
-    const double energy = coordinates ? sample_energy : project.number("/experiment/energy");
+    double energy = coordinates ? sample_energy : project.number("/experiment/energy");
     require(std::isfinite(energy) && energy > 0, "Energy-resolution samples must be positive and finite.");
     const bool fast = !energy_point && project.boolean("/experiment/resolution/fastConvolution");
-    if (dichroic && fast) {
+    if (dichroic && fast && !scripted) {
         const double wave = 2 * 3.14159265358979323846 / (12398.326 / energy);
         for (double qz : result.qz) require(qz / (wave * 2) < 1, "Qz exceeds the fast dichroic scan boundary.");
     }
@@ -192,7 +204,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     const int tensor = project.string("/calculation/tensorContribution") == "tetragonal" ? REMAGX_TETRAGONAL : REMAGX_ISOTROPIC;
     const int magnetic = project.string("/calculation/magnetization/mode") == "none" ? 0 : 1;
     const int mode = dichroic ? REMAGX_DICHROIC : REMAGX_MONOCHROMATIC;
-    const double width = project.number("/experiment/resolution/angularFwhm");
+    double width = project.number("/experiment/resolution/angularFwhm");
     std::vector<RemagxMatrixLayer> matrix;
     size_t count = 0;
     if (element_mode) {
@@ -287,6 +299,49 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
             result.plus.assign(result.qz.size(), 1); result.minus.assign(result.qz.size(), dichroic ? 1 : 0);
             return result;
         }
+#ifdef REMAGX_NATIVE_LUA
+        if (scripted) {
+            std::vector<std::pair<std::string,double>> edits;
+            std::vector<ScriptDielectricTensor> prepared(stored_count);
+            for (size_t index = 0; index < stored_count; ++index) {
+                const auto path = "/sample/layers/" + std::to_string(index);
+                const auto& layer = stored_layers[index];
+                edits.emplace_back(path+"/delta", layer.delta); edits.emplace_back(path+"/beta", layer.beta);
+                edits.emplace_back(path+"/deltaMag", layer.delta_magnetic); edits.emplace_back(path+"/betaMag", layer.beta_magnetic);
+                if (retained_tensor[index]) prepared[index] = {tensors[index], anisotropic[index]};
+                else {
+                    int classification = 0;
+                    status_check(remagx_dielectric_tensor(&layer, tensor, magnetic, prepared[index].values.data(), &classification));
+                    prepared[index].anisotropic = classification != 0;
+                }
+            }
+            std::vector<std::array<double,18>> scattering(project.array_size("/sample/elementProfiles"));
+            for (size_t index = 0; index < scattering.size(); ++index) {
+                const auto path = "/sample/elementProfiles/" + std::to_string(index);
+                if (automatic) {
+                    if (project.contains(path+"/scatteringTensor")) for (size_t part = 0; part < 18; ++part)
+                        scattering[index][part] = project.number(path+"/scatteringTensor/"+std::to_string(part));
+                } else {
+                    const double factors[] = {project.number(path+"/f1"),project.number(path+"/f2"),project.number(path+"/f1Mag"),project.number(path+"/f2Mag")};
+                    status_check(remagx_scattering_tensor(factors,project.number("/calculation/magnetization/direction/gamma"),
+                        project.number("/calculation/magnetization/direction/phi"),tensor,magnetic,scattering[index].data()));
+                }
+            }
+            const auto emit = options->script_output ? options->script_output : [](const std::string&) {};
+            ProjectScriptHook hook(tables, emit, true, options->should_stop);
+            auto result = hook.run(project.with_calculation_numbers(edits), prepared, scattering, cursors);
+            project = std::move(result.project); cursors = std::move(result.cursors);
+            energy = project.number("/experiment/energy"); width = project.number("/experiment/resolution/angularFwhm");
+            for (size_t index = 0; index < stored_count; ++index) {
+                const auto path = "/sample/layers/" + std::to_string(index);
+                stored_layers[index] = {project.number(path+"/thickness"),project.number(path+"/roughness"),
+                    project.number(path+"/delta"),project.number(path+"/beta"),project.number(path+"/deltaMag"),project.number(path+"/betaMag"),
+                    project.number(path+"/magnetization/gamma"),project.number(path+"/magnetization/phi")};
+                tensors[index] = result.tensors[index].values;
+                anisotropic[index] = result.tensors[index].anisotropic; retained_tensor[index] = true;
+            }
+        }
+#endif
         layers.reserve(count);
         for (size_t index : indices) layers.push_back(stored_layers[index]);
         if (algorithm == "matrix") {
@@ -313,6 +368,10 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
         if (previous) *previous = {std::move(stored_layers), std::move(tensors),
             std::move(retained_tensor), std::move(anisotropic), std::move(cursors), {}};
     }
+    if (scripted && dichroic && fast) {
+        const double wave = 2 * 3.14159265358979323846 / (12398.326 / energy);
+        for (double qz : result.qz) require(qz / (wave * 2) < 1, "Qz exceeds the fast dichroic scan boundary.");
+    }
     std::vector<RemagxReflectivity> values(result.qz.size());
     if (algorithm == "parratt") {
         status_check(remagx_parratt_qz_resolution(layers.data(), count, result.qz.data(), result.qz.size(), energy,
@@ -332,10 +391,11 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
 }
 
 static ProjectCurve calculate_qz(const ProjectDocument& project, bool dichroic, const std::vector<OpticalTable>& tables,
-    const std::vector<double>* fit_coordinates = nullptr, OpticalState* previous = nullptr) {
+    const std::vector<double>* fit_coordinates = nullptr, OpticalState* previous = nullptr,
+    const ProjectCalculationOptions* options = nullptr) {
     const double width = project.number("/experiment/resolution/energyFwhm");
     if (dichroic || width <= 1e-6) return calculate_inner(project, dichroic, tables, fit_coordinates,
-        project.number("/experiment/energy"), previous, fit_coordinates ? CalculationContext::fit_dataset : CalculationContext::terminal);
+        project.number("/experiment/energy"), previous, fit_coordinates ? CalculationContext::fit_dataset : CalculationContext::terminal, options);
     require(!project.boolean("/calculation/postProcessing/fourierTransform"),
         "Energy broadening with Fourier processing remains unavailable pending review of the original array lengths.");
     // Same active quadrature as angular_resolution.cpp and the web wrapper.
@@ -385,8 +445,8 @@ static ProjectCurve calculate_qz(const ProjectDocument& project, bool dichroic, 
     return result;
 }
 
-ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic, const std::vector<OpticalTable>& tables) {
-    return calculate_qz(project, dichroic, tables);
+ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic, const std::vector<OpticalTable>& tables, const ProjectCalculationOptions& options) {
+    return calculate_qz(project, dichroic, tables, nullptr, nullptr, &options);
 }
 ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset, const std::vector<OpticalTable>& tables) {
     require(!dataset.energy_scan, "Native fit energy-scan integration is not available yet.");
