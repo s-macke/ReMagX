@@ -192,6 +192,44 @@ int install_elements(lua_State* vm) {
     for (auto& binding : *elements) { push_element(vm, &binding); lua_setglobal(vm, binding.name.c_str()); }
     return 0;
 }
+struct ScriptOutput { std::function<void(const std::string&)> emit; std::string error; };
+int emit_output(lua_State* vm) {
+    auto* output = static_cast<ScriptOutput*>(lua_touserdata(vm, lua_upvalueindex(1)));
+    const char* message = luaL_checkstring(vm, 1);
+    bool failed = false;
+    try { output->emit(message); }
+    catch (const std::exception& error) { output->error = error.what(); failed = true; }
+    catch (...) { output->error = "Script output callback failed"; failed = true; }
+    if (failed) return luaL_error(vm, "%s", output->error.c_str());
+    return 0;
+}
+// Same captured Lua formatting as the web output boundary; formatting affects
+// messages only, never numeric workspace values.
+const char* output_program = R"lua(
+      local emit = ...
+      local kind, select, format = type, select, string.format
+      local prefix, concat = string.match, table.concat
+      local protected, raise, text = pcall, error, tostring
+      local function output(...)
+        local parts = {}
+        for i = 1, select("#", ...) do
+          local value = select(i, ...)
+          if kind(value) == "number" then value = format("%.14g", value)
+          elseif kind(value) ~= "string" then value = "" end
+          parts[i] = prefix(value, "^[^%z]*")
+        end
+        local ok, message = protected(emit, concat(parts))
+        if not ok then raise(text(message), 2) end
+      end
+      print, write = output, output
+    )lua";
+int install_output_program(lua_State* vm) {
+    auto* output = static_cast<ScriptOutput*>(lua_touserdata(vm, 1));
+    if (luaL_loadbuffer(vm, output_program, std::char_traits<char>::length(output_program), "@script-output") != LUA_OK)
+        return lua_error(vm);
+    lua_pushlightuserdata(vm, output); lua_pushcclosure(vm, emit_output, 1); lua_call(vm, 1, 0);
+    return 0;
+}
 struct ProjectFunctions { ProjectLuaSession* session; std::string error; };
 template<bool OpticalTable> int set_layer_text(lua_State* vm) {
     if (lua_gettop(vm) != 2) return 0;
@@ -280,6 +318,7 @@ struct ProjectLuaSession::State {
     lua_State* vm = nullptr;
     bool compiled = false;
     ProjectFunctions functions{nullptr, {}};
+    ScriptOutput output;
     double wavelength = 0, renew_optical_constants = 0;
     std::optional<ProjectDocument> project;
     std::deque<NumericArray> arrays;
@@ -454,6 +493,18 @@ void ProjectLuaSession::set_delta_beta(double index, double energy) {
     const int types[] = {0,1,4,5};
     for (auto& array : state_->arrays) for (size_t field = 0; field < 4; ++field)
         if (array.type == types[field]) array.values[layer] = values[field];
+}
+void ProjectLuaSession::install_output(std::function<void(const std::string&)> emit) {
+    if (!state_) throw ProjectDocumentError("Lua session is closed.");
+    if (state_->compiled || state_->output.emit) throw ProjectDocumentError("Install output once before compiling Lua");
+    if (!emit) throw ProjectDocumentError("Script output callback is empty");
+    state_->output.emit = std::move(emit);
+    lua_pushcfunction(state_->vm, install_output_program); lua_pushlightuserdata(state_->vm, &state_->output);
+    if (lua_pcall(state_->vm, 1, 0, 0) != LUA_OK) {
+        const char* message = lua_tostring(state_->vm, -1);
+        const std::string detail = message ? message : "Cannot install script output";
+        close(); throw ProjectDocumentError(detail);
+    }
 }
 void ProjectLuaSession::install_project_functions() {
     if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");

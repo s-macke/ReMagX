@@ -235,6 +235,26 @@ try {
       tensors:initialTensors,scattering:initialScattering})
   }
   assert.equal(expected.filter(result=>result.ok).length,36)
+  const outputCases = [
+    {source:"print('Fe',123,nil,false,{},'!',1.2345678901234567); write('a'..string.char(0)..'b','c'); print(); par[0]=1.2345678901234567"},
+    {source:"local p=print; type=nil; select=nil; string.format=nil; string.match=nil; table.concat=nil; p('value=',1.25)"},
+    {source:"print('µ',1e-20,1e20,-0.0); write('next')"},
+    {source:"local ok=pcall(print,'failure'); assert(not ok); par[0]=7", failOutput:true},
+    {source:"print('failure')", failOutput:true},
+  ]
+  for (const test of outputCases) {
+    const workspace = createScriptArrayWorkspace(project), messages = []
+    const session = await runtime.createSession()
+    try {
+      session.installArrays(workspace.arrays); session.installElements(workspace.elements)
+      session.installOutput(message => { if(test.failOutput) throw new Error('Public output failure'); messages.push(message) })
+      session.compile(test.source,'BeforeCalculation')
+      const result = session.runHook(hook)
+      expected.push(JSON.parse(JSON.stringify({ok:true,project:workspace.snapshot(),hook:result,messages})))
+    } catch { expected.push({ok:false}) } finally {session.close()}
+    requests.push({project:JSON.stringify(project),...test,output:true})
+  }
+  assert.equal(expected.filter(result=>result.ok).length,40)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),
@@ -246,5 +266,5 @@ try {
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
   assert.equal(actual.length, expected.length)
   actual.forEach((result, index) => assert.ok(isDeepStrictEqual(result, expected[index]), `Native Lua case ${index + 1} differs from Wasmoon`))
-  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length + functionCases.length + opticsCases.length} parity cases and one native protected-readback case passed.`)
+  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length + functionCases.length + opticsCases.length + outputCases.length} parity cases and one native protected-readback case passed.`)
 } finally { await server.close() }

@@ -63,6 +63,15 @@ Missing/out-of-range primary data preserve values; successful scalar refresh
 replaces tensor state with imported values or the legacy zero/isotropic default.
 These functions require the prepared tensor/table workspaces to be installed.
 
+The output installer captures print/write messages through a caller-owned callback,
+using the same Lua formatter as the web runtime (concatenated arguments, C-string
+termination and %.14g numeric message text). Numeric workspace values are never
+changed by message formatting. Library functions are captured before scripts can
+replace globals. Callback failures become catchable Lua errors without C++
+exceptions crossing the Lua boundary. Captured callback dependencies must outlive
+the session, including Lua finalizers during close. Terminal stderr routing still
+belongs to the pending calculation integration.
+
 Run the focused comparison after building `project_lua_tests` and installing
 app dependencies:
 
@@ -70,19 +79,19 @@ app dependencies:
 node app/scripts/test-native-lua.mjs build/engine/project_lua_tests build/wasm
 ```
 
-Sixty-six public synthetic cases compare directly with the actual Wasmoon
+Seventy-one public synthetic cases compare directly with the actual Wasmoon
 runtime, including persistent globals, replaced Start, numeric strings,
 array aliases, element methods, repeated workspace refresh, scalar writeback, native/WASM
 table lookup with duplicate energies and magnetic/tensor companions, all 18
 dielectric component arrays, solution replacement/dynamic bounds and retained
 aliases after tensor refresh, project text/functions, tensor construction and
-compound table refresh, failures and
+compound table refresh, captured print/write output and callback failures, and
 unchanged inputs. A separate native-only case
 verifies protected global readback when a metatable throws. The existing
 Wasmoon boundary panics for that case; it is not claimed as parity evidence.
 No corpus or broad terminal comparison is needed for this isolated component.
 
-Remaining work: output and calculation functions, calculation-owned
+Remaining work: calculation functions, calculation-owned
 hook state, nested calls and cancellation. Standard-library availability must
 be reviewed against the web runtime before activating native scripts. Existing
 unresolved script-semantics decisions still apply.

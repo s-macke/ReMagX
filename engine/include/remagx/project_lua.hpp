@@ -2,6 +2,7 @@
 #include "project_document.hpp"
 #include "optical_tables.hpp"
 #include <memory>
+#include <functional>
 #include <array>
 #include <string>
 namespace remagx {
@@ -26,6 +27,7 @@ public:
     ScriptHookValues run_hook(const ScriptHookValues& input);
     void install_project_arrays(const ProjectDocument& project);
     ProjectDocument project_snapshot() const;
+    void install_output(std::function<void(const std::string&)> emit);
     void install_project_functions();
     void fill_tensors();
     void set_delta_beta(double index, double energy);

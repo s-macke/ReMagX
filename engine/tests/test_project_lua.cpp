@@ -19,6 +19,7 @@ int main() {
             const auto input = Json::parse(line);
             const auto project = remagx::ProjectDocument::parse(input.at("project").get<std::string>());
             const auto before = project.serialize();
+            std::vector<std::string> messages;
             remagx::ProjectLuaSession session;
             session.install_project_arrays(project);
             if (input.contains("tables")) {
@@ -34,6 +35,10 @@ int main() {
             }
             if (input.contains("scattering")) session.replace_scattering_tensors(input.at("scattering").get<std::vector<std::array<double,18>>>());
             if (input.value("functions", false)) session.install_project_functions();
+            if (input.value("output", false)) session.install_output([&](const std::string& message) {
+                if (input.value("failOutput", false)) throw std::runtime_error("Public output failure");
+                messages.push_back(message);
+            });
             session.compile(input.at("source").get<std::string>(), true);
             const remagx::ScriptHookValues values{8000, 1e-12, .001, .03, 1};
             auto result = values;
@@ -61,6 +66,7 @@ int main() {
                     {"reflectivityPlus",current.reflectivity_plus}, {"reflectivityMinus",current.reflectivity_minus}, {"energy",current.energy}};
             }
             if (input.contains("scattering")) response["scattering"] = session.scattering_snapshot();
+            if (input.value("output", false)) response["messages"] = messages;
             std::cout << response.dump() << '\n';
         } catch (const std::exception&) { std::cout << "{\"ok\":false}\n"; }
     }
