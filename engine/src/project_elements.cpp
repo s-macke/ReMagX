@@ -19,9 +19,9 @@ struct Element {
 };
 }
 void prepare_project_elements(const ProjectDocument& project, double energy,
-    std::vector<RemagxLayer>& layers, std::vector<RemagxMatrixLayer>& matrix) {
-    require(!project.boolean("/calculation/automaticOpticalConstants"),
-        "Native terminal automatic element table refresh is not integrated yet.");
+    std::vector<RemagxLayer>& layers, std::vector<RemagxMatrixLayer>& matrix,
+    const std::vector<OpticalTable>& tables, std::vector<std::string>& warnings, ElementOpticalState* previous) {
+    const bool automatic = project.boolean("/calculation/automaticOpticalConstants");
     const double step = project.number("/calculation/segmentation/minThickness");
     const double tolerance = project.number("/calculation/segmentation/tolerance");
     require(step > 0, "Element depth grid requires a positive step.");
@@ -31,7 +31,24 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
     const size_t count = project.array_size("/sample/elementProfiles");
     require(count <= 100000, "Element count exceeds the supported limit.");
     std::vector<Element> elements;
-    std::vector<double> tensors(use_matrix ? count * 18 : 0, 0);
+    std::vector<double> tensors(count * 18, 0);
+    const bool continuing = previous && previous->factors.size() == count && previous->tensors.size() == count * 18;
+    auto cursors = continuing ? previous->cursors : std::vector<size_t>(tables.size(), 0);
+    const double lookup_energy = 12398.326 / (12398.326 / energy);
+    const auto find_table = [&](const std::string& name, const std::string& kind) {
+        for (size_t index = 0; index < tables.size(); ++index)
+            if (!name.empty() && tables[index].name == name && tables[index].kind == kind) return index;
+        return tables.size();
+    };
+    const auto read = [&](size_t index) {
+        std::array<double, 2> values{};
+        if (index == tables.size() || tables[index].energies.empty()) return values;
+        const auto& table = tables[index];
+        require(table.width == 2 && table.values.size() == table.energies.size() * 2, "Invalid element table shape.");
+        checked(remagx_table_lookup(table.energies.data(), table.values.data(), table.energies.size(), 2,
+            &lookup_energy, 1, &cursors[index], values.data()));
+        return values;
+    };
     double total_thickness = 0, terminal_roughness = 0;
     for (size_t index = 0; index < count; ++index) {
         const auto path = "/sample/elementProfiles/" + std::to_string(index);
@@ -52,9 +69,32 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
             if (slabs >= 2) terminal_roughness = element.slabs[(slabs - 2) * 3 + 1];
         }
         // Manual calculation preserves stored F, including absent/zero tensors.
-        if (use_matrix && project.contains(path + "/scatteringTensor"))
+        if (project.contains(path + "/scatteringTensor"))
             for (size_t component = 0; component < 18; ++component)
                 tensors[index * 18 + component] = project.number(path + "/scatteringTensor/" + std::to_string(component));
+        if (continuing) {
+            element.factors = previous->factors[index];
+            std::copy_n(previous->tensors.data() + index * 18, 18, tensors.data() + index * 18);
+        }
+        if (automatic) {
+            const auto name = project.string(path + "/element");
+            const size_t primary = find_table(name, "ff");
+            const std::string label = "Element " + std::to_string(index);
+            if (primary == tables.size() || tables[primary].energies.empty()) {
+                warnings.push_back(label + ": missing/empty .ff table; saved optical state retained.");
+            } else if (lookup_energy < tables[primary].energies.front() || lookup_energy > tables[primary].energies.back()) {
+                warnings.push_back(label + ": energy outside .ff table; saved optical state retained.");
+            } else {
+                const size_t full = find_table(name, "f");
+                require(full == tables.size() || tables[full].energies.empty(),
+                    "Full .F scattering tensor refresh is unavailable pending the legacy element-assignment decision.");
+                const auto scalar = read(primary), magnetic = read(find_table(name, "ffm"));
+                element.factors = {scalar[0], scalar[1], magnetic[0], magnetic[1]};
+                checked(remagx_scattering_tensor(element.factors.data(), gamma, phi,
+                    project.string("/calculation/tensorContribution") == "tetragonal" ? REMAGX_TETRAGONAL : REMAGX_ISOTROPIC,
+                    project.string("/calculation/magnetization/mode") == "none" ? 0 : 1, tensors.data() + index * 18));
+            }
+        }
         elements.push_back(std::move(element));
     }
     const double maximum_depth = total_thickness + 30 + terminal_roughness * 2;
@@ -67,12 +107,11 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
         require(next > depth, "Element depth grid does not advance.");
         depth = next;
     }
-    const double lookup_energy = 12398.326 / (12398.326 / energy);
     const double factor = (.0004151761541 * 1e6) / (lookup_energy * lookup_energy);
     require(std::isfinite(factor), "Invalid element calculation energy.");
     std::array<double, 1001> lookup{};
     checked(remagx_error_function_lookup(lookup.data(), lookup.size()));
-    std::array<double, 4> previous{-1e99, -1e99, -1e99, -1e99};
+    std::array<double, 4> previous_scalar{-1e99, -1e99, -1e99, -1e99};
     std::vector<double> packed(count * 5), positions;
     std::vector<RemagxLayer> prepared;
     std::vector<RemagxMatrixLayer> prepared_matrix;
@@ -92,9 +131,9 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
                 use_matrix ? matrix_layer.dielectric : nullptr));
             bool changed = false;
             for (size_t component = 0; component < 4; ++component)
-                changed = changed || std::abs(previous[component] - scalar[component]) > tolerance;
+                changed = changed || std::abs(previous_scalar[component] - scalar[component]) > tolerance;
             if (changed) {
-                previous = scalar;
+                previous_scalar = scalar;
                 prepared.emplace_back(); positions.push_back(0);
                 if (use_matrix) prepared_matrix.emplace_back();
             }
@@ -113,6 +152,11 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
     for (size_t index = 1; index < prepared.size(); ++index) {
         prepared[index].thickness = positions[index] - positions[index - 1];
         if (use_matrix) prepared_matrix[index].thickness = prepared[index].thickness;
+    }
+    if (previous) {
+        previous->factors.clear();
+        for (const auto& element : elements) previous->factors.push_back(element.factors);
+        previous->tensors = std::move(tensors); previous->cursors = std::move(cursors);
     }
     layers = std::move(prepared); matrix = std::move(prepared_matrix);
 }

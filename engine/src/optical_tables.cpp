@@ -1,4 +1,5 @@
 #include "remagx/optical_tables.hpp"
+#include "chantler_tables.hpp"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -12,9 +13,9 @@ namespace remagx {
 OpticalTable parse_optical_table(std::string_view text, std::string name, std::string kind) {
     OpticalTable result;
     result.name = std::move(name); result.kind = std::move(kind);
-    if (result.kind == "db" || result.kind == "m") result.width = 2;
-    else if (result.kind == "e") result.width = 18;
-    else throw ProjectDocumentError("Unsupported native compound table kind.");
+    if (result.kind == "db" || result.kind == "m" || result.kind == "ff" || result.kind == "ffm") result.width = 2;
+    else if (result.kind == "e" || result.kind == "f") result.width = 18;
+    else throw ProjectDocumentError("Unsupported native optical table kind.");
     std::vector<std::vector<double>> rows;
     std::istringstream input{std::string(text)};
     input.imbue(std::locale::classic());
@@ -51,16 +52,19 @@ OpticalTable parse_optical_table(std::string_view text, std::string name, std::s
     return result;
 }
 
-std::vector<OpticalTable> load_compound_tables(const ProjectDocument& project, std::vector<std::string>& warnings) {
+std::vector<OpticalTable> load_project_tables(const ProjectDocument& project, std::vector<std::string>& warnings) {
     std::vector<OpticalTable> result;
-    if (!project.boolean("/calculation/automaticOpticalConstants") || project.string("/sample/mode") != "compound") return result;
+    if (!project.boolean("/calculation/automaticOpticalConstants")) return result;
     std::set<std::string> visited;
-    const size_t count = project.array_size("/sample/layers");
+    const bool elements = project.string("/sample/mode") == "element";
+    const std::string rows = elements ? "/sample/elementProfiles" : "/sample/layers";
+    const size_t count = project.array_size(rows);
     for (size_t index = 0; index < count; ++index) {
-        const auto name = project.string("/sample/layers/" + std::to_string(index) + "/opticalTable");
+        const auto name = project.string(rows + "/" + std::to_string(index) + (elements ? "/element" : "/opticalTable"));
         if (name.empty() || !visited.insert(name).second) continue;
         if (name.find('\0') != std::string::npos) throw ProjectDocumentError("Optical table name contains NUL.");
-        for (const auto* kind : {"db", "m", "e"}) {
+        for (const auto* kind : elements ? std::initializer_list<const char*>{"ff", "ffm", "F"}
+                                         : std::initializer_list<const char*>{"db", "m", "e"}) {
             const std::filesystem::path path(name + '.' + kind);
             std::error_code error;
             const bool exists = std::filesystem::exists(path, error);
@@ -72,13 +76,14 @@ std::vector<OpticalTable> load_compound_tables(const ProjectDocument& project, s
             if (!file) throw ProjectDocumentError("Cannot open optical table input.");
             const std::string text{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
             if (file.bad()) throw ProjectDocumentError("Cannot read complete optical table input.");
-            auto table = parse_optical_table(text, name, kind);
-            const std::string label = "Layer " + std::to_string(index) + " ." + kind + " table: ";
+            auto table = parse_optical_table(text, name, std::string(kind) == "F" ? "f" : kind);
+            const std::string label = std::string(elements ? "Element " : "Layer ") + std::to_string(index) + " ." + kind + " table: ";
             if (table.skipped_rows) warnings.push_back(label + std::to_string(table.skipped_rows) + " malformed rows skipped.");
             if (table.extra_rows) warnings.push_back(label + std::to_string(table.extra_rows) + " rows have ignored extra columns.");
             result.push_back(std::move(table));
         }
     }
+    resolve_chantler_tables(project, result);
     return result;
 }
 }

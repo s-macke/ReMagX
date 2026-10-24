@@ -1,0 +1,5 @@
+#pragma once
+namespace remagx {
+inline constexpr char chantler_json[] = R"remagx_chantler(@CHANTLER_JSON@)remagx_chantler";
+inline constexpr const char* chantler_symbols[] = {@CHANTLER_SYMBOLS@};
+}

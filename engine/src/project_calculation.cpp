@@ -75,6 +75,7 @@ struct OpticalState {
     std::vector<std::array<double, 18>> tensors;
     std::vector<bool> retained, anisotropic;
     std::vector<size_t> cursors;
+    ElementOpticalState elements;
 };
 
 }
@@ -138,7 +139,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     std::vector<RemagxMatrixLayer> matrix;
     size_t count = 0;
     if (element_mode) {
-        prepare_project_elements(project, energy, layers, matrix);
+        prepare_project_elements(project, energy, layers, matrix, tables, result.warnings, previous ? &previous->elements : nullptr);
         count = layers.size();
     } else {
         const size_t stored_count = project.array_size("/sample/layers");
@@ -232,7 +233,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
             count = layers.size();
         }
         if (previous) *previous = {std::move(stored_layers), std::move(tensors),
-            std::move(retained_tensor), std::move(anisotropic), std::move(cursors)};
+            std::move(retained_tensor), std::move(anisotropic), std::move(cursors), {}};
     }
     std::vector<RemagxReflectivity> values(result.qz.size());
     if (algorithm == "parratt") {

@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
         const auto project = remagx::ProjectDocument::parse(text);
         const bool dichroic = std::string(argv[1]) == "-dicrefl";
         std::vector<std::string> warnings;
-        const auto tables = remagx::load_compound_tables(project, warnings);
+        const auto tables = remagx::load_project_tables(project, warnings);
         const auto curve = remagx::calculate_terminal_qz(project, dichroic, tables);
         warnings.insert(warnings.end(), curve.warnings.begin(), curve.warnings.end());
         for (const auto& warning : warnings) std::cerr << warning << '\n';

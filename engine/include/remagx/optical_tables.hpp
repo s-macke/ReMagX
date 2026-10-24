@@ -15,9 +15,9 @@ struct OpticalTable {
     size_t extra_rows = 0;
 };
 OpticalTable parse_optical_table(std::string_view text, std::string name, std::string kind);
-// Resolve exact material names plus .db/.m/.e relative to the process working
+// Resolve exact material/element names plus .db/.m/.e or .ff/.ffm/.F in the working
 // directory, as the original terminal does. No directory scans or case folding.
-std::vector<OpticalTable> load_compound_tables(const ProjectDocument& project,
+std::vector<OpticalTable> load_project_tables(const ProjectDocument& project,
                                               std::vector<std::string>& warnings);
 }
 #endif

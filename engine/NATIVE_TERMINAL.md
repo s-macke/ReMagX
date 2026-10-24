@@ -15,7 +15,7 @@ build/engine/remagx-terminal -dicrefl project.json
 
 Input is a validated version-1 JSON project saved by the web app. The supported
 calculation path supports compound mode with manual or automatic optical constants,
-Nevot–Croce or adaptive compound roughness, and element mode with saved factors/tensors.
+Nevot–Croce or adaptive compound roughness, and element mode with saved or automatically refreshed factors/tensors.
 It requires no nonempty enabled BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
 analyzers, magnetic/tetragonal settings and exact/fast angular convolution.
 Manual compound preparation rebuilds dielectric tensors from scalar values, as the web
@@ -26,13 +26,12 @@ Element preparation samples each profile through the existing native density ker
 using the D-41 double-erf lookup, then combines saved f1/f2 and magnetic factors
 through the shared optical kernel. The original fixed-step grid, thickest-profile
 roughness margin, tolerance-based layer reduction and final-sample replacement
-are retained; no values are rounded. Matrix calculations preserve saved scattering
+are retained; no values are rounded. Manual Matrix calculations preserve saved scattering
 tensors (absent tensors start at zero), and every generated tensor is classified
 anisotropic, including boundaries. Density batches hold at most 256 values per
 element. Compound multilayer patterns and compound segmentation/profile settings
 do not apply to this conversion. Each broadened energy sample regenerates its
-stack at that energy. Automatic element tables and built-in data are not integrated
-in this native path yet and reject explicitly. Empty/invalid density profiles,
+stack at that energy. Empty/invalid density profiles,
 nonadvancing/excessive grids and single-row conversion reject before curve output.
 
 Enabled multilayer patterns expand before solver packing, including nested
@@ -86,8 +85,27 @@ rebuilds tensors. The saved project and files remain unchanged.
 The reader accepts whitespace-separated decimal/scientific finite double values,
 ignores blank/comment lines, sorts energies stably and reports skipped malformed
 rows and extra columns on stderr. Such diagnostics do not echo file contents.
-Unreadable/nonregular files fail explicitly. This imports compound optical tables;
-it does not complete `.all` import or native element-table/Chantler preparation.
+Unreadable/nonregular files fail explicitly. This table support does not complete
+`.all` project import.
+
+Automatic element constants use exact-name `.ff` and `.ffm` files from the same
+working directory. Missing/empty/out-of-range primary data retain existing factors
+and scattering tensors with a warning. Successful refresh clears absent magnetic
+factors and constructs current scattering tensors with the global direction,
+magnetization and tensor settings. Factors, tensors and interpolation cursors carry
+between energy samples. A nonempty `.F` companion rejects only when its primary
+refresh is reached, pending the original cross-element assignment decision.
+
+With `useChantlerDatabase`, missing/empty `.ff` data fall back to the same embedded
+asset as the web app. Nonempty local data take precedence even outside their range;
+magnetic/full-tensor companions remain attached. Exact-case, first-match symbol
+lookup preserves the original duplicate Ti entry and unavailable Tl name. The
+native build embeds `app/src/data/chantler.json`, including its copyright and
+permission metadata, and derives symbols from `legacyAtomicMasses.ts`. No private
+source or network fetch is needed. D-37 permits redistribution; D-38 uses only the
+277 stored uranium rows. The data retain the NIST/U.S. Secretary of Commerce
+copyright notice in the source asset and embedded binary. Manual mode ignores all
+files and the database fallback.
 
 The terminal preserves the original command's coordinate convention:
 
@@ -130,7 +148,7 @@ does not use this energy broadening setting. Broadening together with Fourier
 remains explicitly unavailable, as in the web implementation, pending review of
 the original mismatched array lengths.
 
-Element tables/preparation, Lua,
+Lua,
 legacy `.all` import, energy scans, `-fit` fitted-project output, filesystem
 transactions and `-convert` remain to be integrated. `-map` follows the separately
 agreed map implementation. Unsupported commands/settings report an error; they
@@ -160,7 +178,9 @@ combined with energy broadening, serial partial table refresh, global/local
 segmentation across all solvers/modes, segmented Matrix energy broadening and
 imported tensor composition, mixed Gaussian/spline sum/product profiles with
 layer binding and energy broadening, manual element density/optical conversion,
-stored/missing scattering tensors, element grid/reduction and energy broadening, averaging,
+stored/missing scattering tensors, element grid/reduction and energy broadening,
+automatic scalar/magnetic refresh, serial range skips, .F rejection, built-in
+Chantler fallback, local precedence, exact-case Ti/Tl lookup and uranium, averaging,
 shifted/unsorted/repeated coordinates and eight
 multilayer patterns across all solvers and both output modes. Dedicated native
 parser tests cover limits, empty groups, nested patterns, ignored characters,

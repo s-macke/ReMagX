@@ -16,6 +16,7 @@ const wasm = resolve(process.argv[3] ?? resolve(root, 'build/wasm'))
 const { default: createCore } = await import(pathToFileURL(resolve(wasm, 'remagx-core.mjs')))
 const instance = await createCore()
 const engine = {
+  scatteringTensor: request => adapter.calculateScatteringTensor(instance, request),
   elementPreparation: {
     errorSamples: Array.from(adapter.generateErrorFunctionLookup(instance)),
     density: request => adapter.calculateElementDensity(instance, request),
@@ -39,6 +40,7 @@ const server = await createServer({ root: resolve(root, 'app'), configFile: fals
   server: { middlewareMode: true }, appType: 'custom' })
 const directory = await mkdtemp(resolve(tmpdir(), 'remagx-native-terminal-'))
 try {
+  const { resolveChantlerTables } = await server.ssrLoadModule('/src/model/chantlerTables.ts')
   const { storedOpticalState } = await server.ssrLoadModule('/src/model/storedOpticalState.ts')
   const { createDefaultProject } = await server.ssrLoadModule('/src/model/defaults.ts')
   const { postprocessDatasetColumns } = await server.ssrLoadModule('/src/model/datasetPostprocessing.ts')
@@ -70,8 +72,9 @@ try {
     await writeFile(filename, text)
     const actual = run([dichroic ? '-dicrefl' : '-refl', filename])
     assert.equal(actual.status, 0, actual.stderr || String(actual.error))
-    if (project.calculation.automaticOpticalConstants) assert.match(actual.stderr, /saved optical state retained/)
-    else assert.equal(actual.stderr, '')
+    if (project.calculation.automaticOpticalConstants) {
+      if (project.sample.mode === 'compound') assert.match(actual.stderr, /saved optical state retained/)
+    } else assert.equal(actual.stderr, '')
     if (!dichroic && project.experiment.resolution.energyFwhm > 1e-6) {
       const warnings = actual.stderr.trim().split('\n')
       assert.equal(new Set(warnings).size, warnings.length, 'Repeated sampling warnings should be deduplicated')
@@ -94,7 +97,7 @@ try {
       reference.calculation.postProcessing = { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false }
       reference.calculation.averaging = 0
     }
-    const raw = calculateRealCurve(reference, tables, engine, 'qz', dichroic ? 'dichroic' : 'monochromatic',
+    const raw = calculateRealCurve(reference, resolveChantlerTables(reference, tables), engine, 'qz', dichroic ? 'dichroic' : 'monochromatic',
       project.sample.mode === 'element' ? storedOpticalState(reference) : undefined)
     const postProject = structuredClone(project)
     const selected = project.experiment.qzScan.useDatasetPoints ? project.datasets[project.activeDatasetIndex] : undefined
@@ -383,8 +386,76 @@ try {
       await compare(project, dichroic)
     }
   }
+  for (const variant of ['scalar', 'magnetic', 'missing', 'outside', 'empty', 'malformed', 'partial-range']) {
+    const name = `native-element-${variant}`
+    const tables = []
+    if (variant !== 'missing') {
+      const content = variant === 'empty' ? '# empty\n' : variant === 'outside' ? '100 20 1\n200 24 2\n'
+        : variant === 'malformed' ? 'bad row\n7900 20 1 ignored\n8100 24 2\n'
+          : variant === 'partial-range' ? '7990 20 1\n8010 24 2\n' : '8100 24 2\n7900 20 1\n'
+      await writeFile(resolve(directory, `${name}.ff`), content)
+      tables.push(parseOpticalTable(content, `${name}.ff`))
+    }
+    if (variant === 'magnetic' || variant === 'partial-range') {
+      const content = '7900 .3 .1\n8100 .5 .2\n'
+      await writeFile(resolve(directory, `${name}.ffm`), content)
+      tables.push(parseOpticalTable(content, `${name}.ffm`))
+    }
+    for (const algorithm of ['parratt', 'matrix', 'zak']) for (const dichroic of [false, true]) {
+      const project = structuredClone(elementBase)
+      project.calculation.algorithm = algorithm
+      project.calculation.automaticOpticalConstants = true
+      project.sample.elementProfiles[0].element = name
+      // Missing second profile retains its supplied tensor and factors.
+      project.sample.elementProfiles[1].element = 'native-unavailable-element'
+      if (variant === 'partial-range') project.experiment.resolution.energyFwhm = 15
+      await compare(project, dichroic, tables)
+    }
+  }
+  for (const algorithm of ['parratt', 'matrix', 'zak']) for (const symbol of ['Fe', 'U', 'Ti', 'Tl', 'fe']) {
+    const project = structuredClone(elementBase)
+    project.calculation.algorithm = algorithm
+    project.calculation.automaticOpticalConstants = true
+    project.calculation.useChantlerDatabase = true
+    project.sample.elementProfiles[0].element = symbol
+    // Positive measured qz isolates table preparation from known zero-incidence singularities.
+    project.datasets = [{ ...structuredClone(dataset), qzShift: 0, columns: { qz: [0.01,0.03,0.06,0.1] } }]
+    project.activeDatasetIndex = 0
+    project.experiment.qzScan.useDatasetPoints = true
+    await compare(project, true)
+    if (symbol === 'Fe') {
+      project.experiment.resolution.energyFwhm = 15
+      await compare(project, false)
+      for (const content of ['# empty\n', '100 20 1\n200 22 2\n', '7900 20 1\n8100 24 2\n']) {
+        await writeFile(resolve(directory, 'Fe.ff'), content)
+        const magneticContent = '7900 .3 .1\n8100 .5 .2\n'
+        await writeFile(resolve(directory, 'Fe.ffm'), magneticContent)
+        await compare(project, false, [parseOpticalTable(content, 'Fe.ff'), parseOpticalTable(magneticContent, 'Fe.ffm')])
+      }
+      await rm(resolve(directory, 'Fe.ff')); await rm(resolve(directory, 'Fe.ffm'))
+      project.calculation.useChantlerDatabase = false
+      await compare(project, false)
+    }
+  }
+  const fullName = 'native-element-full'
+  const scalarText = '7900 20 1\n8100 24 2\n'
+  const fullText = `8000 ${Array(18).fill(0.1).join(' ')}\n`
+  await writeFile(resolve(directory, `${fullName}.ff`), scalarText)
+  await writeFile(resolve(directory, `${fullName}.F`), fullText)
+  const full = structuredClone(elementBase)
+  full.calculation.automaticOpticalConstants = true
+  full.sample.elementProfiles[0].element = fullName
+  await writeFile(filename, JSON.stringify(full))
+  const fullFailure = run(['-refl', filename])
+  assert.equal(fullFailure.status, 1)
+  assert.equal(fullFailure.stdout, '')
+  assert.match(fullFailure.stderr, /element-assignment decision/)
+  full.experiment.energy = 8200 // skipped primary must not evaluate the .F assignment
+  await compare(full, false, [parseOpticalTable(scalarText, `${fullName}.ff`), parseOpticalTable(fullText, `${fullName}.F`)])
+  full.calculation.automaticOpticalConstants = false
+  full.experiment.energy = 8000
+  await compare(full, false) // manual calculation never opens either table
   for (const change of [
-    project => { project.calculation.automaticOpticalConstants = true },
     project => { project.calculation.segmentation.minThickness = 0 },
     project => { project.calculation.segmentation.minThickness = 1e-9 },
     project => { project.sample.elementProfiles = [] },
