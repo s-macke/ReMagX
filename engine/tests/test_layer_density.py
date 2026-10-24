@@ -42,6 +42,20 @@ def cases():
 
 
 class LayerDensityTest(unittest.TestCase):
+    def test_production_lookup_is_full_double_standard_erf(self):
+        generate = library.remagx_error_function_lookup
+        generate.argtypes = [Pointer, ctypes.c_size_t]
+        output = (ctypes.c_double * 1001)(*([-123.] * 1001))
+        self.assertEqual(generate(None, 1001), 1)
+        self.assertEqual(generate(output, 1000), 1)
+        self.assertTrue(all(value == -123. for value in output))
+        self.assertEqual(generate(output, 1001), 0)
+        for index, value in enumerate(output):
+            self.assertAlmostEqual(value, math.erf(-5. + index * 10. / 999.), delta=2e-15)
+        self.assertTrue(all(left <= right for left, right in zip(output, output[1:])))
+        self.assertLess(output[0], -.999999999)
+        self.assertGreater(output[-1], .999999999)
+
     def test_sharp_interfaces_outer_limits_and_supplied_table(self):
         # Analytic synthetic samples, not a replacement for legacy initialization.
         samples = [(-5.0 + index * 10.0 / 999.0) / 5.0 for index in range(1001)]

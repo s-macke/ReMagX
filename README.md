@@ -8,8 +8,8 @@ WebAssembly compiled from the C++ core, in double precision.
 
 > **Engine preview:** calculations use the real C++ core compiled to WebAssembly,
 > entirely in the browser. Full original-project validation is still in progress.
-> Adaptive segmentation, generated depth profiles and element calculations that need
-> the production error-function lookup remain unavailable pending its configuration.
+> Adaptive segmentation, depth profiles and element calculations use a full-double
+> standard error-function lookup; legacy single-precision rounding is not reproduced.
 > Unsupported operations report errors; there is no mock fallback.
 
 Project website of the original ReMagX: https://remagx.org/

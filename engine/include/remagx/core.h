@@ -5,6 +5,10 @@
 extern "C" {
 #endif
 
+// Generate 1001 double-precision standard-erf samples on the legacy lookup grid.
+// count must be 1001. Invalid arguments leave output unchanged.
+int remagx_error_function_lookup(double* output, size_t count);
+
 typedef struct RemagxLayer {
     double thickness;
     double roughness;

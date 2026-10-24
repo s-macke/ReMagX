@@ -1,3 +1,12 @@
+// Worker-owned production lookup. All numerical evaluation stays in the core.
+export function generateErrorFunctionLookup(module) {
+  return withBuffers(module, allocate => {
+    const pointer = allocate(1001)
+    checkStatus(module._remagx_error_function_lookup(pointer, 1001), 'Error-function lookup generation')
+    return module.HEAPF64.slice(pointer / 8, pointer / 8 + 1001)
+  })
+}
+
 // Prepared-stack adapter; higher-level project preparation belongs in the worker.
 export function calculateParratt(module, { layers, points, beam, tensor = 0, analyzer = 0 }) {
   if (!validRows(layers, 8) || layers.length < 2 || !validRows(points, 3) ||

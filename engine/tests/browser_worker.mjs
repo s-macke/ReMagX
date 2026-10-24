@@ -15,7 +15,7 @@ import { checkFitErrors } from './fit_error_checks.mjs'
 import { minimizeSimplex, minimizeAnnealing, minimizeAdaptiveSimplex } from './optimizer.mjs'
 import { checkOptimizer } from './optimizer_checks.mjs'
 import createCore from './remagx-core.mjs'
-import { calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, createTableLookupSession, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, calculateSplineProfile, generateGaussianSplineKnots, applyGaussianProfiles, applyMagneticProfiles, calculateLayerDensity, calculateElementDensity } from './parratt.mjs'
+import { generateErrorFunctionLookup, calculateFourier, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateParratt, calculateParrattQz, lookupTable, createTableLookupSession, convolveFastQz, convolveEnergy, calculateParrattEnergyScan, calculateDielectricTensor, calculateScatteringTensor, calculateElementOptics, calculateVisnovsky, calculateVisnovskyQz, calculateVisnovskyEnergyScan, calculateZak, calculateZakQz, calculateZakEnergyScan, calculateGaussianProfile, calculateSplineProfile, generateGaussianSplineKnots, applyGaussianProfiles, applyMagneticProfiles, calculateLayerDensity, calculateElementDensity } from './parratt.mjs'
 
 const core = await createCore()
 self.onmessage = ({ data }) => {
@@ -39,7 +39,7 @@ self.onmessage = ({ data }) => {
       checkTableSessions(core, createTableLookupSession, lookupTable, data.tables)
       checkTableSessionMemory(core, createTableLookupSession, () => checkSegmentedOptics(core, calculateSegmentedOptics, calculateAdaptiveSegments, createSegmentedOpticalSampler))
       checkAdaptiveSegments(core, calculateAdaptiveSegments)
-      checkLayerDensity(core, calculateLayerDensity)
+      checkLayerDensity(core, calculateLayerDensity, generateErrorFunctionLookup)
       if (data.scans) checkVariableEnergy(core, calculateParrattEnergyScan, data.scans)
       if (data.zak) checkVariableEnergy(core, calculateZakEnergyScan, data.zak)
       if (data.matrices) checkVariableEnergy(core, calculateVisnovskyEnergyScan, data.matrices)

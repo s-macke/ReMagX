@@ -3,12 +3,12 @@ import { createRealRequestHandler, type RealEngine } from './realEngine'
 import type { WorkerRequest } from './protocol'
 
 // Worker startup shared by the default entry and explicit-sample reference harnesses.
-// No production lookup generator is selected by this function.
-export function startRealWorker(errorSamples?: readonly number[], assetVersion?: string) {
-  if (errorSamples !== undefined && (errorSamples.length !== 1001 || !Array.from(errorSamples).every(Number.isFinite))) {
+// Production uses the D-41 full-double standard lookup; references may inject samples.
+export function startRealWorker(errorSamples?: readonly number[] | 'standard', assetVersion?: string) {
+  if (errorSamples !== undefined && errorSamples !== 'standard' && (errorSamples.length !== 1001 || !Array.from(errorSamples).every(Number.isFinite))) {
     throw new Error('Worker segmentation requires 1001 finite lookup samples.')
   }
-  const samples = errorSamples === undefined ? undefined : Array.from(errorSamples)
+  const suppliedSamples = Array.isArray(errorSamples) ? Array.from(errorSamples) : undefined
   let luaRuntime: ReturnType<typeof createBrowserLuaRuntime> | undefined
   const handle = createRealRequestHandler(response => self.postMessage(response), async () => {
     const assetUrl = (name: string) => {
@@ -24,6 +24,7 @@ export function startRealWorker(errorSamples?: readonly number[], assetVersion?:
       import(/* @vite-ignore */ coreUrl), import(/* @vite-ignore */ adapterUrl), import(/* @vite-ignore */ fitErrorUrl), import(/* @vite-ignore */ optimizerUrl),
     ])
     const instance = await core.default(assetVersion ? { locateFile: (name: string) => assetUrl(name) } : undefined)
+    const samples = errorSamples === 'standard' ? Array.from(adapter.generateErrorFunctionLookup(instance)) as number[] : suppliedSamples
     const segmentationAdapter = samples ? await import(/* @vite-ignore */ assetUrl('./segmentation.mjs')) : undefined
     const segmentation: RealEngine['segmentation'] = samples ? {
       errorSamples: samples,

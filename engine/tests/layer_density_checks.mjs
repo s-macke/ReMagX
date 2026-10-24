@@ -1,5 +1,5 @@
 // Shared actual-module checks; the table here is synthetic test input only.
-export function checkLayerDensity(module, calculate) {
+export function checkLayerDensity(module, calculate, generateLookup) {
   const ensure = (condition, message) => { if (!condition) throw new Error(message) }
   const failure = (operation, predicate) => {
     try { operation() } catch (error) {
@@ -8,6 +8,14 @@ export function checkLayerDensity(module, calculate) {
     }
     throw new Error('Expected density failure')
   }
+  const production = generateLookup(module)
+  ensure(production.length === 1001, 'Production lookup sample count')
+  ensure(production.every((value, index) => Number.isFinite(value) && Math.abs(value) <= 1 &&
+    (index === 0 || value >= production[index - 1])), 'Production lookup must be finite, bounded and monotone')
+  const expected = [[0, -0.9999999999984626], [499, -0.005647496222082211], [500, 0.005647496222082211], [999, 0.9999999999984626], [1000, 0.9999999999986118]]
+  for (const [index, value] of expected) ensure(Math.abs(production[index] - value) <= 2e-15, 'Production lookup lost double precision')
+  production[0] = 42
+  ensure(generateLookup(module)[0] !== 42, 'Production lookup output aliases another request')
   const request = { boundaries: [0, 10, 20], roughness: [10, 10, 10], layerIndex: 1,
     positions: [5, 7], errorSamples: Array(1001).fill(0) }
   const same = result => ensure(JSON.stringify(Array.from(result)) === '[0.25,0.25]', 'Density result mismatch')

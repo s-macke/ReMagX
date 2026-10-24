@@ -1,12 +1,27 @@
 #include "remagx/core.h"
 #include "error_function_lookup.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <new>
 #include <stdexcept>
 #include <vector>
 
+
+// D-41: standard erf in double precision, without legacy float quantization.
+// Retain the 999-interval grid and the additional interpolation guard sample.
+extern "C" int remagx_error_function_lookup(double* output, size_t count) {
+    if (!output || count != 1001) return REMAGX_INVALID_ARGUMENT;
+    std::array<double, 1001> samples;
+    for (size_t index = 0; index < samples.size(); ++index) {
+        const double position = -5.0 + static_cast<double>(index) * 10.0 / 999.0;
+        samples[index] = std::erf(position);
+        if (!std::isfinite(samples[index])) return REMAGX_NUMERICAL_ERROR;
+    }
+    std::copy(samples.begin(), samples.end(), output);
+    return 0;
+}
 
 extern "C" int remagx_layer_density(const double* boundaries, const double* roughness,
     size_t layer_count, size_t layer_index, const double* positions, size_t count,

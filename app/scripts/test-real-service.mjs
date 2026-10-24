@@ -139,13 +139,13 @@ try {
   const conversionButton = page.getByRole('button', { name: 'To layer list', exact: true })
   const conversionDialog = page.getByRole('dialog', { name: 'To layer list', exact: true })
   const applyConversion = conversionDialog.getByRole('button', { name: 'Apply layers', exact: true })
-  // The production default is now real. Without the pending lookup it must
-  // report unavailability instead of disabling the control as the mock did.
+  // The production worker generates its full-double standard lookup (D-41).
   assert.equal(await conversionButton.isEnabled(), true)
   await conversionButton.click()
-  await conversionDialog.getByRole('alert').waitFor()
-  assert.match(await conversionDialog.getByRole('alert').textContent(), /explicit error-function lookup/)
-  assert.equal(await applyConversion.isDisabled(), true)
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('dialog button')).some(button =>
+    button.textContent === 'Apply layers' && !button.disabled))
+  assert.match(await conversionDialog.textContent(), /Real conversion/)
+  assert.equal(await conversionDialog.getByRole('alert').count(), 0)
   await conversionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page.evaluate(() => { window.conversionUi.dispose(); window.conversionUi = window.mountConversion(window.conversionProject) })
   const beforeConversion = await page.evaluate(() => window.conversionUi.snapshot())
@@ -233,7 +233,7 @@ try {
     button.textContent === 'Apply layers' && !button.disabled))
   await conversionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page.evaluate(() => window.conversionUi.dispose())
-  console.log(`Element conversion UI: production lookup guard, actual-WASM preview/application, preserved element data/targets, undo/redo, stale tables, single-layer rejection and blocked-script Stop/recovery passed (${conversionStopMilliseconds.toFixed(1)} ms).`)
+  console.log(`Element conversion UI: production full-double lookup, actual-WASM preview/application, preserved element data/targets, undo/redo, stale tables, single-layer rejection and blocked-script Stop/recovery passed (${conversionStopMilliseconds.toFixed(1)} ms).`)
 
   const segmentedResults = await page.evaluate(async () => {
     const { calculateView, createSegmentedComputeService, createRealComputeService, createDefaultProject, createLayer } = window.realServiceHarness

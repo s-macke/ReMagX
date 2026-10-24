@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 
-test('production profiles report missing lookup configuration without changing the project', async ({ page }) => {
+test('production optical and magnetic profiles render without changing the project', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('tab', { name: 'Sample', exact: true }).click()
   const section = page.getByRole('button', { name: 'Adaptive Layer Segmentation', exact: true })
@@ -8,14 +8,16 @@ test('production profiles report missing lookup configuration without changing t
   const illustrate = page.getByRole('checkbox', { name: 'Illustrate Segmentation', exact: true })
   await expect(illustrate).toBeChecked()
   await page.getByRole('button', { name: 'Show Optical Profile', exact: true }).click()
-  await expect(page.locator('.status-bar__error')).toContainText('error-function lookup')
+  await expect(page.getByLabel('Plot axis: z', { exact: true })).toBeVisible()
+  await expect(page.locator('.status-bar__error')).toHaveCount(0)
   await illustrate.uncheck()
   await page.getByRole('button', { name: 'Show Magneto-optical Profile', exact: true }).click()
-  await expect(page.locator('.status-bar__error')).toContainText('error-function lookup')
+  await expect(page.getByLabel('Plot axis: z', { exact: true })).toBeVisible()
+  await expect(page.locator('.status-bar__error')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true })).toBeDisabled()
 })
 
-test('production layer conversion rejects missing lookup without applying mock layers', async ({ page }) => {
+test('production layer conversion previews, applies and supports undo', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('tab', { name: 'Sample', exact: true }).click()
   const section = page.getByRole('button', { name: 'Adaptive Layer Segmentation', exact: true })
@@ -23,10 +25,16 @@ test('production layer conversion rejects missing lookup without applying mock l
   const count = await page.locator('.layer-table tbody tr').count()
   await page.getByRole('button', { name: 'To layer list', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'To layer list', exact: true })
-  await expect(dialog.getByRole('alert')).toContainText('error-function lookup')
-  await expect(dialog.getByRole('button', { name: 'Apply layers', exact: true })).toBeDisabled()
+  await expect(dialog).toContainText('Real conversion')
+  await expect(dialog.getByRole('button', { name: 'Apply layers', exact: true })).toBeEnabled()
   await expect(dialog).not.toContainText('Mock conversion')
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(page.locator('.layer-table tbody tr')).toHaveCount(count)
   await expect(page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: 'To layer list', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Apply layers', exact: true }).click()
+  await expect(dialog).not.toBeVisible()
+  await expect(page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true }).click()
+  await expect(page.locator('.layer-table tbody tr')).toHaveCount(count)
 })
