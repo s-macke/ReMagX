@@ -445,11 +445,7 @@ try {
   const full = structuredClone(elementBase)
   full.calculation.automaticOpticalConstants = true
   full.sample.elementProfiles[0].element = fullName
-  await writeFile(filename, JSON.stringify(full))
-  const fullFailure = run(['-refl', filename])
-  assert.equal(fullFailure.status, 1)
-  assert.equal(fullFailure.stdout, '')
-  assert.match(fullFailure.stderr, /element-assignment decision/)
+  await compare(full, false, [parseOpticalTable(scalarText, `${fullName}.ff`), parseOpticalTable(fullText, `${fullName}.F`)])
   full.experiment.energy = 8200 // skipped primary must not evaluate the .F assignment
   await compare(full, false, [parseOpticalTable(scalarText, `${fullName}.ff`), parseOpticalTable(fullText, `${fullName}.F`)])
   full.calculation.automaticOpticalConstants = false

@@ -89,13 +89,20 @@ bool prepare_project_elements(const ProjectDocument& project, double energy,
                 warnings.push_back(label + ": energy outside .ff table; saved optical state retained.");
             } else {
                 const size_t full = find_table(name, "f");
-                require(full == tables.size() || tables[full].energies.empty(),
-                    "Full .F scattering tensor refresh is unavailable pending the legacy element-assignment decision.");
                 const auto scalar = read(primary), magnetic = read(find_table(name, "ffm"));
                 element.factors = {scalar[0], scalar[1], magnetic[0], magnetic[1]};
-                checked(remagx_scattering_tensor(element.factors.data(), gamma, phi,
-                    project.string("/calculation/tensorContribution") == "tetragonal" ? REMAGX_TETRAGONAL : REMAGX_ISOTROPIC,
-                    project.string("/calculation/magnetization/mode") == "none" ? 0 : 1, tensors.data() + index * 18));
+                if (full != tables.size() && !tables[full].energies.empty()) {
+                    const auto& table = tables[full];
+                    require(table.width == 18 && table.values.size() == table.energies.size() * 18,
+                        "Invalid element tensor table shape.");
+                    // D-45: all components belong to this element, never to the row index.
+                    checked(remagx_table_lookup(table.energies.data(), table.values.data(), table.energies.size(), 18,
+                        &lookup_energy, 1, &cursors[full], tensors.data() + index * 18));
+                } else {
+                    checked(remagx_scattering_tensor(element.factors.data(), gamma, phi,
+                        project.string("/calculation/tensorContribution") == "tetragonal" ? REMAGX_TETRAGONAL : REMAGX_ISOTROPIC,
+                        project.string("/calculation/magnetization/mode") == "none" ? 0 : 1, tensors.data() + index * 18));
+                }
             }
         }
         elements.push_back(std::move(element));

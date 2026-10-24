@@ -62,6 +62,36 @@ try {
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
   await page.waitForFunction(() => !!window.realServiceHarness)
+  if (process.argv.includes('--element-tensors-only')) {
+    const cases = await page.evaluate(async () => {
+      const { createDefaultProject, createRealComputeService, applyDatabaseValues } = window.realServiceHarness
+      const service = createRealComputeService()
+      try {
+        const results = []
+        for (const count of [1, 2, 4]) {
+          const project = createDefaultProject()
+          project.sample.mode = 'element'; project.experiment.energy = 150
+          project.sample.elementProfiles = Array.from({ length: count }, (_, index) => ({
+            element: `Element${index}`, f1: 0, f2: 0, f1Mag: 0, f2Mag: 0, slabs: [] }))
+          const before = JSON.stringify(project)
+          const tensors = project.sample.elementProfiles.map((_, index) => Array.from({ length: 18 }, (_, component) => 100 * index + component + .125))
+          const tables = project.sample.elementProfiles.flatMap((profile, index) => [
+            { name: profile.element, kind: 'ff', energy: [100, 200], columns: [[26, 26], [2, 2]], warnings: [] },
+            { name: profile.element, kind: 'f', energy: [100, 200], columns: tensors[index].map(value => [value, value]), warnings: [] }])
+          const update = await service.databaseValues(project, tables)
+          const applied = applyDatabaseValues(project, update)
+          results.push({ engine: update.engine, actual: applied.sample.elementProfiles.map(profile => profile.scatteringTensor),
+            expected: tensors, unchanged: before === JSON.stringify(project) })
+        }
+        return results
+      } finally { service.dispose() }
+    })
+    for (const result of cases) {
+      assert.equal(result.engine, 'real'); assert.equal(result.unchanged, true)
+      assert.deepEqual(result.actual, result.expected)
+    }
+    console.log('Chromium .F worker refresh/application: one, two and four elements passed.')
+  } else {
   await checkChantlerService(page, JSON.parse(await readFile(resolve(root, 'app/src/data/chantler.json'), 'utf8')))
   const broadenedRecoveries = await page.evaluate(async reference => {
     const { importAllFile, precisionFixture, createRealComputeService } = window.realServiceHarness
@@ -1369,8 +1399,7 @@ try {
         { name: 'Fe', kind: 'ff', energy: [100, 200], columns: [[26, 26], [2, 2]], warnings: [] },
         { name: 'Fe', kind: 'f', energy: [100, 200], columns: Array.from({ length: 18 }, () => [1, 1]), warnings: [] },
       ]
-      try { await service.databaseValues(fullTensorProject, fullTensorTables); output.fullTensorError = '' }
-      catch (error) { output.fullTensorError = error.message }
+      output.fullTensorResult = await service.databaseValues(fullTensorProject, fullTensorTables)
       output.fullTensorUnchanged = fullTensorBefore === JSON.stringify(fullTensorProject)
       const spectrumProject = createDefaultProject()
       spectrumProject.sample.layers = [createLayer({ opticalTable: 'sample', deltaMag: 9, betaMag: 8 })]
@@ -1714,7 +1743,8 @@ try {
       assert.ok(Math.abs(results.realElementSpectrum[field][index] - expected) <= 1e-15 + 1e-10 * Math.abs(expected))
     }
   }
-  assert.match(results.fullTensorError, /element-assignment decision/)
+  assert.equal(results.fullTensorResult.engine, 'real')
+  assert.deepEqual(results.fullTensorResult.updates[0].scatteringTensor, Array(18).fill(1))
   assert.ok(results.fullTensorUnchanged)
   assert.equal(results.databaseUpdates.length, 8)
   const diagonal = (real, imaginary) => Array.from({ length: 18 }, (_, index) => [0, 8, 16].includes(index) ? real : [1, 9, 17].includes(index) ? imaginary : 0)
@@ -1982,6 +2012,7 @@ try {
   assert.ok(results.recoveryMilliseconds < 1000, `Stop and restart took ${results.recoveryMilliseconds} ms`)
   assert.equal(results.originalUnchanged, true)
   console.log(`Real ComputeService in Chromium: Simplex/annealing qz/energy/mixed/Lua recovery, seeded replay, native thickness recovery for qz/energy reflectivity/asymmetry/dichroic and weighted mixed fits with automatic tables and blocked-fit Stop, weighted multi-dataset Chi² for Parratt/matrix/Zak, prepared fit-dataset settings/coordinates, imported precision 0/1/2/3 bit identity, zero contrast, total reflection, asymmetry, postprocessing, angular resolution, automatic optical tables, monochromatic/dichroic energy scans, both asymmetries, matrix qz/energy/imported tensors/multilayers/automatic tables/postprocessing, Zak qz/energy/automatic tables and tensor independence, unsupported operation and Stop/restart passed (${results.recoveryMilliseconds.toFixed(1)} ms).`)
+  }
 } finally {
   await browser?.close()
   await new Promise(resolve => server.close(resolve))

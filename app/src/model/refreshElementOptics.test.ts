@@ -68,15 +68,42 @@ it('rejects malformed interpolation/tensors and invalid preparation without muta
 })
 
 
-it('rejects full scattering overrides explicitly until legacy cross-element assignment is resolved', () => {
+it.each([1, 2, 4])('assigns all tensor components independently for %i elements', count => {
+  const project = fixture()
+  project.sample.elementProfiles = project.sample.elementProfiles.slice(0, count)
+  project.sample.elementProfiles.forEach((profile, index) => { profile.element = `Element${index}` })
+  const before = structuredClone(project)
+  const values = project.sample.elementProfiles.map((_, index) => Float64Array.from({ length: 18 }, (_, component) => index * 100 + component + .125))
+  const tables = project.sample.elementProfiles.flatMap(profile => [table(profile.element, 'ff'), table(profile.element, 'f')])
+  const lookup: RealTableLookup = source => ({ values: source.kind === 'f'
+    ? values[Number(source.name.slice(7))] : new Float64Array([26, 2]), cursor: 1 })
+  const construct = vi.fn(() => new Float64Array(18))
+  const result = refreshElementOptics(project, tables, 150, lookup, construct)
+  expect(result.scatteringTensors).toEqual(values)
+  expect(result.updated).toEqual(Array(count).fill(true))
+  expect(construct).not.toHaveBeenCalled()
+  result.scatteringTensors[0][0] = -999
+  expect(values[0][0]).toBe(.125)
+  expect(project).toEqual(before)
+})
+
+it('retains skipped neighbors and rejects malformed full tensors without changing inputs', () => {
   const project = fixture(), before = structuredClone(project)
   const tables = [table('Fe', 'ff'), table('Fe', 'f')]
-  const lookup = vi.fn(() => ({ values: new Float64Array([26, 2]), cursor: 0 }))
+  const previous = project.sample.elementProfiles.map((_, index) => new Float64Array(18).fill(index + 10))
+  const lookup = vi.fn<RealTableLookup>(source => ({ values: source.kind === 'f' ? new Float64Array(18).fill(7) : new Float64Array([26, 2]), cursor: 2 }))
   const construct = vi.fn(() => new Float64Array(18))
-  expect(() => refreshElementOptics(project, tables, 150, lookup, construct)).toThrow('element-assignment decision')
-  expect(lookup).not.toHaveBeenCalled()
-  expect(construct).not.toHaveBeenCalled()
-  expect(project).toEqual(before)
-  // Missing/out-of-range primary data still retains stored state without reading .F.
+  const result = refreshElementOptics(project, tables, 150, lookup, construct, new Map(), previous)
+  expect(result.updated).toEqual([true, true, false, false])
+  expect(result.scatteringTensors[2]).toEqual(previous[2])
+  expect(result.scatteringTensors[3]).toEqual(previous[3])
+  for (const malformed of [new Float64Array(17), new Float64Array(18).fill(NaN)]) {
+    expect(() => refreshElementOptics(project, tables, 150, source => ({
+      values: source.kind === 'f' ? malformed : new Float64Array([26, 2]), cursor: 0 }), construct))
+      .toThrow('Invalid element factors')
+  }
+  lookup.mockClear()
   expect(refreshElementOptics(project, tables, 250, lookup, construct).updated).toEqual([false, false, false, false])
+  expect(lookup).not.toHaveBeenCalled()
+  expect(project).toEqual(before)
 })

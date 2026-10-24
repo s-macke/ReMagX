@@ -3,6 +3,7 @@
 #include "json.hpp"
 #include "remagx/core.h"
 #include "remagx/project_fit.hpp"
+#include "../src/project_elements.hpp"
 #include <cmath>
 #include <iostream>
 using Json = nlohmann::json;
@@ -32,6 +33,21 @@ int main() {
                 std::vector<std::pair<std::string, double>> edits;
                 for (const auto& edit : input.at("edits")) edits.emplace_back(edit.at(0).get<std::string>(), edit.at(1).get<double>());
                 current = current.with_calculation_numbers(edits);
+            }
+            if (input.value("refreshElements", false)) {
+                std::vector<remagx::OpticalTable> tables;
+                for (const auto& table : input.at("tables"))
+                    tables.push_back(remagx::parse_optical_table(table.at("text").get<std::string>(), table.at("name").get<std::string>(), table.at("kind").get<std::string>()));
+                remagx::ElementOpticalState state;
+                std::vector<RemagxLayer> layers;
+                std::vector<RemagxMatrixLayer> matrix;
+                std::vector<std::string> warnings;
+                const bool complete = remagx::prepare_project_elements(current,
+                    current.number("/experiment/energy"), layers, matrix, tables, warnings, &state, false, true);
+                if (original.serialize() != before) throw std::runtime_error("Refresh changed its input");
+                std::cout << Json{{"ok", true}, {"complete", complete}, {"factors", state.factors},
+                    {"tensors", state.tensors}, {"cursors", state.cursors}}.dump() << '\n';
+                continue;
             }
             if (input.contains("runFit")) {
                 std::vector<remagx::OpticalTable> tables;

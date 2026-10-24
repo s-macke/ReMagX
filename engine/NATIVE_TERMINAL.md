@@ -128,8 +128,9 @@ working directory. Missing/empty/out-of-range primary data retain existing facto
 and scattering tensors with a warning. Successful refresh clears absent magnetic
 factors and constructs current scattering tensors with the global direction,
 magnetization and tensor settings. Factors, tensors and interpolation cursors carry
-between energy samples. A nonempty `.F` companion rejects only when its primary
-refresh is reached, pending the original cross-element assignment decision.
+between energy samples. A nonempty `.F` companion replaces all nine complex components of the selected
+element tensor (D-45). Other elements remain independent; out-of-range `.F`
+lookup supplies zeros, while a skipped primary retains the saved tensor.
 
 With `useChantlerDatabase`, missing/empty `.ff` data fall back to the same embedded
 asset as the web app. Nonempty local data take precedence even outside their range;
@@ -293,8 +294,8 @@ Current f1/f2/magnetic factors, slab edits, stored/refreshed scattering tensors 
 script energy feed the prepared conversion without a second table refresh.
 The inactive compound film retains its stored tensor state for Lua access. Tests
 cover manual/automatic factors, element.setf, shared f1 arrays, density/thickness
-edits and FillTensors across all solvers and both beam modes. The unresolved .F
-assignment decision still applies; no tensor-refresh correction is introduced.
+edits and FillTensors across all solvers and both beam modes. D-45 corrects .F refresh to assign the entire tensor to the selected element.
+Lua element.setf still copies only scalar factors, preserving its separate semantics.
 
 The 19-point monochromatic energy convolution now invokes a fresh temporary Lua
 session per sample while retaining project edits, optical tensors, table cursors,

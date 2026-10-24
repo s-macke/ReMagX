@@ -3,8 +3,7 @@ import type { Project } from './project'
 import type { RealTableLookup } from './refreshOpticalConstants'
 import { copyScatteringTensors, type ScatteringTensorCalculator } from './scatteringTensors'
 
-// Filldb element branch for .ff/.ffm tables. Imported .F overrides require a
-// decision about the original cross-element row assignment before evaluation.
+// Filldb element branch; D-45 assigns the complete .F tensor to its selected element.
 // Caller supplies the stored calculation energy; cursors are calculation-owned.
 export function refreshElementOptics(project: Project, tables: readonly OpticalTable[], energy: number,
   lookup: RealTableLookup, construct: ScatteringTensorCalculator, cursors = new Map<OpticalTable, number>(),
@@ -18,9 +17,9 @@ export function refreshElementOptics(project: Project, tables: readonly OpticalT
     : project.sample.elementProfiles.map(() => new Float64Array(18))
   const updated = project.sample.elementProfiles.map(() => false)
   let rangeError: string | null = null
-  const read = (table: OpticalTable) => {
+  const read = (table: OpticalTable, width = 2) => {
     const result = lookup(table, [energy], cursors.get(table) ?? 0)
-    if (result.values.length !== 2 || !result.values.every(Number.isFinite)) throw new Error(`Invalid element factors in ${table.name}.${table.kind}.`)
+    if (result.values.length !== width || !result.values.every(Number.isFinite)) throw new Error(`Invalid element factors in ${table.name}.${table.kind}.`)
     cursors.set(table, result.cursor)
     return result.values
   }
@@ -34,14 +33,12 @@ export function refreshElementOptics(project: Project, tables: readonly OpticalT
       rangeError = `Element ${index}: ${energy} eV is outside ${profile.element}.ff.`
       return { ...profile }
     }
-    if (tables.some(table => table.name === profile.element && table.kind === 'f' && table.energy.length)) {
-      throw new Error('Full .F scattering tensor refresh is unavailable pending the legacy element-assignment decision.')
-    }
     const scalar = read(primary)
     const magneticTable = tables.find(table => table.name === profile.element && table.kind === 'ffm')
     const magnetic = magneticTable?.energy.length ? read(magneticTable) : [0, 0]
     const refreshed = { ...profile, f1: scalar[0], f2: scalar[1], f1Mag: magnetic[0], f2Mag: magnetic[1] }
-    const tensor = construct({ factors: [refreshed.f1, refreshed.f2, refreshed.f1Mag, refreshed.f2Mag],
+    const full = tables.find(table => table.name === profile.element && table.kind === 'f' && table.energy.length)
+    const tensor = full ? read(full, 18) : construct({ factors: [refreshed.f1, refreshed.f2, refreshed.f1Mag, refreshed.f2Mag],
       gamma: project.calculation.magnetization.direction.gamma, phi: project.calculation.magnetization.direction.phi,
       tensor: project.calculation.tensorContribution === 'tetragonal' ? 1 : 0,
       magnetic: project.calculation.magnetization.mode === 'none' ? 0 : 1 })
