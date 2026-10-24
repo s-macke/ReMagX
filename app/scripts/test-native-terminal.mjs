@@ -533,7 +533,7 @@ try {
     assert.ok(result.stderr.length > 0)
     assert.ok(!result.stderr.includes('private diagnostic'))
   }
-  for (const command of ['-fit', '-convert', '-map', '--unknown']) {
+  for (const command of ['-convert', '-map', '--unknown']) {
     const result = run([command, filename])
     assert.equal(result.status, 2); assert.equal(result.stdout, '')
   }

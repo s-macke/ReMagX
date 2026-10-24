@@ -33,6 +33,21 @@ int main() {
                 for (const auto& edit : input.at("edits")) edits.emplace_back(edit.at(0).get<std::string>(), edit.at(1).get<double>());
                 current = current.with_calculation_numbers(edits);
             }
+            if (input.contains("runFit")) {
+                std::vector<remagx::OpticalTable> tables;
+                if (input.contains("tables")) for (const auto& table : input.at("tables"))
+                    tables.push_back(remagx::parse_optical_table(table.at("text").get<std::string>(), table.at("name").get<std::string>(), table.at("kind").get<std::string>()));
+                remagx::ProjectFitOptions options;
+                options.simplex.max_evaluations = input.at("runFit").value("maxEvaluations", 10000);
+                options.simplex.max_iterations = input.at("runFit").value("maxIterations", 5000);
+                if (input.at("runFit").value("stop", false)) options.should_stop = [] { return true; };
+                const auto result = remagx::run_project_fit(current, tables, options);
+                if (original.serialize() != before) throw std::runtime_error("Fit changed its input");
+                std::cout << Json{{"ok", true}, {"project", Json::parse(result.best.project.serialize())},
+                    {"values", result.best.values}, {"reference", result.best.reference}, {"error", result.best.error},
+                    {"iterations", result.iterations}, {"evaluations", result.evaluations}, {"termination", result.termination}}.dump() << '\n';
+                continue;
+            }
             if (input.contains("candidates")) {
                 std::vector<remagx::OpticalTable> tables;
                 if (input.contains("tables")) for (const auto& table : input.at("tables"))

@@ -2,6 +2,8 @@
 #include "project_document.hpp"
 #include "optical_tables.hpp"
 #include <memory>
+#include <functional>
+#include "optimizer.h"
 #include <vector>
 namespace remagx {
 // Dimensionless initialization metadata for the maintained clean-room optimizer.
@@ -50,4 +52,16 @@ private:
     struct State;
     std::unique_ptr<State> state_;
 };
+
+struct ProjectFitOptions {
+    RemagxSimplexOptions simplex{10000, 5000, 1e-9, 1e-14};
+    std::function<bool()> should_stop;
+};
+struct ProjectFitResult {
+    ProjectObjectiveResult best;
+    size_t iterations, evaluations;
+    int termination;
+};
+ProjectFitResult run_project_fit(const ProjectDocument& project, const std::vector<OpticalTable>& tables,
+                                const ProjectFitOptions& options = {});
 }

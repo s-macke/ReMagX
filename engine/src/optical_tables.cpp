@@ -53,9 +53,9 @@ OpticalTable parse_optical_table(std::string_view text, std::string name, std::s
     return result;
 }
 
-std::vector<OpticalTable> load_project_tables(const ProjectDocument& project, std::vector<std::string>& warnings) {
+std::vector<OpticalTable> load_project_tables(const ProjectDocument& project, std::vector<std::string>& warnings, bool require_energy_tables) {
     std::vector<OpticalTable> result;
-    if (!project.boolean("/calculation/automaticOpticalConstants")) return result;
+    if (!require_energy_tables && !project.boolean("/calculation/automaticOpticalConstants")) return result;
     constexpr std::array<const char*, 3> element_kinds{"ff", "ffm", "F"};
     constexpr std::array<const char*, 3> compound_kinds{"db", "m", "e"};
     std::set<std::string> visited;

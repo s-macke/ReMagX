@@ -1,5 +1,7 @@
 #include "remagx/project_calculation.hpp"
 #include "remagx/legacy_import.hpp"
+#include "remagx/project_fit.hpp"
+#include <csignal>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -9,6 +11,11 @@
 #include <sstream>
 #include <string>
 
+namespace {
+volatile std::sig_atomic_t fit_stop_requested = 0;
+void stop_fit(int) { fit_stop_requested = 1; }
+}
+
 int main(int argc, char** argv) {
     std::cout.imbue(std::locale::classic());
     if (argc == 2 && std::string(argv[1]) == "-v") {
@@ -16,15 +23,17 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (argc == 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
-        std::cout << "Usage: remagx-terminal -refl|-dicrefl project.json|project.all\n"
+        std::cout << "Usage: remagx-terminal -refl|-dicrefl|-fit project.json|project.all\n"
                      "       remagx-terminal -v\n"
                      "Manual/automatic compound or element constants, Parratt/Matrix/Zak.\n"
                      "Output: qz R, or qz Rp Rm; 17 significant digits.\n"
                      "Generated qz grid: 0..qzMax inclusive (original terminal behavior).\n"
-                     "Lua, -fit and -convert integration remains pending.\n";
+                     "-fit writes the fitted JSON project to stdout; diagnostics go to stderr.\n"
+                     "Ctrl+C stops fitting and returns the best evaluated project, if available.\n"
+                     "Native Lua and -convert integration remain pending.\n";
         return 0;
     }
-    if (argc != 3 || (std::string(argv[1]) != "-refl" && std::string(argv[1]) != "-dicrefl")) {
+    if (argc != 3 || (std::string(argv[1]) != "-refl" && std::string(argv[1]) != "-dicrefl" && std::string(argv[1]) != "-fit")) {
         std::cerr << "Unsupported invocation; use --help for currently integrated commands.\n";
         return 2;
     }
@@ -49,7 +58,27 @@ int main(int argc, char** argv) {
         }();
         const bool dichroic = std::string(argv[1]) == "-dicrefl";
         std::vector<std::string> warnings;
-        const auto tables = remagx::load_project_tables(project, warnings);
+        const bool fitting = std::string(argv[1]) == "-fit";
+        bool energy_tables = false;
+        if (fitting) for (size_t index = 0; index < project.array_size("/datasets"); ++index) {
+            const auto path = "/datasets/" + std::to_string(index);
+            energy_tables = energy_tables || (project.boolean(path + "/active") &&
+                project.contains(path + "/columns/energy") && project.array_size(path + "/columns/energy") > 0);
+        }
+        const auto tables = remagx::load_project_tables(project, warnings, energy_tables);
+        if (fitting) {
+            for (const auto& warning : warnings) std::cerr << warning << '\n';
+            std::signal(SIGINT, stop_fit);
+            remagx::ProjectFitOptions options;
+            options.should_stop = [] { return fit_stop_requested != 0; };
+            const auto result = remagx::run_project_fit(project, tables, options);
+            const auto output = result.best.project.serialize();
+            std::cerr << std::setprecision(std::numeric_limits<double>::max_digits10)
+                << "Fit error: " << result.best.error << "; iterations: " << result.iterations
+                << "; evaluations: " << result.evaluations << "; termination: " << result.termination << '\n';
+            std::cout << output << '\n';
+            return std::cout ? 0 : 1;
+        }
         const auto curve = remagx::calculate_terminal_qz(project, dichroic, tables);
         warnings.insert(warnings.end(), curve.warnings.begin(), curve.warnings.end());
         for (const auto& warning : warnings) std::cerr << warning << '\n';

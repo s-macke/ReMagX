@@ -1,10 +1,13 @@
 // Focused standalone initialization and fixed-parameter fit checks.
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createServer } from 'vite'
 import * as adapter from '../../engine/wasm/parratt.mjs'
+import { minimizeAdaptiveSimplex, minimizeAnnealing } from '../../engine/wasm/optimizer.mjs'
 import { calculateFitError } from '../../engine/wasm/fit_error.mjs'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const executable = resolve(process.argv[2] ?? resolve(root, 'build/engine/project_dataset_tests'))
@@ -33,7 +36,7 @@ try {
   const { parseOpticalTable } = await server.ssrLoadModule('/src/import/tables.ts')
   const { prepareStandaloneFit } = await server.ssrLoadModule('/src/model/standaloneFit.ts')
   const { runRealFit } = await server.ssrLoadModule('/src/model/realFit.ts')
-  const inputs = [], expected = []
+  const inputs = [], expected = [], runnerFixtures = []
   const add = (project, tables, succeeds) => {
     const original = structuredClone(project)
     const reference = project.fit.parameters.map(parameter => parameter.value)
@@ -83,6 +86,7 @@ try {
         tables.push({ name: layer.opticalTable, kind: 'db', text: `7800 ${factor * 1e-5} ${factor * 1e-7}\n8300 ${factor * 2e-5} ${factor * 2e-7}\n` })
       })
       add(project, tables, true)
+      if (!element && !automatic && !energy) runnerFixtures.push({ project, tables })
       if (algorithm === 'parratt' && automatic && energy) {
         add(project, [], false)
         const range = structuredClone(project); range.experiment.energy = 9000; add(range, tables, false)
@@ -91,8 +95,33 @@ try {
       }
     }
   }
+  for (const fixture of runnerFixtures) for (const algorithm of ['simplex','simplex-annealing']) for (const weight of [0,.03]) {
+    const project = structuredClone(fixture.project)
+    project.fit.algorithm = algorithm; project.fit.occamQ = weight
+    project.fit.parameters[0].lowerBound = 1; project.fit.parameters[0].upperBound = 200
+    project.fit.annealing = { temperature: .01, temperatureStep: -.001 }
+    project.fit.evolution.randomSeed = -1
+    const settings = { maxEvaluations: 80, maxIterations: 40 }
+    const tables = fixture.tables.map(table => parseOpticalTable(table.text, `${table.name}.${table.kind}`))
+    const prepared = prepareStandaloneFit(project, tables, engine)
+    let summary
+    const fitted = runRealFit(prepared.project, tables, engine, request => {
+      summary = request.annealing ? minimizeAnnealing(instance, { ...request, ...request.annealing, ...settings })
+        : minimizeAdaptiveSimplex(instance, { ...request, ...settings })
+      return summary
+    }, () => {}, () => false, undefined, prepared.opticalState)
+    expected.push(JSON.parse(JSON.stringify({ ok: true, project: fitted.project, values: fitted.values,
+      reference: fitted.regularizationReference ?? project.fit.parameters.map(parameter => parameter.value), error: fitted.chi2,
+      iterations: fitted.iterations, evaluations: summary.evaluations,
+      termination: ['converged','evaluation-limit','iteration-limit','stopped'].indexOf(summary.termination) })))
+    inputs.push({ project: JSON.stringify(project), tables: fixture.tables, runFit: settings })
+  }
+  const validRunner = inputs.at(-1)
+  inputs.push({ ...validRunner, runFit: { stop: true } }, { ...validRunner, runFit: { maxEvaluations: 1 } }, validRunner)
+  const validExpected = expected.at(-1)
+  expected.push({ ok: false }, { ok: false }, validExpected)
   const run = spawnSync(executable, [], { input: inputs.map(value => JSON.stringify(value)).join('\n') + '\n',
-    encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30000 })
+    encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 120000 })
   assert.equal(run.status, 0, run.stderr || String(run.error))
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
   assert.equal(actual.length, expected.length)
@@ -106,5 +135,25 @@ try {
     } else assert.equal(actual, expected, path)
   }
   actual.forEach((value, index) => compare(value, expected[index], `Fit-start case ${index + 1}`))
-  console.log(`Native standalone fit initialization: ${inputs.length} actual-WASM cases passed.`)
+  const terminal = resolve(dirname(executable), 'remagx-terminal')
+  const directory = await mkdtemp(resolve(tmpdir(), 'remagx-fit-cli-'))
+  try {
+    const filename = resolve(directory, 'project.json')
+    // Manual energy fitting still needs tables for the strict initial refresh.
+    await writeFile(filename, inputs[1].project)
+    const missing = spawnSync(terminal, ['-fit', filename], { cwd: directory, encoding: 'utf8', timeout: 30000 })
+    assert.equal(missing.status, 1); assert.equal(missing.stdout, '')
+    for (const index of [0,1]) {
+      const request = inputs[index]
+      await writeFile(filename, request.project)
+      for (const table of request.tables) await writeFile(resolve(directory, `${table.name}.${table.kind}`), table.text)
+      const output = spawnSync(terminal, ['-fit', filename], { cwd: directory, encoding: 'utf8', timeout: 30000 })
+      assert.equal(output.status, 0, output.stderr || String(output.error))
+      assert.match(output.stderr, /Fit error:/)
+      compare(JSON.parse(output.stdout), expected[index].results[0].project, `CLI fitted project ${index}`)
+      assert.equal(await readFile(filename, 'utf8'), request.project, 'CLI fit changed its input')
+    }
+  } finally { await rm(directory, { recursive: true, force: true }) }
+  console.log('Native -fit CLI: qz/energy JSON output, input preservation and missing-table failure passed.')
+  console.log(`Native fit start and optimizer integration: ${inputs.length} actual-WASM cases passed.`)
 } finally { await server.close() }

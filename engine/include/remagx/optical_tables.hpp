@@ -18,6 +18,6 @@ OpticalTable parse_optical_table(std::string_view text, std::string name, std::s
 // Resolve exact material/element names plus .db/.m/.e or .ff/.ffm/.F in the working
 // directory, as the original terminal does. No directory scans or case folding.
 std::vector<OpticalTable> load_project_tables(const ProjectDocument& project,
-                                              std::vector<std::string>& warnings);
+                                              std::vector<std::string>& warnings, bool require_energy_tables = false);
 }
 #endif

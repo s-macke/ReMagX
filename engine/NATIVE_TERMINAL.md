@@ -12,6 +12,7 @@ build/engine/remagx-terminal -v
 build/engine/remagx-terminal -refl project.json
 build/engine/remagx-terminal -dicrefl project.json
 build/engine/remagx-terminal -refl project.all
+build/engine/remagx-terminal -fit project.json > fitted.json
 ```
 
 Input is a validated version-1 JSON project or an imported legacy `.all` file.
@@ -150,9 +151,8 @@ does not use this energy broadening setting. Broadening together with Fourier
 remains explicitly unavailable, as in the web implementation, pending review of
 the original mismatched array lengths.
 
-Lua,
-energy scans, `-fit` fitted-project output, filesystem
-transactions and `-convert` remain to be integrated. `-map` follows the separately
+Native Lua, standalone energy-scan commands, transactional file replacement
+and `-convert` remain to be integrated. `-map` follows the separately
 agreed map implementation. Unsupported commands/settings report an error; they
 never run a simplified calculation while silently ignoring active preparation.
 The original terminal's broken `.db`/`.m` → `.e` conversion is a separate pending
@@ -198,3 +198,30 @@ visibility, input preservation, invalid versions/schema and unsupported Lua.
 Native/web schema and bit-exact serialization checks
 remain separate. These checks establish the implemented integration, not full
 original-terminal or full-corpus acceptance.
+
+
+## Fitting
+
+`-fit project.json` (or `.all`) initializes stored tensors/optics, validates active
+data and runs the maintained adaptive Simplex or seeded annealing optimizer. It
+supports qz/energy and mixed datasets through the native objective, including
+ordered bounds, fixed rows, serial optical state and Q reference callbacks.
+The best evaluated project is serialized as version-1 JSON on stdout; input files
+are never rewritten. Error, iteration/evaluation counts and termination code go
+to stderr (0 converged, 1 evaluation limit, 2 iteration limit, 3 stopped). Redirect
+stdout to a new filename to keep the result. The output is prepared in memory
+before writing; OS write failures are not transactional.
+
+Defaults match the web optimizer: 10,000 evaluations, 5,000 iterations, normalized
+parameter tolerance 1e-9 and objective tolerance 1e-14. These are optimizer stopping
+settings, not measurement rounding or changes to numerical comparison tolerance.
+Ctrl+C requests cooperative cancellation between objective calls and returns the
+best evaluated project if one exists; stopping before any candidate is an error.
+The callback-level Stop-before-start path is tested; OS-signal timing is not yet
+covered by an automated test. Nonempty enabled BeforeCalculation Lua still rejects.
+
+The focused fit-start gate now covers 47 actual-WASM initialization/optimizer
+cases: three solvers, adaptive/annealing, explicit Q references, work limits,
+fixed rows, Stop-before-start, failure and recovery. CLI smoke checks cover qz and
+energy fitted JSON, missing-table failure with empty stdout and input preservation.
+No original-optimizer convergence/corpus acceptance is implied.

@@ -287,3 +287,17 @@ in the first candidate to verify that initial manual tensor state is retained.
 Missing/out-of-range primary tables and inactive/empty datasets reject explicitly.
 This completes the implemented non-scripted initialization component; native
 optimizer wiring, cancellation, best-result tracking and fitted output remain.
+
+
+## Optimizer orchestration
+
+`run_project_fit` connects standalone preparation, dimensionless simplex decoding
+and the persistent objective to the existing adaptive Simplex/annealing C API.
+Callbacks contain exceptions and rethrow them at the native boundary. Ordinary
+Q callbacks select/decode a reference and refresh its bounded state after a
+completed round without replacing the best trial. Annealing retains the saved
+reference and applies the web uint32 seed conversion. The retained best snapshot
+contains its actual evaluated project, bounded values and reference; the final
+core best value must match it. Fixed rows bypass the optimizer, and cancellation
+before any evaluation reports an explicit failure. CLI JSON output now exists;
+native Lua and full original-project fit acceptance remain open.
