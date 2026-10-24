@@ -51,6 +51,36 @@ try {
     requests.push({ project: JSON.stringify(project), source, repeat: 2 })
   }
   assert.equal(expected.filter(result => result.ok).length, 8)
+  const replacement = structuredClone(project)
+  replacement.experiment.energy = 7123.456789012345
+  replacement.sample.layers[1].thickness = 81
+  replacement.sample.elementProfiles[0].f1 = 8
+  const changedStructure = structuredClone(replacement)
+  changedStructure.sample.elementProfiles[0].element = 'Ni'
+  const workspaceSources = [
+    "calls=(calls or 0)+1; saved=saved or element.new(0); a=a or array.new(1,3); a[1]=a[1]+calls; saved:setf1(saved:getf1()+calls); energy=energy+0.123456789; epsilon=epsilon*2; resolution=resolution+0.001; energyscan_qz=energyscan_qz+0.001",
+    "energy=-1", "energy=0",
+  ]
+  const workspaceCases = workspaceSources.map(source => ({ source, replacement }))
+  workspaceCases.push({ source: workspaceSources[0], replacement: changedStructure })
+  for (const test of workspaceCases) {
+    const workspace = createScriptArrayWorkspace(project)
+    const session = await runtime.createSession()
+    try {
+      session.installArrays(workspace.arrays); session.installElements(workspace.elements)
+      session.compile(test.source, 'BeforeCalculation')
+      let result
+      for (let index = 0; index < 3; ++index) {
+        if (index) workspace.replace(test.replacement, 1)
+        result = session.runHook(workspace.beginHook())
+        workspace.applyHook(result)
+      }
+      expected.push(JSON.parse(JSON.stringify({ ok: true, project: workspace.snapshot(), hook: result })))
+    } catch { expected.push({ ok: false }) } finally { session.close() }
+    requests.push({ project: JSON.stringify(project), source: test.source, repeat: 3,
+      workspace: true, replacement: JSON.stringify(test.replacement) })
+  }
+  assert.equal(expected.filter(result => result.ok).length, 9)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),
@@ -61,5 +91,5 @@ try {
   assert.equal(run.status, 0, run.stderr || String(run.error))
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
   assert.deepEqual(actual, expected)
-  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length} parity cases and one native protected-readback case passed.`)
+  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length} parity cases and one native protected-readback case passed.`)
 } finally { await server.close() }

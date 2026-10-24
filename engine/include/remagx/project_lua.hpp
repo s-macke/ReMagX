@@ -17,6 +17,9 @@ public:
     ScriptHookValues run_hook(const ScriptHookValues& input);
     void install_project_arrays(const ProjectDocument& project);
     ProjectDocument project_snapshot() const;
+    void replace_project(const ProjectDocument& project, double renew_optical_constants = 0);
+    ScriptHookValues begin_hook();
+    void apply_hook(const ScriptHookValues& result);
     void close() noexcept;
 private:
     struct State;

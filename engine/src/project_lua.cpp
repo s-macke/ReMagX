@@ -167,6 +167,7 @@ int install_program(lua_State* vm) { lua_pushvalue(vm, 1); lua_setglobal(vm, "St
 struct ProjectLuaSession::State {
     lua_State* vm = nullptr;
     bool compiled = false;
+    double wavelength = 0, renew_optical_constants = 0;
     std::optional<ProjectDocument> project;
     std::vector<NumericArray> arrays;
     std::vector<ElementBinding> elements;
@@ -202,6 +203,7 @@ void ProjectLuaSession::install_project_arrays(const ProjectDocument& project) {
     add("par",34,"/scripts/parameters",""); add("f1",35,"/sample/elementProfiles","/f1"); add("f2",36,"/sample/elementProfiles","/f2");
     state_->arrays = std::move(arrays);
     state_->project = project;
+    state_->wavelength = 12398.326 / project.number("/experiment/energy");
     auto* first = &state_->arrays[state_->arrays.size() - 2];
     auto* second = &state_->arrays.back();
     for (size_t index = 0; index < first->values.size(); ++index) {
@@ -244,6 +246,65 @@ ProjectDocument ProjectLuaSession::project_snapshot() const {
         }
     }
     return state_->project->with_calculation_numbers(edits);
+}
+void ProjectLuaSession::replace_project(const ProjectDocument& project, double renew) {
+    if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
+    const auto& previous = *state_->project;
+    bool same = project.string("/sample/mode") == previous.string("/sample/mode");
+    for (const char* path : {"/sample/layers", "/sample/depthProfileFunctions", "/sample/elementProfiles", "/scripts/parameters"})
+        same = same && project.array_size(path) == previous.array_size(path);
+    for (const auto& binding : state_->elements)
+        same = same && project.string(binding.path + "/element") == binding.name &&
+            project.array_size(binding.path + "/slabs") == binding.slabs.size();
+    if (!same) throw ProjectDocumentError("Script project structure changed; create a new session");
+    const double energy = project.number("/experiment/energy");
+    const double wavelength = energy == previous.number("/experiment/energy") ? state_->wavelength : 12398.326 / energy;
+    if (!(wavelength > 0) || !std::isfinite(wavelength) || !std::isfinite(renew))
+        throw ProjectDocumentError("Invalid script project refresh");
+    // Prepare every numeric read before changing live storage; existing userdata
+    // retain their binding addresses and script globals survive the refresh.
+    auto arrays = state_->arrays;
+    auto elements = state_->elements;
+    for (auto& array : arrays) for (size_t index = 0; index < array.paths.size(); ++index)
+        array.values[index] = project.number(array.paths[index]);
+    for (auto& binding : elements) {
+        binding.magnetic_first = project.number(binding.path + "/f1Mag");
+        binding.magnetic_second = project.number(binding.path + "/f2Mag");
+        for (size_t index = 0; index < binding.slabs.size(); ++index) {
+            const std::string path = binding.path + "/slabs/" + std::to_string(index);
+            binding.slabs[index] = {project.number(path + "/thickness"), project.number(path + "/roughness"),
+                project.number(path + "/density")};
+        }
+    }
+    state_->project = project;
+    for (size_t index = 0; index < arrays.size(); ++index) state_->arrays[index].values.swap(arrays[index].values);
+    for (size_t index = 0; index < elements.size(); ++index) {
+        auto& target = state_->elements[index];
+        target.magnetic_first = elements[index].magnetic_first;
+        target.magnetic_second = elements[index].magnetic_second;
+        target.slabs.swap(elements[index].slabs);
+    }
+    state_->wavelength = wavelength; state_->renew_optical_constants = renew;
+}
+ScriptHookValues ProjectLuaSession::begin_hook() {
+    if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
+    const auto& project = *state_->project;
+    const ScriptHookValues result{12398.326 / state_->wavelength, project.number("/calculation/epsilon"),
+        project.number("/experiment/resolution/angularFwhm"), project.number("/experiment/energyScan/qz"),
+        state_->renew_optical_constants};
+    state_->renew_optical_constants = 0; // Nested calls consume the cleared state.
+    return result;
+}
+void ProjectLuaSession::apply_hook(const ScriptHookValues& result) {
+    if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
+    const double wavelength = 12398.326 / result.energy;
+    if (!(wavelength > 0) || !std::isfinite(wavelength) || !std::isfinite(result.energy) ||
+        !std::isfinite(result.epsilon) || !std::isfinite(result.resolution) || !std::isfinite(result.energy_scan_qz))
+        throw ProjectDocumentError("Invalid script result state");
+    auto project = state_->project->with_calculation_numbers({
+        {"/experiment/energy", 12398.326 / wavelength}, {"/calculation/epsilon", result.epsilon},
+        {"/experiment/resolution/angularFwhm", result.resolution}, {"/experiment/energyScan/qz", result.energy_scan_qz}});
+    state_->project = std::move(project); state_->wavelength = wavelength;
 }
 void ProjectLuaSession::compile(const std::string& source, bool before_calculation) {
     if (!state_) throw ProjectDocumentError("Lua session is closed.");

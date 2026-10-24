@@ -14,7 +14,12 @@ int main() {
             session.compile(input.at("source").get<std::string>(), true);
             const remagx::ScriptHookValues values{8000, 1e-12, .001, .03, 1};
             auto result = values;
-            for (int index = 0; index < input.value("repeat", 1); ++index) result = session.run_hook(values);
+            for (int index = 0; index < input.value("repeat", 1); ++index) {
+                if (index && input.contains("replacement"))
+                    session.replace_project(remagx::ProjectDocument::parse(input.at("replacement").get<std::string>()), 1);
+                result = session.run_hook(input.value("workspace", false) ? session.begin_hook() : values);
+                if (input.value("workspace", false)) session.apply_hook(result);
+            }
             const auto output = session.project_snapshot();
             if (project.serialize() != before) throw std::runtime_error("Input project changed");
             std::cout << Json{{"ok", true}, {"project", Json::parse(output.serialize())},
