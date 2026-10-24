@@ -108,6 +108,12 @@ try {
       measured.activeDatasetIndex = 0
       measured.experiment.qzScan.useDatasetPoints = true
       await compare(measured, dichroic)
+      for (const pattern of ['3*(1)', '2*(1,2*(1))', '', '0*(1),1', '0,1,2', '1\0,2', '1)2', '1a']) {
+        const multilayer = structuredClone(base)
+        multilayer.calculation.algorithm = algorithm
+        multilayer.sample.multilayer = { enabled: true, pattern }
+        await compare(multilayer, dichroic)
+      }
     }
   }
   // At zero incidence the existing tetragonal/magnetization-off kernel can
@@ -141,7 +147,9 @@ try {
   const invalid = [
     project => { project.calculation.automaticOpticalConstants = true },
     project => { project.sample.mode = 'element' },
-    project => { project.sample.multilayer.enabled = true },
+    project => { project.sample.multilayer = { enabled: true, pattern: '2*(1' } },
+    project => { project.sample.multilayer = { enabled: true, pattern: '100000*(1)' } },
+    project => { project.sample.multilayer = { enabled: true, pattern: '0*(999)' } },
     project => { project.calculation.roughnessModel = 'segmentation' },
     project => { project.scripts.enabled = true; project.scripts.beforeCalculation = 'error("private diagnostic")' },
     project => { project.experiment.scattering = 'transmission' },

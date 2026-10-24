@@ -15,12 +15,20 @@ build/engine/remagx-terminal -dicrefl project.json
 
 Input is a validated version-1 JSON project saved by the web app. The supported
 calculation path currently requires compound mode, manual optical constants,
-Nevot–Croce roughness, no enabled multilayer expansion and no nonempty enabled
-BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
+Nevot–Croce roughness and no nonempty enabled BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
 analyzers, magnetic/tetragonal settings and exact/fast angular convolution.
 Manual preparation rebuilds dielectric tensors from scalar values, as the web
 engine does; stored automatic tensor overrides are ignored in manual mode.
 Density is not multiplied into already supplied compound optical constants.
+
+Enabled multilayer patterns expand before solver packing, including nested
+repetitions, zero repetitions and explicit duplicate substrate/ambient references.
+The implicit substrate and ambient are retained. Defined original character
+handling is preserved (ignored characters can join digits; a top-level `)` or NUL
+terminates parsing). The web parser's safe-integer, depth-128 and 100,000-layer
+limits apply; malformed/out-of-range/oversized patterns fail without partial
+output. Each repeated row copies all optical values, roughness and local magnetic
+directions before Matrix tensor construction.
 
 The terminal preserves the original command's coordinate convention:
 
@@ -39,7 +47,7 @@ Fourier processing reject explicitly until their terminal-specific data semantic
 are integrated. Monochromatic energy broadening above 1e-6 eV also rejects;
 the original dichroic qz route does not use that energy broadening setting.
 
-Automatic tables, element/segmented preparation, multilayer expansion, Lua,
+Automatic tables, element/segmented preparation, Lua,
 legacy `.all` import, energy scans, `-fit` fitted-project output, filesystem
 transactions and `-convert` remain to be integrated. `-map` follows the separately
 agreed map implementation. Unsupported commands/settings report an error; they
@@ -60,10 +68,13 @@ Validation uses public synthetic projects only:
 node app/scripts/test-native-terminal.mjs build/engine/remagx-terminal build/wasm
 ```
 
-49 cases compare 805 output values with actual WASM through the production web
+97 cases compare 1,741 output values with actual WASM through the production web
 preparation at unchanged D-23 tolerance. They cover all three solvers, both modes,
 complex beams, analyzers, both angular convolution paths, tetragonal/nonmagnetic
-settings, qz^4, averaging and shifted/unsorted/repeated dataset coordinates. Further
+settings, qz^4, averaging, shifted/unsorted/repeated dataset coordinates and eight
+multilayer patterns across all solvers and both output modes. Dedicated native
+parser tests cover limits, empty groups, nested patterns, ignored characters,
+embedded NUL and recovery. Further
 checks cover explicit unsupported operations, malformed schema, invalid qz,
 numerical overflow, missing input, input preservation and successful recovery.
 The existing tetragonal/magnetization-off singularity at zero incidence is checked

@@ -1,5 +1,7 @@
 #include "remagx/project_calculation.hpp"
 #include "remagx/core.h"
+#include "remagx/compound_layers.hpp"
+#include <numeric>
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -47,7 +49,6 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
         const auto script = project.string("/scripts/beforeCalculation");
         require(script.find_first_not_of(" \t\n\r\f\v") == std::string::npos, "Native terminal BeforeCalculation Lua execution is not integrated yet.");
     }
-    require(!project.boolean("/sample/multilayer/enabled"), "Native terminal multilayer expansion is not integrated yet.");
     require(project.string("/calculation/roughnessModel") == "nevot-croce", "Native terminal adaptive segmentation is not integrated yet.");
     require(!project.boolean("/calculation/postProcessing/divideByCos2ThetaSquared"), "Native terminal polarization postprocessing is not integrated yet.");
     require(!project.boolean("/calculation/postProcessing/fourierTransform"), "Native terminal Fourier postprocessing is not integrated yet.");
@@ -85,10 +86,18 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
         for (double qz : result.qz) require(qz / (wave * 2) < 1, "Qz exceeds the fast dichroic scan boundary.");
     }
     std::vector<RemagxLayer> layers;
-    const size_t count = project.array_size("/sample/layers");
-    require(count <= 100000, "Native terminal layer count exceeds the supported limit.");
+    const size_t stored_count = project.array_size("/sample/layers");
+    require(stored_count <= 100000, "Native terminal layer count exceeds the supported limit.");
+    std::vector<size_t> indices;
+    if (project.boolean("/sample/multilayer/enabled")) {
+        indices = compound_layer_indices(stored_count, project.string("/sample/multilayer/pattern"));
+    } else {
+        indices.resize(stored_count);
+        std::iota(indices.begin(), indices.end(), 0);
+    }
+    const size_t count = indices.size();
     layers.reserve(count);
-    for (size_t index = 0; index < count; ++index) {
+    for (size_t index : indices) {
         const auto path = "/sample/layers/" + std::to_string(index);
         layers.push_back({project.number(path + "/thickness"), project.number(path + "/roughness"),
             project.number(path + "/delta"), project.number(path + "/beta"),
