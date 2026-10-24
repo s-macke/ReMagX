@@ -1,5 +1,6 @@
 #include "remagx/project_lua.hpp"
 #include <lua.hpp>
+#include "remagx/core.h"
 #include <cmath>
 #include <limits>
 #include <type_traits>
@@ -68,10 +69,16 @@ int install_arrays(lua_State* vm) {
     return 0;
 }
 // User-visible methods follow scriptmetaobject.cpp and the web element bridge.
+struct ScriptTables {
+    bool installed = false;
+    std::vector<OpticalTable> tables;
+    std::vector<size_t> cursors;
+};
 struct ElementBinding {
     std::string name, path;
     NumericArray *first, *second;
     size_t index;
+    ScriptTables* tables;
     double magnetic_first, magnetic_second;
     std::vector<std::array<double, 3>> slabs;
 };
@@ -117,9 +124,36 @@ int element_set(lua_State* vm) {
     const double value = numeric_argument(vm, 3, false);
     element_binding(vm); element_scratch = value; return 0;
 }
+size_t find_script_table(const ScriptTables* state, const std::string& name, const char* kind, bool nonempty = false) {
+    for (size_t index = 0; index < state->tables.size(); ++index)
+        if (state->tables[index].name == name && state->tables[index].kind == kind &&
+            (!nonempty || !state->tables[index].energies.empty())) return index;
+    return state->tables.size();
+}
+void read_script_table(lua_State* vm, ScriptTables* state, size_t index, double energy, size_t width, double* output) {
+    if (index == state->tables.size() || state->tables[index].energies.empty()) return;
+    const auto& table = state->tables[index];
+    if (table.width != width || remagx_table_lookup(table.energies.data(), table.values.data(),
+            table.energies.size(), width, &energy, 1, &state->cursors[index], output) != 0)
+        luaL_error(vm, "Invalid scattering factors in %s.%s", table.name.c_str(), table.kind.c_str());
+}
 int element_lookup(lua_State* vm) {
-    element_binding(vm); numeric_argument(vm, 2, false);
-    return luaL_error(vm, "element.setf: native table lookup is not available");
+    auto* binding = element_binding(vm);
+    const double energy = numeric_argument(vm, 2, false);
+    auto* state = binding->tables;
+    if (!state->installed) return luaL_error(vm, "element.setf: native table lookup is not available");
+    const size_t primary = find_script_table(state, binding->name, "ff");
+    if (primary == state->tables.size() || state->tables[primary].energies.empty() ||
+        energy < state->tables[primary].energies.front() || energy > state->tables[primary].energies.back()) return 0;
+    double scalar[2]{}, magnetic[2]{}, tensor[18]{};
+    read_script_table(vm, state, primary, energy, 2, scalar);
+    read_script_table(vm, state, find_script_table(state, binding->name, "ffm", true), energy, 2, magnetic);
+    // Getff advances the tensor cursor too; setf copies only scalar factors.
+    read_script_table(vm, state, find_script_table(state, binding->name, "f", true), energy, 18, tensor);
+    binding->first->values[binding->index] = scalar[0];
+    binding->second->values[binding->index] = scalar[1];
+    binding->magnetic_first = magnetic[0]; binding->magnetic_second = magnetic[1];
+    return 0;
 }
 int install_elements(lua_State* vm) {
     auto* elements = static_cast<std::vector<ElementBinding>*>(lua_touserdata(vm, 1));
@@ -171,6 +205,7 @@ struct ProjectLuaSession::State {
     std::optional<ProjectDocument> project;
     std::vector<NumericArray> arrays;
     std::vector<ElementBinding> elements;
+    ScriptTables tables;
     ~State() { if (vm) lua_close(vm); }
 };
 ProjectLuaSession::ProjectLuaSession() : state_(std::make_unique<State>()) {
@@ -208,7 +243,7 @@ void ProjectLuaSession::install_project_arrays(const ProjectDocument& project) {
     auto* second = &state_->arrays.back();
     for (size_t index = 0; index < first->values.size(); ++index) {
         const std::string path = "/sample/elementProfiles/" + std::to_string(index);
-        ElementBinding binding{project.string(path + "/element"), path, first, second, index,
+        ElementBinding binding{project.string(path + "/element"), path, first, second, index, &state_->tables,
             project.number(path + "/f1Mag"), project.number(path + "/f2Mag"), {}};
         for (size_t slab = 0; slab < project.array_size(path + "/slabs"); ++slab) {
             const std::string row = path + "/slabs/" + std::to_string(slab);
@@ -246,6 +281,20 @@ ProjectDocument ProjectLuaSession::project_snapshot() const {
         }
     }
     return state_->project->with_calculation_numbers(edits);
+}
+void ProjectLuaSession::install_tables(const std::vector<OpticalTable>& tables) {
+    if (!state_) throw ProjectDocumentError("Lua session is closed.");
+    if (state_->tables.installed) throw ProjectDocumentError("Lua tables already installed.");
+    ScriptTables prepared{true, tables, std::vector<size_t>(tables.size(), 0)};
+    for (const auto& table : tables) {
+        if (table.width == 0 || table.width > 20 || table.values.size() / table.width != table.energies.size() ||
+            table.values.size() % table.width != 0) throw ProjectDocumentError("Invalid Lua optical table shape");
+        RemagxTable* checked = nullptr;
+        const int status = remagx_table_prepare(table.energies.data(), table.values.data(), table.energies.size(), table.width, &checked);
+        remagx_table_destroy(checked);
+        if (status != 0) throw ProjectDocumentError("Invalid Lua optical table values");
+    }
+    state_->tables = std::move(prepared);
 }
 void ProjectLuaSession::replace_project(const ProjectDocument& project, double renew) {
     if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");

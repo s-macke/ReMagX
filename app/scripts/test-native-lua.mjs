@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { lookupTable } from '../../engine/wasm/parratt.mjs'
 import { createServer } from 'vite'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const executable = resolve(process.argv[2] ?? resolve(root, 'build/engine/project_lua_tests'))
@@ -81,6 +82,33 @@ try {
       workspace: true, replacement: JSON.stringify(test.replacement) })
   }
   assert.equal(expected.filter(result => result.ok).length, 9)
+  const { createScriptFactorLookup } = await server.ssrLoadModule('/src/model/scriptFactors.ts')
+  const { parseOpticalTable } = await server.ssrLoadModule('/src/import/tables.ts')
+  const { default: createCore } = await import(pathToFileURL(resolve(process.argv[3] ?? resolve(root, 'build/wasm'), 'remagx-core.mjs')))
+  const core = await createCore()
+  const primary = { name: 'Fe', kind: 'ff', text: '7000 1 2\n8000 3 4\n8000 5 6\n9000 7 8' }
+  const magnetic = { name: 'Fe', kind: 'ffm', text: '7500 0.1 0.2\n8500 0.3 0.4' }
+  const tensor = { name: 'Fe', kind: 'f', text: [7000, 9000].map(energy =>
+    [energy, ...Array.from({length: 18}, (_, index) => index + energy / 1000)].join(' ')).join('\n') }
+  const tableCases = [[], [primary], [primary, magnetic], [primary, magnetic, tensor], [primary, { ...magnetic, text: "# empty" }, magnetic],
+    [{ ...primary, text: '# empty table' }], [{ ...primary, name: 'Co' }]]
+  for (const tables of tableCases) {
+    const source = "calls=(calls or 0)+1; Fe:setf(({8000,7500,9000,6000})[calls]); par[0]=par[0]+calls*Fe:getf1(); par[1]=par[1]+calls*Fe:getf1m(); beta[1]=beta[1]+calls*Fe:getf2(); betam[1]=betam[1]+calls*Fe:getf2m()"
+    const workspace = createScriptArrayWorkspace(project)
+    const session = await runtime.createSession()
+    try {
+      const parsed = tables.map(table => parseOpticalTable(table.text, `${table.name}.${table.kind}`))
+      session.installArrays(workspace.arrays)
+      session.installElements(workspace.elements, createScriptFactorLookup(parsed,
+        (table, queries, cursor) => lookupTable(core, table, queries, cursor)))
+      session.compile(source, 'BeforeCalculation')
+      let result
+      for (let index = 0; index < 4; ++index) result = session.runHook(hook)
+      expected.push(JSON.parse(JSON.stringify({ ok: true, project: workspace.snapshot(), hook: result })))
+    } catch { expected.push({ ok: false }) } finally { session.close() }
+    requests.push({ project: JSON.stringify(project), source, repeat: 4, tables })
+  }
+  assert.equal(expected.filter(result => result.ok).length, 16)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),
@@ -91,5 +119,5 @@ try {
   assert.equal(run.status, 0, run.stderr || String(run.error))
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
   assert.deepEqual(actual, expected)
-  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length} parity cases and one native protected-readback case passed.`)
+  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length} parity cases and one native protected-readback case passed.`)
 } finally { await server.close() }

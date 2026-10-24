@@ -1,5 +1,6 @@
 #pragma once
 #include "project_document.hpp"
+#include "optical_tables.hpp"
 #include <memory>
 #include <string>
 namespace remagx {
@@ -17,6 +18,7 @@ public:
     ScriptHookValues run_hook(const ScriptHookValues& input);
     void install_project_arrays(const ProjectDocument& project);
     ProjectDocument project_snapshot() const;
+    void install_tables(const std::vector<OpticalTable>& tables);
     void replace_project(const ProjectDocument& project, double renew_optical_constants = 0);
     ScriptHookValues begin_hook();
     void apply_hook(const ScriptHookValues& result);

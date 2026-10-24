@@ -11,6 +11,13 @@ int main() {
             const auto before = project.serialize();
             remagx::ProjectLuaSession session;
             session.install_project_arrays(project);
+            if (input.contains("tables")) {
+                std::vector<remagx::OpticalTable> tables;
+                for (const auto& table : input.at("tables"))
+                    tables.push_back(remagx::parse_optical_table(table.at("text").get<std::string>(),
+                        table.at("name").get<std::string>(), table.at("kind").get<std::string>()));
+                session.install_tables(tables);
+            }
             session.compile(input.at("source").get<std::string>(), true);
             const remagx::ScriptHookValues values{8000, 1e-12, .001, .03, 1};
             auto result = values;

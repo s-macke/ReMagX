@@ -25,8 +25,11 @@ Aliases share storage. Snapshots preserve input projects and retain double
 values without formatting or rounding. Element userdata expose f1/f2 and magnetic factors, slab thickness/roughness/
 density, constructor aliases and the legacy shared scratch cell. Element f1/f2
 methods and the numeric arrays share storage. Fractional element/slab indices
-truncate as in the legacy API. `setf` explicitly rejects until table lookup is
-connected. The explicit begin/apply hook methods exchange scalar state with the project,
+truncate as in the legacy API. `setf` uses installed native optical tables at the exact supplied energy,
+retaining lookup cursors between calls. Missing/out-of-range primary data leave
+factors unchanged; absent magnetic data produce zeros. Tensor lookups advance
+their cursor but do not assign tensor state. Without installed tables, `setf`
+continues to reject explicitly. The explicit begin/apply hook methods exchange scalar state with the project,
 retaining the legacy hc = 12398.326 energy/wavelength conversions. Project
 replacement refreshes numeric storage without invalidating existing userdata or
 Lua globals. Structure changes require a fresh session. The renew flag is consumed
@@ -37,19 +40,20 @@ Run the focused comparison after building `project_lua_tests` and installing
 app dependencies:
 
 ```
-node app/scripts/test-native-lua.mjs build/engine/project_lua_tests
+node app/scripts/test-native-lua.mjs build/engine/project_lua_tests build/wasm
 ```
 
-Twenty-four public synthetic cases compare directly with the actual Wasmoon
+Thirty-one public synthetic cases compare directly with the actual Wasmoon
 runtime, including persistent globals, replaced Start, numeric strings,
-array aliases, element methods, repeated workspace refresh, scalar writeback, failures and
+array aliases, element methods, repeated workspace refresh, scalar writeback, native/WASM
+table lookup with duplicate energies and magnetic/tensor companions, failures and
 unchanged inputs. A separate native-only case
 verifies protected global readback when a metatable throws. The existing
 Wasmoon boundary panics for that case; it is not claimed as parity evidence.
 No corpus or broad terminal comparison is needed for this isolated component.
 
 Remaining work: dynamic array bounds,
-element table lookup, tensor/solution bindings, project functions and output, calculation-owned
+tensor/solution bindings, project functions and output, calculation-owned
 hook state, nested calls and cancellation. Standard-library availability must
 be reviewed against the web runtime before activating native scripts. Existing
 unresolved script-semantics decisions still apply.
