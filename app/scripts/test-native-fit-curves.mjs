@@ -48,6 +48,8 @@ try {
   const { prepareFitDataset } = await server.ssrLoadModule('/src/model/fitDataset.ts')
   const { calculateRealCurve } = await server.ssrLoadModule('/src/model/realCalculation.ts')
   const { parseOpticalTable } = await server.ssrLoadModule('/src/import/tables.ts')
+  const { storedOpticalState } = await server.ssrLoadModule('/src/model/storedOpticalState.ts')
+  const { evaluateProjectDatasetError } = await server.ssrLoadModule('/src/model/projectDatasetError.ts')
   const inputs = [], expected = []
   const base = createDefaultProject()
   base.scripts.enabled = false
@@ -194,5 +196,61 @@ try {
   }
   assert.deepEqual(mismatches, [])
   assert.equal(successes, inputs.length, 'All public curve fixtures must calculate successfully')
+  const serialInputs = [], serialExpected = []
+  for (const algorithm of ['parratt','zak','matrix']) for (const element of [false,true]) {
+    for (const automatic of [false,true]) for (const reversed of [false,true]) for (const broadening of [false,true]) {
+      const fixture = inputs[108 + (element ? 6 : 0)]
+      const project = JSON.parse(fixture.project)
+      project.calculation.algorithm = algorithm
+      project.calculation.automaticOpticalConstants = automatic
+      project.experiment.resolution.energyFwhm = broadening ? 20 : 0
+      const energy = structuredClone(project.datasets[0])
+      const first = structuredClone(energy); delete first.columns.energy; first.energy = 8000
+      const last = structuredClone(first); last.energy = 9000; last.errorWeight = 0
+      const inactive = structuredClone(energy); inactive.active = false; inactive.energy = -1; inactive.columns.energy.fill(-1)
+      project.datasets = reversed ? [last, energy, inactive, first] : [first, inactive, energy, last]
+      const original = structuredClone(project)
+      const curves = [], indices = []
+      const result = evaluateProjectDatasetError(project,
+        fixture.tables.map(table => parseOpticalTable(table.text, `${table.name}.${table.kind}`)),
+        { ...engine, fitError: request => calculateFitError(instance, request) }, element ? storedOpticalState(project) : undefined,
+        (index, scan, beams, curve) => {
+          indices.push(index)
+          curves.push({ qz: curve.qz, energy: curve.energy ?? [], plus: curve.reflectivityPlus,
+            minus: curve.reflectivityMinus, asymmetry: curve.asymmetry })
+        })
+      assert.deepEqual(project, original)
+      serialExpected.push(JSON.parse(JSON.stringify({ ok: true, error: result.error, project: result.project, indices, curves })))
+      serialInputs.push({ project: JSON.stringify(project), tables: fixture.tables, serial: true })
+    }
+  }
+  const inactiveProject = JSON.parse(serialInputs[0].project)
+  inactiveProject.datasets.forEach(dataset => { dataset.active = false })
+  serialInputs.push({ project: JSON.stringify(inactiveProject), serial: true })
+  serialExpected.push({ ok: true, error: 0, project: inactiveProject, indices: [], curves: [] })
+  for (const kind of ['script', 'zero-weight-invalid']) {
+    const project = JSON.parse(serialInputs[0].project)
+    if (kind === 'script') { project.scripts.enabled = true; project.scripts.beforeCalculation = 'print(1)' }
+    else { project.datasets[0].errorWeight = 0; project.datasets[0].columns.qz[0] = 1e99 }
+    serialInputs.push({ project: JSON.stringify(project), tables: serialInputs[0].tables, serial: true })
+    serialExpected.push({ ok: false })
+  }
+  serialInputs.push(serialInputs[0]); serialExpected.push(serialExpected[0])
+  const serialRun = spawnSync(executable, [], { input: serialInputs.map(value => JSON.stringify(value)).join('\n') + '\n',
+    encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 120000 })
+  assert.equal(serialRun.status, 0, serialRun.stderr || String(serialRun.error))
+  const serialActual = serialRun.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
+  assert.equal(serialActual.length, serialExpected.length)
+  const compareSerial = (actual, expected, path) => {
+    if (typeof expected === 'number') {
+      assert.equal(typeof actual, 'number', path)
+      assert.ok(Math.abs(actual - expected) <= 1e-15 + 1e-10 * Math.abs(expected), `${path}: ${actual} vs ${expected}`)
+    } else if (expected && typeof expected === 'object') {
+      assert.deepEqual(Object.keys(actual).sort(), Object.keys(expected).sort(), path)
+      for (const key of Object.keys(expected)) compareSerial(actual[key], expected[key], `${path}/${key}`)
+    } else assert.equal(actual, expected, path)
+  }
+  serialActual.forEach((value, index) => compareSerial(value, serialExpected[index], `Serial dataset case ${index + 1}`))
+  console.log(`Native serial dataset evaluation: ${serialInputs.length} actual-WASM comparisons passed.`)
   console.log(`Native fit curves and errors: ${successes} actual-WASM comparisons passed.`)
 } finally { await server.close() }

@@ -227,3 +227,24 @@ source and existing pinned exp on both targets. No tolerance was changed.
 
 Serial cross-dataset fit state, native Lua, optimizer callbacks and fitted-project
 output remain open. This does not complete the native CLI or corpus acceptance.
+
+
+## Serial dataset objective
+
+`evaluate_project_datasets` evaluates active datasets in stored order, carries
+optical scalars, tensor state and lookup cursors through qz/energy calculations,
+and accumulates weighted dataset means. It returns updated calculation context,
+optical scalar fields and observed curves/indices; measured columns and unknown
+project metadata remain intact. Inactive datasets are untouched, zero-weight
+datasets still calculate, and a failure publishes no partial result or input edits.
+Optical carryover does not overwrite current thickness, roughness or directions.
+
+The maintained gate includes 52 serial scenarios against actual web/WASM
+orchestration: compound/element mode, automatic/manual constants, both dataset
+orders, range skips, energy broadening, final project state, inactive/all-inactive
+data, zero-weight numerical failure, unsupported Lua and subsequent recovery.
+An initial manual-element test lacked the stored scattering tensor state required
+by the web helper; it now supplies the production initialization.
+
+This is one dataset pass. Persistent state across optimizer candidates, candidate
+refresh hooks, native Lua, Q/reference callbacks and fitted output remain open.

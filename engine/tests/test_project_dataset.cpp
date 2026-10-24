@@ -32,6 +32,19 @@ int main() {
                 for (const auto& edit : input.at("edits")) edits.emplace_back(edit.at(0).get<std::string>(), edit.at(1).get<double>());
                 current = current.with_calculation_numbers(edits);
             }
+            if (input.value("serial", false)) {
+                std::vector<remagx::OpticalTable> tables;
+                if (input.contains("tables")) for (const auto& table : input.at("tables"))
+                    tables.push_back(remagx::parse_optical_table(table.at("text").get<std::string>(), table.at("name").get<std::string>(), table.at("kind").get<std::string>()));
+                const auto evaluation = remagx::evaluate_project_datasets(current, tables);
+                Json curves = Json::array();
+                for (const auto& curve : evaluation.curves) curves.push_back({{"qz", curve.qz}, {"energy", curve.energy},
+                    {"plus", curve.plus}, {"minus", curve.minus}, {"asymmetry", curve.asymmetry}});
+                if (original.serialize() != before) throw std::runtime_error("Serial evaluation changed its input");
+                std::cout << Json{{"ok", true}, {"error", evaluation.error}, {"project", Json::parse(evaluation.project.serialize())},
+                    {"indices", evaluation.indices}, {"curves", curves}}.dump() << '\n';
+                continue;
+            }
             const double selected = input.at("index").get<double>();
             if (selected < 0 || std::floor(selected) != selected || selected >= static_cast<double>(current.array_size("/datasets")))
                 throw remagx::ProjectDocumentError("Invalid test dataset index");

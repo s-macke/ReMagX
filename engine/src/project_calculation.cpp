@@ -240,7 +240,12 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
                 project.number(path + "/delta"), project.number(path + "/beta"),
                 project.number(path + "/deltaMag"), project.number(path + "/betaMag"),
                 project.number(path + "/magnetization/gamma"), project.number(path + "/magnetization/phi")};
-            if (continuing) layer = previous->layers[index];
+            if (continuing) {
+                layer.delta = previous->layers[index].delta;
+                layer.beta = previous->layers[index].beta;
+                layer.delta_magnetic = previous->layers[index].delta_magnetic;
+                layer.beta_magnetic = previous->layers[index].beta_magnetic;
+            }
             if (automatic) {
                 if (!continuing && !energy_point && project.contains(path + "/dielectricTensor")) {
                     anisotropic[index] = project.boolean(path + "/dielectricTensor/anisotropic");
@@ -322,10 +327,10 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
 }
 
 static ProjectCurve calculate_qz(const ProjectDocument& project, bool dichroic, const std::vector<OpticalTable>& tables,
-    const std::vector<double>* fit_coordinates = nullptr) {
+    const std::vector<double>* fit_coordinates = nullptr, OpticalState* previous = nullptr) {
     const double width = project.number("/experiment/resolution/energyFwhm");
     if (dichroic || width <= 1e-6) return calculate_inner(project, dichroic, tables, fit_coordinates,
-        project.number("/experiment/energy"), nullptr, fit_coordinates ? CalculationContext::fit_dataset : CalculationContext::terminal);
+        project.number("/experiment/energy"), previous, fit_coordinates ? CalculationContext::fit_dataset : CalculationContext::terminal);
     require(!project.boolean("/calculation/postProcessing/fourierTransform"),
         "Energy broadening with Fourier processing remains unavailable pending review of the original array lengths.");
     // Same active quadrature as angular_resolution.cpp and the web wrapper.
@@ -351,7 +356,8 @@ static ProjectCurve calculate_qz(const ProjectDocument& project, bool dichroic, 
         require(std::abs(ratio) < 1, "Qz exceeds the energy-resolution scan boundary.");
         angles.push_back(ratio < 0 ? 0 : std::asin(ratio));
     }
-    OpticalState state;
+    OpticalState local_state;
+    auto& state = previous ? *previous : local_state;
     std::set<std::string> seen_warnings;
     for (size_t sample = 0; sample < 19; ++sample) {
         const double current_energy = energy + offsets[sample] * width;
@@ -383,8 +389,8 @@ ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset, const s
     return calculate_qz(dataset.project, dataset.dichroic, tables, &dataset.measurement.at("qz"));
 }
 
-ProjectCurve calculate_fit_dataset(const PreparedFitDataset& dataset, const std::vector<OpticalTable>& tables) {
-    if (!dataset.energy_scan) return calculate_fit_dataset_qz(dataset, tables);
+static ProjectCurve calculate_dataset(const PreparedFitDataset& dataset, const std::vector<OpticalTable>& tables, OpticalState& state) {
+    if (!dataset.energy_scan) return calculate_qz(dataset.project, dataset.dichroic, tables, &dataset.measurement.at("qz"), &state);
     const auto& project = dataset.project;
     require(!project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier fitting remains unavailable.");
     const auto& energies = dataset.measurement.at("energy");
@@ -393,7 +399,6 @@ ProjectCurve calculate_fit_dataset(const PreparedFitDataset& dataset, const std:
     for (double energy : energies) require(std::isfinite(energy) && energy > 0, "Energy scan requires positive finite energies.");
     const double energy_width = project.number("/experiment/resolution/energyFwhm");
     require(std::isfinite(energy_width) && energy_width >= 0, "Energy resolution must be finite and nonnegative.");
-    OpticalState state;
     ProjectCurve result;
     result.qz = coordinates; result.energy = energies;
     std::vector<RemagxReflectivity> raw;
@@ -411,6 +416,45 @@ ProjectCurve calculate_fit_dataset(const PreparedFitDataset& dataset, const std:
     postprocess_curve(project, result, resolved, dataset.dichroic, CalculationContext::fit_dataset,
         beam(project, "/experiment/polarization/beam1"), beam(project, "/experiment/polarization/beam2"),
         energies.back(), energies);
+    return result;
+}
+
+ProjectCurve calculate_fit_dataset(const PreparedFitDataset& dataset, const std::vector<OpticalTable>& tables) {
+    OpticalState state;
+    return calculate_dataset(dataset, tables, state);
+}
+ProjectDatasetEvaluation evaluate_project_datasets(const ProjectDocument& source, const std::vector<OpticalTable>& tables) {
+    ProjectDatasetEvaluation result{0, source, {}, {}};
+    OpticalState state;
+    for (size_t index = 0; index < source.array_size("/datasets"); ++index) {
+        if (!source.boolean("/datasets/" + std::to_string(index) + "/active")) continue;
+        const auto prepared = prepare_fit_dataset(result.project, index);
+        auto curve = calculate_dataset(prepared, tables, state);
+        const auto error = evaluate_fit_dataset(prepared, {curve.qz, curve.energy, curve.plus, curve.minus, curve.asymmetry});
+        result.error += error.weighted;
+        require(std::isfinite(result.error), "Weighted dataset total exceeds the finite double range.");
+        double final_energy = prepared.energy_scan ? curve.energy.back() : prepared.project.number("/experiment/energy");
+        if (!prepared.energy_scan && !prepared.dichroic && prepared.project.number("/experiment/resolution/energyFwhm") > 1e-6)
+            final_energy = 12398.326 / (12398.326 / final_energy);
+        std::vector<std::pair<std::string, double>> edits{{"/experiment/energy", final_energy}};
+        if (prepared.project.string("/sample/mode") == "element") {
+            for (size_t element = 0; element < state.elements.factors.size(); ++element) {
+                const std::string path = "/sample/elementProfiles/" + std::to_string(element) + "/";
+                size_t field = 0;
+                for (const auto* name : {"f1", "f2", "f1Mag", "f2Mag"})
+                    edits.emplace_back(path + name, state.elements.factors[element][field++]);
+            }
+        } else {
+            for (size_t layer = 0; layer < state.layers.size(); ++layer) {
+                const auto path = "/sample/layers/" + std::to_string(layer) + "/";
+                const auto& values = state.layers[layer];
+                edits.emplace_back(path + "delta", values.delta); edits.emplace_back(path + "beta", values.beta);
+                edits.emplace_back(path + "deltaMag", values.delta_magnetic); edits.emplace_back(path + "betaMag", values.beta_magnetic);
+            }
+        }
+        result.project = prepared.project.with_calculation_numbers(edits);
+        result.indices.push_back(index); result.curves.push_back(std::move(curve));
+    }
     return result;
 }
 }

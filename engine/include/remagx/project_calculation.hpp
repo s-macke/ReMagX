@@ -25,8 +25,18 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
 // Rejects energy datasets; use calculate_fit_dataset for either scan type.
 ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset,
                                      const std::vector<OpticalTable>& tables = {});
-// One prepared qz or energy dataset; no cross-dataset fit session yet.
+// One prepared qz or energy dataset with fresh optical state.
 ProjectCurve calculate_fit_dataset(const PreparedFitDataset& dataset,
                                   const std::vector<OpticalTable>& tables = {});
+struct ProjectDatasetEvaluation {
+    double error;
+    ProjectDocument project;
+    std::vector<size_t> indices;
+    std::vector<ProjectCurve> curves;
+};
+// Serial weighted means for active datasets. Does not add Q or run an optimizer.
+// A failure leaves the source project unchanged and publishes no partial result.
+ProjectDatasetEvaluation evaluate_project_datasets(const ProjectDocument& project,
+                                                   const std::vector<OpticalTable>& tables = {});
 }
 #endif
