@@ -55,8 +55,13 @@ argument-count, numeric/string conversion and embedded-NUL behavior. Text writes
 modify existing project fields and preserve unknown metadata. Gauss-Lorentzian
 helpers call the maintained native kernels at the stored calculation energy;
 changing Lua's energy global alone does not alter their input energy. The original
-CalculateDicReflectivity/CalculateEnergyscan no-ops remain no-ops. Deferred commands
-and not-yet-connected FillTensors/SetDeltaBeta report explicit unavailability.
+CalculateDicReflectivity/CalculateEnergyscan no-ops remain no-ops. Deferred commands report explicit unavailability. FillTensors constructs both
+layer dielectric tensors and element scattering tensors using the maintained
+native kernels; it publishes only after both sets succeed. SetDeltaBeta uses
+installed db/m/e tables, retaining per-layer resolution and shared table cursors.
+Missing/out-of-range primary data preserve values; successful scalar refresh
+replaces tensor state with imported values or the legacy zero/isotropic default.
+These functions require the prepared tensor/table workspaces to be installed.
 
 Run the focused comparison after building `project_lua_tests` and installing
 app dependencies:
@@ -65,18 +70,19 @@ app dependencies:
 node app/scripts/test-native-lua.mjs build/engine/project_lua_tests build/wasm
 ```
 
-Fifty-seven public synthetic cases compare directly with the actual Wasmoon
+Sixty-six public synthetic cases compare directly with the actual Wasmoon
 runtime, including persistent globals, replaced Start, numeric strings,
 array aliases, element methods, repeated workspace refresh, scalar writeback, native/WASM
 table lookup with duplicate energies and magnetic/tensor companions, all 18
 dielectric component arrays, solution replacement/dynamic bounds and retained
-aliases after tensor refresh, project text/functions, failures and
+aliases after tensor refresh, project text/functions, tensor construction and
+compound table refresh, failures and
 unchanged inputs. A separate native-only case
 verifies protected global readback when a metatable throws. The existing
 Wasmoon boundary panics for that case; it is not claimed as parity evidence.
 No corpus or broad terminal comparison is needed for this isolated component.
 
-Remaining work: FillTensors/SetDeltaBeta, output and calculation functions, calculation-owned
+Remaining work: output and calculation functions, calculation-owned
 hook state, nested calls and cancellation. Standard-library availability must
 be reviewed against the web runtime before activating native scripts. Existing
 unresolved script-semantics decisions still apply.

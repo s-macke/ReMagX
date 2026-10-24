@@ -219,15 +219,27 @@ template<bool Real> int line_shape(lua_State* vm) {
         return luaL_error(vm, "GetGaussLorentzian%s: invalid or nonfinite result", Real ? "Real" : "Imag");
     lua_pushnumber(vm, result); return 1;
 }
+template<bool Fill> int optical_function(lua_State* vm) {
+    if (!Fill && lua_gettop(vm) != 2) return 0;
+    auto* context = static_cast<ProjectFunctions*>(lua_touserdata(vm, lua_upvalueindex(1)));
+    const double index = std::trunc(lua_tonumber(vm, 1)), energy = lua_tonumber(vm, 2);
+    bool failed = false;
+    try {
+        if constexpr (Fill) context->session->fill_tensors();
+        else context->session->set_delta_beta(index, energy);
+    } catch (const std::exception& error) { context->error = error.what(); failed = true; }
+    if (failed) return luaL_error(vm, "%s", context->error.c_str());
+    return 0;
+}
 int no_operation(lua_State*) { return 0; }
 int unavailable_function(lua_State* vm) {
     const char* name = lua_tostring(vm, lua_upvalueindex(1));
-    if (std::string_view(name) == "SetDeltaBeta" && lua_gettop(vm) != 2) return 0;
     return luaL_error(vm, "%s: not supported yet", name);
 }
 int install_functions(lua_State* vm) {
     auto* context = static_cast<ProjectFunctions*>(lua_touserdata(vm, 1));
     const luaL_Reg functions[] = {{"SetName", set_layer_text<true>}, {"SetChemicalFormula", set_layer_text<false>},
+        {"FillTensors", optical_function<true>}, {"SetDeltaBeta", optical_function<false>},
         {"GetGaussLorentzianReal", line_shape<true>}, {"GetGaussLorentzianImag", line_shape<false>}, {nullptr,nullptr}};
     for (const auto* function = functions; function->name; ++function) {
         lua_pushlightuserdata(vm, context); lua_pushcclosure(vm, function->func, 1); lua_setglobal(vm, function->name);
@@ -235,7 +247,7 @@ int install_functions(lua_State* vm) {
     for (const char* name : {"CalculateDicReflectivity", "CalculateEnergyscan"}) {
         lua_pushcfunction(vm, no_operation); lua_setglobal(vm, name);
     }
-    for (const char* name : {"KramersKronigRange", "ShowMatrixEigenvalues", "ShowEScanEigenvalues", "FillTensors", "SetDeltaBeta"}) {
+    for (const char* name : {"KramersKronigRange", "ShowMatrixEigenvalues", "ShowEScanEigenvalues"}) {
         lua_pushstring(vm, name); lua_pushcclosure(vm, unavailable_function, 1); lua_setglobal(vm, name);
     }
     return 0;
@@ -278,6 +290,8 @@ struct ProjectLuaSession::State {
     double solution_maximum = -1;
     bool tensors_installed = false;
     std::vector<ScriptDielectricTensor> tensors;
+    std::vector<std::array<double, 18>> scattering;
+    std::vector<std::optional<size_t>> resolved_tables;
     ~State() { if (vm) lua_close(vm); }
 };
 ProjectLuaSession::ProjectLuaSession() : state_(std::make_unique<State>()) {
@@ -310,6 +324,7 @@ void ProjectLuaSession::install_project_arrays(const ProjectDocument& project) {
     add("par",34,"/scripts/parameters",""); add("f1",35,"/sample/elementProfiles","/f1"); add("f2",36,"/sample/elementProfiles","/f2");
     state_->arrays = std::move(arrays);
     state_->project = project;
+    state_->resolved_tables.resize(project.array_size("/sample/layers"));
     state_->wavelength = 12398.326 / project.number("/experiment/energy");
     auto* first = &state_->arrays[state_->arrays.size() - 2];
     auto* second = &state_->arrays.back();
@@ -359,6 +374,86 @@ void validate_script_tensors(const std::vector<ScriptDielectricTensor>& tensors)
     for (const auto& tensor : tensors) for (const double value : tensor.values)
         if (!std::isfinite(value)) throw ProjectDocumentError("Invalid script dielectric tensor");
 }
+}
+void ProjectLuaSession::replace_scattering_tensors(const std::vector<std::array<double,18>>& tensors) {
+    if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
+    if (tensors.size() != state_->elements.size()) throw ProjectDocumentError("Scattering tensor element count changed");
+    for (const auto& tensor : tensors) for (double value : tensor)
+        if (!std::isfinite(value)) throw ProjectDocumentError("Invalid element scattering tensor");
+    state_->scattering = tensors;
+}
+std::vector<std::array<double,18>> ProjectLuaSession::scattering_snapshot() const {
+    if (!state_) throw ProjectDocumentError("Lua session is closed.");
+    return state_->scattering;
+}
+void ProjectLuaSession::fill_tensors() {
+    if (!state_ || !state_->tensors_installed) throw ProjectDocumentError("FillTensors: native tensor workspace is unavailable");
+    const auto project = project_snapshot();
+    const size_t count = project.array_size("/sample/layers");
+    if (count != state_->tensors.size()) throw ProjectDocumentError("Script tensor layer count changed");
+    if (state_->scattering.size() != state_->elements.size())
+        throw ProjectDocumentError("FillTensors: native element scattering tensors are not available");
+    const int mode = project.string("/calculation/tensorContribution") == "tetragonal" ? 1 : 0;
+    const int magnetic = project.string("/calculation/magnetization/mode") == "none" ? 0 : 1;
+    std::vector<ScriptDielectricTensor> tensors(count);
+    for (size_t index = 0; index < count; ++index) {
+        const std::string path = "/sample/layers/" + std::to_string(index);
+        const RemagxLayer layer{project.number(path+"/thickness"), project.number(path+"/roughness"),
+            project.number(path+"/delta"), project.number(path+"/beta"), project.number(path+"/deltaMag"), project.number(path+"/betaMag"),
+            project.number(path+"/magnetization/gamma"), project.number(path+"/magnetization/phi")};
+        int anisotropic = 0;
+        if (remagx_dielectric_tensor(&layer, mode, magnetic, tensors[index].values.data(), &anisotropic) != 0)
+            throw ProjectDocumentError("FillTensors: dielectric construction failed");
+        tensors[index].anisotropic = anisotropic != 0;
+    }
+    std::vector<std::array<double,18>> scattering(state_->elements.size());
+    for (size_t index = 0; index < scattering.size(); ++index) {
+        const auto& element = state_->elements[index];
+        const double factors[] = {element.first->values[index], element.second->values[index], element.magnetic_first, element.magnetic_second};
+        if (remagx_scattering_tensor(factors, project.number("/calculation/magnetization/direction/gamma"),
+                project.number("/calculation/magnetization/direction/phi"), mode, magnetic, scattering[index].data()) != 0)
+            throw ProjectDocumentError("FillTensors: scattering construction failed");
+    }
+    state_->tensors = std::move(tensors); state_->scattering = std::move(scattering);
+}
+void ProjectLuaSession::set_delta_beta(double index, double energy) {
+    if (!state_ || !state_->project || !state_->tensors_installed || !state_->tables.installed)
+        throw ProjectDocumentError("SetDeltaBeta: native table/tensor workspace is unavailable");
+    if (!std::isfinite(index) || std::trunc(index) != index || index < 0 || index > 9007199254740991.0 ||
+        index >= static_cast<double>(state_->resolved_tables.size())) throw ProjectDocumentError("SetDeltaBeta: layer index out of range");
+    if (!std::isfinite(energy)) throw ProjectDocumentError("SetDeltaBeta: energy must be finite");
+    const size_t layer = static_cast<size_t>(index);
+    if (layer >= state_->tensors.size()) throw ProjectDocumentError("Script tensor layer count changed");
+    auto& state = state_->tables;
+    auto& resolved = state_->resolved_tables[layer];
+    if (!resolved) {
+        const auto name = state_->project->string("/sample/layers/" + std::to_string(layer) + "/opticalTable");
+        const size_t found = find_script_table(&state, name, "db");
+        if (found < state.tables.size()) resolved = found;
+    }
+    if (!resolved) return;
+    const auto& table = state.tables[*resolved];
+    if (table.energies.empty() || energy < table.energies.front() || energy > table.energies.back()) return;
+    const auto read = [&](size_t table_index, size_t width, double* output) {
+        if (table_index == state.tables.size() || state.tables[table_index].energies.empty()) return;
+        const auto& source = state.tables[table_index];
+        if (source.width != width || remagx_table_lookup(source.energies.data(), source.values.data(), source.energies.size(),
+                width, &energy, 1, &state.cursors[table_index], output) != 0)
+            throw ProjectDocumentError("SetDeltaBeta: invalid optical table values");
+    };
+    double scalar[2]{}, magnetic[2]{};
+    read(*resolved, 2, scalar);
+    read(find_script_table(&state, table.name, "m"), 2, magnetic);
+    const size_t tensor_index = find_script_table(&state, table.name, "e");
+    ScriptDielectricTensor tensor{{}, false};
+    if (tensor_index < state.tables.size() && !state.tables[tensor_index].energies.empty()) {
+        read(tensor_index, 18, tensor.values.data()); tensor.anisotropic = true;
+    }
+    state_->tensors[layer] = tensor;
+    const double values[] = {scalar[0], scalar[1], magnetic[0], magnetic[1]};
+    const int types[] = {0,1,4,5};
+    for (auto& array : state_->arrays) for (size_t field = 0; field < 4; ++field)
+        if (array.type == types[field]) array.values[layer] = values[field];
 }
 void ProjectLuaSession::install_project_functions() {
     if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");

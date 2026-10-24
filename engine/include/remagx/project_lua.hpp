@@ -27,6 +27,10 @@ public:
     void install_project_arrays(const ProjectDocument& project);
     ProjectDocument project_snapshot() const;
     void install_project_functions();
+    void fill_tensors();
+    void set_delta_beta(double index, double energy);
+    void replace_scattering_tensors(const std::vector<std::array<double, 18>>& tensors);
+    std::vector<std::array<double, 18>> scattering_snapshot() const;
     void set_layer_text(double index, bool optical_table, const std::string& value);
     double calculation_energy() const;
     void install_solution();

@@ -32,6 +32,7 @@ int main() {
             if (input.contains("solution")) {
                 session.install_solution(); session.replace_solution(solution(input.at("solution")));
             }
+            if (input.contains("scattering")) session.replace_scattering_tensors(input.at("scattering").get<std::vector<std::array<double,18>>>());
             if (input.value("functions", false)) session.install_project_functions();
             session.compile(input.at("source").get<std::string>(), true);
             const remagx::ScriptHookValues values{8000, 1e-12, .001, .03, 1};
@@ -59,6 +60,7 @@ int main() {
                 response["solution"] = {{"qz",current.qz}, {"reflectivity",current.reflectivity},
                     {"reflectivityPlus",current.reflectivity_plus}, {"reflectivityMinus",current.reflectivity_minus}, {"energy",current.energy}};
             }
+            if (input.contains("scattering")) response["scattering"] = session.scattering_snapshot();
             std::cout << response.dump() << '\n';
         } catch (const std::exception&) { std::cout << "{\"ok\":false}\n"; }
     }

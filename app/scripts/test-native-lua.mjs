@@ -1,9 +1,10 @@
 // Focused public array/session parity against the existing Wasmoon runtime.
 import assert from 'node:assert/strict'
+import { isDeepStrictEqual } from 'node:util'
 import { spawnSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { lookupTable, calculateGaussLorentzianReal, calculateGaussLorentzianImag } from '../../engine/wasm/parratt.mjs'
+import { lookupTable, calculateGaussLorentzianReal, calculateGaussLorentzianImag, calculateDielectricTensor, calculateScatteringTensor } from '../../engine/wasm/parratt.mjs'
 import { createServer } from 'vite'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const executable = resolve(process.argv[2] ?? resolve(root, 'build/engine/project_lua_tests'))
@@ -196,6 +197,44 @@ try {
     requests.push({project:JSON.stringify(project), source, functions:true})
   }
   assert.equal(expected.filter(result => result.ok).length, 27)
+  const { createScriptOptics } = await server.ssrLoadModule('/src/model/scriptOptics.ts')
+  const { createScatteringTensorWorkspace } = await server.ssrLoadModule('/src/model/scatteringTensors.ts')
+  const opticsCases = []
+  for (const tensorMode of ['magnetic','tetragonal']) for (const magnetism of ['none','add']) {
+    const input = structuredClone(project)
+    input.calculation.tensorContribution = tensorMode; input.calculation.magnetization.mode = magnetism
+    opticsCases.push({input, tables: [], source: "delta[1]=0.001; deltam[1]=0.0002; maggamma[1]=37; Fe:setf1(7); Fe:setf2m(0.25); FillTensors()"})
+  }
+  const opticalPrimary = {...primary, kind:'db'}
+  for (const tables of [[], [opticalPrimary], [opticalPrimary, {...magnetic,kind:'m'}],
+    [opticalPrimary, {...magnetic,kind:'m'}, {...tensor,kind:'e'}]]) {
+    opticsCases.push({input:project, tables, source: "SetName(1,'Fe'); SetDeltaBeta(1,7500); SetName(1,'missing'); SetDeltaBeta(1,8000)"})
+  }
+  opticsCases.push({input:project, tables:[opticalPrimary], source:"SetName(1,'Fe'); SetDeltaBeta(1,6000)"})
+  for (const test of opticsCases) {
+    const workspace = createScriptArrayWorkspace(test.input)
+    const tensors = createScriptTensorWorkspace(initialTensors.map(tensor => ({...tensor,values:Float64Array.from(tensor.values)})))
+    const initialScattering = test.input.sample.elementProfiles.map(() => Array(18).fill(0))
+    const scattering = createScatteringTensorWorkspace(initialScattering.map(values => Float64Array.from(values)))
+    const session = await runtime.createSession()
+    try {
+      const parsed = test.tables.map(table => parseOpticalTable(table.text, `${table.name}.${table.kind}`))
+      const optics = createScriptOptics(workspace, tensors, parsed,
+        (table, queries, cursor) => lookupTable(core,table,queries,cursor),
+        request => calculateDielectricTensor(core,request), new Map(), new Map(),
+        {workspace:scattering,construct: request => calculateScatteringTensor(core,request)})
+      session.installArrays(new Map([...workspace.arrays,...tensors.arrays])); session.installElements(workspace.elements)
+      session.installProjectFunctions({...optics,setLayerText:workspace.setLayerText})
+      session.compile(test.source,'BeforeCalculation')
+      const result = session.runHook(hook)
+      expected.push({ok:true,project:JSON.parse(JSON.stringify(workspace.snapshot())),hook:result,
+        tensors:tensors.snapshot().map(tensor=>({...tensor,values:Array.from(tensor.values)})),
+        scattering:scattering.snapshot().map(values=>Array.from(values))})
+    } catch { expected.push({ok:false}) } finally { session.close() }
+    requests.push({project:JSON.stringify(test.input),source:test.source,tables:test.tables,functions:true,
+      tensors:initialTensors,scattering:initialScattering})
+  }
+  assert.equal(expected.filter(result=>result.ok).length,36)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),
@@ -205,6 +244,7 @@ try {
     encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 10000 })
   assert.equal(run.status, 0, run.stderr || String(run.error))
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
-  assert.deepEqual(actual, expected)
-  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length + functionCases.length} parity cases and one native protected-readback case passed.`)
+  assert.equal(actual.length, expected.length)
+  actual.forEach((result, index) => assert.ok(isDeepStrictEqual(result, expected[index]), `Native Lua case ${index + 1} differs from Wasmoon`))
+  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length + functionCases.length + opticsCases.length} parity cases and one native protected-readback case passed.`)
 } finally { await server.close() }
