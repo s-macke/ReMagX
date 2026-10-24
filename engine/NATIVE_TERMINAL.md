@@ -231,16 +231,16 @@ No original-optimizer convergence/corpus acceptance is implied.
 Install system Lua 5.4 development headers/library and configure with
 `-DREMAGX_BUILD_NATIVE_LUA=ON` to enable BeforeCalculation for `-refl`/`-dicrefl`
 in compound mode with Nevot-Croce or adaptive segmentation, or in element mode,
-without monochromatic energy broadening. Default/Docker builds without this option still reject active scripts.
+including monochromatic energy broadening. Default/Docker builds without this option still reject active scripts.
 Automatic table refresh precedes the hook; scalar values, tensors, energy,
 angular width and epsilon then feed the three existing solvers. Script output
 is sent to stderr. Project inputs stay unchanged and failures publish no
-scientific stdout. Scripted fit/energy-broadened paths remain unavailable.
+scientific stdout. Scripted fitting and standalone energy-scan commands remain unavailable.
 
 The first Ctrl+C requests cooperative Stop; a second Ctrl+C terminates the
 process using default SIGINT handling, including scripts that disable debug hooks.
 This does not impose an automatic wall-clock deadline. The focused gate covers
-36 native/actual-WASM comparisons, three rejection cases and two real SIGINT
+54 native/actual-WASM comparisons, three rejection cases and two real SIGINT
 checks (cooperative loop and disabled-hook loop):
 
 ```
@@ -264,3 +264,10 @@ The inactive compound film retains its stored tensor state for Lua access. Tests
 cover manual/automatic factors, element.setf, shared f1 arrays, density/thickness
 edits and FillTensors across all solvers and both beam modes. The unresolved .F
 assignment decision still applies; no tensor-refresh correction is introduced.
+
+The 19-point monochromatic energy convolution now invokes a fresh temporary Lua
+session per sample while retaining project edits, optical tensors, table cursors,
+resolved material tables and original stored profile depths. Sample energies use
+the original quadrature and angles; numerical tolerances are unchanged. Focused
+comparisons exercise incremental geometry/profile changes, table rename/cache
+behavior and fresh globals for compound, segmented and element projects.

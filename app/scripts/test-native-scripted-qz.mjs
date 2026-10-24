@@ -59,7 +59,7 @@ try {
   const filename = resolve(directory,'project.json')
   let count = 0
   let base
-  for (const roughness of ['nevot-croce','segmentation','element']) for (const automatic of [false,true]) for (const algorithm of ['parratt','matrix','zak']) for (const dichroic of [false,true]) {
+  for (const roughness of ['nevot-croce','segmentation','element']) for (const automatic of [false,true]) for (const algorithm of ['parratt','matrix','zak']) for (const dichroic of [false,true]) for (const broadened of dichroic?[false]:[false,true]) {
     const project = createDefaultProject()
     project.calculation.algorithm = algorithm
     project.calculation.automaticOpticalConstants = automatic
@@ -68,7 +68,7 @@ try {
     project.sample.multilayer.enabled = false
     project.experiment.energy = 8000
     project.experiment.qzScan = {qzMin:0,qzMax:0.2,points:7,useDatasetPoints:false,showAngle:false}
-    project.experiment.resolution.energyFwhm = 0
+    project.experiment.resolution.energyFwhm = broadened ? 10 : 0
     project.sample.layers.forEach(layer=>{layer.opticalTable='public'})
     project.sample.layers.at(-1).opticalTable='vacuum'
     project.scripts.enabled = true
@@ -93,6 +93,16 @@ try {
         {factors:[25,2,0.4,0.1],gamma:47,phi:61,tensor:0,magnetic:1}))
       project.scripts.beforeCalculation="assert(Fe:getf1()==25); Fe:setf(8100); f1[0]=f1[0]+0.5; Fe:setdensity(1,0.12); Fe:setthickness(1,42); FillTensors(); energy=8010; resolution=0.001; print('public-script')"
     }
+    if (broadened) {
+      project.scripts.beforeCalculation = "calls=(calls or 0)+1; assert(calls==1); " + project.scripts.beforeCalculation
+        .replace('thickness[1]=42','thickness[1]=thickness[1]+1')
+        .replace('Fe:setthickness(1,42)','Fe:setthickness(1,Fe:getthickness(1)+1)')
+        .replace('SetDeltaBeta(1,8100)',"SetDeltaBeta(1,energy); SetName(1,'missing')")
+        .replace('delta[1]=0.00002',"SetDeltaBeta(1,energy); SetName(1,'missing')")
+        .replace('energy=8010','energy=energy+1')
+        .replace('gauss_z[0]=14','gauss_z[0]=gauss_z[0]+0.1')
+      if (roughness==='element') project.scripts.beforeCalculation=project.scripts.beforeCalculation.replace('assert(Fe:getf1()==25); ','')
+    }
     base = project
     const text = JSON.stringify(project)
     await writeFile(filename,text)
@@ -106,21 +116,23 @@ try {
     try {
       const hook = createBeforeCalculation(session,engine,tables,message=>messages.push(message))
       const expected = calculateRealCurve(reference,tables,engine,'qz',dichroic?'dichroic':'monochromatic',reference.sample.mode==='element'?storedOpticalState(reference):undefined,hook)
-      assert.equal(run.status,0,`${roughness}/${algorithm}/${automatic}/${dichroic}: ${run.stderr||String(run.error)}`)
-      assert.equal(run.stderr,'public-script\n')
+      assert.equal(run.status,0,`${roughness}/${algorithm}/${automatic}/${dichroic}/${broadened}: ${run.stderr||String(run.error)}`)
+      const messagesInTerminal=run.stderr.trim().split('\n')
+      assert.ok(messagesInTerminal.every(line=>line==='public-script'||/^Layer 1: missing\/empty \.db table/.test(line)))
+      assert.equal(messagesInTerminal.filter(line=>line==='public-script').length,broadened?19:1)
       const rows=run.stdout.trim().split('\n').map(line=>line.split(/\s+/).map(Number))
-      assert.equal(rows.length,qz.length); assert.deepEqual(messages,['public-script'])
+      assert.equal(rows.length,qz.length); assert.deepEqual(messages,Array(broadened?19:1).fill('public-script'))
       rows.forEach((row,index)=>{
         assert.equal(row.length,dichroic?3:2); assert.equal(row[0],qz[index])
         const values=[expected.reflectivityPlus[index],expected.reflectivityMinus[index]]
         row.slice(1).forEach((value,column)=>assert.ok(Number.isFinite(value)&&Math.abs(value-values[column])<=1e-15+1e-10*Math.abs(values[column]),
-          `Scripted ${roughness} ${algorithm} ${automatic} ${dichroic}: row ${index}, column ${column}`))
+          `Scripted ${roughness} ${algorithm} ${automatic} ${dichroic} ${broadened}: row ${index}, column ${column}`))
       })
     } finally {session.close()}
     count++
   }
   for (const edit of [project=>{project.scripts.beforeCalculation="error('public script failure')"},
-    project=>{project.scripts.beforeCalculation="element.new(999)"},project=>{project.experiment.resolution.energyFwhm=1}]) {
+    project=>{project.scripts.beforeCalculation="element.new(999)"},project=>{project.experiment.resolution.energyFwhm=1;project.calculation.postProcessing.fourierTransform=true}]) {
     const project=structuredClone(base); edit(project); await writeFile(filename,JSON.stringify(project))
     const run=spawnSync(executable,['-refl',filename],{cwd:directory,encoding:'utf8',timeout:10000})
     assert.equal(run.status,1); assert.equal(run.stdout,'')

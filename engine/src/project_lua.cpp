@@ -622,6 +622,17 @@ void ProjectLuaSession::install_tables(const std::vector<OpticalTable>& tables) 
     }
     state_->tables = std::move(prepared);
 }
+void ProjectLuaSession::replace_resolved_tables(const std::vector<std::optional<size_t>>& tables) {
+    if (!state_ || !state_->project || !state_->tables.installed) throw ProjectDocumentError("No active Lua table workspace.");
+    if (tables.size() != state_->resolved_tables.size()) throw ProjectDocumentError("Lua resolved table count changed");
+    for (const auto& table : tables) if (table && *table >= state_->tables.tables.size())
+        throw ProjectDocumentError("Invalid resolved Lua table index");
+    state_->resolved_tables = tables;
+}
+std::vector<std::optional<size_t>> ProjectLuaSession::resolved_tables() const {
+    if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
+    return state_->resolved_tables;
+}
 void ProjectLuaSession::replace_table_cursors(const std::vector<size_t>& cursors) {
     if (!state_ || !state_->tables.installed) throw ProjectDocumentError("No active Lua table workspace.");
     if (cursors.size() != state_->tables.tables.size()) throw ProjectDocumentError("Lua table cursor count changed");
@@ -744,7 +755,7 @@ ProjectScriptHook::ProjectScriptHook(std::vector<OpticalTable> tables,
 ScriptProjectResult ProjectScriptHook::run(const ProjectDocument& project,
         const std::vector<ScriptDielectricTensor>& tensors,
         const std::vector<std::array<double,18>>& scattering,
-        const std::vector<size_t>& cursors, double renew) {
+        const std::vector<size_t>& cursors, double renew, const std::vector<std::optional<size_t>>* resolved_tables) {
     if (closed_) throw ProjectDocumentError("Project script hook is closed.");
     try {
         const auto source = project.string(before_calculation_ ? "/scripts/beforeCalculation" : "/scripts/default");
@@ -763,10 +774,11 @@ ScriptProjectResult ProjectScriptHook::run(const ProjectDocument& project,
             session_.replace_tensors(tensors);
             session_.replace_scattering_tensors(scattering);
         }
+        if (resolved_tables) session_.replace_resolved_tables(*resolved_tables);
         session_.replace_table_cursors(cursors);
         session_.replace_project(project, renew);
         session_.apply_hook(session_.run_hook(session_.begin_hook()));
-        return {session_.project_snapshot(), session_.tensor_snapshot(), session_.scattering_snapshot(), session_.table_cursors()};
+        return {session_.project_snapshot(), session_.tensor_snapshot(), session_.scattering_snapshot(), session_.table_cursors(), session_.resolved_tables()};
     } catch (...) {
         closed_ = true; session_.close(); throw;
     }

@@ -1,3 +1,4 @@
+#include <optional>
 #ifdef REMAGX_NATIVE_LUA
 #include "remagx/project_lua.hpp"
 #endif
@@ -81,6 +82,8 @@ struct OpticalState {
     std::vector<bool> retained, anisotropic;
     std::vector<size_t> cursors;
     ElementOpticalState elements;
+    std::vector<double> layer_depths{};
+    std::vector<std::optional<size_t>> resolved_tables{};
 };
 
 }
@@ -135,7 +138,7 @@ static void postprocess_curve(const ProjectDocument& project, ProjectCurve& resu
 static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichroic,
     const std::vector<OpticalTable>& tables, const std::vector<double>* coordinates = nullptr,
     double sample_energy = 0, OpticalState* previous = nullptr,
-    CalculationContext context = CalculationContext::terminal, const ProjectCalculationOptions* options = nullptr) {
+    CalculationContext context = CalculationContext::terminal, const ProjectCalculationOptions* options = nullptr, ProjectDocument* script_result = nullptr) {
     (void)options;
     auto project = original;
     const auto algorithm = project.string("/calculation/algorithm");
@@ -151,7 +154,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
     if (scripted) {
 #ifdef REMAGX_NATIVE_LUA
         require(context == CalculationContext::terminal && options,
-            "Native Lua currently supports terminal qz scans without energy broadening; other script calculation paths remain pending.");
+            "Native Lua currently supports terminal qz scans; scripted fitting/energy scans remain pending.");
 #else
         throw ProjectDocumentError("Native terminal was built without Lua support.");
 #endif
@@ -224,15 +227,26 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
             std::vector<ScriptDielectricTensor> tensors(project.array_size("/sample/layers"));
             for (size_t index = 0; index < tensors.size(); ++index) {
                 const auto path = "/sample/layers/" + std::to_string(index) + "/dielectricTensor";
-                if (project.contains(path)) {
+                if (previous && previous->tensors.size() == tensors.size()) {
+                    tensors[index] = {previous->tensors[index], previous->anisotropic[index]};
+                } else if (project.contains(path)) {
                     tensors[index].anisotropic = project.boolean(path+"/anisotropic");
                     for (size_t part = 0; part < 18; ++part) tensors[index].values[part] = project.number(path+"/values/"+std::to_string(part));
                 }
             }
             const auto emit = options->script_output ? options->script_output : [](const std::string&) {};
             ProjectScriptHook hook(tables,emit,true,options->should_stop);
-            auto result = hook.run(project.with_calculation_numbers(edits),tensors,scattering,element_state->cursors);
+            auto result = hook.run(project.with_calculation_numbers(edits),tensors,scattering,element_state->cursors,0,
+                previous && !previous->resolved_tables.empty() ? &previous->resolved_tables : nullptr);
             project = std::move(result.project); element_state->cursors = std::move(result.cursors);
+            if (previous) {
+                previous->resolved_tables = std::move(result.resolved_tables);
+                previous->tensors.resize(result.tensors.size()); previous->anisotropic.resize(result.tensors.size());
+                for (size_t index = 0; index < result.tensors.size(); ++index) {
+                    previous->tensors[index] = result.tensors[index].values;
+                    previous->anisotropic[index] = result.tensors[index].anisotropic;
+                }
+            }
             energy = project.number("/experiment/energy"); width = project.number("/experiment/resolution/angularFwhm");
             for (size_t index = 0; index < scattering.size(); ++index) {
                 const auto path = "/sample/elementProfiles/" + std::to_string(index);
@@ -253,6 +267,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
     } else {
         bool range_error = false;
         std::vector<double> script_depths;
+        ElementOpticalState script_elements;
+        std::vector<std::optional<size_t>> script_resolved_tables;
         const size_t stored_count = project.array_size("/sample/layers");
         require(stored_count <= 100000, "Native terminal layer count exceeds the supported limit.");
         std::vector<size_t> indices;
@@ -336,7 +352,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
         }
 #ifdef REMAGX_NATIVE_LUA
         if (scripted) {
-            if (segmented) {
+            if (segmented && previous && !previous->layer_depths.empty()) script_depths = previous->layer_depths;
+            else if (segmented) {
                 script_depths.assign(stored_count, 0);
                 for (size_t index = 1; index < stored_count; ++index) {
                     script_depths[index] = script_depths[index-1] + stored_layers[index].thickness;
@@ -360,7 +377,9 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
             std::vector<std::array<double,18>> scattering(project.array_size("/sample/elementProfiles"));
             for (size_t index = 0; index < scattering.size(); ++index) {
                 const auto path = "/sample/elementProfiles/" + std::to_string(index);
-                if (automatic) {
+                if (previous && previous->elements.tensors.size() == scattering.size()*18) {
+                    std::copy_n(previous->elements.tensors.data()+index*18,18,scattering[index].data());
+                } else if (automatic) {
                     if (project.contains(path+"/scatteringTensor")) for (size_t part = 0; part < 18; ++part)
                         scattering[index][part] = project.number(path+"/scatteringTensor/"+std::to_string(part));
                 } else {
@@ -371,8 +390,17 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
             }
             const auto emit = options->script_output ? options->script_output : [](const std::string&) {};
             ProjectScriptHook hook(tables, emit, true, options->should_stop);
-            auto result = hook.run(project.with_calculation_numbers(edits), prepared, scattering, cursors);
+            auto result = hook.run(project.with_calculation_numbers(edits), prepared, scattering, cursors,0,
+                previous && !previous->resolved_tables.empty() ? &previous->resolved_tables : nullptr);
             project = std::move(result.project); cursors = std::move(result.cursors);
+            script_elements.cursors = cursors;
+            script_resolved_tables = std::move(result.resolved_tables);
+            for (size_t index = 0; index < result.scattering.size(); ++index) {
+                const auto path = "/sample/elementProfiles/" + std::to_string(index);
+                script_elements.factors.push_back({project.number(path+"/f1"),project.number(path+"/f2"),
+                    project.number(path+"/f1Mag"),project.number(path+"/f2Mag")});
+                script_elements.tensors.insert(script_elements.tensors.end(),result.scattering[index].begin(),result.scattering[index].end());
+            }
             energy = project.number("/experiment/energy"); width = project.number("/experiment/resolution/angularFwhm");
             for (size_t index = 0; index < stored_count; ++index) {
                 const auto path = "/sample/layers/" + std::to_string(index);
@@ -408,7 +436,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
             count = layers.size();
         }
         if (previous) *previous = {std::move(stored_layers), std::move(tensors),
-            std::move(retained_tensor), std::move(anisotropic), std::move(cursors), {}};
+            std::move(retained_tensor), std::move(anisotropic), std::move(cursors), std::move(script_elements), std::move(script_depths), std::move(script_resolved_tables)};
     }
     if (scripted && dichroic && fast) {
         const double wave = 2 * 3.14159265358979323846 / (12398.326 / energy);
@@ -429,6 +457,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
         for (const auto& value : values) { result.plus.push_back(value.beam1); result.minus.push_back(value.beam2); }
     } else postprocess_curve(project, result, values, dichroic, context, correction_first, correction_second,
         correction_energy, correction_energies);
+    if (script_result) *script_result = project;
     return result;
 }
 
@@ -466,6 +495,9 @@ static ProjectCurve calculate_qz(const ProjectDocument& project, bool dichroic, 
     OpticalState local_state;
     auto& state = previous ? *previous : local_state;
     std::set<std::string> seen_warnings;
+    auto current_project = project;
+    const bool scripted = project.boolean("/scripts/enabled") &&
+        project.string("/scripts/beforeCalculation").find_first_not_of(" \t\n\r\f\v") != std::string::npos;
     for (size_t sample = 0; sample < 19; ++sample) {
         const double current_energy = energy + offsets[sample] * width;
         require(std::isfinite(current_energy) && current_energy > 0,
@@ -474,8 +506,9 @@ static ProjectCurve calculate_qz(const ProjectDocument& project, bool dichroic, 
         std::vector<double> coordinates;
         coordinates.reserve(angles.size());
         for (double angle : angles) coordinates.push_back(2 * current_wave * std::sin(angle));
-        const auto current = calculate_inner(project, false, tables, &coordinates, current_energy, &state,
-            fit_coordinates ? CalculationContext::fit_energy_sample : CalculationContext::terminal);
+        const auto sampled_project = scripted ? current_project.with_calculation_numbers({{"/experiment/energy",current_energy}}) : project;
+        const auto current = calculate_inner(sampled_project, false, tables, &coordinates, current_energy, &state,
+            fit_coordinates ? CalculationContext::fit_energy_sample : CalculationContext::terminal, options, scripted ? &current_project : nullptr);
         require(current.plus.size() == result.plus.size(), "Energy broadening changed the sample array length.");
         for (size_t point = 0; point < result.plus.size(); ++point)
             result.plus[point] += weights[sample] * current.plus[point];

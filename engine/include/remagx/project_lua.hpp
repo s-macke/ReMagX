@@ -4,6 +4,7 @@
 #include <memory>
 #include <functional>
 #include <array>
+#include <optional>
 #include <string>
 namespace remagx {
 struct ScriptSolution {
@@ -41,6 +42,8 @@ public:
     void replace_tensors(const std::vector<ScriptDielectricTensor>& tensors);
     std::vector<ScriptDielectricTensor> tensor_snapshot() const;
     void install_tables(const std::vector<OpticalTable>& tables);
+    void replace_resolved_tables(const std::vector<std::optional<size_t>>& tables);
+    std::vector<std::optional<size_t>> resolved_tables() const;
     void replace_table_cursors(const std::vector<size_t>& cursors);
     std::vector<size_t> table_cursors() const;
     void replace_project(const ProjectDocument& project, double renew_optical_constants = 0);
@@ -57,6 +60,7 @@ struct ScriptProjectResult {
     std::vector<ScriptDielectricTensor> tensors;
     std::vector<std::array<double,18>> scattering;
     std::vector<size_t> cursors;
+    std::vector<std::optional<size_t>> resolved_tables;
 };
 // Caller supplies prepared optical state and owns invocation/refresh ordering.
 class ProjectScriptHook {
@@ -67,7 +71,8 @@ public:
     ScriptProjectResult run(const ProjectDocument& project,
         const std::vector<ScriptDielectricTensor>& tensors,
         const std::vector<std::array<double,18>>& scattering,
-        const std::vector<size_t>& cursors, double renew = 0);
+        const std::vector<size_t>& cursors, double renew = 0,
+        const std::vector<std::optional<size_t>>* resolved_tables = nullptr);
 private:
     ProjectLuaSession session_;
     std::vector<OpticalTable> tables_;

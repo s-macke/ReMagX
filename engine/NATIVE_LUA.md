@@ -2,10 +2,10 @@
 
 `ProjectLuaSession` owns a Lua 5.4 session and isolated numeric project arrays.
 Lua-enabled builds now execute BeforeCalculation for compound and element
-terminal qz scans without monochromatic energy broadening. Scripts run after
+terminal qz scans, including monochromatic energy broadening. Scripts run after
 optical refresh and before multilayer packing/solver calls; stderr receives
-script messages. Scripted fits and energy broadening
-still reject explicitly. Full script acceptance remains open.
+script messages. Scripted fits and energy-scan routing
+remain explicitly unavailable. Full script acceptance remains open.
 
 Build with a system Lua 5.4 development library (Debian/Ubuntu:
 `liblua5.4-dev`), then enable `-DREMAGX_BUILD_NATIVE_LUA=ON` when configuring
@@ -123,3 +123,9 @@ Lua is a system dependency, not copied from the private original program.
 It uses the GPL-compatible MIT licence; see the [official Lua licence](https://www.lua.org/license.html).
 Distributions containing Lua must retain its copyright and permission notice.
 No native Lua binary is distributed by this increment.
+
+Monochromatic qz broadening now carries project/scalar/tensor/cursor changes
+through all 19 samples. Each temporary inner call creates a fresh Lua session;
+resolved compound table mappings and pre-hook profile depths survive between
+samples, matching the web temporary-session path. This is separate from the
+persistent fit-owned Lua lifecycle, which remains to be integrated.
