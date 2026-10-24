@@ -248,4 +248,4 @@ Native build of the same C++ core → golden-data generator + CI regression test
 
 ## Open questions
 
-None. All assumptions are resolved (D-22 to D-32).
+Current unresolved decisions and their dependent work are tracked in [AGENTS.md](../../../AGENTS.md#decisions-and-dependent-work), S1–S8. The decision journal governs their resolution. Earlier D-22 to D-32 decisions did not resolve subsequently discovered legacy defects or all UI/infrastructure scope questions.
