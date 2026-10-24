@@ -6,8 +6,8 @@ namespace remagx {
 struct ScriptHookValues {
     double energy, epsilon, resolution, energy_scan_qz, renew_optical_constants;
 };
-// Calculation-owned Lua 5.4 session with isolated numeric project arrays.
-// Element/tensor/function bindings and calculation hooks are still required
+// Calculation-owned Lua 5.4 session with isolated numeric arrays and elements.
+// Tensor/function bindings and calculation hooks are still required
 // before this bridge can enable CLI scripts.
 class ProjectLuaSession {
 public:

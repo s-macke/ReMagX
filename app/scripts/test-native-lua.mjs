@@ -16,12 +16,20 @@ try {
   const project = createDefaultProject()
   project.scripts.parameters = [1.0000000000000002, 2]
   project.sample.depthProfileFunctions = []
+  project.sample.elementProfiles = ['Fe', 'Co'].map(element => ({ element,
+    f1: 1, f2: 2, f1Mag: 3, f2Mag: 4,
+    slabs: [{ thickness: 0, roughness: 0, density: 0 },
+      { thickness: 20, roughness: 2, density: 0.1 }] }))
   const hook = { energy: 8000, epsilon: 1e-12, resolution: .001, energyScanQz: .03, renewOpticalConstants: 1 }
   const sources = [
     "assert(type(delta)=='userdata'); delta[1]=par[0]; thickness[1]=97.5; sigma[1]=2; energy=energy+1",
     "calls=(calls or 0)+1; beta[1]=calls/100000; resolution='0.002'; renewocs=99",
     `local alias=array.new(1,3); array.set(alias,'1',125); assert(array.get(thickness,1)==125); assert(array.size(delta)==${project.sample.layers.length - 1}); assert(array.size(gauss_z)==-1)`,
     "maggamma[1]=37; magphi[1]=63; density[1]=3; deltam[1]=1e-6; betam[1]=2e-7",
+    "Fe:setf1(par[0]); assert(f1[0]==par[0]); f2[1]=7; assert(Co:getf2()==7); Fe:setf1m(0.25); Co:setf2m(0.5)",
+    "local e=element.new('0.9'); e:setthickness(1.9,42); element.setsigma(Fe,1,3); Fe:setdensity(1,0.125); assert(e:getthickness(1)==42 and e:getsigma(1)==3 and e:getdensity(1)==0.125)",
+    "Fe:set(nil,123); assert(Co:get()==123); local e=element.new(1); e:setf1(9); assert(Co:getf1()==9)",
+    "element.new(2)", "Fe:getdensity(2)", "Fe:setf2m(0/0)", "Fe:setf(8000)",
     "Start=function() energy=42 end", "delta[0.5]=1", "delta[100]=1", "delta[1]=0/0",
     "gauss_z[0]=1", "array.new(1,999)", "energy={}", "error('public diagnostic')", "local =",
   ]
@@ -32,6 +40,7 @@ try {
     const session = await runtime.createSession()
     try {
       session.installArrays(workspace.arrays)
+      session.installElements(workspace.elements)
       session.compile(source, 'BeforeCalculation')
       let result
       for (let index = 0; index < 2; ++index) result = session.runHook(hook)
@@ -41,7 +50,7 @@ try {
     assert.deepEqual(project, original)
     requests.push({ project: JSON.stringify(project), source, repeat: 2 })
   }
-  assert.equal(expected.filter(result => result.ok).length, 5)
+  assert.equal(expected.filter(result => result.ok).length, 8)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),

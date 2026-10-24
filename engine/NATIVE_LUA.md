@@ -22,7 +22,11 @@ use protected Lua calls with trivial C++ locals inside the longjmp boundary.
 Numeric userdata expose the existing layer, Gaussian-profile, parameter and
 f1/f2 arrays, their zero-based indexing, type IDs and array.new/get/set/size.
 Aliases share storage. Snapshots preserve input projects and retain double
-values without formatting or rounding. The scalar hook return is separate from
+values without formatting or rounding. Element userdata expose f1/f2 and magnetic factors, slab thickness/roughness/
+density, constructor aliases and the legacy shared scratch cell. Element f1/f2
+methods and the numeric arrays share storage. Fractional element/slab indices
+truncate as in the legacy API. `setf` explicitly rejects until table lookup is
+connected. The scalar hook return is separate from
 project snapshots; energy/wavelength state application is not connected yet.
 
 Run the focused comparison after building `project_lua_tests` and installing
@@ -32,15 +36,15 @@ app dependencies:
 node app/scripts/test-native-lua.mjs build/engine/project_lua_tests
 ```
 
-Thirteen public synthetic cases compare directly with the actual Wasmoon
+Twenty public synthetic cases compare directly with the actual Wasmoon
 runtime, including persistent globals, replaced Start, numeric strings,
-array aliases, failures and unchanged inputs. A separate native-only case
+array aliases, element methods, failures and unchanged inputs. A separate native-only case
 verifies protected global readback when a metatable throws. The existing
 Wasmoon boundary panics for that case; it is not claimed as parity evidence.
 No corpus or broad terminal comparison is needed for this isolated component.
 
 Remaining work: dynamic array bounds, workspace replacement between hooks,
-element/tensor/solution bindings, project functions and output, calculation-owned
+element table lookup, tensor/solution bindings, project functions and output, calculation-owned
 hook state, nested calls and cancellation. Standard-library availability must
 be reviewed against the web runtime before activating native scripts. Existing
 unresolved script-semantics decisions still apply.

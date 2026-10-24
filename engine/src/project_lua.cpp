@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <optional>
 #include <vector>
+#include <array>
 
 static_assert(LUA_VERSION_NUM == 504, "Native scripting requires the web-compatible Lua 5.4 API");
 static_assert(std::is_same<lua_Number, double>::value && sizeof(lua_Number) == 8 &&
@@ -66,6 +67,79 @@ int install_arrays(lua_State* vm) {
     for (auto& array : *arrays) { push_array(vm, &array, static_cast<double>(array.values.size()) - 1); lua_setglobal(vm, array.name); }
     return 0;
 }
+// User-visible methods follow scriptmetaobject.cpp and the web element bridge.
+struct ElementBinding {
+    std::string name, path;
+    NumericArray *first, *second;
+    size_t index;
+    double magnetic_first, magnetic_second;
+    std::vector<std::array<double, 3>> slabs;
+};
+struct ElementHandle { ElementBinding* binding; };
+double element_scratch = 3.14; // Legacy process-wide scratch cell, shared across sessions.
+ElementBinding* element_binding(lua_State* vm) {
+    return static_cast<ElementHandle*>(luaL_checkudata(vm, 1, "ElementObject"))->binding;
+}
+size_t element_index(lua_State* vm, int argument, size_t count) {
+    const double index = std::trunc(numeric_argument(vm, argument, false));
+    if (index < 0 || index > 9007199254740991.0 || index >= static_cast<double>(count))
+        luaL_error(vm, "Element index out of range");
+    return static_cast<size_t>(index);
+}
+void push_element(lua_State* vm, ElementBinding* binding) {
+    auto* handle = static_cast<ElementHandle*>(lua_newuserdatauv(vm, sizeof(ElementHandle), 0));
+    handle->binding = binding;
+    luaL_getmetatable(vm, "ElementObject"); lua_setmetatable(vm, -2);
+}
+int element_new(lua_State* vm) {
+    auto* elements = static_cast<std::vector<ElementBinding>*>(lua_touserdata(vm, lua_upvalueindex(1)));
+    const size_t index = element_index(vm, 1, elements->size());
+    push_element(vm, &(*elements)[index]); return 1;
+}
+template<int Field, bool Write> int element_factor(lua_State* vm) {
+    auto* binding = element_binding(vm);
+    double* value;
+    if constexpr (Field == 0) value = &binding->first->values[binding->index];
+    else if constexpr (Field == 1) value = &binding->second->values[binding->index];
+    else if constexpr (Field == 2) value = &binding->magnetic_first;
+    else value = &binding->magnetic_second;
+    if constexpr (Write) { *value = numeric_argument(vm, 2, false); return 0; }
+    else { lua_pushnumber(vm, *value); return 1; }
+}
+template<int Field, bool Write> int element_slab(lua_State* vm) {
+    auto* binding = element_binding(vm);
+    const size_t index = element_index(vm, 2, binding->slabs.size());
+    if constexpr (Write) { binding->slabs[index][Field] = numeric_argument(vm, 3, false); return 0; }
+    else { lua_pushnumber(vm, binding->slabs[index][Field]); return 1; }
+}
+int element_get(lua_State* vm) { element_binding(vm); lua_pushnumber(vm, element_scratch); return 1; }
+int element_set(lua_State* vm) {
+    const double value = numeric_argument(vm, 3, false);
+    element_binding(vm); element_scratch = value; return 0;
+}
+int element_lookup(lua_State* vm) {
+    element_binding(vm); numeric_argument(vm, 2, false);
+    return luaL_error(vm, "element.setf: native table lookup is not available");
+}
+int install_elements(lua_State* vm) {
+    auto* elements = static_cast<std::vector<ElementBinding>*>(lua_touserdata(vm, 1));
+    luaL_newmetatable(vm, "ElementObject");
+    const luaL_Reg methods[] = {
+        {"getf1", element_factor<0,false>}, {"setf1", element_factor<0,true>},
+        {"getf2", element_factor<1,false>}, {"setf2", element_factor<1,true>},
+        {"getf1m", element_factor<2,false>}, {"setf1m", element_factor<2,true>},
+        {"getf2m", element_factor<3,false>}, {"setf2m", element_factor<3,true>},
+        {"getthickness", element_slab<0,false>}, {"setthickness", element_slab<0,true>},
+        {"getsigma", element_slab<1,false>}, {"setsigma", element_slab<1,true>},
+        {"getdensity", element_slab<2,false>}, {"setdensity", element_slab<2,true>},
+        {"get", element_get}, {"set", element_set}, {"setf", element_lookup}, {nullptr,nullptr}
+    };
+    luaL_setfuncs(vm, methods, 0);
+    lua_pushlightuserdata(vm, elements); lua_pushcclosure(vm, element_new, 1); lua_setfield(vm, -2, "new");
+    lua_pushvalue(vm, -1); lua_setfield(vm, -2, "__index"); lua_setglobal(vm, "element");
+    for (auto& binding : *elements) { push_element(vm, &binding); lua_setglobal(vm, binding.name.c_str()); }
+    return 0;
+}
 struct HookRequest { ScriptHookValues input, output; };
 // Keep only trivial locals inside Lua's longjmp boundary.
 int execute_hook(lua_State* vm) {
@@ -95,6 +169,7 @@ struct ProjectLuaSession::State {
     bool compiled = false;
     std::optional<ProjectDocument> project;
     std::vector<NumericArray> arrays;
+    std::vector<ElementBinding> elements;
     ~State() { if (vm) lua_close(vm); }
 };
 ProjectLuaSession::ProjectLuaSession() : state_(std::make_unique<State>()) {
@@ -127,10 +202,29 @@ void ProjectLuaSession::install_project_arrays(const ProjectDocument& project) {
     add("par",34,"/scripts/parameters",""); add("f1",35,"/sample/elementProfiles","/f1"); add("f2",36,"/sample/elementProfiles","/f2");
     state_->arrays = std::move(arrays);
     state_->project = project;
+    auto* first = &state_->arrays[state_->arrays.size() - 2];
+    auto* second = &state_->arrays.back();
+    for (size_t index = 0; index < first->values.size(); ++index) {
+        const std::string path = "/sample/elementProfiles/" + std::to_string(index);
+        ElementBinding binding{project.string(path + "/element"), path, first, second, index,
+            project.number(path + "/f1Mag"), project.number(path + "/f2Mag"), {}};
+        for (size_t slab = 0; slab < project.array_size(path + "/slabs"); ++slab) {
+            const std::string row = path + "/slabs/" + std::to_string(slab);
+            binding.slabs.push_back({project.number(row + "/thickness"), project.number(row + "/roughness"),
+                project.number(row + "/density")});
+        }
+        state_->elements.push_back(std::move(binding));
+    }
     lua_pushcfunction(state_->vm, install_arrays); lua_pushlightuserdata(state_->vm, &state_->arrays);
     if (lua_pcall(state_->vm, 1, 0, 0) != LUA_OK) {
         const char* message = lua_tostring(state_->vm, -1);
         const std::string detail = message ? message : "Cannot install project arrays";
+        close(); throw ProjectDocumentError(detail);
+    }
+    lua_pushcfunction(state_->vm, install_elements); lua_pushlightuserdata(state_->vm, &state_->elements);
+    if (lua_pcall(state_->vm, 1, 0, 0) != LUA_OK) {
+        const char* message = lua_tostring(state_->vm, -1);
+        const std::string detail = message ? message : "Cannot install project elements";
         close(); throw ProjectDocumentError(detail);
     }
 }
@@ -139,6 +233,16 @@ ProjectDocument ProjectLuaSession::project_snapshot() const {
     std::vector<std::pair<std::string, double>> edits;
     for (const auto& array : state_->arrays) for (size_t index = 0; index < array.values.size(); ++index)
         edits.emplace_back(array.paths[index], array.values[index]);
+    for (const auto& binding : state_->elements) {
+        edits.emplace_back(binding.path + "/f1Mag", binding.magnetic_first);
+        edits.emplace_back(binding.path + "/f2Mag", binding.magnetic_second);
+        for (size_t index = 0; index < binding.slabs.size(); ++index) {
+            const std::string row = binding.path + "/slabs/" + std::to_string(index);
+            edits.emplace_back(row + "/thickness", binding.slabs[index][0]);
+            edits.emplace_back(row + "/roughness", binding.slabs[index][1]);
+            edits.emplace_back(row + "/density", binding.slabs[index][2]);
+        }
+    }
     return state_->project->with_calculation_numbers(edits);
 }
 void ProjectLuaSession::compile(const std::string& source, bool before_calculation) {
