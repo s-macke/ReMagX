@@ -202,8 +202,8 @@ of a separate physics/Lua decision.
 
 ### Current backlog
 
-This is the authoritative list of remaining requirements. There are 35 open requirements:
-15 implementation, ten validation and ten decisions. They overlap and differ in size;
+This is the authoritative list of remaining requirements. There are 36 open requirements:
+15 implementation, ten validation and eleven decisions. They overlap and differ in size;
 the counts are not a completion percentage. Completed increments and their historical
 limitations are recorded separately below. Read this backlog for current work; the checked
 entries are historical implementation evidence, not a second list of outstanding tasks.
@@ -258,6 +258,8 @@ Full-engine/corpus acceptance is still open.
 - [ ] **Validation:** Validate implemented angular/energy convolution and dichroic/asymmetry energy scans against full original-project references, including fast/exact paths. The current full 99-project two-beam energy rerun matches all 23 available original references at D-23, including all four compared segmented projects: 21,057 points/84,228 values with zero mismatches. The other 76 original energy failures remain unavailable, so full acceptance is still false. The former Zak mismatch is corrected; the matrix case now finishes under the unchanged 120-second deadline after obsolete competing diagnostics were stopped. No physics, tolerance or deadline was changed to resolve that runtime observation. Monochromatic qz energy broadening now composes 19 serial native calculations with original optical/script state, fixed angles and per-sample postprocessing; 243 original/WASM comparisons pass. Nested Lua retains the inner unbroadened entry point. Energy-broadened Fourier requests remain explicitly unavailable pending review of the original array-length mismatch. Native/WASM components and real-worker integration already exist; corpus acceptance remains open (D-25, spec §2, AC-5).
 
 #### Decision
+
+- [ ] **Decision:** Resolve native terminal `-convert` semantics (D-29/D-35): the unchanged original emits zero dielectric tensors when no `.e` exists, because its tensor-construction call is commented out; an existing `.e` is copied/interpolated instead. Approve actual `.db`/`.m` tensor construction at the announced gamma=90°, phi=90°, or leave conversion explicitly unavailable. The synthetic diagnostic is recorded in `tools/golden/legacy/SIMULATION_REFERENCE.md`; no correction is approved yet.
 
 - [ ] **Decision:** Decide on plot "Select Area" and "Fit Lorentzian+Step".
 - [ ] **Decision:** Summary window (legacy `guidll/SummaryForm`): chart sizing, refresh, clipboard exports, axis scaling and error display; decide on its const-qz-from-energy conversion before implementation

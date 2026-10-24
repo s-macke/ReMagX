@@ -1277,3 +1277,30 @@ element-table and one D-25 deferred algorithm. No valid original reference remai
 unmatched, but acceptancePassed remains false and the runner exits 1. This retains
 the explicit private original lookup; two-beam energy and complete production
 acceptance are not established by this monochromatic run.
+
+## Original terminal conversion defect (2026-10-24)
+
+Run `python3 tools/golden/legacy/diagnose_terminal_conversion.py
+build/original-terminal-2.6.1/ReMagX_Terminal` (as one command) against the private,
+unchanged-source native terminal. This diagnostic uses two disposable synthetic
+`.db`/`.m` rows; it does not load or persist research projects. The binary SHA-256
+observed here is `1842115d49a2501df8c5c44b4e15ca6869c5aae7e9a22d5e14a9fd9bdd52e4af`.
+
+Both cases reproduce the source trace:
+
+- Without an existing `.e`, `-convert sample` writes two rows with all 18 tensor
+  components zero, despite nonzero optical and magnetic constants.
+- With an existing `.e`, it loads those tensor components first and writes them
+  back at the `.db` energies. The synthetic tensor intentionally differs from
+  anything implied by the optical constants; it is preserved exactly.
+
+`terminal/ReMagX_Terminal.cpp::Convert` calls `Getdb` but leaves
+`FillEpsilonTensor(..., 90, 90, magnetizationmode)` commented out.
+`shared/MaterialConstants.cpp::Getdb` only fills epsilon from an existing `.e`;
+`shared/CMatrix.h` initializes it to zero otherwise. The displayed announcement
+of gamma=90°/phi=90° therefore does not describe an actual calculation.
+
+The proposed D-35 implementation would use the existing double-precision native
+tensor constructor for `.db`/`.m`, at those angles. That would correct legacy
+physics behavior and needs D-29 approval. No correction or acceptance exception
+has been applied; the diagnostic explicitly reports `acceptancePassed: false`.
