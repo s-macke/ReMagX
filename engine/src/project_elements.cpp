@@ -18,10 +18,10 @@ struct Element {
     std::array<double, 256> density{};
 };
 }
-void prepare_project_elements(const ProjectDocument& project, double energy,
+bool prepare_project_elements(const ProjectDocument& project, double energy,
     std::vector<RemagxLayer>& layers, std::vector<RemagxMatrixLayer>& matrix,
-    const std::vector<OpticalTable>& tables, std::vector<std::string>& warnings, ElementOpticalState* previous) {
-    const bool automatic = project.boolean("/calculation/automaticOpticalConstants");
+    const std::vector<OpticalTable>& tables, std::vector<std::string>& warnings, ElementOpticalState* previous, bool energy_point) {
+    const bool automatic = energy_point || project.boolean("/calculation/automaticOpticalConstants");
     const double step = project.number("/calculation/segmentation/minThickness");
     const double tolerance = project.number("/calculation/segmentation/tolerance");
     require(step > 0, "Element depth grid requires a positive step.");
@@ -49,6 +49,7 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
             &lookup_energy, 1, &cursors[index], values.data()));
         return values;
     };
+    bool range_error = false;
     double total_thickness = 0, terminal_roughness = 0;
     for (size_t index = 0; index < count; ++index) {
         const auto path = "/sample/elementProfiles/" + std::to_string(index);
@@ -69,7 +70,7 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
             if (slabs >= 2) terminal_roughness = element.slabs[(slabs - 2) * 3 + 1];
         }
         // Manual calculation preserves stored F, including absent/zero tensors.
-        if (project.contains(path + "/scatteringTensor"))
+        if (!energy_point && project.contains(path + "/scatteringTensor"))
             for (size_t component = 0; component < 18; ++component)
                 tensors[index * 18 + component] = project.number(path + "/scatteringTensor/" + std::to_string(component));
         if (continuing) {
@@ -81,8 +82,10 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
             const size_t primary = find_table(name, "ff");
             const std::string label = "Element " + std::to_string(index);
             if (primary == tables.size() || tables[primary].energies.empty()) {
+                range_error = true;
                 warnings.push_back(label + ": missing/empty .ff table; saved optical state retained.");
             } else if (lookup_energy < tables[primary].energies.front() || lookup_energy > tables[primary].energies.back()) {
+                range_error = true;
                 warnings.push_back(label + ": energy outside .ff table; saved optical state retained.");
             } else {
                 const size_t full = find_table(name, "f");
@@ -96,6 +99,14 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
             }
         }
         elements.push_back(std::move(element));
+    }
+    if (energy_point && range_error) {
+        if (previous) {
+            previous->factors.clear();
+            for (const auto& element : elements) previous->factors.push_back(element.factors);
+            previous->tensors = std::move(tensors); previous->cursors = std::move(cursors);
+        }
+        return false;
     }
     const double maximum_depth = total_thickness + 30 + terminal_roughness * 2;
     require(std::isfinite(maximum_depth), "Element depth range overflow.");
@@ -159,5 +170,6 @@ void prepare_project_elements(const ProjectDocument& project, double energy,
         previous->tensors = std::move(tensors); previous->cursors = std::move(cursors);
     }
     layers = std::move(prepared); matrix = std::move(prepared_matrix);
+    return true;
 }
 }

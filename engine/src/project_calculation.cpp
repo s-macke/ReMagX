@@ -70,7 +70,7 @@ std::vector<double> terminal_coordinates(const ProjectDocument& project) {
     finite_column(result.qz);
     return result.qz;
 }
-enum class CalculationContext { terminal, fit_dataset, fit_energy_sample };
+enum class CalculationContext { terminal, fit_dataset, fit_energy_sample, energy_point };
 struct OpticalState {
     std::vector<RemagxLayer> layers;
     std::vector<std::array<double, 18>> tensors;
@@ -81,6 +81,53 @@ struct OpticalState {
 
 }
 
+static void postprocess_curve(const ProjectDocument& project, ProjectCurve& result,
+    const std::vector<RemagxReflectivity>& values, bool dichroic, CalculationContext context,
+    const RemagxBeam& correction_first, const RemagxBeam& correction_second,
+    double correction_energy, const std::vector<double>& correction_energies = {}) {
+    const double average_width = project.number("/calculation/averaging");
+    require(std::isfinite(average_width) && average_width >= 0 && std::floor(average_width) == average_width && average_width <= 2147483647.0,
+        "Invalid moving-average half-width.");
+    const bool fourier = project.boolean("/calculation/postProcessing/fourierTransform");
+    result.plus.reserve(values.size()); result.minus.reserve(values.size());
+    const bool multiply = project.boolean("/calculation/postProcessing/multiplyByQz4");
+    const bool divide = project.boolean("/calculation/postProcessing/divideByCos2ThetaSquared");
+    for (size_t index = 0; index < values.size(); ++index) {
+        const double qz = result.qz[index];
+        const double factor = multiply ? qz * qz * qz * qz : 1;
+        double plus = values[index].beam1 * factor, minus = values[index].beam2 * factor;
+        if (divide) {
+            const double current_energy = correction_energies.empty() ? correction_energy : correction_energies[index];
+            const double wave = 2 * 3.14159265358979323846 / (12398.326 / current_energy);
+            const double ratio = qz / (2 * wave);
+            const double angle = std::abs(ratio) >= 1 ? -1 : std::asin(ratio);
+            const double denominator = std::cos(2 * angle) * std::cos(2 * angle);
+            if (pure_pi(correction_first)) plus /= denominator;
+            if (dichroic && pure_pi(correction_second)) minus /= denominator;
+        }
+        result.plus.push_back(plus);
+        result.minus.push_back(minus);
+        if (context != CalculationContext::terminal) {
+            const bool difference = project.string("/calculation/asymmetryDefinition") == "difference";
+            result.asymmetry.push_back(difference ? plus - minus : plus + minus != 0 ? (plus - minus) / (plus + minus) : 0);
+        }
+    }
+    finite_column(result.plus); finite_column(result.minus);
+    finite_column(result.asymmetry);
+    average(result.asymmetry, static_cast<size_t>(average_width));
+    finite_column(result.asymmetry);
+    average(result.plus, static_cast<size_t>(average_width));
+    average(result.minus, static_cast<size_t>(average_width));
+    finite_column(result.plus); finite_column(result.minus);
+    if (fourier) {
+        std::vector<double> depths(result.qz.size() / 2), magnitudes(result.qz.size() / 2);
+        status_check(remagx_fourier(result.qz.data(), result.plus.data(), result.qz.size(), depths.data(), magnitudes.data()));
+        result.qz = std::move(depths);
+        result.plus = std::move(magnitudes);
+        result.minus.assign(result.qz.size(), 0);
+    }
+}
+
 static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroic,
     const std::vector<OpticalTable>& tables, const std::vector<double>* coordinates = nullptr,
     double sample_energy = 0, OpticalState* previous = nullptr,
@@ -89,7 +136,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     require(algorithm == "parratt" || algorithm == "matrix" || algorithm == "zak", "This solver is unavailable in the native terminal.");
     const bool element_mode = project.string("/sample/mode") == "element";
     require(project.string("/experiment/scattering") == "reflection", "Transmission is unavailable in this calculation path.");
-    const bool automatic = project.boolean("/calculation/automaticOpticalConstants");
+    const bool energy_point = context == CalculationContext::energy_point;
+    const bool automatic = energy_point || project.boolean("/calculation/automaticOpticalConstants");
     if (project.boolean("/scripts/enabled")) {
         const auto script = project.string("/scripts/beforeCalculation");
         require(script.find_first_not_of(" \t\n\r\f\v") == std::string::npos, "Native terminal BeforeCalculation Lua execution is not integrated yet.");
@@ -127,7 +175,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     }
     const double energy = coordinates ? sample_energy : project.number("/experiment/energy");
     require(std::isfinite(energy) && energy > 0, "Energy-resolution samples must be positive and finite.");
-    const bool fast = project.boolean("/experiment/resolution/fastConvolution");
+    const bool fast = !energy_point && project.boolean("/experiment/resolution/fastConvolution");
     if (dichroic && fast) {
         const double wave = 2 * 3.14159265358979323846 / (12398.326 / energy);
         for (double qz : result.qz) require(qz / (wave * 2) < 1, "Qz exceeds the fast dichroic scan boundary.");
@@ -145,9 +193,15 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     std::vector<RemagxMatrixLayer> matrix;
     size_t count = 0;
     if (element_mode) {
-        prepare_project_elements(project, energy, layers, matrix, tables, result.warnings, previous ? &previous->elements : nullptr);
+        const bool prepared = prepare_project_elements(project, energy, layers, matrix, tables, result.warnings,
+            previous ? &previous->elements : nullptr, energy_point);
+        if (!prepared) {
+            result.plus.assign(result.qz.size(), 1); result.minus.assign(result.qz.size(), dichroic ? 1 : 0);
+            return result;
+        }
         count = layers.size();
     } else {
+        bool range_error = false;
         const size_t stored_count = project.array_size("/sample/layers");
         require(stored_count <= 100000, "Native terminal layer count exceeds the supported limit.");
         std::vector<size_t> indices;
@@ -188,7 +242,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
                 project.number(path + "/magnetization/gamma"), project.number(path + "/magnetization/phi")};
             if (continuing) layer = previous->layers[index];
             if (automatic) {
-                if (!continuing && project.contains(path + "/dielectricTensor")) {
+                if (!continuing && !energy_point && project.contains(path + "/dielectricTensor")) {
                     anisotropic[index] = project.boolean(path + "/dielectricTensor/anisotropic");
                     for (size_t component = 0; component < 18; ++component)
                         tensors[index][component] = project.number(path + "/dielectricTensor/values/" + std::to_string(component));
@@ -196,8 +250,10 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
                 const auto name = project.string(path + "/opticalTable");
                 const size_t primary = find_table(name, "db");
                 if (primary == tables.size() || tables[primary].energies.empty()) {
+                    range_error = true;
                     result.warnings.push_back("Layer " + std::to_string(index) + ": missing/empty .db table; saved optical state retained.");
                 } else if (lookup_energy < tables[primary].energies.front() || lookup_energy > tables[primary].energies.back()) {
+                    range_error = true;
                     result.warnings.push_back("Layer " + std::to_string(index) + ": energy outside .db table; saved optical state retained.");
                 } else {
                     const auto scalar = read_table(primary, 2);
@@ -214,6 +270,12 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
                 }
             }
             stored_layers.push_back(layer);
+        }
+        if (energy_point && range_error) {
+            if (previous) *previous = {std::move(stored_layers), std::move(tensors),
+                std::move(retained_tensor), std::move(anisotropic), std::move(cursors), {}};
+            result.plus.assign(result.qz.size(), 1); result.minus.assign(result.qz.size(), dichroic ? 1 : 0);
+            return result;
         }
         layers.reserve(count);
         for (size_t index : indices) layers.push_back(stored_layers[index]);
@@ -252,43 +314,10 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
         status_check(remagx_visnovsky_qz_resolution(matrix.data(), count, result.qz.data(), result.qz.size(), energy,
             project.number("/calculation/epsilon"), &first, second_pointer, analyzer, mode, width, fast, values.data()));
     }
-    result.plus.reserve(values.size()); result.minus.reserve(values.size());
-    const bool multiply = project.boolean("/calculation/postProcessing/multiplyByQz4");
-    const bool divide = project.boolean("/calculation/postProcessing/divideByCos2ThetaSquared");
-    for (size_t index = 0; index < values.size(); ++index) {
-        const double qz = result.qz[index];
-        const double factor = multiply ? qz * qz * qz * qz : 1;
-        double plus = values[index].beam1 * factor, minus = values[index].beam2 * factor;
-        if (divide) {
-            const double current_energy = correction_energies.empty() ? correction_energy : correction_energies[index];
-            const double wave = 2 * 3.14159265358979323846 / (12398.326 / current_energy);
-            const double ratio = qz / (2 * wave);
-            const double angle = std::abs(ratio) >= 1 ? -1 : std::asin(ratio);
-            const double denominator = std::cos(2 * angle) * std::cos(2 * angle);
-            if (pure_pi(correction_first)) plus /= denominator;
-            if (dichroic && pure_pi(correction_second)) minus /= denominator;
-        }
-        result.plus.push_back(plus);
-        result.minus.push_back(minus);
-        if (context != CalculationContext::terminal) {
-            const bool difference = project.string("/calculation/asymmetryDefinition") == "difference";
-            result.asymmetry.push_back(difference ? plus - minus : plus + minus != 0 ? (plus - minus) / (plus + minus) : 0);
-        }
-    }
-    finite_column(result.plus); finite_column(result.minus);
-    finite_column(result.asymmetry);
-    average(result.asymmetry, static_cast<size_t>(average_width));
-    finite_column(result.asymmetry);
-    average(result.plus, static_cast<size_t>(average_width));
-    average(result.minus, static_cast<size_t>(average_width));
-    finite_column(result.plus); finite_column(result.minus);
-    if (fourier) {
-        std::vector<double> depths(result.qz.size() / 2), magnitudes(result.qz.size() / 2);
-        status_check(remagx_fourier(result.qz.data(), result.plus.data(), result.qz.size(), depths.data(), magnitudes.data()));
-        result.qz = std::move(depths);
-        result.plus = std::move(magnitudes);
-        result.minus.assign(result.qz.size(), 0);
-    }
+    if (context == CalculationContext::energy_point) {
+        for (const auto& value : values) { result.plus.push_back(value.beam1); result.minus.push_back(value.beam2); }
+    } else postprocess_curve(project, result, values, dichroic, context, correction_first, correction_second,
+        correction_energy, correction_energies);
     return result;
 }
 
@@ -352,5 +381,36 @@ ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset, const s
     require(!dataset.energy_scan, "Native fit energy-scan integration is not available yet.");
     require(!dataset.project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier fitting remains unavailable.");
     return calculate_qz(dataset.project, dataset.dichroic, tables, &dataset.measurement.at("qz"));
+}
+
+ProjectCurve calculate_fit_dataset(const PreparedFitDataset& dataset, const std::vector<OpticalTable>& tables) {
+    if (!dataset.energy_scan) return calculate_fit_dataset_qz(dataset, tables);
+    const auto& project = dataset.project;
+    require(!project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier fitting remains unavailable.");
+    const auto& energies = dataset.measurement.at("energy");
+    const auto& coordinates = dataset.measurement.at("qz");
+    require(!energies.empty() && energies.size() == coordinates.size(), "Energy scan coordinates must be aligned and nonempty.");
+    for (double energy : energies) require(std::isfinite(energy) && energy > 0, "Energy scan requires positive finite energies.");
+    const double energy_width = project.number("/experiment/resolution/energyFwhm");
+    require(std::isfinite(energy_width) && energy_width >= 0, "Energy resolution must be finite and nonnegative.");
+    OpticalState state;
+    ProjectCurve result;
+    result.qz = coordinates; result.energy = energies;
+    std::vector<RemagxReflectivity> raw;
+    raw.reserve(energies.size());
+    std::set<std::string> seen_warnings;
+    for (size_t index = 0; index < energies.size(); ++index) {
+        const std::vector<double> point{coordinates[index]};
+        const auto current = calculate_inner(project, dataset.dichroic, tables, &point, energies[index], &state, CalculationContext::energy_point);
+        raw.push_back({current.plus.at(0), current.minus.at(0)});
+        for (const auto& warning : current.warnings)
+            if (seen_warnings.insert(warning).second) result.warnings.push_back(warning);
+    }
+    std::vector<RemagxReflectivity> resolved(raw.size());
+    status_check(remagx_energy_resolution(energies.data(), raw.data(), raw.size(), energy_width, resolved.data()));
+    postprocess_curve(project, result, resolved, dataset.dichroic, CalculationContext::fit_dataset,
+        beam(project, "/experiment/polarization/beam1"), beam(project, "/experiment/polarization/beam2"),
+        energies.back(), energies);
+    return result;
 }
 }

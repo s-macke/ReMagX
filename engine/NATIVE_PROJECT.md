@@ -205,3 +205,25 @@ segmentation, averaging and energy broadening with polarization corrections.
 Unsupported native Lua and energy-scan requests reject explicitly, followed by
 successful recovery in the same process. This API calculates one qz dataset; it
 does not yet supply the serial fit state or a complete command-line fit runner.
+
+
+## Native energy fit curves
+
+`calculate_fit_dataset` routes prepared qz or energy datasets through the native
+core. Energy scans refresh compound/element tables at every point even with
+automatic constants disabled, retain partial refresh state on missing/range skips,
+apply exact angular resolution and whole-scan energy convolution before final
+postprocessing. Skipped points retain the original unit reflectivity placeholder.
+The API returns aligned energy coordinates for the shared dataset-error evaluator.
+
+The public gate now covers 204 qz/energy comparisons, including all eight error
+modes, compound/element preparation, range skips, missing tables, segmentation,
+polarization corrections and energy convolution. It also checks all 1001 production
+lookup doubles exactly between native and WASM. The initial segmented Zak
+asymmetry mismatch was caused by nine standard-library erf samples differing by
+at most 1.1102230246251565e-16. A controlled injected-table diagnostic isolated that
+cause; the final production gate passes using the same pinned musl standard erf
+source and existing pinned exp on both targets. No tolerance was changed.
+
+Serial cross-dataset fit state, native Lua, optimizer callbacks and fitted-project
+output remain open. This does not complete the native CLI or corpus acceptance.

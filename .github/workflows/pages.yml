@@ -99,15 +99,32 @@ jobs:
 
       - name: Verify native and web project schema and JSON round trips
         run: |
-          node scripts/export-project-schema.mjs --check
-          node scripts/test-native-project.mjs ../build/engine/project_document_tests
-          node scripts/test-native-assignments.mjs ../build/engine/legacy_assignment_tests
-          node scripts/test-native-import.mjs ../build/engine/legacy_import_tests
-          node scripts/test-native-fit-space.mjs ../build/engine/project_fit_tests
-          node scripts/test-native-fit-parameters.mjs ../build/engine/project_fit_tests
-          node scripts/test-native-dataset.mjs ../build/engine/project_dataset_tests ../build/wasm
-          node scripts/test-native-fit-curves.mjs ../build/engine/project_dataset_tests ../build/wasm
-          node scripts/test-native-terminal.mjs ../build/engine/remagx-terminal ../build/wasm
+          # All commands in this step use public fixtures only.
+          run_native_check() {
+            comparison_log="$RUNNER_TEMP/remagx-native-project.log"
+            if "$@" > "$comparison_log" 2>&1; then
+              cat "$comparison_log"
+              return 0
+            fi
+            cat "$comparison_log"
+            python3 - "$comparison_log" "$2" <<'PYTHON'
+          import pathlib, sys
+          message = pathlib.Path(sys.argv[1]).read_text(errors="replace")[-6000:]
+          for index in range(0, len(message), 2000):
+              part = message[index:index + 2000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title=Native project comparison {sys.argv[2]} (part {index // 2000 + 1})::" + part)
+          PYTHON
+            return 1
+          }
+          run_native_check node scripts/export-project-schema.mjs --check
+          run_native_check node scripts/test-native-project.mjs ../build/engine/project_document_tests
+          run_native_check node scripts/test-native-assignments.mjs ../build/engine/legacy_assignment_tests
+          run_native_check node scripts/test-native-import.mjs ../build/engine/legacy_import_tests
+          run_native_check node scripts/test-native-fit-space.mjs ../build/engine/project_fit_tests
+          run_native_check node scripts/test-native-fit-parameters.mjs ../build/engine/project_fit_tests
+          run_native_check node scripts/test-native-dataset.mjs ../build/engine/project_dataset_tests ../build/wasm
+          run_native_check node scripts/test-native-fit-curves.mjs ../build/engine/project_dataset_tests ../build/wasm
+          run_native_check node scripts/test-native-terminal.mjs ../build/engine/remagx-terminal ../build/wasm
       - run: npm run lint
       - run: npm test
       - run: npm run test:fit-reference-inputs

@@ -10,7 +10,7 @@ struct ElementOpticalState {
     std::vector<double> tensors;
     std::vector<size_t> cursors;
 };
-void prepare_project_elements(const ProjectDocument& project, double energy,
+bool prepare_project_elements(const ProjectDocument& project, double energy,
     std::vector<RemagxLayer>& layers, std::vector<RemagxMatrixLayer>& matrix,
-    const std::vector<OpticalTable>& tables, std::vector<std::string>& warnings, ElementOpticalState* previous);
+    const std::vector<OpticalTable>& tables, std::vector<std::string>& warnings, ElementOpticalState* previous, bool energy_point = false);
 }

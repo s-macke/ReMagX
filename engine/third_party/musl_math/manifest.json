@@ -1,0 +1,7 @@
+{
+  "source": "Emscripten 6.0.12 system/lib/libc/musl/src/math/erf.c",
+  "sha256": {
+    "erf.c": "795f05c9388ac277ab27cb5dc63fb4f82620a0ee11eaf8403201df5bc65c0f5b"
+  },
+  "url": "https://raw.githubusercontent.com/emscripten-core/emscripten/6.0.12/system/lib/libc/musl/src/math/erf.c"
+}

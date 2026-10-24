@@ -13,7 +13,7 @@ def forbidden_precision(source):
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    files = [path for directory in ['src', 'include', 'third_party/glibc_math'] for path in (root / directory).rglob('*') if path.suffix in {'.h', '.hpp', '.c', '.cpp', '.tbl'}]
+    files = [path for directory in ['src', 'include', 'third_party/glibc_math', 'third_party/musl_math'] for path in (root / directory).rglob('*') if path.suffix in {'.h', '.hpp', '.c', '.cpp', '.tbl'}]
     if not files or any(forbidden_precision(path.read_text()) for path in files):
         print('Engine precision gate failed: numeric source must use double only.', file=sys.stderr)
         return 1

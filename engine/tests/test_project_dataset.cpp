@@ -1,6 +1,7 @@
 #include "remagx/project_dataset.hpp"
 #include "remagx/project_calculation.hpp"
 #include "json.hpp"
+#include "remagx/core.h"
 #include <cmath>
 #include <iostream>
 using Json = nlohmann::json;
@@ -16,6 +17,13 @@ int main() {
     while (std::getline(std::cin, line)) {
         try {
             const auto input = Json::parse(line);
+            if (input.value("lookup", false)) {
+                std::vector<double> samples(1001);
+                if (remagx_error_function_lookup(samples.data(), samples.size()) != REMAGX_SUCCESS)
+                    throw std::runtime_error("Standard lookup generation failed");
+                std::cout << Json(samples).dump() << '\n';
+                continue;
+            }
             const auto original = remagx::ProjectDocument::parse(input.at("project").get<std::string>());
             const auto before = original.serialize();
             auto current = original;
@@ -39,10 +47,15 @@ int main() {
             catch (const remagx::ProjectDocumentError&) { output["saveable"] = false; }
             if (input.value("calculate", false)) {
                 try {
-                    const auto curve = remagx::calculate_fit_dataset_qz(prepared);
-                    const auto error = remagx::evaluate_fit_dataset(prepared, {curve.qz, {}, curve.plus, curve.minus, curve.asymmetry});
+                    std::vector<remagx::OpticalTable> tables;
+                    if (input.contains("tables")) for (const auto& table : input.at("tables"))
+                        tables.push_back(remagx::parse_optical_table(table.at("text").get<std::string>(), table.at("name").get<std::string>(), table.at("kind").get<std::string>()));
+                    const auto curve = input.value("energyCalculation", false) ? remagx::calculate_fit_dataset(prepared, tables)
+                        : remagx::calculate_fit_dataset_qz(prepared, tables);
+                    const auto error = remagx::evaluate_fit_dataset(prepared, {curve.qz, curve.energy, curve.plus, curve.minus, curve.asymmetry});
                     output["calculation"] = {{"ok", true}, {"qz", curve.qz}, {"plus", curve.plus}, {"minus", curve.minus},
                         {"asymmetry", curve.asymmetry}, {"mean", error.mean}, {"weighted", error.weighted}, {"accepted", error.accepted}};
+                    if (input.value("energyCalculation", false)) output["calculation"]["energy"] = curve.energy;
                 } catch (const remagx::ProjectDocumentError&) { output["calculation"] = {{"ok", false}}; }
             }
             if (input.contains("curve")) {

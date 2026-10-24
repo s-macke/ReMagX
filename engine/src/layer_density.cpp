@@ -9,14 +9,16 @@
 #include <vector>
 
 
-// D-41: standard erf in double precision, without legacy float quantization.
+extern "C" double remagx_standard_erf(double);
+
+// D-41: pinned standard erf in double precision, without legacy float quantization.
 // Retain the 999-interval grid and the additional interpolation guard sample.
 extern "C" int remagx_error_function_lookup(double* output, size_t count) {
     if (!output || count != 1001) return REMAGX_INVALID_ARGUMENT;
     std::array<double, 1001> samples;
     for (size_t index = 0; index < samples.size(); ++index) {
         const double position = -5.0 + static_cast<double>(index) * 10.0 / 999.0;
-        samples[index] = std::erf(position);
+        samples[index] = remagx_standard_erf(position);
         if (!std::isfinite(samples[index])) return REMAGX_NUMERICAL_ERROR;
     }
     std::copy(samples.begin(), samples.end(), output);

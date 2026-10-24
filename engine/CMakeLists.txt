@@ -100,6 +100,20 @@ target_include_directories(remagx_reference_math PRIVATE
   ${reference_math_directory}/compat ${reference_math_directory})
 target_compile_options(remagx_reference_math PRIVATE -O2 -fno-fast-math -ffp-contract=off
   -include ${reference_math_directory}/compat/definitions.h)
+set(standard_erf_directory "${CMAKE_CURRENT_SOURCE_DIR}/third_party/musl_math")
+file(READ "${standard_erf_directory}/manifest.json" standard_erf_manifest)
+string(JSON standard_erf_expected GET "${standard_erf_manifest}" sha256 "erf.c")
+file(SHA256 "${standard_erf_directory}/erf.c" standard_erf_actual)
+if(NOT standard_erf_actual STREQUAL standard_erf_expected)
+  message(FATAL_ERROR "Pinned standard error-function source hash mismatch")
+endif()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${standard_erf_directory}/manifest.json" "${standard_erf_directory}/erf.c")
+add_library(remagx_standard_erf OBJECT ${standard_erf_directory}/erf.c)
+target_compile_features(remagx_standard_erf PRIVATE c_std_11)
+target_include_directories(remagx_standard_erf PRIVATE ${standard_erf_directory}/compat)
+target_compile_options(remagx_standard_erf PRIVATE -O2 -fno-fast-math -ffp-contract=off)
+set_target_properties(remagx_standard_erf PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_sources(remagx_reference_math PRIVATE $<TARGET_OBJECTS:remagx_standard_erf>)
 target_link_libraries(remagx_core PRIVATE remagx_reference_math)
 
 # Use the same pinned scalar/complex arithmetic for native and WASM builds.

@@ -6,3 +6,17 @@ Complete corresponding component source and integration/build instructions:
 https://github.com/s-macke/ReMagX/tree/main/engine/third_party/glibc_math
 Upstream revision: 04e750e75b73957cf1c791535a3f4319534a52fc
 ReMagX Web remains GPL-3.0. No Numerical Recipes code is included.
+
+Standard error function: musl erf.c, from Emscripten 6.0.12.
+Source and integration: engine/third_party/musl_math in the ReMagX repository.
+/* origin: FreeBSD /usr/src/lib/msun/src/s_erf.c */
+/*
+ * ====================================================
+ * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ *
+ * Developed at SunPro, a Sun Microsystems, Inc. business.
+ * Permission to use, copy, modify, and distribute this
+ * software is freely granted, provided that this notice
+ * is preserved.
+ * ====================================================
+ */

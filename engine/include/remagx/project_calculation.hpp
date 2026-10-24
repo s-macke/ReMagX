@@ -11,6 +11,7 @@ struct ProjectCurve {
     std::vector<double> minus;
     std::vector<std::string> warnings;
     std::vector<double> asymmetry;
+    std::vector<double> energy;
 };
 // Native terminal coordinates (0..qzMax inclusive), distinct from the web grid.
 // Current integration: manual/automatic compound constants, Nevot-Croce/adaptive
@@ -21,8 +22,11 @@ struct ProjectCurve {
 ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic,
                                    const std::vector<OpticalTable>& tables = {});
 // Calculate one prepared qz dataset, including monochromatic energy broadening.
-// Energy scans and serial fit-session state are integrated separately.
+// Rejects energy datasets; use calculate_fit_dataset for either scan type.
 ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset,
                                      const std::vector<OpticalTable>& tables = {});
+// One prepared qz or energy dataset; no cross-dataset fit session yet.
+ProjectCurve calculate_fit_dataset(const PreparedFitDataset& dataset,
+                                  const std::vector<OpticalTable>& tables = {});
 }
 #endif
