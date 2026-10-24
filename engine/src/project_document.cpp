@@ -211,6 +211,35 @@ double ProjectDocument::number(std::string_view json_pointer) const {
     } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing project path."); }
 }
 
+std::string ProjectDocument::string(std::string_view json_pointer) const {
+    try {
+        const auto& value = storage_->document.at(Json::json_pointer(std::string(json_pointer)));
+        if (!value.is_string()) throw ProjectDocumentError("Unexpected project field type.");
+        return value.get<std::string>();
+    } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing project path."); }
+}
+
+bool ProjectDocument::boolean(std::string_view json_pointer) const {
+    try {
+        const auto& value = storage_->document.at(Json::json_pointer(std::string(json_pointer)));
+        if (!value.is_boolean()) throw ProjectDocumentError("Unexpected project field type.");
+        return value.get<bool>();
+    } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing project path."); }
+}
+
+size_t ProjectDocument::array_size(std::string_view json_pointer) const {
+    try {
+        const auto& value = storage_->document.at(Json::json_pointer(std::string(json_pointer)));
+        if (!value.is_array()) throw ProjectDocumentError("Unexpected project field type.");
+        return value.size();
+    } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing project path."); }
+}
+
+bool ProjectDocument::is_null(std::string_view json_pointer) const {
+    try { return storage_->document.at(Json::json_pointer(std::string(json_pointer))).is_null(); }
+    catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing project path."); }
+}
+
 ProjectDocument ProjectDocument::with_number(std::string_view json_pointer, double value) const {
     if (!std::isfinite(value)) throw ProjectDocumentError("Project number must be finite.");
     try {

@@ -1,0 +1,73 @@
+# Native terminal integration
+
+`remagx-terminal` is a native C++ executable linked to the same numerical core as
+WebAssembly. It does not use Node, the browser, private original sources, or the
+original optimizer. Command integration is partial; the D-35 checklist item remains
+open.
+
+```sh
+cmake -S engine -B build/engine -DCMAKE_BUILD_TYPE=Release
+cmake --build build/engine --target remagx_terminal --parallel 2
+build/engine/remagx-terminal -v
+build/engine/remagx-terminal -refl project.json
+build/engine/remagx-terminal -dicrefl project.json
+```
+
+Input is a validated version-1 JSON project saved by the web app. The supported
+calculation path currently requires compound mode, manual optical constants,
+Nevot–Croce roughness, no enabled multilayer expansion and no nonempty enabled
+BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
+analyzers, magnetic/tetragonal settings and exact/fast angular convolution.
+Manual preparation rebuilds dielectric tensors from scalar values, as the web
+engine does; stored automatic tensor overrides are ignored in manual mode.
+Density is not multiplied into already supplied compound optical constants.
+
+The terminal preserves the original command's coordinate convention:
+
+- Generated grids have `points` entries from zero through `qzMax`, inclusive;
+  `qzMin` is ignored. The web UI uses its separate existing grid convention.
+- Dataset grids retain order, duplicates and negative coordinates. The terminal
+  adds the saved `qzShift` once, including shifts smaller than 1e-10, matching the
+  original terminal's direct addition. No data column or saved project is changed.
+- `-refl` prints `qz R`; `-dicrefl` prints `qz Rp Rm`. Output uses the classic locale
+  and 17 significant digits, sufficient to recover each double without reducing
+  it to measurement precision. There are no headers or progress messages on stdout.
+
+The integrated postprocessing includes qz^4 multiplication and the original
+moving-average boundary behavior. Native terminal polarization correction and
+Fourier processing reject explicitly until their terminal-specific data semantics
+are integrated. Monochromatic energy broadening above 1e-6 eV also rejects;
+the original dichroic qz route does not use that energy broadening setting.
+
+Automatic tables, element/segmented preparation, multilayer expansion, Lua,
+legacy `.all` import, energy scans, `-fit` fitted-project output, filesystem
+transactions and `-convert` remain to be integrated. `-map` follows the separately
+agreed map implementation. Unsupported commands/settings report an error; they
+never run a simplified calculation while silently ignoring active preparation.
+The original terminal's broken `.db`/`.m` → `.e` conversion is a separate pending
+decision and is not implemented here.
+
+An invalid invocation returns exit code 2. Input/calculation failures return 1
+and report a bounded diagnostic to stderr, without scientific output. The entire
+curve and its text representation are prepared before stdout is written. An OS
+output failure can still interrupt that final write; this is not transactional
+filesystem output. Valid calculations and `-v`/`--help` return 0. Original input
+files are opened read-only.
+
+Validation uses public synthetic projects only:
+
+```sh
+node app/scripts/test-native-terminal.mjs build/engine/remagx-terminal build/wasm
+```
+
+49 cases compare 805 output values with actual WASM through the production web
+preparation at unchanged D-23 tolerance. They cover all three solvers, both modes,
+complex beams, analyzers, both angular convolution paths, tetragonal/nonmagnetic
+settings, qz^4, averaging and shifted/unsorted/repeated dataset coordinates. Further
+checks cover explicit unsupported operations, malformed schema, invalid qz,
+numerical overflow, missing input, input preservation and successful recovery.
+The existing tetragonal/magnetization-off singularity at zero incidence is checked
+against the WASM numerical-error status; it is not hidden by shifting coordinates
+or substituting a result. Native/web schema and bit-exact serialization checks
+remain separate. These checks establish the implemented integration, not full
+original-terminal or full-corpus acceptance.

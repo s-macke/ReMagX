@@ -19,6 +19,10 @@ public:
     static ProjectDocument parse(std::string_view text);
     std::string serialize() const;
     double number(std::string_view json_pointer) const;
+    std::string string(std::string_view json_pointer) const;
+    bool boolean(std::string_view json_pointer) const;
+    bool is_null(std::string_view json_pointer) const;
+    size_t array_size(std::string_view json_pointer) const;
     // Immutable numeric edit: target must already exist and be numeric; no
     // missing fields/array slots are created and a failed edit changes nothing.
     ProjectDocument with_number(std::string_view json_pointer, double value) const;

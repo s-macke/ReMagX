@@ -2,8 +2,8 @@
 
 The `remagx_project` C++17 library provides an immutable document boundary for
 version-1 `remagx-project` JSON. It has no dependency on the private original tree,
-Node or the WASM runtime. It is a component for the pending native CLI, not a
-completed terminal or a full native replacement of the web project model.
+Node or the WASM runtime. It supplies the document boundary for the partial
+[native terminal integration](NATIVE_TERMINAL.md); full terminal support remains open.
 
 ```sh
 cmake -S engine -B build/engine -DCMAKE_BUILD_TYPE=Release
@@ -15,7 +15,8 @@ node app/scripts/test-native-project.mjs build/engine/project_document_tests
 ```
 
 `remagx/project_document.hpp` exposes parsing, serialization, JSON-pointer numeric
-reads and immutable numeric replacement. A replacement requires an existing
+reads and immutable numeric replacement, plus typed string/boolean/null/array-size
+queries for native preparation. A replacement requires an existing
 numeric target; it cannot silently create keys or grow arrays. Failed parsing or
 editing leaves the original document unchanged. The class handles JSON text;
 filesystem transactions belong to the future CLI/file layer.

@@ -47,6 +47,14 @@ int main(int argc, char** argv) {
         const auto fixture = load_fixture();
         require(argc == 1, "Unknown test invocation");
         const auto original = ProjectDocument::parse(fixture);
+        require(original.string("/format") == "remagx-project", "String query failed");
+        require(original.array_size("/sample/layers") >= 2, "Array query failed");
+        require(original.is_null("/activeDatasetIndex"), "Null query failed");
+        require(!original.boolean("/sample/multilayer/enabled"), "Boolean query failed");
+        rejected([&] { original.string("/version"); });
+        rejected([&] { original.boolean("/version"); });
+        rejected([&] { original.array_size("/version"); });
+        rejected([&] { original.is_null("/absent"); });
         require(std::signbit(original.number("/sample/layers/0/thickness")), "Integer negative zero lost");
         require(original.number("/future/integer") == 9007199254740992.0, "Browser double conversion differs");
         const auto encoded = original.serialize();
