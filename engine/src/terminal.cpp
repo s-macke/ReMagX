@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
                      "Generated qz grid: 0..qzMax inclusive (original terminal behavior).\n"
                      "-fit writes the fitted JSON project to stdout; diagnostics go to stderr.\n"
                      "Ctrl+C stops fitting and returns the best evaluated project, if available.\n"
-                     "Lua-enabled builds support unsegmented compound qz scripts without energy broadening.\n"
+                     "Lua-enabled builds support compound qz scripts without energy broadening.\n"
                      "Other scripted calculation paths and -convert remain pending.\n";
         return 0;
     }

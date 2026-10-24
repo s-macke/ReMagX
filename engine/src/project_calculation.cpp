@@ -150,9 +150,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
         project.string("/scripts/beforeCalculation").find_first_not_of(" \t\n\r\f\v") != std::string::npos;
     if (scripted) {
 #ifdef REMAGX_NATIVE_LUA
-        require(!element_mode && project.string("/calculation/roughnessModel") == "nevot-croce" &&
-            context == CalculationContext::terminal && options,
-            "Native Lua currently supports unsegmented compound terminal qz scans without energy broadening; other script calculation paths remain pending.");
+        require(!element_mode && context == CalculationContext::terminal && options,
+            "Native Lua currently supports compound terminal qz scans without energy broadening; other script calculation paths remain pending.");
 #else
         throw ProjectDocumentError("Native terminal was built without Lua support.");
 #endif
@@ -218,6 +217,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
         count = layers.size();
     } else {
         bool range_error = false;
+        std::vector<double> script_depths;
         const size_t stored_count = project.array_size("/sample/layers");
         require(stored_count <= 100000, "Native terminal layer count exceeds the supported limit.");
         std::vector<size_t> indices;
@@ -301,6 +301,13 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
         }
 #ifdef REMAGX_NATIVE_LUA
         if (scripted) {
+            if (segmented) {
+                script_depths.assign(stored_count, 0);
+                for (size_t index = 1; index < stored_count; ++index) {
+                    script_depths[index] = script_depths[index-1] + stored_layers[index].thickness;
+                    require(std::isfinite(script_depths[index]), "Stored layer depth exceeds the numerical range.");
+                }
+            }
             std::vector<std::pair<std::string,double>> edits;
             std::vector<ScriptDielectricTensor> prepared(stored_count);
             for (size_t index = 0; index < stored_count; ++index) {
@@ -362,7 +369,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
             }
         }
         if (segmented) {
-            segment_project_layers(project, layers, matrix);
+            segment_project_layers(project, layers, matrix, scripted ? &script_depths : nullptr);
             count = layers.size();
         }
         if (previous) *previous = {std::move(stored_layers), std::move(tensors),

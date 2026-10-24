@@ -30,7 +30,7 @@ int sample(double position, size_t slot, double* values, void* context) {
 }
 void apply_profiles(const ProjectDocument& project, std::vector<RemagxLayer>& generated,
                     const std::vector<double>& positions, const std::vector<RemagxLayer>& original,
-                    const std::array<double, 1001>& error_samples) {
+                    const std::array<double, 1001>& error_samples, const std::vector<double>* prepared_depths) {
     std::vector<size_t> active;
     const size_t profile_count = project.array_size("/sample/depthProfileFunctions");
     for (size_t index = 0; index < profile_count; ++index) {
@@ -41,8 +41,10 @@ void apply_profiles(const ProjectDocument& project, std::vector<RemagxLayer>& ge
     }
     if (active.empty()) return;
     const size_t stored_count = project.array_size("/sample/layers");
-    std::vector<double> stored_depths(stored_count, 0);
-    for (size_t index = 1; index < stored_count; ++index) {
+    std::vector<double> stored_depths = prepared_depths ? *prepared_depths : std::vector<double>(stored_count, 0);
+    if (stored_depths.size() != stored_count || !std::all_of(stored_depths.begin(), stored_depths.end(), [](double value) {return std::isfinite(value);}))
+        throw ProjectDocumentError("Stored layer depths must match the compound layer count.");
+    for (size_t index = 1; !prepared_depths && index < stored_count; ++index) {
         stored_depths[index] = stored_depths[index - 1] + project.number("/sample/layers/" + std::to_string(index) + "/thickness");
         if (!std::isfinite(stored_depths[index])) throw ProjectDocumentError("Stored layer depth exceeds the finite double range.");
     }
@@ -107,7 +109,7 @@ void apply_profiles(const ProjectDocument& project, std::vector<RemagxLayer>& ge
 
 }
 void segment_project_layers(const ProjectDocument& project, std::vector<RemagxLayer>& layers,
-                            std::vector<RemagxMatrixLayer>& matrix) {
+                            std::vector<RemagxMatrixLayer>& matrix, const std::vector<double>* stored_depths) {
     if (layers.size() < 2 || (!matrix.empty() && matrix.size() != layers.size()))
         throw ProjectDocumentError("Invalid compound segmentation stack.");
     const double minimum_step = project.number("/calculation/segmentation/minThickness");
@@ -164,7 +166,7 @@ void segment_project_layers(const ProjectDocument& project, std::vector<RemagxLa
         }
     }
     if (project.string("/calculation/magnetization/mode") == "profile")
-        apply_profiles(project, generated, positions, layers, error_samples);
+        apply_profiles(project, generated, positions, layers, error_samples, stored_depths);
     // Original profile application changes magnetic scalars, not the prepared tensors.
     layers = std::move(generated);
     matrix = std::move(generated_matrix);

@@ -230,17 +230,17 @@ No original-optimizer convergence/corpus acceptance is implied.
 
 Install system Lua 5.4 development headers/library and configure with
 `-DREMAGX_BUILD_NATIVE_LUA=ON` to enable BeforeCalculation for `-refl`/`-dicrefl`
-in compound mode with Nevot-Croce roughness and no monochromatic energy
+in compound mode with Nevot-Croce or adaptive segmentation and no monochromatic energy
 broadening. Default/Docker builds without this option still reject active scripts.
 Automatic table refresh precedes the hook; scalar values, tensors, energy,
 angular width and epsilon then feed the three existing solvers. Script output
 is sent to stderr. Project inputs stay unchanged and failures publish no
-scientific stdout. Scripted element/segmented/fit/energy paths remain unavailable.
+scientific stdout. Scripted element/fit/energy-broadened paths remain unavailable.
 
 The first Ctrl+C requests cooperative Stop; a second Ctrl+C terminates the
 process using default SIGINT handling, including scripts that disable debug hooks.
 This does not impose an automatic wall-clock deadline. The focused gate covers
-12 native/actual-WASM comparisons, three rejection cases and two real SIGINT
+24 native/actual-WASM comparisons, three rejection cases and two real SIGINT
 checks (cooperative loop and disabled-hook loop):
 
 ```
@@ -251,3 +251,8 @@ The original all-zero-tensor fixture failed in both native and WASM Matrix:
 SetDeltaBeta without an imported tensor followed by direct tensor access marks
 the zero tensor anisotropic. The valid integration fixture explicitly calls
 FillTensors before component editing. No solver or tolerance was changed.
+
+Segmented compound scripts preserve the pre-hook stored depths for magnetic-profile
+binding while using post-hook thicknesses, optical constants and profile amplitudes
+for adaptive sampling/application. The focused comparisons include bound profiles
+and Lua thickness/center/amplitude edits with all three solvers and both beam modes.
