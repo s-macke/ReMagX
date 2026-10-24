@@ -98,6 +98,7 @@ npm test                  # unit tests (vitest)
 npx tsc -b                # type check only (also part of the build)
 npm run lint              # oxlint
 npm run build             # static site in app/dist
+node scripts/export-project-schema.mjs --check # native schema matches web model/defaults
 npx playwright install --with-deps --only-shell chromium  # browser-test setup
 npm run test:e2e           # Chromium headless against app/dist (build first)
 CORPUS_DIR=/path/to/corpus npm run test:corpus   # strict private corpus gate; never skips
@@ -640,3 +641,5 @@ Quality gates:
 
 
 - [x] Native versioned-JSON document boundary (`remagx_project`): checked envelope, preserved unknown fields, immutable numeric edits and bit-exact finite-double round trips, including subnormals and signed zero. Duplicate keys, malformed/overflowing JSON, invalid structural edits and excessive nesting reject without publishing a partial document. The unmodified MIT-licensed nlohmann/json 3.12.0 header/license are vendored and hash-checked for native builds only. Native document/precision checks and lint pass; all five public projects round-trip through native serialization and the actual web schema with every field and added metadata preserved. The cross-language check is in Pages CI. Native nested-schema validation, filesystem transactions and complete CLI integration remain open; no private corpus sweep or numerical change is included.
+
+- [x] Native version-1 project schema validation now consumes a committed export of the authoritative web model, including nested required/optional fields, enums, safe integers, numeric bounds, tensor/layer lengths and equal known dataset-column lengths. Immutable numeric edits use the same validation; unknown metadata is preserved. CI checks generated schema/default freshness and native/web acceptance parity. Native document/precision checks, 2,311 synthetic parity cases, five public project round trips, 540 app tests, lint/build and all 99 private imports pass. Calculation capability checks, filesystem transactions and full CLI integration remain open.

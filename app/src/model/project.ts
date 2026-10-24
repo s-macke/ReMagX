@@ -9,8 +9,8 @@ import { z } from 'zod'
 export const PROJECT_FORMAT = 'remagx-project'
 export const PROJECT_VERSION = 1
 
-const finite = z.number().refine(Number.isFinite, 'must be a finite number')
-const nonNegative = finite.refine((v) => v >= 0, 'must be >= 0')
+const finite = z.number().finite('must be a finite number')
+const nonNegative = finite.nonnegative('must be >= 0')
 const index = z.number().int().nonnegative()
 
 export const complexSchema = z.object({ re: finite, im: finite })
@@ -108,7 +108,7 @@ export const sampleSchema = z.object({
 })
 
 export const experimentSchema = z.object({
-  energy: finite.refine((v) => v > 0, 'must be > 0'),
+  energy: finite.positive('must be > 0'),
   qzScan: z.object({
     qzMin: nonNegative,
     qzMax: nonNegative,

@@ -1,0 +1,358 @@
+{
+  "format": "remagx-project",
+  "version": 1,
+  "name": "Default Cu/Co multilayer",
+  "sample": {
+    "mode": "compound",
+    "layers": [
+      {
+        "material": "Cu",
+        "opticalTable": "Cu",
+        "density": 8.96,
+        "thickness": 0,
+        "roughness": 5,
+        "delta": 0.00165,
+        "beta": 0.00029911,
+        "deltaMag": 0,
+        "betaMag": 0,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0
+      },
+      {
+        "material": "Co",
+        "opticalTable": "Co",
+        "density": 8.9,
+        "thickness": 10,
+        "roughness": 5,
+        "delta": -0.003486,
+        "beta": 0.0056168,
+        "deltaMag": 0.0000531087,
+        "betaMag": -0.000132985,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0.0000531087
+      },
+      {
+        "material": "Cu",
+        "opticalTable": "Cu",
+        "density": 8.96,
+        "thickness": 60,
+        "roughness": 5,
+        "delta": 0.00165,
+        "beta": 0.00029911,
+        "deltaMag": 0,
+        "betaMag": 0,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0
+      },
+      {
+        "material": "Co",
+        "opticalTable": "Co",
+        "density": 8.9,
+        "thickness": 10,
+        "roughness": 5,
+        "delta": -0.003486,
+        "beta": 0.0056168,
+        "deltaMag": 0.0000531087,
+        "betaMag": -0.000132985,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0.0000531087
+      },
+      {
+        "material": "Cu",
+        "opticalTable": "Cu",
+        "density": 8.96,
+        "thickness": 60,
+        "roughness": 5,
+        "delta": 0.00165,
+        "beta": 0.00029911,
+        "deltaMag": 0,
+        "betaMag": 0,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0
+      },
+      {
+        "material": "Co",
+        "opticalTable": "Co",
+        "density": 8.9,
+        "thickness": 10,
+        "roughness": 5,
+        "delta": -0.003486,
+        "beta": 0.0056168,
+        "deltaMag": 0.0000531087,
+        "betaMag": -0.000132985,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0.0000531087
+      },
+      {
+        "material": "Cu",
+        "opticalTable": "Cu",
+        "density": 8.96,
+        "thickness": 60,
+        "roughness": 5,
+        "delta": 0.00165,
+        "beta": 0.00029911,
+        "deltaMag": 0,
+        "betaMag": 0,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0
+      },
+      {
+        "material": "Co",
+        "opticalTable": "Co",
+        "density": 8.9,
+        "thickness": 10,
+        "roughness": 5,
+        "delta": -0.003486,
+        "beta": 0.0056168,
+        "deltaMag": 0.0000531087,
+        "betaMag": -0.000132985,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0.0000531087
+      },
+      {
+        "material": "Cu",
+        "opticalTable": "Cu",
+        "density": 8.96,
+        "thickness": 60,
+        "roughness": 5,
+        "delta": 0.00165,
+        "beta": 0.00029911,
+        "deltaMag": 0,
+        "betaMag": 0,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0
+      },
+      {
+        "material": "Co",
+        "opticalTable": "Co",
+        "density": 8.9,
+        "thickness": 10,
+        "roughness": 5,
+        "delta": -0.003486,
+        "beta": 0.0056168,
+        "deltaMag": 0.0000531087,
+        "betaMag": -0.000132985,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0.0000531087
+      },
+      {
+        "material": "Cu",
+        "opticalTable": "Cu",
+        "density": 8.96,
+        "thickness": 60,
+        "roughness": 5,
+        "delta": 0.00165,
+        "beta": 0.00029911,
+        "deltaMag": 0,
+        "betaMag": 0,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0
+      },
+      {
+        "material": "Co",
+        "opticalTable": "Co",
+        "density": 8.9,
+        "thickness": 10,
+        "roughness": 5,
+        "delta": -0.003486,
+        "beta": 0.0056168,
+        "deltaMag": 0.0000531087,
+        "betaMag": -0.000132985,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0.0000531087
+      },
+      {
+        "material": "Cu",
+        "opticalTable": "Cu",
+        "density": 8.96,
+        "thickness": 60,
+        "roughness": 5,
+        "delta": 0.00165,
+        "beta": 0.00029911,
+        "deltaMag": 0,
+        "betaMag": 0,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0
+      },
+      {
+        "material": "",
+        "opticalTable": "vacuum",
+        "density": 0,
+        "thickness": 0,
+        "roughness": 0,
+        "delta": 0,
+        "beta": 0,
+        "deltaMag": 0,
+        "betaMag": 0,
+        "magnetization": {
+          "gamma": 90,
+          "phi": 90
+        },
+        "electronEscapeDepth": 0
+      }
+    ],
+    "elementProfiles": [],
+    "depthProfileFunctions": [],
+    "multilayer": {
+      "enabled": false,
+      "pattern": ""
+    }
+  },
+  "experiment": {
+    "energy": 777.198,
+    "qzScan": {
+      "qzMin": 0,
+      "qzMax": 0.6,
+      "points": 300,
+      "useDatasetPoints": false,
+      "showAngle": false
+    },
+    "energyScan": {
+      "energyMin": 700,
+      "energyMax": 900,
+      "fixed": "qz",
+      "qz": 0.1,
+      "angle": 10
+    },
+    "resolution": {
+      "angularFwhm": 0,
+      "angularPoints": 9,
+      "fastConvolution": true,
+      "energyFwhm": 0,
+      "energyPoints": 9,
+      "energyFastConvolution": true
+    },
+    "polarization": {
+      "beam1": {
+        "sigma": {
+          "re": 0.7071067811865476,
+          "im": 0
+        },
+        "pi": {
+          "re": 0,
+          "im": 0.7071067811865476
+        }
+      },
+      "beam2": {
+        "sigma": {
+          "re": 0.7071067811865476,
+          "im": 0
+        },
+        "pi": {
+          "re": 0,
+          "im": -0.7071067811865476
+        }
+      },
+      "analyzer": "none"
+    },
+    "scattering": "reflection"
+  },
+  "calculation": {
+    "algorithm": "parratt",
+    "roughnessModel": "nevot-croce",
+    "segmentation": {
+      "minThickness": 2,
+      "maxThickness": 3,
+      "gradientScale": 1,
+      "tolerance": 0.000001,
+      "scope": "local"
+    },
+    "magnetization": {
+      "mode": "none",
+      "direction": {
+        "gamma": 90,
+        "phi": 90
+      }
+    },
+    "tensorContribution": "magnetic",
+    "asymmetryDefinition": "normalized",
+    "profileCombination": "sum",
+    "epsilon": 0.00005,
+    "averaging": 0,
+    "postProcessing": {
+      "multiplyByQz4": false,
+      "divideByCos2ThetaSquared": false,
+      "fourierTransform": false
+    },
+    "automaticOpticalConstants": false,
+    "useChantlerDatabase": false
+  },
+  "datasets": [],
+  "activeDatasetIndex": null,
+  "fit": {
+    "algorithm": "simplex",
+    "errorFunction": "log-chi2",
+    "occamQ": 0,
+    "annealing": {
+      "temperature": 1,
+      "temperatureStep": -0.01
+    },
+    "window": {
+      "qzMin": 0,
+      "qzMax": 9999,
+      "energyMin": 0,
+      "energyMax": 100000
+    },
+    "fitAngularResolution": false,
+    "fitIntensityScale": false,
+    "fitQzShift": false,
+    "fitEnergyShift": false,
+    "parameters": [],
+    "evolution": {
+      "randomSeed": 100,
+      "population": 5000,
+      "elitePercent": 1,
+      "parentsPercent": 40,
+      "mutationRangePercent": 10,
+      "mixingProbability": 33,
+      "mutationProbability": 25,
+      "eliteAsParents": true,
+      "restrictToBounds": true
+    }
+  },
+  "scripts": {
+    "enabled": true,
+    "beforeCalculation": "",
+    "default": "",
+    "parameters": []
+  }
+}

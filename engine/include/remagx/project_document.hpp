@@ -11,8 +11,8 @@ public:
     using std::runtime_error::runtime_error;
 };
 
-// Native JSON document boundary. Validates the version-1 envelope and JSON
-// representation, NOT every domain constraint or engine capability. Unknown
+// Native JSON document boundary. Validates the exported version-1 web schema
+// and JSON representation, not calculation capability/runtime constraints. Unknown
 // members are retained. Scientific numbers use IEEE-754 double, like the web app.
 class ProjectDocument {
 public:

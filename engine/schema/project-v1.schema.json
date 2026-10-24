@@ -1,0 +1,1154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "remagx-project"
+    },
+    "version": {
+      "type": "number",
+      "const": 1
+    },
+    "name": {
+      "type": "string"
+    },
+    "sample": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "compound",
+            "element"
+          ]
+        },
+        "layers": {
+          "minItems": 2,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "dielectricTensor": {
+                "type": "object",
+                "properties": {
+                  "values": {
+                    "minItems": 18,
+                    "maxItems": 18,
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "anisotropic": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "values",
+                  "anisotropic"
+                ]
+              },
+              "material": {
+                "type": "string"
+              },
+              "opticalTable": {
+                "type": "string"
+              },
+              "density": {
+                "type": "number",
+                "minimum": 0
+              },
+              "thickness": {
+                "type": "number",
+                "minimum": 0
+              },
+              "roughness": {
+                "type": "number",
+                "minimum": 0
+              },
+              "delta": {
+                "type": "number"
+              },
+              "beta": {
+                "type": "number"
+              },
+              "deltaMag": {
+                "type": "number"
+              },
+              "betaMag": {
+                "type": "number"
+              },
+              "magnetization": {
+                "type": "object",
+                "properties": {
+                  "gamma": {
+                    "type": "number"
+                  },
+                  "phi": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "gamma",
+                  "phi"
+                ]
+              },
+              "electronEscapeDepth": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "material",
+              "opticalTable",
+              "density",
+              "thickness",
+              "roughness",
+              "delta",
+              "beta",
+              "deltaMag",
+              "betaMag",
+              "magnetization",
+              "electronEscapeDepth"
+            ]
+          }
+        },
+        "elementProfiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scatteringTensor": {
+                "minItems": 18,
+                "maxItems": 18,
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "element": {
+                "type": "string"
+              },
+              "f1": {
+                "type": "number"
+              },
+              "f2": {
+                "type": "number"
+              },
+              "f1Mag": {
+                "type": "number"
+              },
+              "f2Mag": {
+                "type": "number"
+              },
+              "slabs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "thickness": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "density": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "roughness": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "thickness",
+                    "density",
+                    "roughness"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "element",
+              "f1",
+              "f2",
+              "f1Mag",
+              "f2Mag",
+              "slabs"
+            ]
+          }
+        },
+        "depthProfileFunctions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "deltaAmplitude": {
+                "type": "number"
+              },
+              "betaAmplitude": {
+                "type": "number"
+              },
+              "center": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number",
+                "minimum": 0
+              },
+              "spline": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "points": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "z": {
+                          "type": "number"
+                        },
+                        "value": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "z",
+                        "value"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "points"
+                ]
+              },
+              "amplitudeCoupledTo": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "widthCoupledTo": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "boundToLayer": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "deltaAmplitude",
+              "betaAmplitude",
+              "center",
+              "width",
+              "spline",
+              "amplitudeCoupledTo",
+              "widthCoupledTo",
+              "boundToLayer"
+            ]
+          }
+        },
+        "multilayer": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "enabled",
+            "pattern"
+          ]
+        }
+      },
+      "required": [
+        "mode",
+        "layers",
+        "elementProfiles",
+        "depthProfileFunctions",
+        "multilayer"
+      ]
+    },
+    "experiment": {
+      "type": "object",
+      "properties": {
+        "energy": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "qzScan": {
+          "type": "object",
+          "properties": {
+            "qzMin": {
+              "type": "number",
+              "minimum": 0
+            },
+            "qzMax": {
+              "type": "number",
+              "minimum": 0
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 9007199254740991
+            },
+            "useDatasetPoints": {
+              "type": "boolean"
+            },
+            "showAngle": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "qzMin",
+            "qzMax",
+            "points",
+            "useDatasetPoints",
+            "showAngle"
+          ]
+        },
+        "energyScan": {
+          "type": "object",
+          "properties": {
+            "energyMin": {
+              "type": "number",
+              "minimum": 0
+            },
+            "energyMax": {
+              "type": "number",
+              "minimum": 0
+            },
+            "fixed": {
+              "type": "string",
+              "enum": [
+                "qz",
+                "angle"
+              ]
+            },
+            "qz": {
+              "type": "number",
+              "minimum": 0
+            },
+            "angle": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "energyMin",
+            "energyMax",
+            "fixed",
+            "qz",
+            "angle"
+          ]
+        },
+        "resolution": {
+          "type": "object",
+          "properties": {
+            "angularFwhm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "angularPoints": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "fastConvolution": {
+              "type": "boolean"
+            },
+            "energyFwhm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "energyPoints": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "energyFastConvolution": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "angularFwhm",
+            "angularPoints",
+            "fastConvolution",
+            "energyFwhm",
+            "energyPoints",
+            "energyFastConvolution"
+          ]
+        },
+        "polarization": {
+          "type": "object",
+          "properties": {
+            "beam1": {
+              "type": "object",
+              "properties": {
+                "sigma": {
+                  "type": "object",
+                  "properties": {
+                    "re": {
+                      "type": "number"
+                    },
+                    "im": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "re",
+                    "im"
+                  ]
+                },
+                "pi": {
+                  "type": "object",
+                  "properties": {
+                    "re": {
+                      "type": "number"
+                    },
+                    "im": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "re",
+                    "im"
+                  ]
+                }
+              },
+              "required": [
+                "sigma",
+                "pi"
+              ]
+            },
+            "beam2": {
+              "type": "object",
+              "properties": {
+                "sigma": {
+                  "type": "object",
+                  "properties": {
+                    "re": {
+                      "type": "number"
+                    },
+                    "im": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "re",
+                    "im"
+                  ]
+                },
+                "pi": {
+                  "type": "object",
+                  "properties": {
+                    "re": {
+                      "type": "number"
+                    },
+                    "im": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "re",
+                    "im"
+                  ]
+                }
+              },
+              "required": [
+                "sigma",
+                "pi"
+              ]
+            },
+            "analyzer": {
+              "type": "string",
+              "enum": [
+                "none",
+                "sigma",
+                "pi"
+              ]
+            }
+          },
+          "required": [
+            "beam1",
+            "beam2",
+            "analyzer"
+          ]
+        },
+        "scattering": {
+          "type": "string",
+          "enum": [
+            "reflection",
+            "transmission"
+          ]
+        }
+      },
+      "required": [
+        "energy",
+        "qzScan",
+        "energyScan",
+        "resolution",
+        "polarization",
+        "scattering"
+      ]
+    },
+    "calculation": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "parratt",
+            "matrix",
+            "zak",
+            "parratt-single-scattering",
+            "electron-yield"
+          ]
+        },
+        "roughnessModel": {
+          "type": "string",
+          "enum": [
+            "nevot-croce",
+            "segmentation"
+          ]
+        },
+        "segmentation": {
+          "type": "object",
+          "properties": {
+            "minThickness": {
+              "type": "number",
+              "minimum": 0
+            },
+            "maxThickness": {
+              "type": "number",
+              "minimum": 0
+            },
+            "gradientScale": {
+              "type": "number"
+            },
+            "tolerance": {
+              "type": "number",
+              "minimum": 0
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "local",
+                "global"
+              ]
+            }
+          },
+          "required": [
+            "minThickness",
+            "maxThickness",
+            "gradientScale",
+            "tolerance",
+            "scope"
+          ]
+        },
+        "magnetization": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "none",
+                "add",
+                "profile"
+              ]
+            },
+            "direction": {
+              "type": "object",
+              "properties": {
+                "gamma": {
+                  "type": "number"
+                },
+                "phi": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "gamma",
+                "phi"
+              ]
+            }
+          },
+          "required": [
+            "mode",
+            "direction"
+          ]
+        },
+        "tensorContribution": {
+          "type": "string",
+          "enum": [
+            "magnetic",
+            "tetragonal"
+          ]
+        },
+        "asymmetryDefinition": {
+          "type": "string",
+          "enum": [
+            "normalized",
+            "difference"
+          ]
+        },
+        "profileCombination": {
+          "type": "string",
+          "enum": [
+            "sum",
+            "product"
+          ]
+        },
+        "epsilon": {
+          "type": "number"
+        },
+        "averaging": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "postProcessing": {
+          "type": "object",
+          "properties": {
+            "multiplyByQz4": {
+              "type": "boolean"
+            },
+            "divideByCos2ThetaSquared": {
+              "type": "boolean"
+            },
+            "fourierTransform": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "multiplyByQz4",
+            "divideByCos2ThetaSquared",
+            "fourierTransform"
+          ]
+        },
+        "automaticOpticalConstants": {
+          "type": "boolean"
+        },
+        "useChantlerDatabase": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "algorithm",
+        "roughnessModel",
+        "segmentation",
+        "magnetization",
+        "tensorContribution",
+        "asymmetryDefinition",
+        "profileCombination",
+        "epsilon",
+        "averaging",
+        "postProcessing",
+        "automaticOpticalConstants",
+        "useChantlerDatabase"
+      ]
+    },
+    "datasets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "sourceFile": {
+            "type": "string"
+          },
+          "energy": {
+            "type": "number"
+          },
+          "energyShift": {
+            "type": "number"
+          },
+          "angularResolution": {
+            "type": "number",
+            "minimum": 0
+          },
+          "intensityScale": {
+            "type": "number"
+          },
+          "intensityOffset": {
+            "type": "number"
+          },
+          "qzShift": {
+            "type": "number"
+          },
+          "errorWeight": {
+            "type": "number"
+          },
+          "polarization": {
+            "type": "object",
+            "properties": {
+              "beam1": {
+                "type": "object",
+                "properties": {
+                  "sigma": {
+                    "type": "object",
+                    "properties": {
+                      "re": {
+                        "type": "number"
+                      },
+                      "im": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "re",
+                      "im"
+                    ]
+                  },
+                  "pi": {
+                    "type": "object",
+                    "properties": {
+                      "re": {
+                        "type": "number"
+                      },
+                      "im": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "re",
+                      "im"
+                    ]
+                  }
+                },
+                "required": [
+                  "sigma",
+                  "pi"
+                ]
+              },
+              "beam2": {
+                "type": "object",
+                "properties": {
+                  "sigma": {
+                    "type": "object",
+                    "properties": {
+                      "re": {
+                        "type": "number"
+                      },
+                      "im": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "re",
+                      "im"
+                    ]
+                  },
+                  "pi": {
+                    "type": "object",
+                    "properties": {
+                      "re": {
+                        "type": "number"
+                      },
+                      "im": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "re",
+                      "im"
+                    ]
+                  }
+                },
+                "required": [
+                  "sigma",
+                  "pi"
+                ]
+              },
+              "analyzer": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "sigma",
+                  "pi"
+                ]
+              }
+            },
+            "required": [
+              "beam1",
+              "beam2",
+              "analyzer"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "columns": {
+            "type": "object",
+            "properties": {
+              "qz": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "energy": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "reflectivity": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "reflectivityPlus": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "reflectivityMinus": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "asymmetry": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "electronYield": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            },
+            "required": [
+              "qz"
+            ],
+            "x-remagx-equal-column-lengths": "qz"
+          }
+        },
+        "required": [
+          "title",
+          "comment",
+          "sourceFile",
+          "energy",
+          "energyShift",
+          "angularResolution",
+          "intensityScale",
+          "intensityOffset",
+          "qzShift",
+          "errorWeight",
+          "polarization",
+          "active",
+          "columns"
+        ]
+      }
+    },
+    "activeDatasetIndex": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fit": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "simplex",
+            "simplex-annealing"
+          ]
+        },
+        "errorFunction": {
+          "type": "string",
+          "enum": [
+            "log-chi2",
+            "lin-chi2"
+          ]
+        },
+        "occamQ": {
+          "type": "number"
+        },
+        "annealing": {
+          "type": "object",
+          "properties": {
+            "temperature": {
+              "type": "number"
+            },
+            "temperatureStep": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "temperature",
+            "temperatureStep"
+          ]
+        },
+        "window": {
+          "type": "object",
+          "properties": {
+            "qzMin": {
+              "type": "number"
+            },
+            "qzMax": {
+              "type": "number"
+            },
+            "energyMin": {
+              "type": "number"
+            },
+            "energyMax": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "qzMin",
+            "qzMax",
+            "energyMin",
+            "energyMax"
+          ]
+        },
+        "fitAngularResolution": {
+          "type": "boolean"
+        },
+        "fitIntensityScale": {
+          "type": "boolean"
+        },
+        "fitQzShift": {
+          "type": "boolean"
+        },
+        "fitEnergyShift": {
+          "type": "boolean"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "target": {
+                "type": "string",
+                "enum": [
+                  "thickness",
+                  "delta",
+                  "beta",
+                  "roughness",
+                  "deltaMag",
+                  "betaMag",
+                  "angularResolution",
+                  "intensityScale",
+                  "qzShift",
+                  "profileDeltaAmplitude",
+                  "profileBetaAmplitude",
+                  "profileWidth",
+                  "profileCenter",
+                  "scriptParameter",
+                  "elementDensity",
+                  "elementThickness",
+                  "elementRoughness",
+                  "betaKramersKronig",
+                  "deltaKramersKronig",
+                  "elementF1",
+                  "elementF2",
+                  "elementF1Mag",
+                  "elementF2Mag",
+                  "electronEscapeDepth",
+                  "electronGain",
+                  "energyShift",
+                  "magnetizationGamma",
+                  "magnetizationPhi"
+                ]
+              },
+              "index": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "elementIndex": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "value": {
+                "type": "number"
+              },
+              "step": {
+                "type": "number"
+              },
+              "lowerBound": {
+                "type": "number"
+              },
+              "upperBound": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "target",
+              "index",
+              "elementIndex",
+              "value",
+              "step",
+              "lowerBound",
+              "upperBound"
+            ]
+          }
+        },
+        "evolution": {
+          "type": "object",
+          "properties": {
+            "randomSeed": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "population": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "elitePercent": {
+              "type": "number"
+            },
+            "parentsPercent": {
+              "type": "number"
+            },
+            "mutationRangePercent": {
+              "type": "number"
+            },
+            "mixingProbability": {
+              "type": "number"
+            },
+            "mutationProbability": {
+              "type": "number"
+            },
+            "eliteAsParents": {
+              "type": "boolean"
+            },
+            "restrictToBounds": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "randomSeed",
+            "population",
+            "elitePercent",
+            "parentsPercent",
+            "mutationRangePercent",
+            "mixingProbability",
+            "mutationProbability",
+            "eliteAsParents",
+            "restrictToBounds"
+          ]
+        }
+      },
+      "required": [
+        "algorithm",
+        "errorFunction",
+        "occamQ",
+        "annealing",
+        "window",
+        "fitAngularResolution",
+        "fitIntensityScale",
+        "fitQzShift",
+        "fitEnergyShift",
+        "parameters",
+        "evolution"
+      ]
+    },
+    "scripts": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "beforeCalculation": {
+          "type": "string"
+        },
+        "default": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "enabled",
+        "beforeCalculation",
+        "default",
+        "parameters"
+      ]
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "name",
+    "sample",
+    "experiment",
+    "calculation",
+    "datasets",
+    "activeDatasetIndex",
+    "fit",
+    "scripts"
+  ]
+}

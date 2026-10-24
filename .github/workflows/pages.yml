@@ -84,8 +84,10 @@ jobs:
 
       - run: npm ci
 
-      - name: Verify native and web project JSON round trips
-        run: node scripts/test-native-project.mjs ../build/engine/project_document_tests
+      - name: Verify native and web project schema and JSON round trips
+        run: |
+          node scripts/export-project-schema.mjs --check
+          node scripts/test-native-project.mjs ../build/engine/project_document_tests
       - run: npm run lint
       - run: npm test
       - run: npm run test:fit-reference-inputs

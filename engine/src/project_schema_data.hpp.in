@@ -1,0 +1,4 @@
+#pragma once
+namespace remagx {
+inline constexpr char project_schema_json[] = R"remagx_schema(@PROJECT_SCHEMA_JSON@)remagx_schema";
+}

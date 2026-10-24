@@ -1,6 +1,7 @@
 #include "remagx/project_document.hpp"
 #include <cmath>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -14,13 +15,19 @@ template<class Action> static void rejected(Action action) {
     try { action(); } catch (const remagx::ProjectDocumentError&) { return; }
     throw std::runtime_error("Invalid document/edit was accepted");
 }
-static const std::string fixture = R"projectJSON({
- "format":"remagx-project","version":1,"name":"Native \u03b4 test",
- "sample":{"layers":[{"thickness":-0,"custom":"literal -0, quote: \" and slash: \\"}]},
- "experiment":{},"calculation":{},"fit":{},"scripts":{"default":"print(\"-0\")"},
- "datasets":[],"activeDatasetIndex":null,
- "future":{"a/b":0.12345678901234567,"integer":9007199254740993,"nested":[null,true,"\u0000"]}
-})projectJSON";
+static std::string load_fixture() {
+    std::ifstream file(REMAGX_PROJECT_FIXTURE_PATH);
+    require(file.good(), "Missing project fixture");
+    std::string result{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+    const auto thickness = result.find("\"thickness\": 0");
+    require(thickness != std::string::npos, "Missing zero thickness fixture");
+    result.replace(thickness, 14, "\"thickness\": -0");
+    result.insert(result.rfind('}'), R"projectJSON(,
+      "future":{"a/b":0.12345678901234567,"integer":9007199254740993,
+      "text":"literal -0, quote: \" and slash: \\" ,"script":"print(\"-0\")",
+      "nested":[null,true,"\u0000"]})projectJSON");
+    return result;
+}
 
 int main(int argc, char** argv) {
     try {
@@ -29,6 +36,15 @@ int main(int argc, char** argv) {
             std::cout << ProjectDocument::parse(input).serialize();
             return 0;
         }
+        if (argc == 2 && std::string(argv[1]) == "--validate-lines") {
+            std::string input;
+            while (std::getline(std::cin, input)) {
+                try { ProjectDocument::parse(input); std::cout << "1\n"; }
+                catch (const remagx::ProjectDocumentError&) { std::cout << "0\n"; }
+            }
+            return 0;
+        }
+        const auto fixture = load_fixture();
         require(argc == 1, "Unknown test invocation");
         const auto original = ProjectDocument::parse(fixture);
         require(std::signbit(original.number("/sample/layers/0/thickness")), "Integer negative zero lost");
@@ -44,20 +60,22 @@ int main(int argc, char** argv) {
                              std::numeric_limits<double>::min(), std::numeric_limits<double>::max(),
                              -std::numeric_limits<double>::max(), std::nextafter(1.0, 2.0),
                              1e-200, 0.12345678901234567}) {
-            const auto edited = original.with_number("/sample/layers/0/thickness", value);
-            const double result = ProjectDocument::parse(edited.serialize()).number("/sample/layers/0/thickness");
+            const auto edited = original.with_number("/sample/layers/0/beta", value);
+            const double result = ProjectDocument::parse(edited.serialize()).number("/sample/layers/0/beta");
             require(std::memcmp(&value, &result, sizeof(double)) == 0, "Double changed on serialization");
             require(original.serialize() == encoded, "Numeric edit mutated original");
             require(edited.number("/future/a~1b") == original.number("/future/a~1b"), "Unedited value changed");
         }
-        for (const auto* path : {"/absent", "/sample/layers/1/thickness", "/name", "invalid-pointer"}) {
+        for (const auto* path : {"/absent", "/sample/layers/999/thickness", "/name", "invalid-pointer"}) {
             rejected([&] { original.number(path); });
             rejected([&] { original.with_number(path, 1); });
         }
         for (double value : {std::numeric_limits<double>::infinity(),
                              std::numeric_limits<double>::quiet_NaN()})
-            rejected([&] { original.with_number("/sample/layers/0/thickness", value); });
+            rejected([&] { original.with_number("/sample/layers/0/beta", value); });
         rejected([&] { original.with_number("/version", 2); });
+        rejected([&] { original.with_number("/sample/layers/0/thickness", -1); });
+        rejected([&] { original.with_number("/experiment/energy", 0); });
         const auto active = ProjectDocument::parse(original.serialize().replace(
             original.serialize().find("\"activeDatasetIndex\": null"), 26, "\"activeDatasetIndex\": 0"));
         rejected([&] { active.with_number("/activeDatasetIndex", -1); });
@@ -76,7 +94,7 @@ int main(int argc, char** argv) {
         nested.insert(nested.rfind('}'), ",\"deep\":" + std::string(300, '[') + "0" + std::string(300, ']'));
         rejected([&] { ProjectDocument::parse(nested); });
         require(original.serialize() == encoded, "Failure changed original document");
-        std::cout << "Project JSON envelope, unknown fields, immutable edits and exact double round trips passed.\n";
+        std::cout << "Project JSON schema, unknown fields, immutable edits and exact double round trips passed.\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
