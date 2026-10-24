@@ -816,7 +816,7 @@
     {
       "name": "lua-execution",
       "status": "ported",
-      "reason": "Both Tools script commands and the Script Window share real worker execution, output/errors and Stop. Menu execution selects the program and opens its output; closing cancels active work. Full legacy API/numerical acceptance remains separate (D-2, D-22).",
+      "reason": "Both Tools script commands and the Script Window share real worker execution, output/errors and Stop. Menu execution selects the program and opens its output; closing cancels active work and resets window output/tab. Full legacy API/numerical acceptance remains separate (D-2, D-22).",
       "references": [
         "app/src/App.tsx",
         "app/src/ui/ScriptWindow.tsx",

@@ -34,6 +34,10 @@ test('both script menu commands execute once, select their tab and preserve undo
     await expect(dialog.getByRole('button', { name: 'Stop', exact: true })).toBeDisabled()
     await expect(page.getByRole('textbox', { name: 'thickness of layer 1', exact: true })).toHaveValue(thickness)
     await dialog.getByRole('button', { name: 'Close script window' }).click()
+    await page.getByRole('button', { name: 'Open script window', exact: true }).click()
+    await expect(dialog.locator('.script-window__output')).toHaveText('Script output appears here.')
+    await expect(dialog.getByRole('tab', { name: 'BeforeCalculation', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await dialog.getByRole('button', { name: 'Close script window' }).click()
     await page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true }).click()
     await expect(page.getByRole('textbox', { name: 'thickness of layer 1', exact: true })).toHaveValue('20')
   }

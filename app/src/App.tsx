@@ -92,6 +92,8 @@ function Workspace() {
   }
   const closeScript = () => {
     scriptExecution.stop()
+    scriptExecution.clearOutput()
+    setScriptTab('beforeCalculation')
     setScriptOpen(false)
   }
   const [asciiFile, setAsciiFile] = useState<{ name: string; text: string } | null>(null)

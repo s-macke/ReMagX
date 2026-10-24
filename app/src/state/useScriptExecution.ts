@@ -66,5 +66,5 @@ export function useScriptExecution() {
       append([error instanceof ComputeCancelled ? 'Stopped.' : error.message])
     })
   }
-  return { execute, stop, busy, output, append, unavailable: fitStatus.running || fitStatus.evaluating || databaseUpdate.busy }
+  return { execute, stop, busy, output, append, clearOutput: () => setOutput([]), unavailable: fitStatus.running || fitStatus.evaluating || databaseUpdate.busy }
 }
