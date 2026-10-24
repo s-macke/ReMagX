@@ -19,5 +19,6 @@ LegacyAssignments parse_legacy_assignments(std::string_view bytes);
 // Decimal prefixes used by the web importer. Missing prefixes return nullopt;
 // overflow returns infinity for subsequent schema rejection, never saturation.
 // All numeric storage and conversion use double, including integer prefixes.
+std::string trim_legacy_text(std::string_view value);
 std::optional<double> legacy_number_prefix(std::string_view value, bool integer = false);
 }

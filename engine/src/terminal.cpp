@@ -1,4 +1,6 @@
 #include "remagx/project_calculation.hpp"
+#include "remagx/legacy_import.hpp"
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -14,12 +16,12 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (argc == 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
-        std::cout << "Usage: remagx-terminal -refl|-dicrefl project.json\n"
+        std::cout << "Usage: remagx-terminal -refl|-dicrefl project.json|project.all\n"
                      "       remagx-terminal -v\n"
-                     "Manual/automatic compound constants, Nevot-Croce/adaptive, Parratt/Matrix/Zak.\n"
+                     "Manual/automatic compound or element constants, Parratt/Matrix/Zak.\n"
                      "Output: qz R, or qz Rp Rm; 17 significant digits.\n"
                      "Generated qz grid: 0..qzMax inclusive (original terminal behavior).\n"
-                     "Legacy .all, -fit and -convert integration remains pending.\n";
+                     "Lua, -fit and -convert integration remains pending.\n";
         return 0;
     }
     if (argc != 3 || (std::string(argv[1]) != "-refl" && std::string(argv[1]) != "-dicrefl")) {
@@ -31,7 +33,20 @@ int main(int argc, char** argv) {
         if (!input) throw remagx::ProjectDocumentError("Cannot open project input.");
         const std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
         if (input.bad()) throw remagx::ProjectDocumentError("Cannot read complete project input.");
-        const auto project = remagx::ProjectDocument::parse(text);
+        auto extension = std::filesystem::path(argv[2]).extension().string();
+        for (auto& character : extension) if (character >= 'A' && character <= 'Z') character += 'a' - 'A';
+        const auto project = [&] {
+            if (extension != ".all") return remagx::ProjectDocument::parse(text);
+            const auto imported = remagx::import_legacy_project(text, std::filesystem::path(argv[2]).filename().string());
+            for (const auto& message : imported.messages) {
+                std::cerr << "Import " << message.level;
+                if (message.line) std::cerr << " at line " << *message.line;
+                std::cerr << ": " << message.text << '\n';
+            }
+            for (const auto& key : imported.ignored_keys)
+                std::cerr << "Import ignored key " << key.key << ": " << key.count << " occurrences, first at line " << key.first_line << '\n';
+            return imported.project;
+        }();
         const bool dichroic = std::string(argv[1]) == "-dicrefl";
         std::vector<std::string> warnings;
         const auto tables = remagx::load_project_tables(project, warnings);

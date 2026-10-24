@@ -155,3 +155,12 @@ it('reports retained unterminated assignments that the original loader ignores',
     expect(importAllFile(prefix + suffix).report.messages.some(message => message.text.includes('no terminating newline'))).toBe(false)
   }
 })
+
+it('reports object prototype names as unknown legacy keys', () => {
+  const { report } = importAllFile('__proto__=1\nconstructor=2\ntoString=3\n__proto__=4\n')
+  expect(report.ignoredKeys).toEqual([
+    { key: '__proto__', count: 2, firstLine: 1 },
+    { key: 'constructor', count: 1, firstLine: 2 },
+    { key: 'toString', count: 1, firstLine: 3 },
+  ])
+})

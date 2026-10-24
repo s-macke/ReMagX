@@ -1,0 +1,282 @@
+{
+  "project": {
+    "format": "remagx-project",
+    "version": 1,
+    "name": "",
+    "sample": {
+      "mode": "compound",
+      "layers": [
+        {
+          "material": "",
+          "opticalTable": "",
+          "density": 0,
+          "thickness": 0,
+          "roughness": 0,
+          "delta": 0,
+          "beta": 0,
+          "deltaMag": 0,
+          "betaMag": 0,
+          "magnetization": {
+            "gamma": 90,
+            "phi": 90
+          },
+          "electronEscapeDepth": 0
+        },
+        {
+          "material": "",
+          "opticalTable": "",
+          "density": 0,
+          "thickness": 0,
+          "roughness": 0,
+          "delta": 0,
+          "beta": 0,
+          "deltaMag": 0,
+          "betaMag": 0,
+          "magnetization": {
+            "gamma": 90,
+            "phi": 90
+          },
+          "electronEscapeDepth": 0
+        }
+      ],
+      "elementProfiles": [],
+      "depthProfileFunctions": [],
+      "multilayer": {
+        "enabled": false,
+        "pattern": ""
+      }
+    },
+    "experiment": {
+      "energy": 1000,
+      "qzScan": {
+        "qzMin": 0,
+        "qzMax": 0.01,
+        "points": 200,
+        "useDatasetPoints": false,
+        "showAngle": false
+      },
+      "energyScan": {
+        "energyMin": 0,
+        "energyMax": 0,
+        "fixed": "qz",
+        "qz": 0,
+        "angle": 0
+      },
+      "resolution": {
+        "angularFwhm": 0,
+        "angularPoints": 9,
+        "fastConvolution": true,
+        "energyFwhm": 0,
+        "energyPoints": 9,
+        "energyFastConvolution": true
+      },
+      "polarization": {
+        "beam1": {
+          "sigma": {
+            "re": 1,
+            "im": 0
+          },
+          "pi": {
+            "re": 0,
+            "im": 0
+          }
+        },
+        "beam2": {
+          "sigma": {
+            "re": 0,
+            "im": 0
+          },
+          "pi": {
+            "re": 1,
+            "im": 0
+          }
+        },
+        "analyzer": "none"
+      },
+      "scattering": "reflection"
+    },
+    "calculation": {
+      "algorithm": "parratt",
+      "roughnessModel": "nevot-croce",
+      "segmentation": {
+        "minThickness": 2,
+        "maxThickness": 10,
+        "gradientScale": 1,
+        "tolerance": 0.000001,
+        "scope": "local"
+      },
+      "magnetization": {
+        "mode": "none",
+        "direction": {
+          "gamma": 90,
+          "phi": 90
+        }
+      },
+      "tensorContribution": "magnetic",
+      "asymmetryDefinition": "normalized",
+      "profileCombination": "sum",
+      "epsilon": 0.00005,
+      "averaging": 0,
+      "postProcessing": {
+        "multiplyByQz4": false,
+        "divideByCos2ThetaSquared": false,
+        "fourierTransform": false
+      },
+      "automaticOpticalConstants": false,
+      "useChantlerDatabase": false
+    },
+    "datasets": [],
+    "activeDatasetIndex": null,
+    "fit": {
+      "algorithm": "simplex",
+      "errorFunction": "log-chi2",
+      "occamQ": 0,
+      "annealing": {
+        "temperature": 0,
+        "temperatureStep": 0
+      },
+      "window": {
+        "qzMin": 0,
+        "qzMax": 10000,
+        "energyMin": 0,
+        "energyMax": 100000
+      },
+      "fitAngularResolution": false,
+      "fitIntensityScale": false,
+      "fitQzShift": false,
+      "fitEnergyShift": false,
+      "parameters": [],
+      "evolution": {
+        "randomSeed": 0,
+        "population": 500,
+        "elitePercent": 0,
+        "parentsPercent": 0,
+        "mutationRangePercent": 0,
+        "mixingProbability": 0,
+        "mutationProbability": 0,
+        "eliteAsParents": false,
+        "restrictToBounds": false
+      }
+    },
+    "scripts": {
+      "enabled": true,
+      "beforeCalculation": "",
+      "default": "",
+      "parameters": []
+    }
+  },
+  "layer": {
+    "material": "",
+    "opticalTable": "",
+    "density": 0,
+    "thickness": 0,
+    "roughness": 0,
+    "delta": 0,
+    "beta": 0,
+    "deltaMag": 0,
+    "betaMag": 0,
+    "magnetization": {
+      "gamma": 90,
+      "phi": 90
+    },
+    "electronEscapeDepth": 0
+  },
+  "profile": {
+    "deltaAmplitude": 0,
+    "betaAmplitude": 0,
+    "center": 0,
+    "width": 1,
+    "spline": {
+      "enabled": false,
+      "points": []
+    },
+    "amplitudeCoupledTo": null,
+    "widthCoupledTo": null,
+    "boundToLayer": null
+  },
+  "dataset": {
+    "title": "",
+    "comment": "",
+    "sourceFile": "",
+    "energy": 10,
+    "energyShift": 0,
+    "angularResolution": 0,
+    "intensityScale": 1,
+    "intensityOffset": 0,
+    "qzShift": 0,
+    "errorWeight": 1,
+    "polarization": {
+      "beam1": {
+        "sigma": {
+          "re": 1,
+          "im": 0
+        },
+        "pi": {
+          "re": 0,
+          "im": 0
+        }
+      },
+      "beam2": {
+        "sigma": {
+          "re": 0,
+          "im": 0
+        },
+        "pi": {
+          "re": 1,
+          "im": 0
+        }
+      },
+      "analyzer": "none"
+    },
+    "active": false,
+    "columns": {
+      "qz": []
+    }
+  },
+  "fitTargets": [
+    "thickness",
+    "delta",
+    "beta",
+    "roughness",
+    "deltaMag",
+    "betaMag",
+    "angularResolution",
+    "intensityScale",
+    "qzShift",
+    "profileDeltaAmplitude",
+    "profileBetaAmplitude",
+    "profileWidth",
+    "profileCenter",
+    "scriptParameter",
+    "elementDensity",
+    "elementThickness",
+    "elementRoughness",
+    "betaKramersKronig",
+    "deltaKramersKronig",
+    "elementF1",
+    "elementF2",
+    "elementF1Mag",
+    "elementF2Mag",
+    "electronEscapeDepth",
+    "electronGain",
+    "energyShift",
+    "magnetizationGamma",
+    "magnetizationPhi"
+  ],
+  "ignoredByDesign": {
+    "layer_fitd": "per-layer fit flags were not used by the legacy loader",
+    "layer_fitdelta": "per-layer fit flags were not used by the legacy loader",
+    "layer_fitbeta": "per-layer fit flags were not used by the legacy loader",
+    "layer_fiddelta": "per-layer fit flags were not used by the legacy loader",
+    "layer_fitdbeta": "per-layer fit flags were not used by the legacy loader",
+    "layer_fitsigma": "per-layer fit flags were not used by the legacy loader",
+    "gauss_fit": "fit flags were not used by the legacy loader",
+    "gauss_fita": "fit flags were not used by the legacy loader",
+    "gauss_fitvar": "fit flags were not used by the legacy loader",
+    "gauss_fitz": "fit flags were not used by the legacy loader",
+    "gauss_splinepoints": "the point count follows from the spline points",
+    "datasetpoints": "the point count follows from the data",
+    "fit_delta": "the legacy program derived the first fit step from the value",
+    "parallelization": "the web app decides parallelization itself"
+  }
+}

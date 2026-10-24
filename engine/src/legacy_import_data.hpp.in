@@ -1,0 +1,4 @@
+#pragma once
+namespace remagx {
+inline constexpr char legacy_import_defaults[] = R"remagx_import(@LEGACY_IMPORT_DEFAULTS@)remagx_import";
+}

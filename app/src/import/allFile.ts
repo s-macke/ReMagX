@@ -332,7 +332,7 @@ export function importAllFile(input: string | ArrayBuffer | Uint8Array, fileName
     }
 
     const key = a.key
-    if (key in IGNORED_BY_DESIGN) {
+    if (Object.hasOwn(IGNORED_BY_DESIGN, key)) {
       ignoredByDesign.set(key, (ignoredByDesign.get(key) ?? 0) + 1)
       continue
     }
@@ -1024,4 +1024,11 @@ export function importAllFile(input: string | ArrayBuffer | Uint8Array, fileName
     throw new ImportError(`The imported project is invalid:\n${validation.issues.join('\n')}`)
   }
   return { project: validation.project, report: { messages, ignoredKeys } }
+}
+
+// Build-time export for the native importer; these remain the authoritative
+// legacy defaults and fit-id/report mappings, not the defaults for new projects.
+export function nativeLegacyImportDefaults() {
+  return { project: legacyBaseProject(''), layer: createLayer(), profile: createDepthProfileFunction(),
+    dataset: newDataset(1, 0), fitTargets: [...LEGACY_FIT_TARGETS], ignoredByDesign: { ...IGNORED_BY_DESIGN } }
 }

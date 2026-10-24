@@ -11,9 +11,12 @@ cmake --build build/engine --target remagx_terminal --parallel 2
 build/engine/remagx-terminal -v
 build/engine/remagx-terminal -refl project.json
 build/engine/remagx-terminal -dicrefl project.json
+build/engine/remagx-terminal -refl project.all
 ```
 
-Input is a validated version-1 JSON project saved by the web app. The supported
+Input is a validated version-1 JSON project or an imported legacy `.all` file.
+The `.all` extension is case-insensitive; reports and unknown-key summaries go to
+stderr. Legacy files are read-only. See `NATIVE_PROJECT.md` for import rules. The supported
 calculation path supports compound mode with manual or automatic optical constants,
 Nevot–Croce or adaptive compound roughness, and element mode with saved or automatically refreshed factors/tensors.
 It requires no nonempty enabled BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
@@ -85,8 +88,7 @@ rebuilds tensors. The saved project and files remain unchanged.
 The reader accepts whitespace-separated decimal/scientific finite double values,
 ignores blank/comment lines, sorts energies stably and reports skipped malformed
 rows and extra columns on stderr. Such diagnostics do not echo file contents.
-Unreadable/nonregular files fail explicitly. This table support does not complete
-`.all` project import.
+Unreadable/nonregular table files fail explicitly.
 
 Automatic element constants use exact-name `.ff` and `.ffm` files from the same
 working directory. Missing/empty/out-of-range primary data retain existing factors
@@ -149,7 +151,7 @@ remains explicitly unavailable, as in the web implementation, pending review of
 the original mismatched array lengths.
 
 Lua,
-legacy `.all` import, energy scans, `-fit` fitted-project output, filesystem
+energy scans, `-fit` fitted-project output, filesystem
 transactions and `-convert` remain to be integrated. `-map` follows the separately
 agreed map implementation. Unsupported commands/settings report an error; they
 never run a simplified calculation while silently ignoring active preparation.
@@ -191,6 +193,8 @@ nonregular file errors, explicit unsupported operations, malformed schema, inval
 numerical overflow, missing input, input preservation and successful recovery.
 The existing tetragonal/magnetization-off singularity at zero incidence is checked
 against the WASM numerical-error status; it is not hidden by shifting coordinates
-or substituting a result. Native/web schema and bit-exact serialization checks
+or substituting a result. Direct `.all` entry-point checks cover both commands/all three solvers, report
+visibility, input preservation, invalid versions/schema and unsupported Lua.
+Native/web schema and bit-exact serialization checks
 remain separate. These checks establish the implemented integration, not full
 original-terminal or full-corpus acceptance.

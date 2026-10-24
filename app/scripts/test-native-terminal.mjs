@@ -467,6 +467,32 @@ try {
     assert.equal(failure.status, 1, failure.stderr)
     assert.equal(failure.stdout, '')
   }
+  const legacyFilename = resolve(directory, 'public-terminal.ALL')
+  for (const algorithm of [0, 1, 2]) {
+    const content = `fileversion=1\nlayerversion=3\nlayer=0\nlayer_delta=.00002\nlayer_beta=.000003\n` +
+      `layer=1\nlayer_d=24\nlayer_sigma=2\nlayer_delta=.00001\nlayer_beta=.000001\n` +
+      `layer_ddelta=.0000002\nlayer_dbeta=.0000001\nlayer=2\nenergy=8000\ndisablescript=1\n` +
+      `magnetizationmode=1\nalgorithm=${algorithm}\nnumberofpoints=9\nqzmax=.2\nfuture_terminal_key=1\n`
+    const project = importAllFile(content, 'public-terminal.ALL').project
+    for (const dichroic of [false, true]) {
+      await compare(project, dichroic)
+      const command = dichroic ? '-dicrefl' : '-refl'
+      const expected = run([command, filename])
+      await writeFile(legacyFilename, content)
+      const actual = run([command, legacyFilename])
+      assert.equal(actual.status, 0, actual.stderr)
+      assert.equal(actual.stdout, expected.stdout)
+      assert.match(actual.stderr, /Import ignored key future_terminal_key/)
+      assert.equal(await readFile(legacyFilename, 'utf8'), content)
+    }
+  }
+  for (const content of ['fileversion=2\n', 'layer=0\nlayer_d=-1\n',
+    'scriptline=print(1)\n']) {
+    await writeFile(legacyFilename, content)
+    const actual = run(['-refl', legacyFilename])
+    assert.equal(actual.status, 1)
+    assert.equal(actual.stdout, '')
+  }
   const invalid = [
     project => { project.sample.mode = 'element' },
     project => { project.sample.multilayer = { enabled: true, pattern: '2*(1' } },

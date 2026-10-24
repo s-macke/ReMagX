@@ -14,6 +14,7 @@ const server = await createServer({ root: resolve(root, 'app'), configFile: fals
   server: { middlewareMode: true }, appType: 'custom' })
 try {
   const { projectSchema, datasetSchema } = await server.ssrLoadModule('/src/model/project.ts')
+  const { nativeLegacyImportDefaults } = await server.ssrLoadModule('/src/import/allFile.ts')
   const { createDefaultProject } = await server.ssrLoadModule('/src/model/defaults.ts')
   const visited = new Set()
   function verifyRefinements(schema) {
@@ -47,6 +48,7 @@ try {
   verifyKeywords(schema)
   const outputs = [
     ['engine/schema/project-v1.schema.json', schema],
+    ['engine/schema/legacy-import-defaults.json', nativeLegacyImportDefaults()],
     ['engine/tests/fixtures/project-v1.json', createDefaultProject()],
   ]
   for (const [name, content] of outputs) {

@@ -62,7 +62,7 @@ explicit custom extension. The interpreter supports only this exported subset,
 not arbitrary third-party JSON Schema documents. Unknown project fields remain
 preserved, while the web validator accepts and strips them.
 
-## Legacy byte-input preparation
+## Legacy `.all` import
 
 `parse_legacy_assignments` provides the native `.all` lexical boundary. It accepts
 UTF-8 bytes using the web importer's replacement decoding and initial-BOM handling,
@@ -79,10 +79,31 @@ value so the eventual importer can retain the field default with a warning;
 overflow remains nonfinite for subsequent schema rejection rather than silently
 saturating to the largest double.
 
-This is preparation for the complete native importer, not a `.all` calculation
-entry point. Field mapping, legacy defaults, ordered dataset/profile/fit state,
-repair messages and unknown-key reporting must be integrated before terminal
-`.all` support is complete. No partial project is accepted through this boundary.
+`import_legacy_project` maps complete assignments to a validated `ProjectDocument`
+and a structured import report. It preserves ordered layer/element/profile/fit and
+dataset sections, legacy z-to-thickness conversion, spline pairing, dataset-column
+repairs, placeholder active-index mapping, script text and fit-id/initial-step
+semantics. Unsupported old tabular versions reject; schema-invalid/nonfinite
+projects cannot become calculation inputs. A final finite-value walk prevents
+JSON serialization from turning nonfinite nullable fields into accepted nulls.
+
+Legacy defaults, row defaults, fit-id names and intentionally ignored-key reasons
+are exported from the authoritative web importer into the committed
+`schema/legacy-import-defaults.json`. The existing schema export/check command
+maintains both assets. No TypeScript or Node runtime is required by the terminal.
+
+The report records messages with severity and optional source line, and every
+unknown key with its count and first line. Native wording is concise English;
+message severity/line order and unknown-key records agree with the web importer.
+Public/synthetic comparisons cover 978 cases; the opt-in private comparison passes
+all 99 projects with every imported project field matching. This is import parity,
+not numerical acceptance of those projects. Run the public comparison with
+`node app/scripts/test-native-import.mjs build/engine/legacy_import_tests`; set
+`CORPUS_DIR` for private inputs, which stay in memory and never enter diagnostics.
+
+The terminal recognizes `.all` extensions case-insensitively and prints import
+reports to stderr before calculating. It never writes legacy files. Imported Lua
+and other unsupported calculation capabilities still reject explicitly.
 The maintained `test-native-assignments.mjs` check compares 1,372 public/synthetic
 inputs against production web tokenization and its number-prefix rules, and runs
 in Pages CI. Native project-schema and numerical gates remain separate.

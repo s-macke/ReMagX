@@ -81,6 +81,16 @@ LegacyAssignments parse_legacy_assignments(std::string_view bytes) {
     }
     return result;
 }
+std::string trim_legacy_text(std::string_view value) {
+    size_t start = 0;
+    while (const size_t count = whitespace(value.substr(start))) start += count;
+    size_t end = start;
+    for (size_t index = start; index < value.size();) {
+        if (const size_t count = whitespace(value.substr(index))) index += count;
+        else end = ++index;
+    }
+    return std::string(value.substr(start, end - start));
+}
 std::optional<double> legacy_number_prefix(std::string_view value, bool integer) {
     size_t start = 0;
     while (const size_t count = whitespace(value.substr(start))) start += count;
