@@ -1,6 +1,7 @@
 #include "remagx/optical_tables.hpp"
 #include "chantler_tables.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -55,6 +56,8 @@ OpticalTable parse_optical_table(std::string_view text, std::string name, std::s
 std::vector<OpticalTable> load_project_tables(const ProjectDocument& project, std::vector<std::string>& warnings) {
     std::vector<OpticalTable> result;
     if (!project.boolean("/calculation/automaticOpticalConstants")) return result;
+    constexpr std::array<const char*, 3> element_kinds{"ff", "ffm", "F"};
+    constexpr std::array<const char*, 3> compound_kinds{"db", "m", "e"};
     std::set<std::string> visited;
     const bool elements = project.string("/sample/mode") == "element";
     const std::string rows = elements ? "/sample/elementProfiles" : "/sample/layers";
@@ -63,8 +66,7 @@ std::vector<OpticalTable> load_project_tables(const ProjectDocument& project, st
         const auto name = project.string(rows + "/" + std::to_string(index) + (elements ? "/element" : "/opticalTable"));
         if (name.empty() || !visited.insert(name).second) continue;
         if (name.find('\0') != std::string::npos) throw ProjectDocumentError("Optical table name contains NUL.");
-        for (const auto* kind : elements ? std::initializer_list<const char*>{"ff", "ffm", "F"}
-                                         : std::initializer_list<const char*>{"db", "m", "e"}) {
+        for (const auto* kind : elements ? element_kinds : compound_kinds) {
             const std::filesystem::path path(name + '.' + kind);
             std::error_code error;
             const bool exists = std::filesystem::exists(path, error);
