@@ -49,6 +49,9 @@ int main(int argc, char** argv) {
         const auto original = ProjectDocument::parse(fixture);
         require(original.string("/format") == "remagx-project", "String query failed");
         require(original.array_size("/sample/layers") >= 2, "Array query failed");
+        require(original.contains("/sample/layers/0"), "Existing field not found");
+        require(!original.contains("/sample/layers/999"), "Missing field found");
+        rejected([&] { original.contains("invalid-pointer"); });
         require(original.is_null("/activeDatasetIndex"), "Null query failed");
         require(!original.boolean("/sample/multilayer/enabled"), "Boolean query failed");
         rejected([&] { original.string("/version"); });

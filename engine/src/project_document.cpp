@@ -235,6 +235,11 @@ size_t ProjectDocument::array_size(std::string_view json_pointer) const {
     } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing project path."); }
 }
 
+bool ProjectDocument::contains(std::string_view json_pointer) const {
+    try { return storage_->document.contains(Json::json_pointer(std::string(json_pointer))); }
+    catch (const Json::exception&) { throw ProjectDocumentError("Invalid project path."); }
+}
+
 bool ProjectDocument::is_null(std::string_view json_pointer) const {
     try { return storage_->document.at(Json::json_pointer(std::string(json_pointer))).is_null(); }
     catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing project path."); }

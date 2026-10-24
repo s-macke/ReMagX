@@ -10,8 +10,8 @@ struct ProjectCurve {
 };
 // Native terminal coordinates (0..qzMax inclusive), distinct from the web grid.
 // Current integration: manual compound constants, Nevot-Croce, three solvers,
-// multilayer expansion, angular convolution, qz^4 and averaging. Other
-// preparation rejects explicitly.
+// multilayer expansion, angular convolution and terminal postprocessing
+// (monochromatic Fourier only). Other preparation rejects explicitly.
 // No input mutation and no partial curve on failure.
 ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic);
 }

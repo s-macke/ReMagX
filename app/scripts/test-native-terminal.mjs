@@ -25,6 +25,7 @@ const server = await createServer({ root: resolve(root, 'app'), configFile: fals
 const directory = await mkdtemp(resolve(tmpdir(), 'remagx-native-terminal-'))
 try {
   const { createDefaultProject } = await server.ssrLoadModule('/src/model/defaults.ts')
+  const { postprocessDatasetColumns } = await server.ssrLoadModule('/src/model/datasetPostprocessing.ts')
   const { calculateRealCurve } = await server.ssrLoadModule('/src/model/realCalculation.ts')
   const { importAllFile } = await server.ssrLoadModule('/src/import/allFile.ts')
   const imported = importAllFile(await readFile(resolve(root, 'app/test/fixtures/Tut2.all'), 'utf8'), 'Tut2.all').project
@@ -62,13 +63,27 @@ try {
     reference.datasets = [{ ...structuredClone(dataset), qzShift: 0, energyShift: 0, columns: { qz } }]
     reference.activeDatasetIndex = 0
     reference.experiment.qzScan.useDatasetPoints = true
-    const expected = calculateRealCurve(reference, [], engine, 'qz', dichroic ? 'dichroic' : 'monochromatic')
+    reference.calculation.postProcessing = { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false }
+    reference.calculation.averaging = 0
+    const raw = calculateRealCurve(reference, [], engine, 'qz', dichroic ? 'dichroic' : 'monochromatic')
+    const postProject = structuredClone(project)
+    const selected = project.experiment.qzScan.useDatasetPoints ? project.datasets[project.activeDatasetIndex] : undefined
+    postProject.experiment.energy = selected?.energy ?? 10
+    postProject.experiment.polarization = selected?.polarization ?? {
+      beam1: { sigma: { re: 1, im: 0 }, pi: { re: 0, im: 0 } },
+      beam2: { sigma: { re: 0, im: 0 }, pi: { re: 1, im: 0 } }, analyzer: 'none',
+    }
+    const expected = postprocessDatasetColumns(postProject, {
+      qz, energy: selected?.columns.energy,
+      ...(dichroic ? { reflectivityPlus: raw.reflectivityPlus, reflectivityMinus: raw.reflectivityMinus }
+        : { reflectivity: raw.reflectivityPlus }),
+    }, dichroic, (coordinates, reflectivity) => adapter.calculateFourier(instance, coordinates, reflectivity))
     const rows = actual.stdout.trim().split('\n').map(line => line.split(/\s+/).map(Number))
-    assert.equal(rows.length, qz.length)
+    assert.equal(rows.length, expected.qz.length)
     rows.forEach((row, index) => {
       assert.equal(row.length, dichroic ? 3 : 2)
-      assert.equal(row[0], qz[index], 'Coordinate round trip differs')
-      const wanted = [expected.reflectivityPlus[index], expected.reflectivityMinus[index]]
+      assert.equal(row[0], expected.qz[index], 'Coordinate round trip differs')
+      const wanted = dichroic ? [expected.reflectivityPlus[index], expected.reflectivityMinus[index]] : [expected.reflectivity[index]]
       row.slice(1).forEach((value, column) => {
         assert.ok(Number.isFinite(value))
         assert.ok(Math.abs(value - wanted[column]) <= 1e-15 + 1e-10 * Math.abs(wanted[column]),
@@ -108,6 +123,34 @@ try {
       measured.activeDatasetIndex = 0
       measured.experiment.qzScan.useDatasetPoints = true
       await compare(measured, dichroic)
+      const generatedCorrection = structuredClone(base)
+      generatedCorrection.calculation.algorithm = algorithm
+      generatedCorrection.calculation.postProcessing.divideByCos2ThetaSquared = true
+      // State beams deliberately differ from the terminal CDataSet defaults.
+      generatedCorrection.experiment.polarization.beam1 = { sigma: { re: 0, im: 0 }, pi: { re: 1, im: 0 } }
+      generatedCorrection.experiment.polarization.beam2 = { sigma: { re: 1, im: 0 }, pi: { re: 0, im: 0 } }
+      await compare(generatedCorrection, dichroic)
+      for (const withEnergyColumn of [false, true]) {
+        const corrected = structuredClone(measured)
+        corrected.datasets[0].energy = 700
+        corrected.datasets[0].energyShift = 200 // Original terminal does not adapt eng.
+        corrected.datasets[0].polarization.beam1 = { sigma: { re: 0, im: 0 }, pi: { re: 1, im: 0 } }
+        corrected.datasets[0].polarization.beam2 = { sigma: { re: 0, im: 0 }, pi: { re: 1, im: 0 } }
+        if (withEnergyColumn) corrected.datasets[0].columns.energy = [500, 600, 700, 800, 900]
+        corrected.calculation.postProcessing.divideByCos2ThetaSquared = true
+        corrected.calculation.postProcessing.multiplyByQz4 = true
+        corrected.calculation.averaging = 1
+        await compare(corrected, dichroic)
+        if (!dichroic) {
+          corrected.calculation.postProcessing.fourierTransform = true
+          await compare(corrected, false)
+        }
+      }
+      if (!dichroic) {
+        const transformed = structuredClone(generatedCorrection)
+        transformed.calculation.postProcessing.fourierTransform = true
+        await compare(transformed, false)
+      }
       for (const pattern of ['3*(1)', '2*(1,2*(1))', '', '0*(1),1', '0,1,2', '1\0,2', '1)2', '1a']) {
         const multilayer = structuredClone(base)
         multilayer.calculation.algorithm = algorithm
@@ -153,8 +196,7 @@ try {
     project => { project.calculation.roughnessModel = 'segmentation' },
     project => { project.scripts.enabled = true; project.scripts.beforeCalculation = 'error("private diagnostic")' },
     project => { project.experiment.scattering = 'transmission' },
-    project => { project.calculation.postProcessing.divideByCos2ThetaSquared = true },
-    project => { project.calculation.postProcessing.fourierTransform = true },
+    project => { project.calculation.postProcessing.fourierTransform = true; project.experiment.qzScan.qzMax = 0 },
     project => { project.experiment.resolution.energyFwhm = 1 },
     project => { project.experiment.qzScan.points = 1000001 },
     project => { project.experiment.qzScan.qzMax = 1e100 },
@@ -175,6 +217,12 @@ try {
     const result = run([command, filename])
     assert.equal(result.status, 2); assert.equal(result.stdout, '')
   }
+  const dichroicFourier = structuredClone(base)
+  dichroicFourier.calculation.postProcessing.fourierTransform = true
+  await writeFile(filename, JSON.stringify(dichroicFourier))
+  const deferredFourier = run(['-dicrefl', filename])
+  assert.equal(deferredFourier.status, 1); assert.equal(deferredFourier.stdout, '')
+  assert.match(deferredFourier.stderr, /Dichroic Fourier/)
   const missing = run(['-refl', resolve(directory, 'missing.json')])
   assert.equal(missing.status, 1); assert.equal(missing.stdout, '')
   assert.equal(run(['-v']).status, 0)

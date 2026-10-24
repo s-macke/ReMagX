@@ -22,6 +22,9 @@ RemagxBeam beam(const ProjectDocument& project, const std::string& path) {
     return {project.number(path + "/sigma/re"), project.number(path + "/sigma/im"),
             project.number(path + "/pi/re"), project.number(path + "/pi/im")};
 }
+bool pure_pi(const RemagxBeam& value) {
+    return value.sigma_real == 0 && value.sigma_imaginary == 0 && value.pi_real == 1 && value.pi_imaginary == 0;
+}
 void finite_column(const std::vector<double>& column) {
     for (double value : column) require(std::isfinite(value), "Calculated curve exceeds the finite double range.");
 }
@@ -50,13 +53,18 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
         require(script.find_first_not_of(" \t\n\r\f\v") == std::string::npos, "Native terminal BeforeCalculation Lua execution is not integrated yet.");
     }
     require(project.string("/calculation/roughnessModel") == "nevot-croce", "Native terminal adaptive segmentation is not integrated yet.");
-    require(!project.boolean("/calculation/postProcessing/divideByCos2ThetaSquared"), "Native terminal polarization postprocessing is not integrated yet.");
-    require(!project.boolean("/calculation/postProcessing/fourierTransform"), "Native terminal Fourier postprocessing is not integrated yet.");
+    const bool fourier = project.boolean("/calculation/postProcessing/fourierTransform");
+    require(!fourier || !dichroic, "Dichroic Fourier processing remains unavailable pending the legacy column-semantics decision.");
     require(dichroic || project.number("/experiment/resolution/energyFwhm") <= 1e-6, "Native terminal qz energy convolution is not integrated yet.");
     const double average_width = project.number("/calculation/averaging");
     require(average_width <= 2147483647.0, "Moving-average half-width exceeds the supported range.");
 
     ProjectCurve result;
+    // Original terminal creates a default CDataSet or copies the selected one.
+    // Its postprocessing metadata are independent of the solver's state beams.
+    RemagxBeam correction_first{1, 0, 0, 0}, correction_second{0, 0, 1, 0};
+    double correction_energy = 10;
+    std::vector<double> correction_energies;
     if (project.boolean("/experiment/qzScan/useDatasetPoints")) {
         require(!project.is_null("/activeDatasetIndex"), "Dataset-point calculation needs an active dataset.");
         const double selected = project.number("/activeDatasetIndex");
@@ -64,6 +72,14 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
         const std::string dataset = "/datasets/" + std::to_string(static_cast<size_t>(selected));
         const size_t count = project.array_size(dataset + "/columns/qz");
         require(count > 0 && count <= 1000000, "Dataset calculation requires 1 to 1,000,000 points.");
+        correction_first = beam(project, dataset + "/polarization/beam1");
+        correction_second = beam(project, dataset + "/polarization/beam2");
+        correction_energy = project.number(dataset + "/energy");
+        if (project.contains(dataset + "/columns/energy")) {
+            correction_energies.reserve(count);
+            for (size_t index = 0; index < count; ++index)
+                correction_energies.push_back(project.number(dataset + "/columns/energy/" + std::to_string(index)));
+        }
         const double shift = project.number(dataset + "/qzShift");
         result.qz.reserve(count);
         for (size_t index = 0; index < count; ++index)
@@ -136,16 +152,34 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
     }
     result.plus.reserve(values.size()); result.minus.reserve(values.size());
     const bool multiply = project.boolean("/calculation/postProcessing/multiplyByQz4");
+    const bool divide = project.boolean("/calculation/postProcessing/divideByCos2ThetaSquared");
     for (size_t index = 0; index < values.size(); ++index) {
         const double qz = result.qz[index];
         const double factor = multiply ? qz * qz * qz * qz : 1;
-        result.plus.push_back(values[index].beam1 * factor);
-        result.minus.push_back(values[index].beam2 * factor);
+        double plus = values[index].beam1 * factor, minus = values[index].beam2 * factor;
+        if (divide) {
+            const double current_energy = correction_energies.empty() ? correction_energy : correction_energies[index];
+            const double wave = 2 * 3.14159265358979323846 / (12398.326 / current_energy);
+            const double ratio = qz / (2 * wave);
+            const double angle = std::abs(ratio) >= 1 ? -1 : std::asin(ratio);
+            const double denominator = std::cos(2 * angle) * std::cos(2 * angle);
+            if (pure_pi(correction_first)) plus /= denominator;
+            if (dichroic && pure_pi(correction_second)) minus /= denominator;
+        }
+        result.plus.push_back(plus);
+        result.minus.push_back(minus);
     }
     finite_column(result.plus); finite_column(result.minus);
     average(result.plus, static_cast<size_t>(average_width));
     average(result.minus, static_cast<size_t>(average_width));
     finite_column(result.plus); finite_column(result.minus);
+    if (fourier) {
+        std::vector<double> depths(result.qz.size() / 2), magnitudes(result.qz.size() / 2);
+        status_check(remagx_fourier(result.qz.data(), result.plus.data(), result.qz.size(), depths.data(), magnitudes.data()));
+        result.qz = std::move(depths);
+        result.plus = std::move(magnitudes);
+        result.minus.assign(result.qz.size(), 0);
+    }
     return result;
 }
 }

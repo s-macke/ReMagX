@@ -41,11 +41,23 @@ The terminal preserves the original command's coordinate convention:
   and 17 significant digits, sufficient to recover each double without reducing
   it to measurement precision. There are no headers or progress messages on stdout.
 
-The integrated postprocessing includes qz^4 multiplication and the original
-moving-average boundary behavior. Native terminal polarization correction and
-Fourier processing reject explicitly until their terminal-specific data semantics
-are integrated. Monochromatic energy broadening above 1e-6 eV also rejects;
-the original dichroic qz route does not use that energy broadening setting.
+The integrated postprocessing applies qz^4, the pure-pi correction, then the
+original moving average. Monochromatic Fourier processing follows these steps
+through the existing core transform; its first output column contains depth in
+Angstrom and the row count is halved. Dichroic Fourier remains explicitly
+unavailable pending the recorded column-semantics decision.
+
+Polarization correction follows the original terminal's **dataset** metadata,
+not the solver's experiment settings. A generated grid has the original default
+first sigma beam, second pi beam and 10 eV dataset energy. A measured grid uses
+the selected dataset's beams and energy (or its per-point energy column). The
+terminal adds qzShift but does not apply the saved energyShift to that column.
+These conventions can yield surprising corrections; they are preserved rather
+than silently replaced with the web UI's preparation behavior. The actual solver
+still uses the experiment energy and beams.
+
+Monochromatic energy broadening above 1e-6 eV still rejects; the original dichroic
+qz route does not use that energy broadening setting.
 
 Automatic tables, element/segmented preparation, Lua,
 legacy `.all` import, energy scans, `-fit` fitted-project output, filesystem
@@ -68,10 +80,11 @@ Validation uses public synthetic projects only:
 node app/scripts/test-native-terminal.mjs build/engine/remagx-terminal build/wasm
 ```
 
-97 cases compare 1,741 output values with actual WASM through the production web
+124 cases compare 1,978 output values with actual WASM through the production web
 preparation at unchanged D-23 tolerance. They cover all three solvers, both modes,
 complex beams, analyzers, both angular convolution paths, tetragonal/nonmagnetic
-settings, qz^4, averaging, shifted/unsorted/repeated dataset coordinates and eight
+settings, qz^4, polarization correction with independent dataset/solver metadata,
+monochromatic Fourier, averaging, shifted/unsorted/repeated coordinates and eight
 multilayer patterns across all solvers and both output modes. Dedicated native
 parser tests cover limits, empty groups, nested patterns, ignored characters,
 embedded NUL and recovery. Further

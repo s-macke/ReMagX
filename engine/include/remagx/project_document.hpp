@@ -21,6 +21,7 @@ public:
     double number(std::string_view json_pointer) const;
     std::string string(std::string_view json_pointer) const;
     bool boolean(std::string_view json_pointer) const;
+    bool contains(std::string_view json_pointer) const;
     bool is_null(std::string_view json_pointer) const;
     size_t array_size(std::string_view json_pointer) const;
     // Immutable numeric edit: target must already exist and be numeric; no
