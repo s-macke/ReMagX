@@ -1512,3 +1512,11 @@ D-44: [accepted] **Exclude Fourier transformation** (2026-10-24)
 - Exclude Fourier processing from the agreed product scope, including transformed plots and Fourier fitting, in web and native workflows. This supersedes both pending Fourier display/composition and fit-semantics decisions; no numerical correction is required for an excluded feature.
 - Existing implementation and comparison records remain historical evidence. Technical removal is still work: remove controls and execution paths, preserve compatibility with stored JSON/.all projects, and explicitly report active legacy Fourier settings rather than silently dropping them. Original sources remain unchanged.
 - This increment records the scope decision only, as requested during discussion. It does not claim removal of runtime code. Cleanup is tracked within the real-engine requirement; 32 acceptance records remain (15 implementation, ten validation, seven standalone decisions). Other physics and Lua decisions remain open.
+
+
+D-45: [accepted] **Assign imported .F tensors to the selected element** (2026-10-24)
+
+- The user approved the proposed correction: “Die müssen auf jedenfall richtig zugeordnet werden.” This resolves the pending D-29 .F assignment decision.
+- Source trace: shared/MaterialConstantsHelper.cpp Filldb selects an element with outer i. The anisotropic branch declares a second i for tensor rows and writes film->el[i].F.a[i][j]. It therefore writes one row each to elements 0, 1 and 2 rather than all rows to the selected element, and can access outside a shorter element vector. Scalar/isotropic assignment uses the outer element index and is not this defect.
+- In the maintained web/native implementation, assign all nine complex tensor components to the selected element, using distinct descriptive element/row/column indices. Preserve unrelated elements, existing table lookup/range behavior and double precision. Test distinct element tensors and fewer than three elements. Original sources remain unchanged; no tolerance exception is authorized.
+- This discussion increment records approval only. Runtime implementation and focused checks remain under optical-constant integration; existing explicit rejection is not yet removed. The checklist now retains 31 requirements (15 implementation, ten validation, six standalone decisions).
