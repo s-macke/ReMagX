@@ -121,3 +121,35 @@ test('AC-15: real file handles support Open, Save and Save As', async ({ page })
   project.sample.layers[1].thickness = 44
   expect(await readProject('opened.json')).toEqual(project)
 })
+
+test('numeric editing and saving preserve all double digits', async ({ page }) => {
+  const project = createDefaultProject()
+  project.sample.layers[1].thickness = 1.2345678901234567
+  project.sample.layers[1].delta = 1.2345678901234567e-8
+  await page.addInitScript(project => {
+    window.showOpenFilePicker = async () => {
+      const file = await (await navigator.storage.getDirectory()).getFileHandle('precision.json', { create: true })
+      const stream = await file.createWritable()
+      await stream.write(JSON.stringify(project)); await stream.close()
+      return [file]
+    }
+  }, project)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Open… (Ctrl+O)', exact: true }).click()
+  const thickness = page.getByRole('textbox', { name: 'thickness of layer 1', exact: true })
+  const delta = page.getByRole('textbox', { name: 'δ of layer 1', exact: true })
+  await expect(thickness).toHaveValue('1.2345678901234567')
+  await expect(delta).toHaveValue('1.2345678901234567e-8')
+  await delta.focus(); await delta.press('Tab')
+  // Editing the final digit must start from the full displayed value.
+  await thickness.focus(); await thickness.press('End'); await thickness.press('Backspace')
+  await thickness.press('9'); await thickness.press('Enter')
+  project.sample.layers[1].thickness = 1.234567890123457
+  await page.getByRole('button', { name: 'Save (Ctrl+S)', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('Saved precision.json.')
+  const saved = await page.evaluate(async () => {
+    const file = await (await navigator.storage.getDirectory()).getFileHandle('precision.json')
+    return JSON.parse(await (await file.getFile()).text())
+  })
+  expect(saved).toEqual(project)
+})

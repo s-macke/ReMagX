@@ -1,9 +1,10 @@
-// Formats like the legacy table: plain numbers for "normal" magnitudes, exponent notation otherwise.
+// Preserve the stored double when a displayed field is copied or edited.
+// Keep compact exponent notation without limiting significant digits.
 export function formatNumber(value: number): string {
-  if (value === 0) return '0'
+  if (value === 0) return Object.is(value, -0) ? '-0' : '0'
   const magnitude = Math.abs(value)
-  if (magnitude >= 1e-3 && magnitude < 1e5) return String(Number(value.toPrecision(6)))
-  return value.toExponential(5)
+  if (magnitude >= 1e-3 && magnitude < 1e5) return String(value)
+  return value.toExponential()
 }
 
 export function parseNumber(text: string): number | null {
