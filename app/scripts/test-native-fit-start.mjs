@@ -36,8 +36,12 @@ try {
   const { parseOpticalTable } = await server.ssrLoadModule('/src/import/tables.ts')
   const { prepareStandaloneFit } = await server.ssrLoadModule('/src/model/standaloneFit.ts')
   const { runRealFit } = await server.ssrLoadModule('/src/model/realFit.ts')
+  const { createBeforeCalculation } = await server.ssrLoadModule('/src/compute/lua/beforeCalculation.ts')
+  const { createLuaRuntime } = await server.ssrLoadModule('/src/compute/lua/runtime.ts')
+  const runtime = createLuaRuntime(resolve(root, 'app/node_modules/wasmoon/dist/glue.wasm'))
   const inputs = [], expected = [], runnerFixtures = []
-  const add = (project, tables, succeeds) => {
+  const add = async (project, tables, succeeds) => {
+    const session = project.scripts.enabled ? await runtime.createSession() : undefined
     const original = structuredClone(project)
     const reference = project.fit.parameters.map(parameter => parameter.value)
     let result
@@ -45,10 +49,10 @@ try {
       const parsed = tables.map(table => parseOpticalTable(table.text, `${table.name}.${table.kind}`))
       const prepared = prepareStandaloneFit(project, parsed, engine)
       const fitted = runRealFit(prepared.project, parsed, engine, () => { throw new Error('Fixed fit must not invoke optimizer') },
-        () => {}, () => false, undefined, prepared.opticalState)
+        () => {}, () => false, session ? createBeforeCalculation(session, engine, parsed) : undefined, prepared.opticalState)
       result = { results: [{ ok: true, project: fitted.project, values: fitted.values,
         reference, error: fitted.chi2 }] }
-    } catch { result = { ok: false } }
+    } catch { result = { ok: false } } finally { session?.close() }
     assert.equal(!!result.results, succeeds, `Fit-start fixture ${inputs.length + 1}`)
     assert.deepEqual(project, original)
     expected.push(JSON.parse(JSON.stringify(result)))
@@ -85,13 +89,31 @@ try {
         const factor = index === project.sample.layers.length - 1 ? 0 : index + 1
         tables.push({ name: layer.opticalTable, kind: 'db', text: `7800 ${factor * 1e-5} ${factor * 1e-7}\n8300 ${factor * 2e-5} ${factor * 2e-7}\n` })
       })
-      add(project, tables, true)
+      await add(project, tables, true)
       if (!element && !automatic && !energy) runnerFixtures.push({ project, tables })
+      if (!energy) {
+        const scripted = structuredClone(project)
+        scripted.scripts.enabled = true
+        scripted.scripts.parameters = [0]
+        scripted.scripts.beforeCalculation = `calls=(calls or 0)+1
+renewals=(renewals or 0)+renewocs
+if calls==1 then alias=thickness; print('fit-script') end
+alias[1]=alias[1]+calls*0.00001
+par[0]=par[0]+0.001
+SetChemicalFormula(1,tostring(calls)..":"..tostring(renewals))
+${element ? 'Fe:setdensity(1,0.1+calls*0.0001)' : 'delta[1]=delta[1]+calls*1e-12'}
+FillTensors()`
+        scripted.datasets.push({ ...structuredClone(scripted.datasets[0]), energy: 8050 })
+        await add(scripted,tables,true)
+        scripted.experiment.resolution.energyFwhm = 1
+        await add(scripted,tables,true)
+        if (!element && !automatic) runnerFixtures.push({ project:scripted,tables })
+      }
       if (algorithm === 'parratt' && automatic && energy) {
-        add(project, [], false)
-        const range = structuredClone(project); range.experiment.energy = 9000; add(range, tables, false)
-        const inactive = structuredClone(project); inactive.datasets[0].active = false; add(inactive, tables, false)
-        const empty = structuredClone(project); empty.datasets[0].columns = { qz: [], reflectivity: [] }; add(empty, tables, false)
+        await add(project, [], false)
+        const range = structuredClone(project); range.experiment.energy = 9000; await add(range, tables, false)
+        const inactive = structuredClone(project); inactive.datasets[0].active = false; await add(inactive, tables, false)
+        const empty = structuredClone(project); empty.datasets[0].columns = { qz: [], reflectivity: [] }; await add(empty, tables, false)
       }
     }
   }
@@ -105,11 +127,13 @@ try {
     const tables = fixture.tables.map(table => parseOpticalTable(table.text, `${table.name}.${table.kind}`))
     const prepared = prepareStandaloneFit(project, tables, engine)
     let summary
+    const session = project.scripts.enabled ? await runtime.createSession() : undefined
     const fitted = runRealFit(prepared.project, tables, engine, request => {
       summary = request.annealing ? minimizeAnnealing(instance, { ...request, ...request.annealing, ...settings })
         : minimizeAdaptiveSimplex(instance, { ...request, ...settings })
       return summary
-    }, () => {}, () => false, undefined, prepared.opticalState)
+    }, () => {}, () => false, session ? createBeforeCalculation(session, engine, tables) : undefined, prepared.opticalState)
+    session?.close()
     expected.push(JSON.parse(JSON.stringify({ ok: true, project: fitted.project, values: fitted.values,
       reference: fitted.regularizationReference ?? project.fit.parameters.map(parameter => parameter.value), error: fitted.chi2,
       iterations: fitted.iterations, evaluations: summary.evaluations,
@@ -140,19 +164,29 @@ try {
   try {
     const filename = resolve(directory, 'project.json')
     // Manual energy fitting still needs tables for the strict initial refresh.
-    await writeFile(filename, inputs[1].project)
+    const plainQz = inputs.findIndex(value => { const p=JSON.parse(value.project); return !p.scripts.enabled && !p.datasets[0].columns.energy })
+    const plainEnergy = inputs.findIndex(value => { const p=JSON.parse(value.project); return !p.scripts.enabled && p.datasets[0].columns.energy?.length })
+    await writeFile(filename, inputs[plainEnergy].project)
     const missing = spawnSync(terminal, ['-fit', filename], { cwd: directory, encoding: 'utf8', timeout: 30000 })
     assert.equal(missing.status, 1); assert.equal(missing.stdout, '')
-    for (const index of [0,1]) {
+    const scriptedQz = inputs.findIndex(value => JSON.parse(value.project).scripts.enabled)
+    for (const index of [plainQz,plainEnergy,scriptedQz]) {
       const request = inputs[index]
       await writeFile(filename, request.project)
       for (const table of request.tables) await writeFile(resolve(directory, `${table.name}.${table.kind}`), table.text)
       const output = spawnSync(terminal, ['-fit', filename], { cwd: directory, encoding: 'utf8', timeout: 30000 })
       assert.equal(output.status, 0, output.stderr || String(output.error))
       assert.match(output.stderr, /Fit error:/)
+      if (index === scriptedQz) assert.match(output.stderr, /fit-script/)
       compare(JSON.parse(output.stdout), expected[index].results[0].project, `CLI fitted project ${index}`)
       assert.equal(await readFile(filename, 'utf8'), request.project, 'CLI fit changed its input')
     }
+    const rejected = JSON.parse(inputs[scriptedQz].project)
+    rejected.scripts.beforeCalculation = "print('fit-script'); error('public fit failure')"
+    await writeFile(filename,JSON.stringify(rejected))
+    const failure = spawnSync(terminal,['-fit',filename],{cwd:directory,encoding:'utf8',timeout:30000})
+    assert.equal(failure.status,1); assert.equal(failure.stdout,'')
+    assert.match(failure.stderr,/Lua execution failed: BeforeCalculation:1: public fit failure/)
   } finally { await rm(directory, { recursive: true, force: true }) }
   console.log('Native -fit CLI: qz/energy JSON output, input preservation and missing-table failure passed.')
   console.log(`Native fit start and optimizer integration: ${inputs.length} actual-WASM cases passed.`)

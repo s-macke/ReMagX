@@ -4,8 +4,9 @@
 Lua-enabled builds now execute BeforeCalculation for compound and element
 terminal qz scans, including monochromatic energy broadening. Scripts run after
 optical refresh and before multilayer packing/solver calls; stderr receives
-script messages. Scripted fits and energy-scan routing
-remain explicitly unavailable. Full script acceptance remains open.
+script messages. Fits over qz datasets now retain one Lua session across constructor, objective
+and dataset calls, including the 19 energy-broadening samples. Scripted
+energy-scan routing remains explicitly unavailable. Full script acceptance remains open.
 
 Build with a system Lua 5.4 development library (Debian/Ubuntu:
 `liblua5.4-dev`), then enable `-DREMAGX_BUILD_NATIVE_LUA=ON` when configuring
@@ -81,8 +82,7 @@ calls preserve globals while replacing prepared workspaces. Source or structure
 changes reject. Any failure closes the owned session. Success returns project,
 tensor classifications, scattering tensors and updated cursors together.
 The focused comparison runs this against the actual web createProjectScript
-with three successive input states. Compound/element qz solver invocation and prepared tensors are connected. Other scan/fit
-invocation orders, temporary child sessions and solver-level cancellation remain integration work.
+with three successive input states. Compound/element qz solver invocation and prepared tensors are connected. Scripted energy-scan invocation order and nested solver calls remain integration work.
 
 An optional stop predicate is polled before/after execution and every 1000 Lua
 instructions during a hook. Cancellation and predicate exceptions latch, close
@@ -128,4 +128,13 @@ Monochromatic qz broadening now carries project/scalar/tensor/cursor changes
 through all 19 samples. Each temporary inner call creates a fresh Lua session;
 resolved compound table mappings and pre-hook profile depths survive between
 samples, matching the web temporary-session path. This is separate from the
-persistent fit-owned Lua lifecycle, which remains to be integrated.
+persistent fit-owned Lua lifecycle: fits reuse their session across these samples.
+
+Fit initialization captures optimizer parameters/reference before running the
+constructor hook. The objective rebuilds pre-hook layer depths after applying
+candidate parameters, refreshes automatic optics, then calls Lua with renewocs=1.
+Each dataset/sample calls the same session with renewocs=0. Successful project,
+tensor, table-cursor and resolution-cache changes feed the next calculation.
+The fitted result is the actual best trial snapshot, not a script replay.
+A failed scripted objective cannot be reused; start a new fit. Script messages
+use stderr, leaving fitted-project stdout as one JSON document.

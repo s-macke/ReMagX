@@ -218,11 +218,11 @@ settings, not measurement rounding or changes to numerical comparison tolerance.
 Ctrl+C requests cooperative cancellation between objective calls and returns the
 best evaluated project if one exists; stopping before any candidate is an error.
 The callback-level Stop-before-start path is tested; OS-signal timing is not yet
-covered by an automated test. Scripted fitting remains unavailable; the compound qz script path is described below.
+covered by an automated test. Lua-enabled builds support scripted qz fits as described below; scripted energy datasets remain unavailable.
 
-The focused fit-start gate now covers 47 actual-WASM initialization/optimizer
+The focused fit-start gate now covers 83 actual-WASM initialization/optimizer
 cases: three solvers, adaptive/annealing, explicit Q references, work limits,
-fixed rows, Stop-before-start, failure and recovery. CLI smoke checks cover qz and
+fixed rows, Stop-before-start, persistent Lua globals/aliases and renew state, failure and recovery. CLI smoke checks cover qz and
 energy fitted JSON, missing-table failure with empty stdout and input preservation.
 No original-optimizer convergence/corpus acceptance is implied.
 
@@ -271,3 +271,15 @@ resolved material tables and original stored profile depths. Sample energies use
 the original quadrature and angles; numerical tolerances are unchanged. Focused
 comparisons exercise incremental geometry/profile changes, table rename/cache
 behavior and fresh globals for compound, segmented and element projects.
+
+### Persistent qz fit scripts
+
+Lua-enabled `-fit` supports compound and element qz datasets with Simplex or
+annealing, automatic/manual optics and monochromatic energy broadening. One
+session executes the constructor hook and survives all candidate, dataset and
+quadrature calls. Objective calls receive renewocs=1; calculation calls receive
+0. Optimizer initialization precedes the constructor script. Failures
+abort without fitted JSON, and an objective with a failed script/calculation
+must not be reused. Scripted energy-scan datasets and nested reflectivity calls
+remain unavailable. The focused fit-start gate compares public fixtures against
+Wasmoon and the actual WASM optimizer, without running the private corpus.

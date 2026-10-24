@@ -45,7 +45,7 @@ int reference_event(const double* coordinates, size_t count, int phase, size_t, 
 }
 ProjectFitResult run_project_fit(const ProjectDocument& source, const std::vector<OpticalTable>& tables,
     const ProjectFitOptions& options) {
-    ProjectFitObjective objective(source, tables);
+    ProjectFitObjective objective(source, tables, {options.script_output, options.should_stop});
     const auto project = objective.prepare_standalone();
     const auto algorithm = project.string("/fit/algorithm");
     if (algorithm != "simplex" && algorithm != "simplex-annealing")

@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
             for (const auto& warning : warnings) std::cerr << warning << '\n';
             std::signal(SIGINT, stop_calculation);
             remagx::ProjectFitOptions options;
+            options.script_output = [](const std::string& message) { std::cerr << message << '\n'; };
             options.should_stop = [] { return stop_requested != 0; };
             const auto result = remagx::run_project_fit(project, tables, options);
             const auto output = result.best.project.serialize();

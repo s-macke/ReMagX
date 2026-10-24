@@ -1,5 +1,6 @@
 #pragma once
 #include "project_document.hpp"
+#include "project_calculation.hpp"
 #include "optical_tables.hpp"
 #include <memory>
 #include <functional>
@@ -42,10 +43,13 @@ struct ProjectObjectiveResult {
 // Construction does not replace standalone strict optical/Lua preparation.
 class ProjectFitObjective {
 public:
-    ProjectFitObjective(const ProjectDocument& project, std::vector<OpticalTable> tables);
+    ProjectFitObjective(const ProjectDocument& project, std::vector<OpticalTable> tables,
+        const ProjectCalculationOptions& options = {});
     ~ProjectFitObjective();
     // GetState and strict fit-start preparation; call before candidate evaluation.
     ProjectDocument prepare_standalone();
+    // First evaluation starts the persistent script after optimizer initialization.
+    // A failed scripted objective is closed to further evaluation.
     ProjectObjectiveResult evaluate(const std::vector<double>& candidate,
         const std::vector<double>& reference, bool refresh_reference = false);
 private:
@@ -56,6 +60,7 @@ private:
 struct ProjectFitOptions {
     RemagxSimplexOptions simplex{10000, 5000, 1e-9, 1e-14};
     std::function<bool()> should_stop;
+    std::function<void(const std::string&)> script_output;
 };
 struct ProjectFitResult {
     ProjectObjectiveResult best;
