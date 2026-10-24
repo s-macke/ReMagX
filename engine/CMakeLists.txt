@@ -183,6 +183,32 @@ if(NOT EMSCRIPTEN)
   add_executable(remagx_terminal src/terminal.cpp)
   set_target_properties(remagx_terminal PROPERTIES OUTPUT_NAME "remagx-terminal")
   target_link_libraries(remagx_terminal PRIVATE remagx_project)
+  include(GNUInstallDirs)
+  # Locate the installed core relative to the executable, not the build tree.
+  if(UNIX)
+    file(RELATIVE_PATH terminal_library_path "${CMAKE_INSTALL_FULL_BINDIR}" "${CMAKE_INSTALL_FULL_LIBDIR}")
+    if(APPLE)
+      set(terminal_loader_origin "@loader_path")
+    else()
+      set(terminal_loader_origin "$ORIGIN")
+    endif()
+    set_target_properties(remagx_terminal PROPERTIES
+      INSTALL_RPATH "${terminal_loader_origin}/${terminal_library_path}")
+  endif()
+  install(TARGETS remagx_terminal RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+  if(BUILD_SHARED_LIBS)
+    install(TARGETS remagx_core
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  endif()
+  set(terminal_documentation "${CMAKE_INSTALL_DATAROOTDIR}/doc/remagx")
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE" NATIVE_TERMINAL.md NATIVE_LUA.md
+    DESTINATION ${terminal_documentation})
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../app/public/licenses/NOTICE.txt"
+    DESTINATION "${terminal_documentation}/licenses" RENAME math-NOTICE.txt)
+  install(FILES third_party/glibc_math/COPYING.LIB third_party/nlohmann_json/LICENSE.MIT
+    DESTINATION "${terminal_documentation}/licenses")
+
   target_include_directories(remagx_project PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
   target_compile_features(remagx_project PUBLIC cxx_std_17)
   target_include_directories(remagx_project PUBLIC include)
@@ -193,6 +219,11 @@ if(NOT EMSCRIPTEN)
     target_compile_options(remagx_project PRIVATE -Wall -Wextra -Wpedantic -Werror -fno-fast-math -ffp-contract=off)
   endif()
   if(BUILD_TESTING)
+    if(UNIX AND NOT APPLE)
+      add_test(NAME terminal_install COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_terminal_install.py ${CMAKE_CURRENT_BINARY_DIR}
+        ${CMAKE_INSTALL_BINDIR} ${CMAKE_INSTALL_LIBDIR} ${CMAKE_INSTALL_DATAROOTDIR} ${CMAKE_COMMAND})
+    endif()
     add_executable(project_document_tests tests/test_project_document.cpp)
     target_link_libraries(project_document_tests PRIVATE remagx_project)
     target_compile_definitions(project_document_tests PRIVATE REMAGX_PROJECT_FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/project-v1.json")

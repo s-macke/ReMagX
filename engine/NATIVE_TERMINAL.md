@@ -15,6 +15,37 @@ build/engine/remagx-terminal -refl project.all
 build/engine/remagx-terminal -fit project.json > fitted.json
 ```
 
+## Installing the native terminal
+
+For a Lua-enabled Linux build, install CMake, a C/C++ compiler and the system Lua
+5.4 development package, then run from the repository root:
+
+```sh
+cmake -S engine -B build/native -DCMAKE_BUILD_TYPE=Release -DREMAGX_BUILD_NATIVE_LUA=ON
+cmake --build build/native --target remagx_terminal --parallel 2
+cmake --install build/native --prefix "$PWD/build/native-install"
+build/native-install/bin/remagx-terminal -v
+```
+
+The prefix contains `bin/remagx-terminal`, the shared core in the configured
+library directory, and documentation/licences under `share/doc/remagx`. The
+executable locates the core relative to itself, so the complete prefix can be
+moved. This is a same-system installation, not a cross-distribution binary:
+Lua 5.4, the C/C++ runtimes and the platform math library remain system
+dependencies. No Node, browser, original source tree or private corpus is needed
+at runtime. The Chantler asset is embedded during the build from the public repo.
+
+Source dependencies are the public core/project code, clean-room optimizers,
+pinned glibc/musl math sources, pinned nlohmann JSON and optional system Lua 5.4
+(MIT). The install includes the project GPL-3.0 licence, math notices/LGPL text
+and JSON MIT licence. Full corresponding source and build inputs are in this
+repository; the private `tools/rebuild` reference driver is not linked.
+
+`ctest --test-dir build/native -R '^terminal_install$' --output-on-failure`
+checks staged installation, relocation, shared-library resolution, one public
+calculation and installed notices on Linux. Native Windows/macOS installation
+has not been verified. Docker remains optional.
+
 Input is a validated version-1 JSON project or an imported legacy `.all` file.
 The `.all` extension is case-insensitive; reports and unknown-key summaries go to
 stderr. Legacy files are read-only. See `NATIVE_PROJECT.md` for import rules. The supported
