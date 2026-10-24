@@ -101,6 +101,7 @@ jobs:
         run: |
           node scripts/export-project-schema.mjs --check
           node scripts/test-native-project.mjs ../build/engine/project_document_tests
+          node scripts/test-native-assignments.mjs ../build/engine/legacy_assignment_tests
           node scripts/test-native-terminal.mjs ../build/engine/remagx-terminal ../build/wasm
       - run: npm run lint
       - run: npm test

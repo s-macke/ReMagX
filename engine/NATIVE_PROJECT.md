@@ -61,3 +61,28 @@ rejects unknown schema keywords. Dataset column-length equality is the one
 explicit custom extension. The interpreter supports only this exported subset,
 not arbitrary third-party JSON Schema documents. Unknown project fields remain
 preserved, while the web validator accepts and strips them.
+
+## Legacy byte-input preparation
+
+`parse_legacy_assignments` provides the native `.all` lexical boundary. It accepts
+UTF-8 bytes using the web importer's replacement decoding and initial-BOM handling,
+retains line numbers and comment markers, removes CR characters and ordinary
+spaces according to the existing loader rules, and preserves the separate script
+text representation. Tabs are not removed. A final assignment without a newline
+is returned with an explicit diagnostic flag, matching the web importer; the
+original loader ignores that final line.
+
+`legacy_number_prefix` recognizes decimal/integer prefixes as the web importer
+does, including Unicode leading whitespace, incomplete exponents, signed zero,
+subnormals and overflow. Both paths store doubles. Missing prefixes return no
+value so the eventual importer can retain the field default with a warning;
+overflow remains nonfinite for subsequent schema rejection rather than silently
+saturating to the largest double.
+
+This is preparation for the complete native importer, not a `.all` calculation
+entry point. Field mapping, legacy defaults, ordered dataset/profile/fit state,
+repair messages and unknown-key reporting must be integrated before terminal
+`.all` support is complete. No partial project is accepted through this boundary.
+The maintained `test-native-assignments.mjs` check compares 1,372 public/synthetic
+inputs against production web tokenization and its number-prefix rules, and runs
+in Pages CI. Native project-schema and numerical gates remain separate.
