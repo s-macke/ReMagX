@@ -1502,3 +1502,13 @@ D-43: [accepted] **Exclude Lua CalculateReflectivity from scope** (2026-10-24; a
 - Ordinary reflectivity calculations, fits, other Lua APIs (including GetError), legacy no-ops and shared session/solution-array infrastructure remain in scope. Original sources and numerical tolerances remain unchanged.
 
 - Validation: 533 app tests pass (seven optional skips), lint and production build pass. Native build and 75 native/Wasmoon parity cases plus six native-only checks pass; the focused Chromium Lua worker check, inventory and 93-file double-precision gate pass. No private corpus sweep or tolerance change.
+
+- 2026-10-24: Checklist reconciliation after D-43: retained all 34 open acceptance records, corrected stale deployment/reference-rebuild/optimizer-integration wording, and added an explicit working order under D-40/D-41. Inspection found two toFixed(10) coefficient serializations in the Lua snippet generator and no GetError registration in current web/native bindings; these are now concrete follow-up items, not a claim of completed API acceptance. Single-row conversion still requires a decision within its implementation record; the nine standalone Decision entries are not all unresolved questions. Documentation only; unchanged app test/lint/build evidence reused, with diff and checklist-count checks.
+
+
+D-44: [accepted] **Exclude Fourier transformation** (2026-10-24)
+
+- During checklist scope discussion, the user stated: “Ich hatte glaue wirklich noch Fourier Transformation da drin. Den brauchen wir nicht.”
+- Exclude Fourier processing from the agreed product scope, including transformed plots and Fourier fitting, in web and native workflows. This supersedes both pending Fourier display/composition and fit-semantics decisions; no numerical correction is required for an excluded feature.
+- Existing implementation and comparison records remain historical evidence. Technical removal is still work: remove controls and execution paths, preserve compatibility with stored JSON/.all projects, and explicitly report active legacy Fourier settings rather than silently dropping them. Original sources remain unchanged.
+- This increment records the scope decision only, as requested during discussion. It does not claim removal of runtime code. Cleanup is tracked within the real-engine requirement; 32 acceptance records remain (15 implementation, ten validation, seven standalone decisions). Other physics and Lua decisions remain open.
