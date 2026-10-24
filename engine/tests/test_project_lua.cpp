@@ -15,8 +15,10 @@ remagx::ScriptSolution solution(const Json& input) {
 int main() {
     std::string line;
     while (std::getline(std::cin, line)) {
+        bool stop_case = false;
         try {
             const auto input = Json::parse(line);
+            stop_case = input.contains("stopAfter");
             const auto project = remagx::ProjectDocument::parse(input.at("project").get<std::string>());
             const auto before = project.serialize();
             if (input.value("projectHook", false)) {
@@ -38,7 +40,13 @@ int main() {
                 continue;
             }
             std::vector<std::string> messages;
+            size_t stop_polls = 0;
             remagx::ProjectLuaSession session;
+            if (stop_case) session.set_stop_request([&] {
+                if (++stop_polls < input.at("stopAfter").get<size_t>()) return false;
+                if (input.value("throwStop", false)) throw std::runtime_error("Public stop callback failure");
+                return true;
+            });
             session.install_project_arrays(project);
             if (input.contains("tables")) {
                 std::vector<remagx::OpticalTable> tables;
@@ -86,6 +94,10 @@ int main() {
             if (input.contains("scattering")) response["scattering"] = session.scattering_snapshot();
             if (input.value("output", false)) response["messages"] = messages;
             std::cout << response.dump() << '\n';
-        } catch (const std::exception&) { std::cout << "{\"ok\":false}\n"; }
+        } catch (const std::exception& error) {
+            Json response{{"ok",false}};
+            if (stop_case) response["error"] = error.what();
+            std::cout << response.dump() << '\n';
+        }
     }
 }

@@ -80,7 +80,16 @@ changes reject. Any failure closes the owned session. Success returns project,
 tensor classifications, scattering tensors and updated cursors together.
 The focused comparison runs this against the actual web createProjectScript
 with three successive input states. Solver invocation order, fallback tensor
-construction, temporary child sessions and cancellation remain integration work.
+construction, temporary child sessions and solver-level cancellation remain integration work.
+
+An optional stop predicate is polled before/after execution and every 1000 Lua
+instructions during a hook. Cancellation and predicate exceptions latch, close
+the session and prevent result publication, even when Lua catches the interrupt
+and returns. This is cooperative: a script can replace debug hooks or repeatedly
+catch errors, and long-running C calls are not interrupted by instruction hooks.
+No process-level deadline or native one-second cancellation guarantee is claimed.
+The eventual terminal orchestration must retain an external termination path.
+The count hook is installed only when a stop predicate is supplied.
 
 Run the focused comparison after building `project_lua_tests` and installing
 app dependencies:
@@ -97,13 +106,13 @@ dielectric component arrays, solution replacement/dynamic bounds and retained
 aliases after tensor refresh, project text/functions, tensor construction and
 compound table refresh, captured print/write output and callback failures,
 complete prepared project hooks, and
-unchanged inputs. A separate native-only case
-verifies protected global readback when a metatable throws. The existing
+unchanged inputs. Six native-only cases cover cooperative cancellation and normal continuation,
+plus protected global readback when a metatable throws. The existing
 Wasmoon boundary panics for that case; it is not claimed as parity evidence.
 No corpus or broad terminal comparison is needed for this isolated component.
 
 Remaining work: calculation functions, calculation-owned
-hook state, nested calls and cancellation. Standard-library availability must
+hook state, nested calls and process-level cancellation. Standard-library availability must
 be reviewed against the web runtime before activating native scripts. Existing
 unresolved script-semantics decisions still apply.
 

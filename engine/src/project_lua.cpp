@@ -290,6 +290,20 @@ int install_functions(lua_State* vm) {
     }
     return 0;
 }
+struct ScriptStop {
+    std::function<bool()> requested;
+    bool stopped = false, failed = false;
+};
+bool poll_stop(ScriptStop& stop) noexcept {
+    if (stop.stopped || stop.failed) return true;
+    try { if (stop.requested && stop.requested()) stop.stopped = true; }
+    catch (...) { stop.failed = true; }
+    return stop.stopped || stop.failed;
+}
+void instruction_stop(lua_State* vm, lua_Debug*) {
+    auto* stop = *static_cast<ScriptStop**>(lua_getextraspace(vm));
+    if (stop && poll_stop(*stop)) luaL_error(vm, "Lua execution cancelled");
+}
 struct HookRequest { ScriptHookValues input, output; };
 // Keep only trivial locals inside Lua's longjmp boundary.
 int execute_hook(lua_State* vm) {
@@ -319,6 +333,7 @@ struct ProjectLuaSession::State {
     bool compiled = false;
     ProjectFunctions functions{nullptr, {}};
     ScriptOutput output;
+    ScriptStop stop;
     double wavelength = 0, renew_optical_constants = 0;
     std::optional<ProjectDocument> project;
     std::deque<NumericArray> arrays;
@@ -339,6 +354,10 @@ ProjectLuaSession::ProjectLuaSession() : state_(std::make_unique<State>()) {
     luaL_openlibs(state_->vm);
 }
 ProjectLuaSession::~ProjectLuaSession() = default;
+void ProjectLuaSession::set_stop_request(std::function<bool()> should_stop) {
+    if (!state_) throw ProjectDocumentError("Lua session is closed.");
+    state_->stop.requested = std::move(should_stop);
+}
 void ProjectLuaSession::close() noexcept { state_.reset(); }
 void ProjectLuaSession::install_project_arrays(const ProjectDocument& project) {
     if (!state_) throw ProjectDocumentError("Lua session is closed.");
@@ -693,10 +712,25 @@ ScriptHookValues ProjectLuaSession::run_hook(const ScriptHookValues& input) {
     if (!state_) throw ProjectDocumentError("Lua session is closed.");
     if (!state_->compiled) throw ProjectDocumentError("Lua script has not been compiled.");
     auto* vm = state_->vm;
+    if (poll_stop(state_->stop)) {
+        const bool failed = state_->stop.failed;
+        close(); throw ProjectDocumentError(failed ? "Lua stop callback failed" : "Lua execution cancelled");
+    }
+    const bool stopping = static_cast<bool>(state_->stop.requested);
+    if (stopping) {
+        *static_cast<ScriptStop**>(lua_getextraspace(vm)) = &state_->stop;
+        lua_sethook(vm, instruction_stop, LUA_MASKCOUNT, 1000);
+    }
     const int top = lua_gettop(vm);
     HookRequest request{input, {}};
     lua_pushcfunction(vm, execute_hook); lua_pushlightuserdata(vm, &request);
-    if (lua_pcall(vm, 1, 0, 0) != LUA_OK) {
+    const int status = lua_pcall(vm, 1, 0, 0);
+    if (stopping) lua_sethook(vm, nullptr, 0, 0);
+    if (poll_stop(state_->stop)) {
+        const bool failed = state_->stop.failed;
+        close(); throw ProjectDocumentError(failed ? "Lua stop callback failed" : "Lua execution cancelled");
+    }
+    if (status != LUA_OK) {
         const char* message = lua_tostring(vm, -1);
         const std::string detail = message ? message : "Unknown Lua execution failure";
         close(); throw ProjectDocumentError("Lua execution failed: " + detail);
@@ -705,8 +739,8 @@ ScriptHookValues ProjectLuaSession::run_hook(const ScriptHookValues& input) {
     return request.output;
 }
 ProjectScriptHook::ProjectScriptHook(std::vector<OpticalTable> tables,
-        std::function<void(const std::string&)> emit, bool before_calculation)
-    : tables_(std::move(tables)), emit_(std::move(emit)), before_calculation_(before_calculation) {}
+        std::function<void(const std::string&)> emit, bool before_calculation, std::function<bool()> should_stop)
+    : tables_(std::move(tables)), emit_(std::move(emit)), before_calculation_(before_calculation) { session_.set_stop_request(std::move(should_stop)); }
 ScriptProjectResult ProjectScriptHook::run(const ProjectDocument& project,
         const std::vector<ScriptDielectricTensor>& tensors,
         const std::vector<std::array<double,18>>& scattering,

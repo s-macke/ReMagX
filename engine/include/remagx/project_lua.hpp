@@ -46,6 +46,7 @@ public:
     void replace_project(const ProjectDocument& project, double renew_optical_constants = 0);
     ScriptHookValues begin_hook();
     void apply_hook(const ScriptHookValues& result);
+    void set_stop_request(std::function<bool()> should_stop);
     void close() noexcept;
 private:
     struct State;
@@ -61,7 +62,8 @@ struct ScriptProjectResult {
 class ProjectScriptHook {
 public:
     ProjectScriptHook(std::vector<OpticalTable> tables,
-        std::function<void(const std::string&)> emit, bool before_calculation = true);
+        std::function<void(const std::string&)> emit, bool before_calculation = true,
+        std::function<bool()> should_stop = {});
     ScriptProjectResult run(const ProjectDocument& project,
         const std::vector<ScriptDielectricTensor>& tensors,
         const std::vector<std::array<double,18>>& scattering,

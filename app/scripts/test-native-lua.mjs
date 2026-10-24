@@ -293,11 +293,22 @@ try {
   requests.push({ project: JSON.stringify(project),
     source: "energy=nil; setmetatable(_G,{__index=function() error('readback') end})" })
   expected.push({ ok: false })
+  const stopCases = [
+    {source:"par[0]=7",stopAfter:1},
+    {source:"while true do end",stopAfter:2},
+    {source:"pcall(function() while true do end end); debug.sethook(); par[0]=7",stopAfter:2},
+    {source:"while true do end",stopAfter:2,throwStop:true},
+  ]
+  for (const test of stopCases) {
+    requests.push({project:JSON.stringify(project),...test})
+    expected.push({ok:false,error:test.throwStop?'Lua stop callback failed':'Lua execution cancelled'})
+  }
+  requests.push({...requests[0],stopAfter:99999}); expected.push(expected[0])
   const run = spawnSync(executable, [], { input: requests.map(value => JSON.stringify(value)).join('\n') + '\n',
     encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 10000 })
   assert.equal(run.status, 0, run.stderr || String(run.error))
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
   assert.equal(actual.length, expected.length)
   actual.forEach((result, index) => assert.ok(isDeepStrictEqual(result, expected[index]), `Native Lua case ${index + 1} differs from Wasmoon`))
-  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length + functionCases.length + opticsCases.length + outputCases.length + hookCases.length} parity cases and one native protected-readback case passed.`)
+  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length + functionCases.length + opticsCases.length + outputCases.length + hookCases.length} parity cases and six native readback/cancellation cases passed.`)
 } finally { await server.close() }
