@@ -150,8 +150,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
         project.string("/scripts/beforeCalculation").find_first_not_of(" \t\n\r\f\v") != std::string::npos;
     if (scripted) {
 #ifdef REMAGX_NATIVE_LUA
-        require(!element_mode && context == CalculationContext::terminal && options,
-            "Native Lua currently supports compound terminal qz scans without energy broadening; other script calculation paths remain pending.");
+        require(context == CalculationContext::terminal && options,
+            "Native Lua currently supports terminal qz scans without energy broadening; other script calculation paths remain pending.");
 #else
         throw ProjectDocumentError("Native terminal was built without Lua support.");
 #endif
@@ -207,8 +207,43 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
     std::vector<RemagxMatrixLayer> matrix;
     size_t count = 0;
     if (element_mode) {
+        ElementOpticalState local_elements;
+        auto* element_state = previous ? &previous->elements : &local_elements;
+#ifdef REMAGX_NATIVE_LUA
+        if (scripted) {
+            prepare_project_elements(project, energy, layers, matrix, tables, result.warnings, element_state, false, true);
+            std::vector<std::pair<std::string,double>> edits;
+            std::vector<std::array<double,18>> scattering(element_state->factors.size());
+            for (size_t index = 0; index < scattering.size(); ++index) {
+                const auto path = "/sample/elementProfiles/" + std::to_string(index);
+                const char* fields[] = {"/f1","/f2","/f1Mag","/f2Mag"};
+                for (size_t part = 0; part < 4; ++part) edits.emplace_back(path+fields[part], element_state->factors[index][part]);
+                std::copy_n(element_state->tensors.data()+index*18,18,scattering[index].data());
+            }
+            // The inactive compound film still exposes its stored tensors to Lua.
+            std::vector<ScriptDielectricTensor> tensors(project.array_size("/sample/layers"));
+            for (size_t index = 0; index < tensors.size(); ++index) {
+                const auto path = "/sample/layers/" + std::to_string(index) + "/dielectricTensor";
+                if (project.contains(path)) {
+                    tensors[index].anisotropic = project.boolean(path+"/anisotropic");
+                    for (size_t part = 0; part < 18; ++part) tensors[index].values[part] = project.number(path+"/values/"+std::to_string(part));
+                }
+            }
+            const auto emit = options->script_output ? options->script_output : [](const std::string&) {};
+            ProjectScriptHook hook(tables,emit,true,options->should_stop);
+            auto result = hook.run(project.with_calculation_numbers(edits),tensors,scattering,element_state->cursors);
+            project = std::move(result.project); element_state->cursors = std::move(result.cursors);
+            energy = project.number("/experiment/energy"); width = project.number("/experiment/resolution/angularFwhm");
+            for (size_t index = 0; index < scattering.size(); ++index) {
+                const auto path = "/sample/elementProfiles/" + std::to_string(index);
+                element_state->factors[index] = {project.number(path+"/f1"),project.number(path+"/f2"),
+                    project.number(path+"/f1Mag"),project.number(path+"/f2Mag")};
+                std::copy(result.scattering[index].begin(),result.scattering[index].end(),element_state->tensors.begin()+index*18);
+            }
+        }
+#endif
         const bool prepared = prepare_project_elements(project, energy, layers, matrix, tables, result.warnings,
-            previous ? &previous->elements : nullptr, energy_point, refresh_only, strict_refresh);
+            element_state, energy_point, refresh_only, strict_refresh, scripted);
         if (refresh_only) return result;
         if (!prepared) {
             result.plus.assign(result.qz.size(), 1); result.minus.assign(result.qz.size(), dichroic ? 1 : 0);

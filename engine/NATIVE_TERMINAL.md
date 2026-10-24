@@ -226,21 +226,21 @@ fixed rows, Stop-before-start, failure and recovery. CLI smoke checks cover qz a
 energy fitted JSON, missing-table failure with empty stdout and input preservation.
 No original-optimizer convergence/corpus acceptance is implied.
 
-## Compound qz scripts
+## Qz scripts
 
 Install system Lua 5.4 development headers/library and configure with
 `-DREMAGX_BUILD_NATIVE_LUA=ON` to enable BeforeCalculation for `-refl`/`-dicrefl`
-in compound mode with Nevot-Croce or adaptive segmentation and no monochromatic energy
-broadening. Default/Docker builds without this option still reject active scripts.
+in compound mode with Nevot-Croce or adaptive segmentation, or in element mode,
+without monochromatic energy broadening. Default/Docker builds without this option still reject active scripts.
 Automatic table refresh precedes the hook; scalar values, tensors, energy,
 angular width and epsilon then feed the three existing solvers. Script output
 is sent to stderr. Project inputs stay unchanged and failures publish no
-scientific stdout. Scripted element/fit/energy-broadened paths remain unavailable.
+scientific stdout. Scripted fit/energy-broadened paths remain unavailable.
 
 The first Ctrl+C requests cooperative Stop; a second Ctrl+C terminates the
 process using default SIGINT handling, including scripts that disable debug hooks.
 This does not impose an automatic wall-clock deadline. The focused gate covers
-24 native/actual-WASM comparisons, three rejection cases and two real SIGINT
+36 native/actual-WASM comparisons, three rejection cases and two real SIGINT
 checks (cooperative loop and disabled-hook loop):
 
 ```
@@ -256,3 +256,11 @@ Segmented compound scripts preserve the pre-hook stored depths for magnetic-prof
 binding while using post-hook thicknesses, optical constants and profile amplitudes
 for adaptive sampling/application. The focused comparisons include bound profiles
 and Lua thickness/center/amplitude edits with all three solvers and both beam modes.
+
+Element qz hooks run after factor refresh and before density sampling/conversion.
+Current f1/f2/magnetic factors, slab edits, stored/refreshed scattering tensors and
+script energy feed the prepared conversion without a second table refresh.
+The inactive compound film retains its stored tensor state for Lua access. Tests
+cover manual/automatic factors, element.setf, shared f1 arrays, density/thickness
+edits and FillTensors across all solvers and both beam modes. The unresolved .F
+assignment decision still applies; no tensor-refresh correction is introduced.

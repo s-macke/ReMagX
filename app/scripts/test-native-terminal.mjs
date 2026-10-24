@@ -513,7 +513,7 @@ try {
         spline: { enabled: true, points: [-30,-28,-26,-24].map(z => ({ z, value: 1 })) } }]
     },
     project => { project.calculation.roughnessModel = 'segmentation'; project.calculation.segmentation.minThickness = 100000; project.calculation.segmentation.maxThickness = 100000 },
-    project => { project.scripts.enabled = true; project.scripts.beforeCalculation = 'error("private diagnostic")' },
+    project => { project.scripts.enabled = true; project.scripts.beforeCalculation = 'error("public script failure")' },
     project => { project.experiment.scattering = 'transmission' },
     project => { project.calculation.postProcessing.fourierTransform = true; project.experiment.qzScan.qzMax = 0 },
     project => { project.experiment.resolution.energyFwhm = project.experiment.energy },
@@ -531,7 +531,8 @@ try {
     assert.equal(result.status, 1)
     assert.equal(result.stdout, '', 'Failure emitted partial scientific output')
     assert.ok(result.stderr.length > 0)
-    assert.ok(!result.stderr.includes('private diagnostic'))
+    if (project.scripts.enabled) assert.match(result.stderr,
+      /Lua execution failed: BeforeCalculation:1: public script failure|built without Lua support/)
   }
   for (const command of ['-convert', '-map', '--unknown']) {
     const result = run([command, filename])

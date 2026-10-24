@@ -13,6 +13,11 @@ const executable = resolve(process.argv[2] ?? resolve(root,'build/engine/remagx-
 const {default:createCore} = await import(pathToFileURL(resolve(process.argv[3] ?? resolve(root,'build/wasm'),'remagx-core.mjs')))
 const core = await createCore()
 const engine = {
+  elementPreparation: {
+    errorSamples:Array.from(adapter.generateErrorFunctionLookup(core)),
+    density:request=>adapter.calculateElementDensity(core,request),
+    optics:request=>adapter.calculateElementOptics(core,request),
+  },
   segmentation: {
     errorSamples:Array.from(adapter.generateErrorFunctionLookup(core)),
     sample:request=>segmentation.calculateSegmentedOptics(core,request),
@@ -31,6 +36,7 @@ const engine = {
 const server = await createServer({root:resolve(root,'app'),configFile:false,server:{middlewareMode:true,hmr:false},appType:'custom'})
 const directory = await mkdtemp(resolve(tmpdir(),'remagx-scripted-qz-'))
 try {
+  const {storedOpticalState} = await server.ssrLoadModule('/src/model/storedOpticalState.ts')
   const {createDefaultProject} = await server.ssrLoadModule('/src/model/defaults.ts')
   const {importAllFile} = await server.ssrLoadModule('/src/import/allFile.ts')
   const {parseOpticalTable} = await server.ssrLoadModule('/src/import/tables.ts')
@@ -47,14 +53,17 @@ try {
   const vacuum = '7000 0 0\n9000 0 0'
   await writeFile(resolve(directory,'vacuum.db'),vacuum)
   tables.push(parseOpticalTable(vacuum,'vacuum.db'))
+  for (const [kind,text] of [['ff','7000 24 2\n9000 26 2'],['ffm','7000 0.4 0.1\n9000 0.4 0.1']]) {
+    await writeFile(resolve(directory,`Fe.${kind}`),text); tables.push(parseOpticalTable(text,`Fe.${kind}`))
+  }
   const filename = resolve(directory,'project.json')
   let count = 0
   let base
-  for (const roughness of ['nevot-croce','segmentation']) for (const automatic of [false,true]) for (const algorithm of ['parratt','matrix','zak']) for (const dichroic of [false,true]) {
+  for (const roughness of ['nevot-croce','segmentation','element']) for (const automatic of [false,true]) for (const algorithm of ['parratt','matrix','zak']) for (const dichroic of [false,true]) {
     const project = createDefaultProject()
     project.calculation.algorithm = algorithm
     project.calculation.automaticOpticalConstants = automatic
-    project.calculation.roughnessModel = roughness
+    project.calculation.roughnessModel = roughness === 'element' ? 'nevot-croce' : roughness
     project.calculation.magnetization.mode = 'add'
     project.sample.multilayer.enabled = false
     project.experiment.energy = 8000
@@ -73,6 +82,17 @@ try {
         boundToLayer:project.sample.layers.length-2,amplitudeCoupledTo:null,widthCoupledTo:null,spline:{enabled:false,points:[]}}]
       project.scripts.beforeCalculation += '; gauss_delta[0]=0.000002; gauss_z[0]=14'
     }
+    if (roughness === 'element') {
+      project.sample.mode='element'
+      project.calculation.segmentation.minThickness=0.5
+      project.calculation.segmentation.tolerance=1e-9
+      project.calculation.magnetization.direction={gamma:47,phi:61}
+      project.sample.elementProfiles=[{element:'Fe',f1:25,f2:2,f1Mag:0.4,f2Mag:0.1,
+        slabs:[{thickness:900,density:0.08,roughness:3},{thickness:27,density:0.09,roughness:2},{thickness:800,density:0,roughness:7}]}]
+      project.sample.elementProfiles[0].scatteringTensor=Array.from(adapter.calculateScatteringTensor(core,
+        {factors:[25,2,0.4,0.1],gamma:47,phi:61,tensor:0,magnetic:1}))
+      project.scripts.beforeCalculation="assert(Fe:getf1()==25); Fe:setf(8100); f1[0]=f1[0]+0.5; Fe:setdensity(1,0.12); Fe:setthickness(1,42); FillTensors(); energy=8010; resolution=0.001; print('public-script')"
+    }
     base = project
     const text = JSON.stringify(project)
     await writeFile(filename,text)
@@ -85,7 +105,7 @@ try {
     const session = await runtime.createSession(), messages=[]
     try {
       const hook = createBeforeCalculation(session,engine,tables,message=>messages.push(message))
-      const expected = calculateRealCurve(reference,tables,engine,'qz',dichroic?'dichroic':'monochromatic',undefined,hook)
+      const expected = calculateRealCurve(reference,tables,engine,'qz',dichroic?'dichroic':'monochromatic',reference.sample.mode==='element'?storedOpticalState(reference):undefined,hook)
       assert.equal(run.status,0,`${roughness}/${algorithm}/${automatic}/${dichroic}: ${run.stderr||String(run.error)}`)
       assert.equal(run.stderr,'public-script\n')
       const rows=run.stdout.trim().split('\n').map(line=>line.split(/\s+/).map(Number))
@@ -99,11 +119,12 @@ try {
     } finally {session.close()}
     count++
   }
-  for (const edit of [project=>{project.scripts.beforeCalculation="error('public failure')"},
-    project=>{project.sample.mode='element'},project=>{project.experiment.resolution.energyFwhm=1}]) {
+  for (const edit of [project=>{project.scripts.beforeCalculation="error('public script failure')"},
+    project=>{project.scripts.beforeCalculation="element.new(999)"},project=>{project.experiment.resolution.energyFwhm=1}]) {
     const project=structuredClone(base); edit(project); await writeFile(filename,JSON.stringify(project))
     const run=spawnSync(executable,['-refl',filename],{cwd:directory,encoding:'utf8',timeout:10000})
     assert.equal(run.status,1); assert.equal(run.stdout,'')
+    if (project.scripts.beforeCalculation.includes('public script failure')) assert.match(run.stderr,/Lua execution failed: BeforeCalculation:1: public script failure/)
   }
   for (const hard of [false,true]) {
     const project=structuredClone(base)

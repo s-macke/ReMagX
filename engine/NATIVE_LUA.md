@@ -1,10 +1,10 @@
 # Native Lua integration in progress
 
 `ProjectLuaSession` owns a Lua 5.4 session and isolated numeric project arrays.
-Lua-enabled builds now execute BeforeCalculation for compound
+Lua-enabled builds now execute BeforeCalculation for compound and element
 terminal qz scans without monochromatic energy broadening. Scripts run after
 optical refresh and before multilayer packing/solver calls; stderr receives
-script messages. Scripted fits, element scans and energy broadening
+script messages. Scripted fits and energy broadening
 still reject explicitly. Full script acceptance remains open.
 
 Build with a system Lua 5.4 development library (Debian/Ubuntu:
@@ -81,7 +81,7 @@ calls preserve globals while replacing prepared workspaces. Source or structure
 changes reject. Any failure closes the owned session. Success returns project,
 tensor classifications, scattering tensors and updated cursors together.
 The focused comparison runs this against the actual web createProjectScript
-with three successive input states. Compound qz solver invocation and fallback tensors are connected. Other scan/fit
+with three successive input states. Compound/element qz solver invocation and prepared tensors are connected. Other scan/fit
 invocation orders, temporary child sessions and solver-level cancellation remain integration work.
 
 An optional stop predicate is polled before/after execution and every 1000 Lua
