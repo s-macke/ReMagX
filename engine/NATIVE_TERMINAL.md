@@ -14,12 +14,26 @@ build/engine/remagx-terminal -dicrefl project.json
 ```
 
 Input is a validated version-1 JSON project saved by the web app. The supported
-calculation path currently requires compound mode, manual or automatic optical constants,
-Nevot–Croce or adaptive compound roughness and no nonempty enabled BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
+calculation path supports compound mode with manual or automatic optical constants,
+Nevot–Croce or adaptive compound roughness, and element mode with saved factors/tensors.
+It requires no nonempty enabled BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
 analyzers, magnetic/tetragonal settings and exact/fast angular convolution.
-Manual preparation rebuilds dielectric tensors from scalar values, as the web
+Manual compound preparation rebuilds dielectric tensors from scalar values, as the web
 engine does; stored automatic tensor overrides are ignored in manual mode.
 Density is not multiplied into already supplied compound optical constants.
+
+Element preparation samples each profile through the existing native density kernel
+using the D-41 double-erf lookup, then combines saved f1/f2 and magnetic factors
+through the shared optical kernel. The original fixed-step grid, thickest-profile
+roughness margin, tolerance-based layer reduction and final-sample replacement
+are retained; no values are rounded. Matrix calculations preserve saved scattering
+tensors (absent tensors start at zero), and every generated tensor is classified
+anisotropic, including boundaries. Density batches hold at most 256 values per
+element. Compound multilayer patterns and compound segmentation/profile settings
+do not apply to this conversion. Each broadened energy sample regenerates its
+stack at that energy. Automatic element tables and built-in data are not integrated
+in this native path yet and reject explicitly. Empty/invalid density profiles,
+nonadvancing/excessive grids and single-row conversion reject before curve output.
 
 Enabled multilayer patterns expand before solver packing, including nested
 repetitions, zero repetitions and explicit duplicate substrate/ambient references.
@@ -145,7 +159,8 @@ monochromatic Fourier, energy-width thresholds, both angular convolution paths
 combined with energy broadening, serial partial table refresh, global/local
 segmentation across all solvers/modes, segmented Matrix energy broadening and
 imported tensor composition, mixed Gaussian/spline sum/product profiles with
-layer binding and energy broadening, averaging,
+layer binding and energy broadening, manual element density/optical conversion,
+stored/missing scattering tensors, element grid/reduction and energy broadening, averaging,
 shifted/unsorted/repeated coordinates and eight
 multilayer patterns across all solvers and both output modes. Dedicated native
 parser tests cover limits, empty groups, nested patterns, ignored characters,

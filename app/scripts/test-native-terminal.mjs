@@ -16,6 +16,11 @@ const wasm = resolve(process.argv[3] ?? resolve(root, 'build/wasm'))
 const { default: createCore } = await import(pathToFileURL(resolve(wasm, 'remagx-core.mjs')))
 const instance = await createCore()
 const engine = {
+  elementPreparation: {
+    errorSamples: Array.from(adapter.generateErrorFunctionLookup(instance)),
+    density: request => adapter.calculateElementDensity(instance, request),
+    optics: request => adapter.calculateElementOptics(instance, request),
+  },
   segmentation: {
     errorSamples: Array.from(adapter.generateErrorFunctionLookup(instance)),
     sample: request => segmentation.calculateSegmentedOptics(instance, request),
@@ -34,6 +39,7 @@ const server = await createServer({ root: resolve(root, 'app'), configFile: fals
   server: { middlewareMode: true }, appType: 'custom' })
 const directory = await mkdtemp(resolve(tmpdir(), 'remagx-native-terminal-'))
 try {
+  const { storedOpticalState } = await server.ssrLoadModule('/src/model/storedOpticalState.ts')
   const { createDefaultProject } = await server.ssrLoadModule('/src/model/defaults.ts')
   const { postprocessDatasetColumns } = await server.ssrLoadModule('/src/model/datasetPostprocessing.ts')
   const { calculateRealCurve } = await server.ssrLoadModule('/src/model/realCalculation.ts')
@@ -88,7 +94,8 @@ try {
       reference.calculation.postProcessing = { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false }
       reference.calculation.averaging = 0
     }
-    const raw = calculateRealCurve(reference, tables, engine, 'qz', dichroic ? 'dichroic' : 'monochromatic')
+    const raw = calculateRealCurve(reference, tables, engine, 'qz', dichroic ? 'dichroic' : 'monochromatic',
+      project.sample.mode === 'element' ? storedOpticalState(reference) : undefined)
     const postProject = structuredClone(project)
     const selected = project.experiment.qzScan.useDatasetPoints ? project.datasets[project.activeDatasetIndex] : undefined
     postProject.experiment.energy = selected?.energy ?? 10
@@ -335,6 +342,60 @@ try {
     } else assert.equal(actual.status, 0)
   }
   assert.ok(singularities > 0, 'The observed zero-incidence singularity must remain covered')
+  // Element2Material: unequal profile extents, zero roughness, tensor retention,
+  // last-sample replacement within tolerance, batch boundaries and energy scaling.
+  const elementBase = structuredClone(base)
+  elementBase.sample.mode = 'element'
+  elementBase.experiment.energy = 8000
+  elementBase.calculation.segmentation.minThickness = 0.25
+  elementBase.calculation.segmentation.tolerance = 1e-9
+  elementBase.calculation.magnetization.mode = 'add'
+  elementBase.calculation.magnetization.direction = { gamma: 47, phi: 61 }
+  elementBase.sample.elementProfiles = [
+    { element: 'Fe', f1: 25, f2: 2, f1Mag: 0.4, f2Mag: 0.1,
+      slabs: [{ thickness: 900, density: 0.08, roughness: 3 },
+        { thickness: 27, density: 0.09, roughness: 2 }, { thickness: 800, density: 0, roughness: 7 }] },
+    { element: 'O', f1: 7, f2: 0.1, f1Mag: 0.03, f2Mag: 0.01,
+      slabs: [{ thickness: 100, density: 0.02, roughness: 0 },
+        { thickness: 35, density: 0.04, roughness: 5 }, { thickness: 0, density: 0, roughness: 0 }] },
+  ]
+  for (const profile of elementBase.sample.elementProfiles) profile.scatteringTensor = Array.from(adapter.calculateScatteringTensor(instance, {
+    factors: [profile.f1, profile.f2, profile.f1Mag, profile.f2Mag], gamma: 47, phi: 61,
+  }))
+  for (const algorithm of ['parratt', 'matrix', 'zak']) for (const dichroic of [false, true]) {
+    for (const variant of ['base', 'coarse', 'stored-tensor', 'broadening']) {
+      const project = structuredClone(elementBase)
+      project.calculation.algorithm = algorithm
+      if (variant === 'coarse') {
+        project.calculation.segmentation.minThickness = 0.9
+        project.calculation.segmentation.tolerance = 1e-7
+        project.calculation.roughnessModel = 'segmentation'
+        project.sample.multilayer = { enabled: true, pattern: 'invalid' } // ignored in element mode
+      }
+      if (variant === 'stored-tensor') {
+        project.sample.elementProfiles[0].scatteringTensor[2] += 0.03
+        delete project.sample.elementProfiles[1].scatteringTensor
+      }
+      if (variant === 'broadening') {
+        project.experiment.resolution.energyFwhm = 15
+        project.experiment.resolution.angularFwhm = 0.01
+      }
+      await compare(project, dichroic)
+    }
+  }
+  for (const change of [
+    project => { project.calculation.automaticOpticalConstants = true },
+    project => { project.calculation.segmentation.minThickness = 0 },
+    project => { project.calculation.segmentation.minThickness = 1e-9 },
+    project => { project.sample.elementProfiles = [] },
+    project => { project.sample.elementProfiles[0].slabs = [] },
+  ]) {
+    const project = structuredClone(elementBase); change(project)
+    await writeFile(filename, JSON.stringify(project))
+    const failure = run(['-refl', filename])
+    assert.equal(failure.status, 1, failure.stderr)
+    assert.equal(failure.stdout, '')
+  }
   const invalid = [
     project => { project.sample.mode = 'element' },
     project => { project.sample.multilayer = { enabled: true, pattern: '2*(1' } },
