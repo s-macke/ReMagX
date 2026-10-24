@@ -34,6 +34,23 @@ int main() {
             }
             const auto project = remagx::ProjectDocument::parse(input.at("project").get<std::string>());
             const auto before = project.serialize();
+            if (input.contains("candidates")) {
+                auto current = project;
+                Json trials = Json::array();
+                for (const auto& candidate : input["candidates"]) {
+                    try {
+                        const auto applied = remagx::apply_project_fit_parameters(current, values(candidate));
+                        current = applied.project;
+                        Json trial{{"ok", true}, {"values", encoded(applied.values)}, {"probes", Json::array()}};
+                        for (const auto& path : input["probes"]) trial["probes"].push_back(encoded({current.number(path.get<std::string>())})[0]);
+                        try { trial["project"] = Json::parse(current.serialize()); trial["saveable"] = true; }
+                        catch (const remagx::ProjectDocumentError&) { trial["saveable"] = false; }
+                        trials.push_back(std::move(trial));
+                    } catch (const remagx::ProjectDocumentError&) { trials.push_back({{"ok", false}}); }
+                }
+                if (project.serialize() != before) throw std::runtime_error("Fit application mutated its original project");
+                std::cout << Json{{"ok", true}, {"trials", trials}}.dump() << '\n'; continue;
+            }
             const remagx::ProjectFitSpace prepared(project);
             Json trials = Json::array(), vertices = Json::array();
             for (const auto& vertex : prepared.simplex()) vertices.push_back(encoded(prepared.decode(vertex)));

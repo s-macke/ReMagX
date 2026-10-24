@@ -87,6 +87,16 @@ int main(int argc, char** argv) {
         rejected([&] { original.with_number("/version", 2); });
         rejected([&] { original.with_number("/sample/layers/0/thickness", -1); });
         rejected([&] { original.with_number("/experiment/energy", 0); });
+        const auto trial = original.with_calculation_numbers({{"/sample/layers/0/thickness", -3}, {"/sample/layers/0/beta", -0.0}});
+        require(trial.number("/sample/layers/0/thickness") == -3, "Transient candidate value was rejected");
+        require(std::signbit(trial.number("/sample/layers/0/beta")), "Transient signed zero changed");
+        rejected([&] { trial.serialize(); });
+        const auto restored = trial.with_calculation_numbers({{"/sample/layers/0/thickness", 1}, {"/sample/layers/0/thickness", 2}});
+        require(ProjectDocument::parse(restored.serialize()).number("/sample/layers/0/thickness") == 2, "Ordered batch repair failed");
+        rejected([&] { original.with_calculation_numbers({{"/sample/layers/0/beta", 1}, {"/name", 2}}); });
+        rejected([&] { original.with_calculation_numbers({{"/absent", 1}}); });
+        rejected([&] { original.with_calculation_numbers({{"/sample/layers/0/beta", std::numeric_limits<double>::infinity()}}); });
+        require(original.serialize() == encoded, "Calculation batch mutated original");
         const auto active = ProjectDocument::parse(original.serialize().replace(
             original.serialize().find("\"activeDatasetIndex\": null"), 26, "\"activeDatasetIndex\": 0"));
         rejected([&] { active.with_number("/activeDatasetIndex", -1); });

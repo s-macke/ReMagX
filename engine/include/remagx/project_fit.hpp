@@ -16,6 +16,14 @@ private:
     std::vector<double> origins_, lower_, upper_;
     std::vector<Axis> axes_;
 };
+struct ProjectFitCandidate {
+    ProjectDocument project;
+    std::vector<double> values;
+};
+// Uses the supplied current dataset context, which may differ from UI selection
+// after serial objective evaluation. Input is unchanged even on failure.
+ProjectFitCandidate apply_project_fit_parameters(const ProjectDocument& project, const std::vector<double>& candidate);
+
 // Caller supplies the actual optimizer reference, which may change between
 // ordinary Simplex rounds. Do not substitute the initially saved parameter list.
 double fit_regularization(double error, double weight, const std::vector<double>& reference,

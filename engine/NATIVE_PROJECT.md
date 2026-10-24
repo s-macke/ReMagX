@@ -126,10 +126,39 @@ Simplex and annealing reference lifetimes; this helper does not invent or update
 the reference. Nonfinite inputs/results reject, including invalid vectors when Q
 is zero. No parameter or project is mutated.
 
-These are preparation components, not a finished `-fit` command. Parameter-to-field
-updates, serial dataset/optical/script evaluation, optimizer callbacks, result
-selection and fitted JSON output remain to be connected. The public
+These are preparation components, not a finished `-fit` command. Serial
+dataset/optical/script evaluation, optimizer callbacks, result selection and fitted
+JSON output remain to be connected. Parameter application is described below. The public
 `test-native-fit-space.mjs` gate compares 259 synthetic cases with the production
 web preparation, including fixed/mixed scales, duplicate targets, clipping,
 signed zero, adjacent/subnormal bounds, overflow and Q thresholds. No original
 optimizer source or trajectory equivalence is involved.
+
+
+## Fit candidates and persistence
+
+`apply_project_fit_parameters` applies bounded candidate values in fit-row order.
+Compound fields and magnetization directions use the layer index; profiles,
+elements and slabs retain their respective selectors. Angular resolution updates
+the experiment and enabled datasets; intensity scaling updates enabled datasets
+only. Qz/energy shifts use the supplied current dataset even when it is inactive.
+Missing script slots are skipped while their bounded fit rows remain available to
+the optimizer and Q term. Other missing/deferred targets reject the whole update.
+Repeated targets preserve list-order writes, and every fit row retains its own
+bounded value. Source projects, measurements and unknown metadata remain intact.
+
+The immutable `with_calculation_numbers` batch updates existing numeric targets
+only, requires finite doubles and preserves input on any failure. Calculation
+states can temporarily contain values outside persisted field domains, as the
+web fit does; solver preparation remains responsible for their numerical use.
+`serialize` validates such states before producing project JSON. Existing parsing
+and ordinary `with_number` edits retain full schema validation. A later valid
+candidate can restore an invalid intermediate state without a lossy round trip.
+The validation marker is held by the document view, not mutable shared storage.
+
+The public `test-native-fit-parameters.mjs` gate compares 186 scenarios with the
+production web helper: all target kinds, missing selectors, active/current dataset
+semantics, duplicate/fixed rows, missing script slots, signed zero, failure
+atomicity and repeated invalid/valid candidates. It compares every numeric field,
+full serializable projects and the web schema's saveability result. These checks
+prove candidate mapping and the persistence boundary, not full fit convergence.

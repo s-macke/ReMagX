@@ -169,7 +169,8 @@ static void validate_project(const Json& document) {
     validate_value(document, schema, "");
 }
 
-ProjectDocument::ProjectDocument(std::shared_ptr<const Storage> storage) : storage_(std::move(storage)) {}
+ProjectDocument::ProjectDocument(std::shared_ptr<const Storage> storage, bool schema_validated)
+    : storage_(std::move(storage)), schema_validated_(schema_validated) {}
 
 ProjectDocument ProjectDocument::parse(std::string_view text) {
     if (text.find('\0') != std::string_view::npos) throw ProjectDocumentError("Unescaped NUL in project JSON.");
@@ -200,6 +201,7 @@ ProjectDocument ProjectDocument::parse(std::string_view text) {
 }
 
 std::string ProjectDocument::serialize() const {
+    if (!schema_validated_) validate_project(storage_->document);
     return storage_->document.dump(2) + '\n'; // Shortest round-trip double representation.
 }
 
@@ -256,4 +258,17 @@ ProjectDocument ProjectDocument::with_number(std::string_view json_pointer, doub
         return ProjectDocument(std::make_shared<Storage>(std::move(document)));
     } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing project path."); }
 }
+ProjectDocument ProjectDocument::with_calculation_numbers(const std::vector<std::pair<std::string, double>>& edits) const {
+    try {
+        auto document = storage_->document;
+        for (const auto& edit : edits) {
+            if (!std::isfinite(edit.second)) throw ProjectDocumentError("Calculation value must be finite.");
+            auto& target = document.at(Json::json_pointer(edit.first));
+            if (!target.is_number()) throw ProjectDocumentError("Calculation target is not numeric.");
+            target = edit.second;
+        }
+        return ProjectDocument(std::make_shared<Storage>(std::move(document)), false);
+    } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing calculation target."); }
+}
+
 }

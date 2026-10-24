@@ -1,6 +1,8 @@
 #include "remagx/project_fit.hpp"
 #include <algorithm>
 #include <cmath>
+#include <map>
+#include <optional>
 
 namespace remagx {
 namespace {
@@ -89,4 +91,72 @@ double fit_regularization(double error, double weight, const std::vector<double>
     }
     return total;
 }
+ProjectFitCandidate apply_project_fit_parameters(const ProjectDocument& project, const std::vector<double>& candidate) {
+    const size_t count = project.array_size("/fit/parameters");
+    require(candidate.size() == count, "Fit candidate and parameter counts differ.");
+    std::vector<double> values;
+    values.reserve(count);
+    for (size_t index = 0; index < count; ++index) {
+        const auto row = "/fit/parameters/" + std::to_string(index);
+        const double lower = project.number(row + "/lowerBound"), upper = project.number(row + "/upperBound");
+        require(std::isfinite(candidate[index]) && std::isfinite(lower) && std::isfinite(upper) && lower <= upper,
+            "Invalid fit candidate or bounds.");
+        values.push_back(bounded(candidate[index], lower, upper));
+    }
+    const auto indexed = [&](const std::string& array, const std::string& selector) -> std::optional<std::string> {
+        if (project.is_null(selector)) return std::nullopt;
+        const double index = project.number(selector);
+        if (!std::isfinite(index) || index < 0 || std::floor(index) != index || index >= static_cast<double>(project.array_size(array)))
+            return std::nullopt;
+        return array + "/" + std::to_string(static_cast<size_t>(index));
+    };
+    static const std::map<std::string, std::string> layer_fields{
+        {"thickness", "thickness"}, {"delta", "delta"}, {"beta", "beta"}, {"roughness", "roughness"},
+        {"deltaMag", "deltaMag"}, {"betaMag", "betaMag"}, {"electronEscapeDepth", "electronEscapeDepth"},
+        {"magnetizationGamma", "magnetization/gamma"}, {"magnetizationPhi", "magnetization/phi"}};
+    static const std::map<std::string, std::string> profile_fields{
+        {"profileDeltaAmplitude", "deltaAmplitude"}, {"profileBetaAmplitude", "betaAmplitude"},
+        {"profileWidth", "width"}, {"profileCenter", "center"}};
+    static const std::map<std::string, std::string> element_fields{
+        {"elementF1", "f1"}, {"elementF2", "f2"}, {"elementF1Mag", "f1Mag"}, {"elementF2Mag", "f2Mag"}};
+    static const std::map<std::string, std::string> slab_fields{
+        {"elementDensity", "density"}, {"elementThickness", "thickness"}, {"elementRoughness", "roughness"}};
+    std::vector<std::pair<std::string, double>> edits;
+    for (size_t index = 0; index < count; ++index) {
+        const auto row = "/fit/parameters/" + std::to_string(index);
+        const auto target = project.string(row + "/target");
+        const auto write = [&](const std::string& path) { edits.emplace_back(path, values[index]); };
+        bool assigned = false;
+        if (target == "angularResolution" || target == "intensityScale") {
+            if (target == "angularResolution") write("/experiment/resolution/angularFwhm");
+            for (size_t dataset = 0; dataset < project.array_size("/datasets"); ++dataset) {
+                const auto path = "/datasets/" + std::to_string(dataset);
+                if (project.boolean(path + "/active"))
+                    write(path + (target == "angularResolution" ? "/angularResolution" : "/intensityScale"));
+            }
+            assigned = true;
+        } else if (target == "qzShift" || target == "energyShift") {
+            if (const auto path = indexed("/datasets", "/activeDatasetIndex")) { write(*path + "/" + target); assigned = true; }
+        } else if (target == "scriptParameter") {
+            if (const auto path = indexed("/scripts/parameters", row + "/index")) write(*path);
+            // The active original explicitly skips missing script slots. Keep
+            // their bounded rows in optimizer candidates and Q regularization.
+            assigned = true;
+        } else if (const auto field = layer_fields.find(target); field != layer_fields.end()) {
+            if (const auto path = indexed("/sample/layers", row + "/index")) { write(*path + "/" + field->second); assigned = true; }
+        } else if (const auto field = profile_fields.find(target); field != profile_fields.end()) {
+            if (const auto path = indexed("/sample/depthProfileFunctions", row + "/index")) { write(*path + "/" + field->second); assigned = true; }
+        } else if (const auto path = indexed("/sample/elementProfiles", row + "/elementIndex")) {
+            if (const auto field = element_fields.find(target); field != element_fields.end()) {
+                write(*path + "/" + field->second); assigned = true;
+            } else if (const auto field = slab_fields.find(target); field != slab_fields.end()) {
+                if (const auto slab = indexed(*path + "/slabs", row + "/index")) { write(*slab + "/" + field->second); assigned = true; }
+            }
+        }
+        require(assigned, "Fit parameter has no supported target in the current project.");
+        write(row + "/value");
+    }
+    return {project.with_calculation_numbers(edits), std::move(values)};
+}
+
 }
