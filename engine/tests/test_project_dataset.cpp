@@ -1,0 +1,51 @@
+#include "remagx/project_dataset.hpp"
+#include "json.hpp"
+#include <cmath>
+#include <iostream>
+using Json = nlohmann::json;
+static std::vector<double> column(const Json& input, const char* name) {
+    if (!input.contains(name)) return {};
+    std::vector<double> values;
+    for (const auto& value : input.at(name))
+        values.push_back(value == "NaN" ? std::numeric_limits<double>::quiet_NaN() : value.get<double>());
+    return values;
+}
+int main() {
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        try {
+            const auto input = Json::parse(line);
+            const auto original = remagx::ProjectDocument::parse(input.at("project").get<std::string>());
+            const auto before = original.serialize();
+            auto current = original;
+            if (input.contains("edits")) {
+                std::vector<std::pair<std::string, double>> edits;
+                for (const auto& edit : input.at("edits")) edits.emplace_back(edit.at(0).get<std::string>(), edit.at(1).get<double>());
+                current = current.with_calculation_numbers(edits);
+            }
+            const double selected = input.at("index").get<double>();
+            if (selected < 0 || std::floor(selected) != selected || selected >= static_cast<double>(current.array_size("/datasets")))
+                throw remagx::ProjectDocumentError("Invalid test dataset index");
+            const auto prepared = remagx::prepare_fit_dataset(current, static_cast<size_t>(selected));
+            Json context{{"energy", prepared.project.number("/experiment/energy")},
+                {"angularFwhm", prepared.project.number("/experiment/resolution/angularFwhm")},
+                {"activeDatasetIndex", prepared.project.number("/activeDatasetIndex")},
+                {"useDatasetPoints", prepared.project.boolean("/experiment/qzScan/useDatasetPoints")}};
+            Json output{{"ok", true}, {"measurement", prepared.measurement}, {"errorMode", prepared.error_mode},
+                {"scan", prepared.energy_scan ? "energy" : "qz"}, {"beams", prepared.dichroic ? "dichroic" : "monochromatic"},
+                {"weight", prepared.weight}, {"context", context}};
+            try { output["project"] = Json::parse(prepared.project.serialize()); output["saveable"] = true; }
+            catch (const remagx::ProjectDocumentError&) { output["saveable"] = false; }
+            if (input.contains("curve")) {
+                try {
+                    const auto& curve = input.at("curve");
+                    const auto error = remagx::evaluate_fit_dataset(prepared, {column(curve, "qz"), column(curve, "energy"),
+                        column(curve, "plus"), column(curve, "minus"), column(curve, "asymmetry")});
+                    output["error"] = {{"ok", true}, {"mean", error.mean}, {"weighted", error.weighted}, {"accepted", error.accepted}};
+                } catch (const remagx::ProjectDocumentError&) { output["error"] = {{"ok", false}}; }
+            }
+            if (original.serialize() != before) throw std::runtime_error("Dataset preparation changed its input");
+            std::cout << output.dump() << '\n';
+        } catch (const std::exception&) { std::cout << "{\"ok\":false}\n"; }
+    }
+}

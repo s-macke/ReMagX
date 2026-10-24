@@ -162,3 +162,26 @@ semantics, duplicate/fixed rows, missing script slots, signed zero, failure
 atomicity and repeated invalid/valid candidates. It compares every numeric field,
 full serializable projects and the web schema's saveability result. These checks
 prove candidate mapping and the persistence boundary, not full fit convergence.
+
+
+## Fit measurements and dataset errors
+
+`prepare_fit_dataset` selects and validates one dataset, copies its energy, angular
+resolution and polarization into a calculation context, and retains raw stored
+columns. Measured columns apply shifts only above the original 1e-10 threshold,
+then offset/scale, qz^4, pure-pi correction, asymmetry reconstruction and averaging.
+Error modes follow available columns (R before A before paired beams), with
+separate energy modes. Fourier fitting rejects pending its semantics decision.
+
+`evaluate_fit_dataset` requires matching calculation coordinates and selected
+column lengths, calls the shared native error kernel, then applies dataset weight.
+A zero weight does not bypass validation. All arithmetic remains double; no
+measurement rounding or tolerance changes are introduced.
+
+The maintained `test-native-dataset.mjs` comparison covers 110 public cases against
+the actual web preparation and WASM error kernel, including all eight modes,
+combined postprocessing, averaging boundaries, tiny shifts, invalid candidates,
+coordinate mismatch, nonfinite curves, unknown metadata and unchanged input.
+This is measurement/error preparation only: curve calculation, serial optical/Lua
+state, total objective/Q, optimizer callbacks and fitted-project output remain
+separate native-fit integration work.

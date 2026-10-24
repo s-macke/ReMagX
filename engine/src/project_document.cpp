@@ -159,14 +159,18 @@ static void validate_value(const Json& value, const Json& schema, const std::str
     }
 }
 
-static void validate_project(const Json& document) {
+static const Json& project_schema() {
     static const Json schema = [] {
         auto result = Json::parse(project_schema_json);
         check_schema(result);
         return result;
     }();
+    return schema;
+}
+
+static void validate_project(const Json& document) {
     validate_envelope(document);
-    validate_value(document, schema, "");
+    validate_value(document, project_schema(), "");
 }
 
 ProjectDocument::ProjectDocument(std::shared_ptr<const Storage> storage, bool schema_validated)
@@ -269,6 +273,24 @@ ProjectDocument ProjectDocument::with_calculation_numbers(const std::vector<std:
         }
         return ProjectDocument(std::make_shared<Storage>(std::move(document)), false);
     } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing calculation target."); }
+}
+
+ProjectDocument ProjectDocument::for_fit_dataset(size_t index) const {
+    const auto& datasets = storage_->document.at("datasets");
+    if (index >= datasets.size()) throw ProjectDocumentError("Invalid fit dataset index.");
+    const auto& dataset = datasets.at(index);
+    validate_value(dataset, project_schema().at("properties").at("datasets").at("items"), "/datasets/" + std::to_string(index));
+    auto document = storage_->document;
+    document["activeDatasetIndex"] = static_cast<double>(index);
+    auto& experiment = document["experiment"];
+    experiment["energy"] = dataset.at("energy");
+    experiment["resolution"]["angularFwhm"] = dataset.at("angularResolution");
+    experiment["qzScan"]["useDatasetPoints"] = true;
+    Json polarization{{"analyzer", dataset.at("polarization").at("analyzer")}};
+    for (const auto* beam : {"beam1", "beam2"}) for (const auto* component : {"sigma", "pi"}) for (const auto* part : {"re", "im"})
+        polarization[beam][component][part] = dataset.at("polarization").at(beam).at(component).at(part);
+    experiment["polarization"] = std::move(polarization);
+    return ProjectDocument(std::make_shared<Storage>(std::move(document)), false);
 }
 
 }

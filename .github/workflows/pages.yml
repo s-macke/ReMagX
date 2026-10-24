@@ -105,6 +105,7 @@ jobs:
           node scripts/test-native-import.mjs ../build/engine/legacy_import_tests
           node scripts/test-native-fit-space.mjs ../build/engine/project_fit_tests
           node scripts/test-native-fit-parameters.mjs ../build/engine/project_fit_tests
+          node scripts/test-native-dataset.mjs ../build/engine/project_dataset_tests ../build/wasm
           node scripts/test-native-terminal.mjs ../build/engine/remagx-terminal ../build/wasm
       - run: npm run lint
       - run: npm test
