@@ -42,6 +42,7 @@ exports the static site plus engine artifacts. Local builds do not require Docke
 ## Documentation
 
 - `AGENTS.md`: rules for contributors and agents, and the checklist of done and open work
+- `engine/NATIVE_PROJECT.md`: native JSON document support and its remaining validation boundaries
 
 - `docs/analysis/legacy-reMagX3-analysis.md`: analysis of the legacy ReMagX 2.6 code
 - `docs/brainstorm/2026-10-15-remagx-web-app-refactoring/spec.md`: design spec
