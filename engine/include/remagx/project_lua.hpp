@@ -5,6 +5,9 @@
 #include <array>
 #include <string>
 namespace remagx {
+struct ScriptSolution {
+    std::vector<double> qz, reflectivity, reflectivity_plus, reflectivity_minus, energy;
+};
 struct ScriptDielectricTensor {
     std::array<double, 18> values;
     bool anisotropic;
@@ -13,7 +16,7 @@ struct ScriptHookValues {
     double energy, epsilon, resolution, energy_scan_qz, renew_optical_constants;
 };
 // Calculation-owned Lua 5.4 session with isolated numeric arrays and elements.
-// Solution/function bindings and calculation hooks are still required
+// Project functions and calculation hooks are still required
 // before this bridge can enable CLI scripts.
 class ProjectLuaSession {
 public:
@@ -23,6 +26,9 @@ public:
     ScriptHookValues run_hook(const ScriptHookValues& input);
     void install_project_arrays(const ProjectDocument& project);
     ProjectDocument project_snapshot() const;
+    void install_solution();
+    void replace_solution(const ScriptSolution& solution);
+    ScriptSolution solution_snapshot() const;
     void install_tensors(const std::vector<ScriptDielectricTensor>& tensors);
     void replace_tensors(const std::vector<ScriptDielectricTensor>& tensors);
     std::vector<ScriptDielectricTensor> tensor_snapshot() const;

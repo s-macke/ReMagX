@@ -140,6 +140,38 @@ try {
     requests.push({project: JSON.stringify(project), ...test, tensors: initialTensors, repeat: 2})
   }
   assert.equal(expected.filter(result => result.ok).length, 19)
+  const { createScriptSolutionWorkspace } = await server.ssrLoadModule('/src/model/scriptSolution.ts')
+  const initialSolution = {qz: [0.01,0.02], reflectivity: [0.5,0.25], reflectivityPlus: [0.6,0.3],
+    reflectivityMinus: [0.4,0.2], energy: [7000,8000]}
+  const replacementSolution = Object.fromEntries(Object.entries(initialSolution).map(([key, values]) => [key, [...values, values[1]]]))
+  const solutionCases = [
+    {source: "assert(array.size(solution_qz)==-1); solution_R[1]=solution_Rp[1]+solution_Rm[1]; solution_energy[0]=7100; solution_qz[0]=0.015"},
+    {source: "calls=(calls or 0)+1; saved=saved or array.new(-1,7); saved[calls]=0.125; par[0]=saved[calls]", replacementSolution},
+    {source: "local a=array.new(-1,3); a[1]=123; assert(thickness[1]==123)"},
+    {source: "local a=array.new(-1,3); a[2]=123"},
+    {source: "solution_R[1]=0.2", solution: {...initialSolution, reflectivity: []}},
+    {source: "solution_energy[2]=7000", solution: {...initialSolution, energy: [1,2,3]}},
+    {source: "solution_R[0]=0/0"},
+  ]
+  for (const test of solutionCases) {
+    const workspace = createScriptArrayWorkspace(project)
+    const solution = createScriptSolutionWorkspace()
+    const initial = test.solution ?? initialSolution
+    solution.replace(initial)
+    const session = await runtime.createSession()
+    try {
+      session.installArrays(new Map([...workspace.arrays, ...solution.arrays]), solution.dynamicMaximumIndex)
+      session.installElements(workspace.elements); session.compile(test.source, 'BeforeCalculation')
+      let result
+      for (let index = 0; index < 2; ++index) {
+        if (index && test.replacementSolution) solution.replace(test.replacementSolution)
+        result = session.runHook(hook)
+      }
+      expected.push(JSON.parse(JSON.stringify({ok:true, project:workspace.snapshot(), hook:result, solution:solution.snapshot()})))
+    } catch { expected.push({ok:false}) } finally { session.close() }
+    requests.push({project:JSON.stringify(project), ...test, solution:initial, repeat:2})
+  }
+  assert.equal(expected.filter(result => result.ok).length, 22)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),
@@ -150,5 +182,5 @@ try {
   assert.equal(run.status, 0, run.stderr || String(run.error))
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
   assert.deepEqual(actual, expected)
-  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length} parity cases and one native protected-readback case passed.`)
+  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length} parity cases and one native protected-readback case passed.`)
 } finally { await server.close() }

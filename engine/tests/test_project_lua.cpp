@@ -7,6 +7,11 @@ std::vector<remagx::ScriptDielectricTensor> tensors(const Json& input) {
     for (const auto& tensor : input) result.push_back({tensor.at("values").get<std::array<double,18>>(), tensor.at("anisotropic").get<bool>()});
     return result;
 }
+remagx::ScriptSolution solution(const Json& input) {
+    return {input.at("qz").get<std::vector<double>>(), input.at("reflectivity").get<std::vector<double>>(),
+        input.at("reflectivityPlus").get<std::vector<double>>(), input.at("reflectivityMinus").get<std::vector<double>>(),
+        input.at("energy").get<std::vector<double>>()};
+}
 int main() {
     std::string line;
     while (std::getline(std::cin, line)) {
@@ -24,6 +29,9 @@ int main() {
                 session.install_tables(tables);
             }
             if (input.contains("tensors")) session.install_tensors(tensors(input.at("tensors")));
+            if (input.contains("solution")) {
+                session.install_solution(); session.replace_solution(solution(input.at("solution")));
+            }
             session.compile(input.at("source").get<std::string>(), true);
             const remagx::ScriptHookValues values{8000, 1e-12, .001, .03, 1};
             auto result = values;
@@ -31,6 +39,7 @@ int main() {
                 if (index && input.contains("replacement"))
                     session.replace_project(remagx::ProjectDocument::parse(input.at("replacement").get<std::string>()), 1);
                 if (index && input.contains("replacementTensors")) session.replace_tensors(tensors(input.at("replacementTensors")));
+                if (index && input.contains("replacementSolution")) session.replace_solution(solution(input.at("replacementSolution")));
                 result = session.run_hook(input.value("workspace", false) ? session.begin_hook() : values);
                 if (input.value("workspace", false)) session.apply_hook(result);
             }
@@ -43,6 +52,11 @@ int main() {
                 response["tensors"] = Json::array();
                 for (const auto& tensor : session.tensor_snapshot())
                     response["tensors"].push_back({{"values", tensor.values}, {"anisotropic", tensor.anisotropic}});
+            }
+            if (input.contains("solution")) {
+                const auto current = session.solution_snapshot();
+                response["solution"] = {{"qz",current.qz}, {"reflectivity",current.reflectivity},
+                    {"reflectivityPlus",current.reflectivity_plus}, {"reflectivityMinus",current.reflectivity_minus}, {"energy",current.energy}};
             }
             std::cout << response.dump() << '\n';
         } catch (const std::exception&) { std::cout << "{\"ok\":false}\n"; }
