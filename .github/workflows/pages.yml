@@ -40,9 +40,12 @@ jobs:
           python3 -m unittest discover -s ../tools/golden/legacy -p 'test_*.py'
           python3 -m unittest discover -s ../tools/data -p 'test_*.py'
 
+      - name: Install native Lua development library
+        run: sudo apt-get update && sudo apt-get install -y liblua5.4-dev
+
       - name: Build and test native numerical core
         run: |
-          cmake -S ../engine -B ../build/engine -DCMAKE_BUILD_TYPE=Release
+          cmake -S ../engine -B ../build/engine -DCMAKE_BUILD_TYPE=Release -DREMAGX_BUILD_NATIVE_LUA=ON
           build_log="$RUNNER_TEMP/remagx-native-build.log"
           if ! cmake --build ../build/engine --parallel 2 > "$build_log" 2>&1; then
             python3 - "$build_log" <<'PYTHON'
@@ -117,6 +120,7 @@ jobs:
             return 1
           }
           run_native_check node scripts/export-project-schema.mjs --check
+          run_native_check node scripts/test-native-lua.mjs ../build/engine/project_lua_tests
           run_native_check node scripts/test-native-project.mjs ../build/engine/project_document_tests
           run_native_check node scripts/test-native-assignments.mjs ../build/engine/legacy_assignment_tests
           run_native_check node scripts/test-native-import.mjs ../build/engine/legacy_import_tests
