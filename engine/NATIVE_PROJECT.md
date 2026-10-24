@@ -107,3 +107,29 @@ and other unsupported calculation capabilities still reject explicitly.
 The maintained `test-native-assignments.mjs` check compares 1,372 public/synthetic
 inputs against production web tokenization and its number-prefix rules, and runs
 in Pages CI. Native project-schema and numerical gates remain separate.
+
+## Native fit initialization
+
+`ProjectFitSpace` prepares the same dimensionless axis simplex as the web's real
+fit runner. It clips starting values with ordered lower/upper comparisons,
+retains fixed rows outside the free dimensions, ignores saved step metadata and
+uses the legacy five-percent initialization rule with its documented fallbacks.
+Adjacent/subnormal intervals retain a distinct endpoint when a computed addition
+cannot move the origin. Decoding preserves zero-coordinate origins exactly and
+rejects nonfinite candidates; `bound` clips only at candidate application time.
+An empty simplex means the eventual runner must evaluate the fixed candidate once.
+
+`fit_regularization` consumes an explicit reference vector and retains the
+candidate-based `abs(value) < 1e-6` threshold and ordered multiplication/accumulation
+from the original objective. The caller must maintain the different ordinary
+Simplex and annealing reference lifetimes; this helper does not invent or update
+the reference. Nonfinite inputs/results reject, including invalid vectors when Q
+is zero. No parameter or project is mutated.
+
+These are preparation components, not a finished `-fit` command. Parameter-to-field
+updates, serial dataset/optical/script evaluation, optimizer callbacks, result
+selection and fitted JSON output remain to be connected. The public
+`test-native-fit-space.mjs` gate compares 259 synthetic cases with the production
+web preparation, including fixed/mixed scales, duplicate targets, clipping,
+signed zero, adjacent/subnormal bounds, overflow and Q thresholds. No original
+optimizer source or trajectory equivalence is involved.
