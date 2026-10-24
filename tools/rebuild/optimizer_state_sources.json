@@ -1,0 +1,8 @@
+{
+  "sha256": {
+    "CChiSquareFit.h": "6fa6e2c2d8e42f3d6ce99a6710b07a5d69540dfbdf563cb576cbc08da8475f8c",
+    "CVector.h": "1824aaf04b4492f58478545ac3415e470fefebcdea2541ff410f53ce9d1e82be",
+    "random/mtrand.h": "34d72c972e36d8ebed733f7dd9310bc9011af5efc0f9d482ea0bdcd4ad70f852",
+    "random/mtrand.cpp": "58622251c5be4c6bd03b2674d293a6dcf3397b396ba6391cd5d853a8ad1d111e"
+  }
+}
