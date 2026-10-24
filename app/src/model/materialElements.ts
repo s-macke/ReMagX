@@ -1,3 +1,4 @@
+import { prepareCompoundLayerIndices } from './compoundLayers'
 import { legacyAtomicMasses } from './legacyAtomicMasses'
 import { fitTargetInfo } from './fitTargets'
 import { elementProfileSchema, type ElementProfile, type Project } from './project'
@@ -29,12 +30,13 @@ export function formulaContributions(formula: string, density: number) {
   return { contributions, warnings }
 }
 
-// Invoked only by the worker; callers must supply an already expanded material stack.
+// Original Material2ElementsButtonOkClick expands the material stack first,
+// then writes back only the generated element profiles.
 export function convertMaterialElements(project: Project): ElementConversion {
-  if (project.sample.multilayer.enabled) throw new Error('Material to Elements needs multilayer-script expansion, which is not implemented yet.')
+  const layers = prepareCompoundLayerIndices(project).map(index => project.sample.layers[index])
   const elements: ElementProfile[] = []
   const warnings: string[] = []
-  project.sample.layers.forEach((layer, index) => {
+  layers.forEach((layer, index) => {
     if (!layer.material || layer.density === 0) { warnings.push(`Layer ${index}: empty formula or zero density contributes no elements.`); return }
     try {
       const result = formulaContributions(layer.material, layer.density)
@@ -42,7 +44,7 @@ export function convertMaterialElements(project: Project): ElementConversion {
       for (const contribution of result.contributions) {
         let element = elements.find(element => element.element === contribution.symbol)
         if (!element) {
-          element = { element: contribution.symbol, f1: 0, f2: 0, f1Mag: 0, f2Mag: 0, slabs: project.sample.layers.map(layer => ({ thickness: layer.thickness, roughness: layer.roughness, density: 0 })) }
+          element = { element: contribution.symbol, f1: 0, f2: 0, f1Mag: 0, f2Mag: 0, slabs: layers.map(layer => ({ thickness: layer.thickness, roughness: layer.roughness, density: 0 })) }
           elements.push(element)
         }
         element.slabs[index].density = contribution.density
@@ -53,7 +55,8 @@ export function convertMaterialElements(project: Project): ElementConversion {
 }
 
 export function applyElementConversion(project: Project, result: ElementConversion): { project: Project; removedFits: number } {
-  if (!result.elements.length || result.elements.some(element => !elementProfileSchema.safeParse(element).success || element.slabs.length !== project.sample.layers.length)) throw new Error('No valid element stacks were generated.')
+  const expectedLayerCount = prepareCompoundLayerIndices(project).length
+  if (!result.elements.length || result.elements.some(element => !elementProfileSchema.safeParse(element).success || element.slabs.length !== expectedLayerCount)) throw new Error('No valid element stacks were generated.')
   const parameters = project.fit.parameters.filter(parameter => !['element', 'elementSlab'].includes(fitTargetInfo[parameter.target].index))
   return { project: { ...project, sample: { ...project.sample, mode: 'element', elementProfiles: structuredClone(result.elements) }, fit: { ...project.fit, parameters } }, removedFits: project.fit.parameters.length - parameters.length }
 }
