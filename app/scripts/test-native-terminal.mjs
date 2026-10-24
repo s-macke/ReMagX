@@ -8,6 +8,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createServer } from 'vite'
 import * as adapter from '../../engine/wasm/parratt.mjs'
+import * as segmentation from '../../engine/wasm/segmentation.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const executable = resolve(process.argv[2] ?? resolve(root, 'build/engine/remagx-terminal'))
@@ -15,6 +16,12 @@ const wasm = resolve(process.argv[3] ?? resolve(root, 'build/wasm'))
 const { default: createCore } = await import(pathToFileURL(resolve(wasm, 'remagx-core.mjs')))
 const instance = await createCore()
 const engine = {
+  segmentation: {
+    errorSamples: Array.from(adapter.generateErrorFunctionLookup(instance)),
+    sample: request => segmentation.calculateSegmentedOptics(instance, request),
+    prepareSampler: request => segmentation.createSegmentedOpticalSampler(instance, request),
+    subdivide: request => segmentation.calculateAdaptiveSegments(instance, request),
+  },
   calculate: request => adapter.calculateParrattQz(instance, request),
   zakQz: request => adapter.calculateZakQz(instance, request),
   matrixQz: request => adapter.calculateVisnovskyQz(instance, request),
@@ -195,6 +202,29 @@ try {
     dichroic.experiment.resolution.energyFwhm = dichroic.experiment.energy * 2
     await compare(dichroic, true) // no energy sampling in this original entry point
   }
+  for (const scope of ['global', 'local']) for (const algorithm of ['parratt', 'matrix', 'zak']) {
+    for (const dichroic of [false, true]) {
+      const project = structuredClone(base)
+      project.calculation.algorithm = algorithm
+      project.calculation.roughnessModel = 'segmentation'
+      project.calculation.segmentation = { ...project.calculation.segmentation, scope, minThickness: 2, maxThickness: 8, gradientScale: 1 }
+      project.calculation.magnetization.mode = 'add'
+      project.calculation.epsilon = 1e-12
+      project.sample.layers = [project.sample.layers[0], project.sample.layers[1], project.sample.layers.at(-1)]
+      project.sample.layers[0].roughness = 11
+      project.sample.layers[1].roughness = 13
+      project.sample.layers[1].thickness = 12
+      project.sample.multilayer = { enabled: true, pattern: '2*(1)' }
+      project.datasets = [{ ...structuredClone(dataset), qzShift: 0, columns: { qz: [0.01, 0.02, 0.05, 0.1] } }]
+      project.activeDatasetIndex = 0
+      project.experiment.qzScan.useDatasetPoints = true
+      await compare(project, dichroic)
+      if (scope === 'global' && algorithm === 'matrix' && !dichroic) {
+        project.experiment.resolution.energyFwhm = 10
+        await compare(project, false)
+      }
+    }
+  }
   const tensor = Array.from(adapter.calculateDielectricTensor(instance, {
     layer: [50, 1, 0.002, 0.0002, 0.00003, 0.00001, 37, 63], tensor: 0, magnetic: 1,
   }).values)
@@ -232,6 +262,24 @@ try {
       project.activeDatasetIndex = 0
       project.experiment.qzScan.useDatasetPoints = true
       await compare(project, dichroic, tables)
+      if (variant === 'tensor' && algorithm === 'matrix' && !dichroic) {
+        const segmented = structuredClone(project)
+        segmented.sample.layers = [segmented.sample.layers[0], segmented.sample.layers[1], segmented.sample.layers.at(-1)]
+        segmented.sample.layers[0].roughness = 11
+        segmented.sample.layers[1].roughness = 13
+        segmented.sample.layers[1].thickness = 12
+        for (const layer of segmented.sample.layers) {
+          const prepared = adapter.calculateDielectricTensor(instance, {
+            layer: [layer.thickness, layer.roughness, layer.delta, layer.beta, layer.deltaMag, layer.betaMag,
+              layer.magnetization.gamma, layer.magnetization.phi], tensor: 0, magnetic: 1,
+          })
+          layer.dielectricTensor = { values: Array.from(prepared.values), anisotropic: prepared.anisotropic }
+        }
+        segmented.calculation.roughnessModel = 'segmentation'
+        segmented.calculation.segmentation = { ...segmented.calculation.segmentation,
+          scope: 'global', minThickness: 2, maxThickness: 8, gradientScale: 1 }
+        await compare(segmented, false, tables)
+      }
       if (!dichroic) {
         project.experiment.resolution.energyFwhm = 75
         project.calculation.postProcessing.multiplyByQz4 = true
@@ -273,7 +321,9 @@ try {
     project => { project.sample.multilayer = { enabled: true, pattern: '2*(1' } },
     project => { project.sample.multilayer = { enabled: true, pattern: '100000*(1)' } },
     project => { project.sample.multilayer = { enabled: true, pattern: '0*(999)' } },
-    project => { project.calculation.roughnessModel = 'segmentation' },
+    project => { project.calculation.roughnessModel = 'segmentation'; project.calculation.segmentation.minThickness = 0 },
+    project => { project.calculation.roughnessModel = 'segmentation'; project.calculation.magnetization.mode = 'profile' },
+    project => { project.calculation.roughnessModel = 'segmentation'; project.calculation.segmentation.minThickness = 100000; project.calculation.segmentation.maxThickness = 100000 },
     project => { project.scripts.enabled = true; project.scripts.beforeCalculation = 'error("private diagnostic")' },
     project => { project.experiment.scattering = 'transmission' },
     project => { project.calculation.postProcessing.fourierTransform = true; project.experiment.qzScan.qzMax = 0 },

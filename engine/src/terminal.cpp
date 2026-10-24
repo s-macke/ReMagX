@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
     if (argc == 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
         std::cout << "Usage: remagx-terminal -refl|-dicrefl project.json\n"
                      "       remagx-terminal -v\n"
-                     "Manual or automatic compound constants, Nevot-Croce, Parratt/Matrix/Zak.\n"
+                     "Manual/automatic compound constants, Nevot-Croce/adaptive, Parratt/Matrix/Zak.\n"
                      "Output: qz R, or qz Rp Rm; 17 significant digits.\n"
                      "Generated qz grid: 0..qzMax inclusive (original terminal behavior).\n"
                      "Legacy .all, -fit and -convert integration remains pending.\n";

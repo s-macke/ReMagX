@@ -1,6 +1,7 @@
 #include "remagx/project_calculation.hpp"
 #include "remagx/core.h"
 #include "remagx/compound_layers.hpp"
+#include "project_segmentation.hpp"
 #include <numeric>
 #include <algorithm>
 #include <array>
@@ -89,7 +90,9 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
         const auto script = project.string("/scripts/beforeCalculation");
         require(script.find_first_not_of(" \t\n\r\f\v") == std::string::npos, "Native terminal BeforeCalculation Lua execution is not integrated yet.");
     }
-    require(project.string("/calculation/roughnessModel") == "nevot-croce", "Native terminal adaptive segmentation is not integrated yet.");
+    const bool segmented = project.string("/calculation/roughnessModel") == "segmentation";
+    require(!segmented || project.string("/calculation/magnetization/mode") != "profile",
+        "Native terminal segmented magnetic-profile application is not integrated yet.");
     const bool fourier = project.boolean("/calculation/postProcessing/fourierTransform");
     require(!fourier || !dichroic, "Dichroic Fourier processing remains unavailable pending the legacy column-semantics decision.");
     const double average_width = project.number("/calculation/averaging");
@@ -133,7 +136,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
         indices.resize(stored_count);
         std::iota(indices.begin(), indices.end(), 0);
     }
-    const size_t count = indices.size();
+    size_t count = indices.size();
     std::vector<RemagxLayer> stored_layers;
     const bool continuing = previous && !previous->layers.empty();
     auto tensors = continuing ? previous->tensors : std::vector<std::array<double, 18>>(stored_count);
@@ -202,15 +205,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     const int magnetic = project.string("/calculation/magnetization/mode") == "none" ? 0 : 1;
     const int mode = dichroic ? REMAGX_DICHROIC : REMAGX_MONOCHROMATIC;
     const double width = project.number("/experiment/resolution/angularFwhm");
-    std::vector<RemagxReflectivity> values(result.qz.size());
-    if (algorithm == "parratt") {
-        status_check(remagx_parratt_qz_resolution(layers.data(), count, result.qz.data(), result.qz.size(), energy,
-            &first, second_pointer, tensor, analyzer, magnetic, mode, width, fast, values.data()));
-    } else if (algorithm == "zak") {
-        status_check(remagx_zak_qz_resolution(layers.data(), count, result.qz.data(), result.qz.size(), energy,
-            magnetic, &first, second_pointer, analyzer, mode, width, fast, values.data()));
-    } else {
-        std::vector<RemagxMatrixLayer> matrix;
+    std::vector<RemagxMatrixLayer> matrix;
+    if (algorithm == "matrix") {
         matrix.reserve(count);
         for (size_t position = 0; position < layers.size(); ++position) {
             const auto& layer = layers[position];
@@ -226,6 +222,19 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
             }
             matrix.push_back(prepared);
         }
+    }
+    if (segmented) {
+        segment_project_layers(project, layers, matrix);
+        count = layers.size();
+    }
+    std::vector<RemagxReflectivity> values(result.qz.size());
+    if (algorithm == "parratt") {
+        status_check(remagx_parratt_qz_resolution(layers.data(), count, result.qz.data(), result.qz.size(), energy,
+            &first, second_pointer, tensor, analyzer, magnetic, mode, width, fast, values.data()));
+    } else if (algorithm == "zak") {
+        status_check(remagx_zak_qz_resolution(layers.data(), count, result.qz.data(), result.qz.size(), energy,
+            magnetic, &first, second_pointer, analyzer, mode, width, fast, values.data()));
+    } else {
         status_check(remagx_visnovsky_qz_resolution(matrix.data(), count, result.qz.data(), result.qz.size(), energy,
             project.number("/calculation/epsilon"), &first, second_pointer, analyzer, mode, width, fast, values.data()));
     }

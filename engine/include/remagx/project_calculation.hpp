@@ -11,7 +11,8 @@ struct ProjectCurve {
     std::vector<std::string> warnings;
 };
 // Native terminal coordinates (0..qzMax inclusive), distinct from the web grid.
-// Current integration: manual/automatic compound constants, Nevot-Croce, three solvers,
+// Current integration: manual/automatic compound constants, Nevot-Croce/adaptive
+// roughness, three solvers,
 // multilayer expansion, angular/monochromatic energy convolution and postprocessing
 // (monochromatic Fourier only). Other preparation rejects explicitly.
 // No input mutation and no partial curve on failure.

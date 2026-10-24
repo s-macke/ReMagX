@@ -15,7 +15,7 @@ build/engine/remagx-terminal -dicrefl project.json
 
 Input is a validated version-1 JSON project saved by the web app. The supported
 calculation path currently requires compound mode, manual or automatic optical constants,
-Nevot–Croce roughness and no nonempty enabled BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
+Nevot–Croce or adaptive compound roughness and no nonempty enabled BeforeCalculation script. Parratt, Matrix and Zak support both complex beams,
 analyzers, magnetic/tetragonal settings and exact/fast angular convolution.
 Manual preparation rebuilds dielectric tensors from scalar values, as the web
 engine does; stored automatic tensor overrides are ignored in manual mode.
@@ -29,6 +29,21 @@ terminates parsing). The web parser's safe-integer, depth-128 and 100,000-layer
 limits apply; malformed/out-of-range/oversized patterns fail without partial
 output. Each repeated row copies all optical values, roughness and local magnetic
 directions before Matrix tensor construction.
+
+Adaptive compound segmentation composes the existing native density sampler and
+subdivision core with the approved full-double error-function lookup. Global and
+local overlap models retain their distinct tensor arithmetic, including four
+independent reusable tensor states. Depth bounds, exclusion of ambient from the
+anisotropy classification scan, zero generated roughness and default 90° magnetic
+directions follow the existing web/original preparation. Imported or retained
+matrix tensors are prepared before sampling. Expanded multilayer stacks are
+segmented separately at each energy sample; stored input layers remain intact.
+
+Generated stacks are limited to one million rows. Invalid minimum/maximum steps,
+numerical sampling errors or a single generated row reject before output. Single
+row support remains a separate physics decision. Segmentation with magnetic
+profile mode currently rejects explicitly until its native profile application
+is integrated; ordinary stored/additive magnetization is supported.
 
 Automatic compound constants use `.db` (delta/beta), `.m` (magnetic constants)
 and `.e` (18 tensor components) files. Like the original terminal, names resolve
@@ -93,7 +108,7 @@ does not use this energy broadening setting. Broadening together with Fourier
 remains explicitly unavailable, as in the web implementation, pending review of
 the original mismatched array lengths.
 
-Element tables/preparation, segmented preparation, Lua,
+Element tables/preparation, segmented magnetic-profile application, Lua,
 legacy `.all` import, energy scans, `-fit` fitted-project output, filesystem
 transactions and `-convert` remain to be integrated. `-map` follows the separately
 agreed map implementation. Unsupported commands/settings report an error; they
@@ -114,12 +129,14 @@ Validation uses public synthetic projects only:
 node app/scripts/test-native-terminal.mjs build/engine/remagx-terminal build/wasm
 ```
 
-236 cases compare 2,675 output values with actual WASM through the production web
+250 cases compare 2,755 output values with actual WASM through the production web
 preparation at unchanged D-23 tolerance. They cover all three solvers, both modes,
 complex beams, analyzers, both angular convolution paths, tetragonal/nonmagnetic
 settings, qz^4, polarization correction with independent dataset/solver metadata,
 monochromatic Fourier, energy-width thresholds, both angular convolution paths
-combined with energy broadening, serial partial table refresh, averaging,
+combined with energy broadening, serial partial table refresh, global/local
+segmentation across all solvers/modes, segmented Matrix energy broadening and
+imported tensor composition, averaging,
 shifted/unsorted/repeated coordinates and eight
 multilayer patterns across all solvers and both output modes. Dedicated native
 parser tests cover limits, empty groups, nested patterns, ignored characters,
