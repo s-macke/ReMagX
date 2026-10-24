@@ -70,6 +70,7 @@ std::vector<double> terminal_coordinates(const ProjectDocument& project) {
     finite_column(result.qz);
     return result.qz;
 }
+enum class CalculationContext { terminal, fit_dataset, fit_energy_sample };
 struct OpticalState {
     std::vector<RemagxLayer> layers;
     std::vector<std::array<double, 18>> tensors;
@@ -82,7 +83,8 @@ struct OpticalState {
 
 static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroic,
     const std::vector<OpticalTable>& tables, const std::vector<double>* coordinates = nullptr,
-    double sample_energy = 0, OpticalState* previous = nullptr) {
+    double sample_energy = 0, OpticalState* previous = nullptr,
+    CalculationContext context = CalculationContext::terminal) {
     const auto algorithm = project.string("/calculation/algorithm");
     require(algorithm == "parratt" || algorithm == "matrix" || algorithm == "zak", "This solver is unavailable in the native terminal.");
     const bool element_mode = project.string("/sample/mode") == "element";
@@ -96,7 +98,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     const bool fourier = project.boolean("/calculation/postProcessing/fourierTransform");
     require(!fourier || !dichroic, "Dichroic Fourier processing remains unavailable pending the legacy column-semantics decision.");
     const double average_width = project.number("/calculation/averaging");
-    require(average_width <= 2147483647.0, "Moving-average half-width exceeds the supported range.");
+    require(std::isfinite(average_width) && average_width >= 0 && std::floor(average_width) == average_width && average_width <= 2147483647.0, "Moving-average half-width exceeds the supported range.");
 
     ProjectCurve result;
     // Original terminal creates a default CDataSet or copies the selected one.
@@ -106,7 +108,11 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     std::vector<double> correction_energies;
     result.qz = coordinates ? *coordinates : terminal_coordinates(project);
     finite_column(result.qz);
-    if (!coordinates && project.boolean("/experiment/qzScan/useDatasetPoints")) {
+    if (context == CalculationContext::fit_dataset) {
+        correction_first = beam(project, "/experiment/polarization/beam1");
+        correction_second = beam(project, "/experiment/polarization/beam2");
+        correction_energy = project.number("/experiment/energy");
+    } else if (!coordinates && project.boolean("/experiment/qzScan/useDatasetPoints")) {
         const auto selected = static_cast<size_t>(project.number("/activeDatasetIndex"));
         const std::string dataset = "/datasets/" + std::to_string(selected);
         const size_t count = result.qz.size();
@@ -264,8 +270,15 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
         }
         result.plus.push_back(plus);
         result.minus.push_back(minus);
+        if (context != CalculationContext::terminal) {
+            const bool difference = project.string("/calculation/asymmetryDefinition") == "difference";
+            result.asymmetry.push_back(difference ? plus - minus : plus + minus != 0 ? (plus - minus) / (plus + minus) : 0);
+        }
     }
     finite_column(result.plus); finite_column(result.minus);
+    finite_column(result.asymmetry);
+    average(result.asymmetry, static_cast<size_t>(average_width));
+    finite_column(result.asymmetry);
     average(result.plus, static_cast<size_t>(average_width));
     average(result.minus, static_cast<size_t>(average_width));
     finite_column(result.plus); finite_column(result.minus);
@@ -279,9 +292,11 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
     return result;
 }
 
-ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic, const std::vector<OpticalTable>& tables) {
+static ProjectCurve calculate_qz(const ProjectDocument& project, bool dichroic, const std::vector<OpticalTable>& tables,
+    const std::vector<double>* fit_coordinates = nullptr) {
     const double width = project.number("/experiment/resolution/energyFwhm");
-    if (dichroic || width <= 1e-6) return calculate_inner(project, dichroic, tables);
+    if (dichroic || width <= 1e-6) return calculate_inner(project, dichroic, tables, fit_coordinates,
+        project.number("/experiment/energy"), nullptr, fit_coordinates ? CalculationContext::fit_dataset : CalculationContext::terminal);
     require(!project.boolean("/calculation/postProcessing/fourierTransform"),
         "Energy broadening with Fourier processing remains unavailable pending review of the original array lengths.");
     // Same active quadrature as angular_resolution.cpp and the web wrapper.
@@ -295,7 +310,7 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
       .102646753546022, .0803509037851472, .0570286832606567, .0366987921471986,
       .0214123599246999, .0113273887261945, .00543307167196355, .00377799105508597};
     ProjectCurve result;
-    result.qz = terminal_coordinates(project);
+    result.qz = fit_coordinates ? *fit_coordinates : terminal_coordinates(project);
     result.plus.assign(result.qz.size(), 0);
     result.minus.assign(result.qz.size(), 0);
     const double energy = 12398.326 / (12398.326 / project.number("/experiment/energy"));
@@ -317,14 +332,25 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
         std::vector<double> coordinates;
         coordinates.reserve(angles.size());
         for (double angle : angles) coordinates.push_back(2 * current_wave * std::sin(angle));
-        const auto current = calculate_inner(project, false, tables, &coordinates, current_energy, &state);
+        const auto current = calculate_inner(project, false, tables, &coordinates, current_energy, &state,
+            fit_coordinates ? CalculationContext::fit_energy_sample : CalculationContext::terminal);
         require(current.plus.size() == result.plus.size(), "Energy broadening changed the sample array length.");
         for (size_t point = 0; point < result.plus.size(); ++point)
             result.plus[point] += weights[sample] * current.plus[point];
+        if (fit_coordinates) { result.minus = current.minus; result.asymmetry = current.asymmetry; }
         for (const auto& warning : current.warnings)
             if (seen_warnings.insert(warning).second) result.warnings.push_back(warning);
     }
     finite_column(result.plus);
     return result;
+}
+
+ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic, const std::vector<OpticalTable>& tables) {
+    return calculate_qz(project, dichroic, tables);
+}
+ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset, const std::vector<OpticalTable>& tables) {
+    require(!dataset.energy_scan, "Native fit energy-scan integration is not available yet.");
+    require(!dataset.project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier fitting remains unavailable.");
+    return calculate_qz(dataset.project, dataset.dichroic, tables, &dataset.measurement.at("qz"));
 }
 }

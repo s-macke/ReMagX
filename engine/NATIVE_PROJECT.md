@@ -185,3 +185,23 @@ coordinate mismatch, nonfinite curves, unknown metadata and unchanged input.
 This is measurement/error preparation only: curve calculation, serial optical/Lua
 state, total objective/Q, optimizer callbacks and fitted-project output remain
 separate native-fit integration work.
+
+
+## Native qz fit curves
+
+`calculate_fit_dataset_qz` connects prepared measurement coordinates and dataset
+context to the existing three native solvers, including angular convolution,
+compound segmentation and monochromatic energy broadening. It computes asymmetry
+after qz^4/polarization corrections and before independent moving averages, as
+CDataSet::PostModifications does. Terminal grid/default metadata semantics remain
+separate. Energy-broadened fits preserve the web wrapper's last-sample secondary
+columns while accumulating the monochromatic curve over nineteen samples.
+
+The public `test-native-fit-curves.mjs` gate compares 108 calculations and their
+weighted dataset errors with production web preparation and actual WASM: all three
+solvers, logarithmic/linear/asymmetry/paired errors, unsorted duplicate coordinates,
+thresholded shifts, complex polarization/analyzer, exact/fast angular convolution,
+segmentation, averaging and energy broadening with polarization corrections.
+Unsupported native Lua and energy-scan requests reject explicitly, followed by
+successful recovery in the same process. This API calculates one qz dataset; it
+does not yet supply the serial fit state or a complete command-line fit runner.

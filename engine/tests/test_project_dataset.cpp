@@ -1,4 +1,5 @@
 #include "remagx/project_dataset.hpp"
+#include "remagx/project_calculation.hpp"
 #include "json.hpp"
 #include <cmath>
 #include <iostream>
@@ -36,6 +37,14 @@ int main() {
                 {"weight", prepared.weight}, {"context", context}};
             try { output["project"] = Json::parse(prepared.project.serialize()); output["saveable"] = true; }
             catch (const remagx::ProjectDocumentError&) { output["saveable"] = false; }
+            if (input.value("calculate", false)) {
+                try {
+                    const auto curve = remagx::calculate_fit_dataset_qz(prepared);
+                    const auto error = remagx::evaluate_fit_dataset(prepared, {curve.qz, {}, curve.plus, curve.minus, curve.asymmetry});
+                    output["calculation"] = {{"ok", true}, {"qz", curve.qz}, {"plus", curve.plus}, {"minus", curve.minus},
+                        {"asymmetry", curve.asymmetry}, {"mean", error.mean}, {"weighted", error.weighted}, {"accepted", error.accepted}};
+                } catch (const remagx::ProjectDocumentError&) { output["calculation"] = {{"ok", false}}; }
+            }
             if (input.contains("curve")) {
                 try {
                     const auto& curve = input.at("curve");

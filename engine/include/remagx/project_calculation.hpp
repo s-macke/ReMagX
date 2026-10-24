@@ -1,6 +1,7 @@
 #ifndef REMAGX_PROJECT_CALCULATION_HPP
 #define REMAGX_PROJECT_CALCULATION_HPP
 #include "project_document.hpp"
+#include "project_dataset.hpp"
 #include "optical_tables.hpp"
 #include <vector>
 namespace remagx {
@@ -9,6 +10,7 @@ struct ProjectCurve {
     std::vector<double> plus;
     std::vector<double> minus;
     std::vector<std::string> warnings;
+    std::vector<double> asymmetry;
 };
 // Native terminal coordinates (0..qzMax inclusive), distinct from the web grid.
 // Current integration: manual/automatic compound constants, Nevot-Croce/adaptive
@@ -18,5 +20,9 @@ struct ProjectCurve {
 // No input mutation and no partial curve on failure.
 ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic,
                                    const std::vector<OpticalTable>& tables = {});
+// Calculate one prepared qz dataset, including monochromatic energy broadening.
+// Energy scans and serial fit-session state are integrated separately.
+ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset,
+                                     const std::vector<OpticalTable>& tables = {});
 }
 #endif
