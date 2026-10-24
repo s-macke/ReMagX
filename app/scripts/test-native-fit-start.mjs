@@ -91,7 +91,7 @@ try {
       })
       await add(project, tables, true)
       if (!element && !automatic && !energy) runnerFixtures.push({ project, tables })
-      if (!energy) {
+      {
         const scripted = structuredClone(project)
         scripted.scripts.enabled = true
         scripted.scripts.parameters = [0]
@@ -102,12 +102,26 @@ alias[1]=alias[1]+calls*0.00001
 par[0]=par[0]+0.001
 SetChemicalFormula(1,tostring(calls)..":"..tostring(renewals))
 ${element ? 'Fe:setdensity(1,0.1+calls*0.0001)' : 'delta[1]=delta[1]+calls*1e-12'}
-FillTensors()`
+FillTensors()
+${energy ? 'energy=energy+0.05; resolution=0.001+calls*1e-8' : ''}`
         scripted.datasets.push({ ...structuredClone(scripted.datasets[0]), energy: 8050 })
+        if (energy) delete scripted.datasets[1].columns.energy
         await add(scripted,tables,true)
         scripted.experiment.resolution.energyFwhm = 1
         await add(scripted,tables,true)
-        if (!element && !automatic) runnerFixtures.push({ project:scripted,tables })
+        if (!energy && !element && !automatic) runnerFixtures.push({ project:scripted,tables })
+        if (energy) {
+          const skipped = structuredClone(scripted)
+          for (const dataset of skipped.datasets) dataset.columns.energy = [7700,8000,9000]
+          await add(skipped,tables,true)
+          const paired = structuredClone(scripted)
+          for (const dataset of paired.datasets) {
+            dataset.columns.reflectivityPlus = dataset.columns.reflectivity
+            dataset.columns.reflectivityMinus = [.2,.01,.0005]
+            delete dataset.columns.reflectivity
+          }
+          await add(paired,tables,true)
+        }
       }
       if (algorithm === 'parratt' && automatic && energy) {
         await add(project, [], false)
@@ -170,14 +184,15 @@ FillTensors()`
     const missing = spawnSync(terminal, ['-fit', filename], { cwd: directory, encoding: 'utf8', timeout: 30000 })
     assert.equal(missing.status, 1); assert.equal(missing.stdout, '')
     const scriptedQz = inputs.findIndex(value => JSON.parse(value.project).scripts.enabled)
-    for (const index of [plainQz,plainEnergy,scriptedQz]) {
+    const scriptedEnergy = inputs.findIndex(value => { const p=JSON.parse(value.project); return p.scripts.enabled && p.datasets[0].columns.energy?.length })
+    for (const index of [plainQz,plainEnergy,scriptedQz,scriptedEnergy]) {
       const request = inputs[index]
       await writeFile(filename, request.project)
       for (const table of request.tables) await writeFile(resolve(directory, `${table.name}.${table.kind}`), table.text)
       const output = spawnSync(terminal, ['-fit', filename], { cwd: directory, encoding: 'utf8', timeout: 30000 })
       assert.equal(output.status, 0, output.stderr || String(output.error))
       assert.match(output.stderr, /Fit error:/)
-      if (index === scriptedQz) assert.match(output.stderr, /fit-script/)
+      if (index === scriptedQz || index === scriptedEnergy) assert.match(output.stderr, /fit-script/)
       compare(JSON.parse(output.stdout), expected[index].results[0].project, `CLI fitted project ${index}`)
       assert.equal(await readFile(filename, 'utf8'), request.project, 'CLI fit changed its input')
     }

@@ -4,9 +4,8 @@
 Lua-enabled builds now execute BeforeCalculation for compound and element
 terminal qz scans, including monochromatic energy broadening. Scripts run after
 optical refresh and before multilayer packing/solver calls; stderr receives
-script messages. Fits over qz datasets now retain one Lua session across constructor, objective
-and dataset calls, including the 19 energy-broadening samples. Scripted
-energy-scan routing remains explicitly unavailable. Full script acceptance remains open.
+script messages. Fits over qz, energy and mixed datasets retain one Lua session across constructor,
+objective and dataset calls, including qz energy broadening and energy-scan points. Full script acceptance remains open.
 
 Build with a system Lua 5.4 development library (Debian/Ubuntu:
 `liblua5.4-dev`), then enable `-DREMAGX_BUILD_NATIVE_LUA=ON` when configuring
@@ -82,7 +81,7 @@ calls preserve globals while replacing prepared workspaces. Source or structure
 changes reject. Any failure closes the owned session. Success returns project,
 tensor classifications, scattering tensors and updated cursors together.
 The focused comparison runs this against the actual web createProjectScript
-with three successive input states. Compound/element qz solver invocation and prepared tensors are connected. Scripted energy-scan invocation order and nested solver calls remain integration work.
+with three successive input states. Compound/element qz solver invocation and prepared tensors are connected. Fit energy-point invocation is connected; nested solver calls remain integration work.
 
 An optional stop predicate is polled before/after execution and every 1000 Lua
 instructions during a hook. Cancellation and predicate exceptions latch, close
@@ -138,3 +137,11 @@ tensor, table-cursor and resolution-cache changes feed the next calculation.
 The fitted result is the actual best trial snapshot, not a script replay.
 A failed scripted objective cannot be reused; start a new fit. Script messages
 use stderr, leaving fitted-project stdout as one JSON document.
+
+Fit energy scans refresh constants before each in-range point, even with automatic
+constants disabled. Range-skipped points retain partial optical updates and do not
+run Lua. Successful script edits carry into subsequent points/datasets. As in
+CalcEScan/CalcDicEScan, monochromatic solver energy is taken after the hook, while
+dichroic solver energy is captured before it; optical stack preparation uses the
+updated project. Exact angular convolution and scan-wide energy convolution remain
+unchanged. This does not add a standalone energy-scan CLI command.

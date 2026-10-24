@@ -218,9 +218,9 @@ settings, not measurement rounding or changes to numerical comparison tolerance.
 Ctrl+C requests cooperative cancellation between objective calls and returns the
 best evaluated project if one exists; stopping before any candidate is an error.
 The callback-level Stop-before-start path is tested; OS-signal timing is not yet
-covered by an automated test. Lua-enabled builds support scripted qz fits as described below; scripted energy datasets remain unavailable.
+covered by an automated test. Lua-enabled builds support scripted qz, energy and mixed fits as described below.
 
-The focused fit-start gate now covers 83 actual-WASM initialization/optimizer
+The focused fit-start gate now covers 131 actual-WASM initialization/optimizer
 cases: three solvers, adaptive/annealing, explicit Q references, work limits,
 fixed rows, Stop-before-start, persistent Lua globals/aliases and renew state, failure and recovery. CLI smoke checks cover qz and
 energy fitted JSON, missing-table failure with empty stdout and input preservation.
@@ -235,7 +235,7 @@ including monochromatic energy broadening. Default/Docker builds without this op
 Automatic table refresh precedes the hook; scalar values, tensors, energy,
 angular width and epsilon then feed the three existing solvers. Script output
 is sent to stderr. Project inputs stay unchanged and failures publish no
-scientific stdout. Scripted fitting and standalone energy-scan commands remain unavailable.
+scientific stdout. Scripted fitting is described below; standalone energy-scan commands remain unavailable.
 
 The first Ctrl+C requests cooperative Stop; a second Ctrl+C terminates the
 process using default SIGINT handling, including scripts that disable debug hooks.
@@ -272,14 +272,16 @@ the original quadrature and angles; numerical tolerances are unchanged. Focused
 comparisons exercise incremental geometry/profile changes, table rename/cache
 behavior and fresh globals for compound, segmented and element projects.
 
-### Persistent qz fit scripts
+### Persistent fit scripts
 
-Lua-enabled `-fit` supports compound and element qz datasets with Simplex or
+Lua-enabled `-fit` supports compound and element qz, energy and mixed datasets with Simplex or
 annealing, automatic/manual optics and monochromatic energy broadening. One
 session executes the constructor hook and survives all candidate, dataset and
 quadrature calls. Objective calls receive renewocs=1; calculation calls receive
 0. Optimizer initialization precedes the constructor script. Failures
 abort without fitted JSON, and an objective with a failed script/calculation
-must not be reused. Scripted energy-scan datasets and nested reflectivity calls
-remain unavailable. The focused fit-start gate compares public fixtures against
+must not be reused. Nested reflectivity calls remain unavailable. Energy points refresh tables before
+Lua, skip hooks on range failures, preserve partial updates and carry script state
+into later points. The original difference between monochromatic post-hook and
+dichroic pre-hook solver energy is retained. The focused fit-start gate compares public fixtures against
 Wasmoon and the actual WASM optimizer, without running the private corpus.

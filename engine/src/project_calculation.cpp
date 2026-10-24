@@ -157,8 +157,8 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
     if (scripted) {
 #ifdef REMAGX_NATIVE_LUA
         require(options && (context == CalculationContext::terminal ||
-            (persistent_hook && (context == CalculationContext::fit_dataset || context == CalculationContext::fit_energy_sample))),
-            "Native Lua requires a calculation session; scripted energy scans remain pending.");
+            (persistent_hook && (context == CalculationContext::fit_dataset || context == CalculationContext::fit_energy_sample || context == CalculationContext::energy_point))),
+            "Native Lua requires a calculation session.");
 #else
         throw ProjectDocumentError("Native terminal was built without Lua support.");
 #endif
@@ -218,7 +218,12 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
         auto* element_state = previous ? &previous->elements : &local_elements;
 #ifdef REMAGX_NATIVE_LUA
         if (scripted) {
-            prepare_project_elements(project, energy, layers, matrix, tables, result.warnings, element_state, false, true);
+            const bool in_range = prepare_project_elements(project, energy, layers, matrix, tables,
+                result.warnings, element_state, energy_point, true);
+            if (energy_point && !in_range) {
+                result.plus.assign(result.qz.size(),1); result.minus.assign(result.qz.size(),dichroic ? 1 : 0);
+                return result;
+            }
             std::vector<std::pair<std::string,double>> edits;
             std::vector<std::array<double,18>> scattering(element_state->factors.size());
             for (size_t index = 0; index < scattering.size(); ++index) {
@@ -451,6 +456,9 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
         const double wave = 2 * 3.14159265358979323846 / (12398.326 / energy);
         for (double qz : result.qz) require(qz / (wave * 2) < 1, "Qz exceeds the fast dichroic scan boundary.");
     }
+    // CalcDicEScan captures k0 before Lua; monochromatic CalcEScan uses the
+    // post-hook energy. Generated optical stacks still use the updated project.
+    if (scripted && energy_point && dichroic) energy = sample_energy;
     std::vector<RemagxReflectivity> values(result.qz.size());
     if (algorithm == "parratt") {
         status_check(remagx_parratt_qz_resolution(layers.data(), count, result.qz.data(), result.qz.size(), energy,
@@ -540,10 +548,12 @@ ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset, const s
     return calculate_qz(dataset.project, dataset.dichroic, tables, &dataset.measurement.at("qz"));
 }
 
+static ProjectDocument write_optical_state(const ProjectDocument&, const OpticalState&, double);
 static ProjectCurve calculate_dataset(const PreparedFitDataset& dataset, const std::vector<OpticalTable>& tables, OpticalState& state,
     const ProjectCalculationOptions* options = nullptr, ProjectScriptHook* hook = nullptr, ProjectDocument* script_result = nullptr) {
     if (!dataset.energy_scan) return calculate_qz(dataset.project, dataset.dichroic, tables, &dataset.measurement.at("qz"), &state, options, hook, script_result);
-    const auto& project = dataset.project;
+    auto project = dataset.project;
+    const bool scripted = hook != nullptr;
     require(!project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier fitting remains unavailable.");
     const auto& energies = dataset.measurement.at("energy");
     const auto& coordinates = dataset.measurement.at("qz");
@@ -558,16 +568,21 @@ static ProjectCurve calculate_dataset(const PreparedFitDataset& dataset, const s
     std::set<std::string> seen_warnings;
     for (size_t index = 0; index < energies.size(); ++index) {
         const std::vector<double> point{coordinates[index]};
-        const auto current = calculate_inner(project, dataset.dichroic, tables, &point, energies[index], &state, CalculationContext::energy_point);
+        if (scripted) project = project.with_calculation_numbers({{"/experiment/energy",energies[index]}});
+        const auto current = calculate_inner(project, dataset.dichroic, tables, &point, energies[index], &state,
+            CalculationContext::energy_point, options, scripted ? &project : nullptr, hook);
+        if (scripted) project = write_optical_state(project,state,project.number("/experiment/energy"));
         raw.push_back({current.plus.at(0), current.minus.at(0)});
         for (const auto& warning : current.warnings)
             if (seen_warnings.insert(warning).second) result.warnings.push_back(warning);
     }
     std::vector<RemagxReflectivity> resolved(raw.size());
     status_check(remagx_energy_resolution(energies.data(), raw.data(), raw.size(), energy_width, resolved.data()));
+    const double final_energy = scripted ? project.number("/experiment/energy") : energies.back();
     postprocess_curve(project, result, resolved, dataset.dichroic, CalculationContext::fit_dataset,
         beam(project, "/experiment/polarization/beam1"), beam(project, "/experiment/polarization/beam2"),
-        energies.back(), energies);
+        final_energy, energies);
+    if (script_result) *script_result = scripted ? project : project.with_calculation_numbers({{"/experiment/energy",final_energy}});
     return result;
 }
 
@@ -605,7 +620,7 @@ static ProjectDatasetEvaluation evaluate_datasets(const ProjectDocument& source,
         const auto error = evaluate_fit_dataset(prepared, {curve.qz, curve.energy, curve.plus, curve.minus, curve.asymmetry});
         result.error += error.weighted;
         require(std::isfinite(result.error), "Weighted dataset total exceeds the finite double range.");
-        double final_energy = prepared.energy_scan ? curve.energy.back() : calculated_project.number("/experiment/energy");
+        double final_energy = calculated_project.number("/experiment/energy");
         if (!prepared.energy_scan && !prepared.dichroic && prepared.project.number("/experiment/resolution/energyFwhm") > 1e-6)
             final_energy = 12398.326 / (12398.326 / prepared.project.number("/experiment/energy"));
         result.project = write_optical_state(calculated_project, state, final_energy);
@@ -740,12 +755,6 @@ ProjectObjectiveResult ProjectFitObjective::evaluate(const std::vector<double>& 
         if (!state_->started && initial.boolean("/scripts/enabled") && initial.string("/scripts/beforeCalculation").find_first_not_of(" \t\n\r\f\v") != std::string::npos) {
 #ifdef REMAGX_NATIVE_LUA
             require(state_->prepared, "Scripted fitting requires standalone preparation.");
-            bool energy_scan = false;
-            for (size_t index = 0; index < initial.array_size("/datasets"); ++index) {
-                const auto path = "/datasets/"+std::to_string(index);
-                energy_scan = energy_scan || (initial.boolean(path+"/active") && initial.contains(path+"/columns/energy") && initial.array_size(path+"/columns/energy") > 0);
-            }
-            require(!energy_scan, "Native scripted fit energy scans remain pending.");
             const auto emit = state_->options.script_output ? state_->options.script_output : [](const std::string&) {};
             state_->hook = std::make_unique<ProjectScriptHook>(state_->tables,emit,true,state_->options.should_stop);
             // CMultiFit constructs and executes the persistent script before candidates.

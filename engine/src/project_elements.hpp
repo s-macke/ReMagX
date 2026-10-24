@@ -10,6 +10,7 @@ struct ElementOpticalState {
     std::vector<double> tensors;
     std::vector<size_t> cursors;
 };
+// Returns false for an out-of-range energy refresh, retaining partial updates.
 // prepared_optics consumes caller-refreshed state without a second table refresh.
 bool prepare_project_elements(const ProjectDocument& project, double energy,
     std::vector<RemagxLayer>& layers, std::vector<RemagxMatrixLayer>& matrix,

@@ -107,7 +107,7 @@ bool prepare_project_elements(const ProjectDocument& project, double energy,
             for (const auto& element : elements) previous->factors.push_back(element.factors);
             previous->tensors = std::move(tensors); previous->cursors = std::move(cursors);
         }
-        return refresh_only;
+        return refresh_only && !range_error;
     }
     const double maximum_depth = total_thickness + 30 + terminal_roughness * 2;
     require(std::isfinite(maximum_depth), "Element depth range overflow.");
