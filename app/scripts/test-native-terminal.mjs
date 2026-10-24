@@ -2,7 +2,7 @@
 // core provide the reference; terminal coordinates follow the original CLI.
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -19,6 +19,7 @@ const engine = {
   zakQz: request => adapter.calculateZakQz(instance, request),
   matrixQz: request => adapter.calculateVisnovskyQz(instance, request),
   dielectricTensor: request => adapter.calculateDielectricTensor(instance, request),
+  lookup: (table, queries, cursor) => adapter.lookupTable(instance, table, queries, cursor),
 }
 const server = await createServer({ root: resolve(root, 'app'), configFile: false,
   server: { middlewareMode: true }, appType: 'custom' })
@@ -27,6 +28,7 @@ try {
   const { createDefaultProject } = await server.ssrLoadModule('/src/model/defaults.ts')
   const { postprocessDatasetColumns } = await server.ssrLoadModule('/src/model/datasetPostprocessing.ts')
   const { calculateRealCurve } = await server.ssrLoadModule('/src/model/realCalculation.ts')
+  const { parseOpticalTable } = await server.ssrLoadModule('/src/import/tables.ts')
   const { importAllFile } = await server.ssrLoadModule('/src/import/allFile.ts')
   const imported = importAllFile(await readFile(resolve(root, 'app/test/fixtures/Tut2.all'), 'utf8'), 'Tut2.all').project
   const dataset = imported.datasets[0]
@@ -46,14 +48,19 @@ try {
   const filename = resolve(directory, 'public-synthetic.json')
   let comparisons = 0, values = 0
   function run(args) {
-    return spawnSync(executable, args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 10000 })
+    return spawnSync(executable, args, { cwd: directory, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 10000 })
   }
-  async function compare(project, dichroic) {
+  async function compare(project, dichroic, tables = []) {
     const text = JSON.stringify(project)
     await writeFile(filename, text)
     const actual = run([dichroic ? '-dicrefl' : '-refl', filename])
     assert.equal(actual.status, 0, actual.stderr || String(actual.error))
-    assert.equal(actual.stderr, '')
+    if (project.calculation.automaticOpticalConstants) assert.match(actual.stderr, /saved optical state retained/)
+    else assert.equal(actual.stderr, '')
+    if (tables.some(table => table.warnings.length)) {
+      assert.match(actual.stderr, /malformed rows skipped/)
+      assert.match(actual.stderr, /ignored extra columns/)
+    }
     assert.equal(await readFile(filename, 'utf8'), text, 'Calculation changed its input')
     const qz = project.experiment.qzScan.useDatasetPoints
       ? project.datasets[project.activeDatasetIndex].columns.qz.map(value => value + project.datasets[project.activeDatasetIndex].qzShift)
@@ -65,7 +72,7 @@ try {
     reference.experiment.qzScan.useDatasetPoints = true
     reference.calculation.postProcessing = { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false }
     reference.calculation.averaging = 0
-    const raw = calculateRealCurve(reference, [], engine, 'qz', dichroic ? 'dichroic' : 'monochromatic')
+    const raw = calculateRealCurve(reference, tables, engine, 'qz', dichroic ? 'dichroic' : 'monochromatic')
     const postProject = structuredClone(project)
     const selected = project.experiment.qzScan.useDatasetPoints ? project.datasets[project.activeDatasetIndex] : undefined
     postProject.experiment.energy = selected?.energy ?? 10
@@ -159,6 +166,45 @@ try {
       }
     }
   }
+  const tensor = Array.from(adapter.calculateDielectricTensor(instance, {
+    layer: [50, 1, 0.002, 0.0002, 0.00003, 0.00001, 37, 63], tensor: 0, magnetic: 1,
+  }).values)
+  for (const variant of ['scalar', 'magnetic', 'tensor', 'missing', 'outside', 'missing-no-tensor', 'missing-isotropic-tensor', 'malformed', 'empty']) {
+    const tables = []
+    const name = `native-${variant}`
+    if (!variant.startsWith('missing')) {
+      const content = variant === 'empty' ? '# empty public table\n' : variant === 'malformed' ? 'bad row\n700 .002 .0002 ignored\n900 .004 .0004\n' : variant === 'outside' ? '100 0.002 0.0002\n200 0.004 0.0004\n'
+        : '# unordered public synthetic input\n900 0.004 0.0004\n700 0.002 0.0002\n'
+      await writeFile(resolve(directory, `${name}.db`), content)
+      tables.push(parseOpticalTable(content, `${name}.db`))
+    }
+    if (variant === 'magnetic' || variant === 'tensor') {
+      const content = '700 0.00002 0.00001\n900 0.00004 0.00002\n'
+      await writeFile(resolve(directory, `${name}.m`), content)
+      tables.push(parseOpticalTable(content, `${name}.m`))
+    }
+    if (variant === 'tensor') {
+      const content = [700, 900].map(energy => `${energy} ${tensor.join(' ')}`).join('\n')
+      await writeFile(resolve(directory, `${name}.e`), content)
+      tables.push(parseOpticalTable(content, `${name}.e`))
+    }
+    for (const algorithm of ['parratt', 'matrix', 'zak']) for (const dichroic of [false, true]) {
+      const project = structuredClone(base)
+      project.calculation.algorithm = algorithm
+      project.calculation.automaticOpticalConstants = true
+      project.calculation.magnetization.mode = 'add'
+      project.calculation.epsilon = 1e-12
+      project.experiment.energy = 800
+      project.sample.layers.forEach(layer => { layer.opticalTable = '' })
+      project.sample.layers[1].opticalTable = name
+      if (variant !== 'missing-no-tensor') project.sample.layers[1].dielectricTensor = { values: tensor, anisotropic: variant !== 'missing-isotropic-tensor' }
+      project.sample.multilayer = { enabled: true, pattern: '2*(1)' }
+      project.datasets = [{ ...structuredClone(dataset), qzShift: 0, columns: { qz: [0.01, 0.02, 0.04, 0.08] } }]
+      project.activeDatasetIndex = 0
+      project.experiment.qzScan.useDatasetPoints = true
+      await compare(project, dichroic, tables)
+    }
+  }
   // At zero incidence the existing tetragonal/magnetization-off kernel can
   // reject a numerical singularity. Preserve and verify that failure, not a
   // fabricated zero intensity or an altered coordinate grid.
@@ -188,7 +234,6 @@ try {
   }
   assert.ok(singularities > 0, 'The observed zero-incidence singularity must remain covered')
   const invalid = [
-    project => { project.calculation.automaticOpticalConstants = true },
     project => { project.sample.mode = 'element' },
     project => { project.sample.multilayer = { enabled: true, pattern: '2*(1' } },
     project => { project.sample.multilayer = { enabled: true, pattern: '100000*(1)' } },
@@ -223,6 +268,16 @@ try {
   const deferredFourier = run(['-dicrefl', filename])
   assert.equal(deferredFourier.status, 1); assert.equal(deferredFourier.stdout, '')
   assert.match(deferredFourier.stderr, /Dichroic Fourier/)
+  const invalidTable = structuredClone(base)
+  invalidTable.calculation.automaticOpticalConstants = true
+  invalidTable.sample.layers[1].opticalTable = 'directory-input'
+  await mkdir(resolve(directory, 'directory-input.db'))
+  await writeFile(filename, JSON.stringify(invalidTable))
+  const tableFailure = run(['-refl', filename])
+  assert.equal(tableFailure.status, 1); assert.equal(tableFailure.stdout, '')
+  assert.match(tableFailure.stderr, /not a regular file/)
+  invalidTable.calculation.automaticOpticalConstants = false
+  await compare(invalidTable, false) // manual mode must not inspect table files
   const missing = run(['-refl', resolve(directory, 'missing.json')])
   assert.equal(missing.status, 1); assert.equal(missing.stdout, '')
   assert.equal(run(['-v']).status, 0)

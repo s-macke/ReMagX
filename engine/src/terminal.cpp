@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
     if (argc == 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
         std::cout << "Usage: remagx-terminal -refl|-dicrefl project.json\n"
                      "       remagx-terminal -v\n"
-                     "Manual compound constants, Nevot-Croce, Parratt/Matrix/Zak.\n"
+                     "Manual or automatic compound constants, Nevot-Croce, Parratt/Matrix/Zak.\n"
                      "Output: qz R, or qz Rp Rm; 17 significant digits.\n"
                      "Generated qz grid: 0..qzMax inclusive (original terminal behavior).\n"
                      "Legacy .all, -fit and -convert integration remains pending.\n";
@@ -33,7 +33,11 @@ int main(int argc, char** argv) {
         if (input.bad()) throw remagx::ProjectDocumentError("Cannot read complete project input.");
         const auto project = remagx::ProjectDocument::parse(text);
         const bool dichroic = std::string(argv[1]) == "-dicrefl";
-        const auto curve = remagx::calculate_terminal_qz(project, dichroic);
+        std::vector<std::string> warnings;
+        const auto tables = remagx::load_compound_tables(project, warnings);
+        const auto curve = remagx::calculate_terminal_qz(project, dichroic, tables);
+        warnings.insert(warnings.end(), curve.warnings.begin(), curve.warnings.end());
+        for (const auto& warning : warnings) std::cerr << warning << '\n';
         // Prepare all output before publishing any scientific rows.
         std::ostringstream output;
         output.imbue(std::locale::classic());

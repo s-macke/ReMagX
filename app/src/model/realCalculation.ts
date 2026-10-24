@@ -130,7 +130,8 @@ function calculateInnerCurve(original: Project, tables: OpticalTable[], engine: 
   const segmented = prepareStack(packedProject, { layers: project.sample.layers,
     layerDepths, dielectricTensors, dielectricState, scatteringTensors, cursors })
   if (project.calculation.algorithm === 'matrix') {
-    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, project.sample.mode === 'element' ? undefined : dielectricTensors, coordinates, segmented)
+    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, project.sample.mode === 'element' ? undefined : dielectricTensors, coordinates, segmented,
+      project.sample.mode === 'element' ? undefined : dielectricState)
     qz = request.qz
     values = engine.matrixQz(request)
   } else if (project.calculation.algorithm === 'zak') {

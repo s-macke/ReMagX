@@ -52,7 +52,7 @@ exports the static site plus engine artifacts. Local builds do not require Docke
 
 GPL-3.0, see `LICENSE`.
 
-The native `remagx-terminal` now supports JSON projects with manual compound
+The native `remagx-terminal` now supports JSON projects with manual or file-backed automatic compound
 constants for `-refl`/`-dicrefl` through Parratt, Matrix and Zak. See
 [build instructions and current integration limits](engine/NATIVE_TERMINAL.md).
 Full terminal command/project support remains in the checklist.

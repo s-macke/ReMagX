@@ -3,6 +3,7 @@
 #include "remagx/compound_layers.hpp"
 #include <numeric>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <string>
 
@@ -42,12 +43,12 @@ void average(std::vector<double>& values, size_t width) {
 }
 }
 
-ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic) {
+ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic, const std::vector<OpticalTable>& tables) {
     const auto algorithm = project.string("/calculation/algorithm");
     require(algorithm == "parratt" || algorithm == "matrix" || algorithm == "zak", "This solver is unavailable in the native terminal.");
     require(project.string("/sample/mode") == "compound", "Native terminal element preparation is not integrated yet.");
     require(project.string("/experiment/scattering") == "reflection", "Transmission is unavailable in this calculation path.");
-    require(!project.boolean("/calculation/automaticOpticalConstants"), "Native terminal optical-table refresh is not integrated yet; use manual constants.");
+    const bool automatic = project.boolean("/calculation/automaticOpticalConstants");
     if (project.boolean("/scripts/enabled")) {
         const auto script = project.string("/scripts/beforeCalculation");
         require(script.find_first_not_of(" \t\n\r\f\v") == std::string::npos, "Native terminal BeforeCalculation Lua execution is not integrated yet.");
@@ -112,14 +113,62 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
         std::iota(indices.begin(), indices.end(), 0);
     }
     const size_t count = indices.size();
-    layers.reserve(count);
-    for (size_t index : indices) {
+    std::vector<RemagxLayer> stored_layers;
+    std::vector<std::array<double, 18>> tensors(stored_count);
+    std::vector<bool> retained_tensor(stored_count, automatic), anisotropic(stored_count, false);
+    stored_layers.reserve(stored_count);
+    std::vector<size_t> cursors(tables.size(), 0);
+    const auto find_table = [&](const std::string& name, const std::string& kind) {
+        for (size_t index = 0; index < tables.size(); ++index)
+            if (!name.empty() && tables[index].name == name && tables[index].kind == kind) return index;
+        return tables.size();
+    };
+    const double lookup_energy = 12398.326 / (12398.326 / energy);
+    const auto read_table = [&](size_t index, size_t width) {
+        std::vector<double> values(width, 0);
+        if (index == tables.size() || tables[index].energies.empty()) return values;
+        const auto& table = tables[index];
+        require(table.width == width && table.values.size() == table.energies.size() * width, "Invalid native optical table shape.");
+        status_check(remagx_table_lookup(table.energies.data(), table.values.data(), table.energies.size(), width,
+            &lookup_energy, 1, &cursors[index], values.data()));
+        return values;
+    };
+    for (size_t index = 0; index < stored_count; ++index) {
         const auto path = "/sample/layers/" + std::to_string(index);
-        layers.push_back({project.number(path + "/thickness"), project.number(path + "/roughness"),
+        RemagxLayer layer{project.number(path + "/thickness"), project.number(path + "/roughness"),
             project.number(path + "/delta"), project.number(path + "/beta"),
             project.number(path + "/deltaMag"), project.number(path + "/betaMag"),
-            project.number(path + "/magnetization/gamma"), project.number(path + "/magnetization/phi")});
+            project.number(path + "/magnetization/gamma"), project.number(path + "/magnetization/phi")};
+        if (automatic) {
+            if (project.contains(path + "/dielectricTensor")) {
+                anisotropic[index] = project.boolean(path + "/dielectricTensor/anisotropic");
+                for (size_t component = 0; component < 18; ++component)
+                    tensors[index][component] = project.number(path + "/dielectricTensor/values/" + std::to_string(component));
+            }
+            const auto name = project.string(path + "/opticalTable");
+            const size_t primary = find_table(name, "db");
+            if (primary == tables.size() || tables[primary].energies.empty()) {
+                result.warnings.push_back("Layer " + std::to_string(index) + ": missing/empty .db table; saved optical state retained.");
+            } else if (lookup_energy < tables[primary].energies.front() || lookup_energy > tables[primary].energies.back()) {
+                result.warnings.push_back("Layer " + std::to_string(index) + ": energy outside .db table; saved optical state retained.");
+            } else {
+                const auto scalar = read_table(primary, 2);
+                const auto magnetic = read_table(find_table(name, "m"), 2);
+                layer.delta = scalar[0]; layer.beta = scalar[1];
+                layer.delta_magnetic = magnetic[0]; layer.beta_magnetic = magnetic[1];
+                const size_t tensor_table = find_table(name, "e");
+                retained_tensor[index] = tensor_table != tables.size() && !tables[tensor_table].energies.empty();
+                if (retained_tensor[index]) {
+                    const auto values = read_table(tensor_table, 18);
+                    std::copy(values.begin(), values.end(), tensors[index].begin());
+                    anisotropic[index] = true;
+                }
+            }
+        }
+        stored_layers.push_back(layer);
     }
+    layers.reserve(count);
+    for (size_t index : indices) layers.push_back(stored_layers[index]);
     const auto first = beam(project, "/experiment/polarization/beam1");
     const auto second = beam(project, "/experiment/polarization/beam2");
     const auto* second_pointer = dichroic ? &second : nullptr;
@@ -139,12 +188,18 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
     } else {
         std::vector<RemagxMatrixLayer> matrix;
         matrix.reserve(count);
-        for (const auto& layer : layers) {
+        for (size_t position = 0; position < layers.size(); ++position) {
+            const auto& layer = layers[position];
+            const size_t index = indices[position];
             RemagxMatrixLayer prepared{};
             prepared.thickness = layer.thickness; prepared.roughness = layer.roughness;
             prepared.index_real = 1 - layer.delta; prepared.index_imaginary = layer.beta;
-            // Manual preparation rebuilds tensors, ignoring stored automatic overrides.
-            status_check(remagx_dielectric_tensor(&layer, tensor, magnetic, prepared.dielectric, &prepared.anisotropic));
+            if (retained_tensor[index]) {
+                std::copy(tensors[index].begin(), tensors[index].end(), prepared.dielectric);
+                prepared.anisotropic = anisotropic[index] ? 1 : 0;
+            } else {
+                status_check(remagx_dielectric_tensor(&layer, tensor, magnetic, prepared.dielectric, &prepared.anisotropic));
+            }
             matrix.push_back(prepared);
         }
         status_check(remagx_visnovsky_qz_resolution(matrix.data(), count, result.qz.data(), result.qz.size(), energy,

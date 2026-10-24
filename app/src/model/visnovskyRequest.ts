@@ -15,12 +15,19 @@ export interface PreparedVisnovskyQzRequest extends Omit<PreparedParrattQzReques
 // FillTensors uses per-layer directions and applies no second-beam reversal.
 export function prepareVisnovskyQzRequest(project: Project, mode: 'monochromatic' | 'dichroic',
   constructTensor: DielectricTensorCalculator, dielectricTensors?: (Float64Array | null)[], coordinates?: readonly number[],
-  preparedStack?: { layers: PreparedCompoundLayer[]; dielectricTensors: (SegmentationTensor | null)[] }): PreparedVisnovskyQzRequest {
+  preparedStack?: { layers: PreparedCompoundLayer[]; dielectricTensors: (SegmentationTensor | null)[] },
+  retainedStates?: readonly (SegmentationTensor | null)[]): PreparedVisnovskyQzRequest {
   validateVisnovskyProject(project)
   if (dielectricTensors && dielectricTensors.length !== project.sample.layers.length) throw new Error('Invalid dielectric-tensor layer mapping.')
+  if (retainedStates && retainedStates.length !== project.sample.layers.length) throw new Error('Invalid retained dielectric-tensor layer mapping.')
   const overrides = dielectricTensors && prepareCompoundLayerIndices(project).map(index => dielectricTensors[index])
   const { layers, tensor, magnetic, ...scan } = prepareCompoundQzRequest(project, mode, coordinates, preparedStack?.layers)
-  return { ...scan, epsilon: project.calculation.epsilon, layers: prepareVisnovskyLayers(layers, tensor, magnetic, constructTensor, preparedStack ? undefined : overrides, preparedStack?.dielectricTensors) }
+  // Filldb skips missing/out-of-range rows without changing their stored type.
+  // A retained isotropic state must not be rebuilt as magnetic from its scalars.
+  const states = preparedStack?.dielectricTensors ?? (retainedStates && prepareCompoundLayerIndices(project).map((index, position) =>
+    retainedStates[index] ?? (overrides?.[position] ? { values: overrides[position]!, anisotropic: true }
+      : constructTensor({ layer: layers[position], tensor, magnetic }))))
+  return { ...scan, epsilon: project.calculation.epsilon, layers: prepareVisnovskyLayers(layers, tensor, magnetic, constructTensor, preparedStack ? undefined : overrides, states) }
 }
 
 export function validateVisnovskyProject(project: Project) {

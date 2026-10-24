@@ -82,8 +82,8 @@ it('routes matrix qz requests through tensor preparation and preserves asymmetry
   await handle({ id: 1, kind: 'asymmetry', project })
   expect(calculate).not.toHaveBeenCalled()
   expect(matrixQz).toHaveBeenCalledTimes(1)
-  // GetState rebuilds tensors; isotropic matrix packing derives them from scalars.
-  expect(dielectricTensor).toHaveBeenCalledTimes(2 * project.sample.layers.length)
+  // GetState builds the tensor state once; matrix packing retains its classification.
+  expect(dielectricTensor).toHaveBeenCalledTimes(project.sample.layers.length)
   expect(send.mock.calls[0][0]).toMatchObject({ type: 'result', result: { asymmetry: [.5, 0] } })
 })
 
