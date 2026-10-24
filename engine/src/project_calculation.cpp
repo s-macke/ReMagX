@@ -91,8 +91,6 @@ static ProjectCurve calculate_inner(const ProjectDocument& project, bool dichroi
         require(script.find_first_not_of(" \t\n\r\f\v") == std::string::npos, "Native terminal BeforeCalculation Lua execution is not integrated yet.");
     }
     const bool segmented = project.string("/calculation/roughnessModel") == "segmentation";
-    require(!segmented || project.string("/calculation/magnetization/mode") != "profile",
-        "Native terminal segmented magnetic-profile application is not integrated yet.");
     const bool fourier = project.boolean("/calculation/postProcessing/fourierTransform");
     require(!fourier || !dichroic, "Dichroic Fourier processing remains unavailable pending the legacy column-semantics decision.");
     const double average_width = project.number("/calculation/averaging");

@@ -41,9 +41,17 @@ segmented separately at each energy sample; stored input layers remain intact.
 
 Generated stacks are limited to one million rows. Invalid minimum/maximum steps,
 numerical sampling errors or a single generated row reject before output. Single
-row support remains a separate physics decision. Segmentation with magnetic
-profile mode currently rejects explicitly until its native profile application
-is integrated; ordinary stored/additive magnetization is supported.
+row support remains a separate physics decision. Magnetic profile mode now applies mixed Gaussian/spline functions at adjacent
+segment midpoints, with the original reversed layer bindings and density weights.
+Stored layer depths are expanded by the multilayer mapping without rebuilding
+cumulative depths across repeats. The substrate sample is skipped. Sum/product
+application preserves profile order; zero amplitudes and the original none-binding
+sentinel skip before binding or spline evaluation. Stored amplitude/width coupling
+references remain metadata, matching the active original implementation. Prepared
+Matrix tensors are not altered by this scalar profile stage.
+
+Invalid original-stack bindings and the undefined first usable spline knot still
+reject explicitly; their existing D-29 decisions remain open.
 
 Automatic compound constants use `.db` (delta/beta), `.m` (magnetic constants)
 and `.e` (18 tensor components) files. Like the original terminal, names resolve
@@ -108,7 +116,7 @@ does not use this energy broadening setting. Broadening together with Fourier
 remains explicitly unavailable, as in the web implementation, pending review of
 the original mismatched array lengths.
 
-Element tables/preparation, segmented magnetic-profile application, Lua,
+Element tables/preparation, Lua,
 legacy `.all` import, energy scans, `-fit` fitted-project output, filesystem
 transactions and `-convert` remain to be integrated. `-map` follows the separately
 agreed map implementation. Unsupported commands/settings report an error; they
@@ -129,14 +137,15 @@ Validation uses public synthetic projects only:
 node app/scripts/test-native-terminal.mjs build/engine/remagx-terminal build/wasm
 ```
 
-250 cases compare 2,755 output values with actual WASM through the production web
+275 cases compare 2,903 output values with actual WASM through the production web
 preparation at unchanged D-23 tolerance. They cover all three solvers, both modes,
 complex beams, analyzers, both angular convolution paths, tetragonal/nonmagnetic
 settings, qz^4, polarization correction with independent dataset/solver metadata,
 monochromatic Fourier, energy-width thresholds, both angular convolution paths
 combined with energy broadening, serial partial table refresh, global/local
 segmentation across all solvers/modes, segmented Matrix energy broadening and
-imported tensor composition, averaging,
+imported tensor composition, mixed Gaussian/spline sum/product profiles with
+layer binding and energy broadening, averaging,
 shifted/unsorted/repeated coordinates and eight
 multilayer patterns across all solvers and both output modes. Dedicated native
 parser tests cover limits, empty groups, nested patterns, ignored characters,

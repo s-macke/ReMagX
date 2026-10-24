@@ -1,8 +1,11 @@
 #include "project_segmentation.hpp"
+#include "remagx/compound_layers.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <memory>
+#include <limits>
+#include <numeric>
 
 namespace remagx {
 namespace {
@@ -25,6 +28,83 @@ int sample(double position, size_t slot, double* values, void* context) {
     if (status == REMAGX_SUCCESS && tensor) std::copy(tensor, tensor + 18, values + 4);
     return status;
 }
+void apply_profiles(const ProjectDocument& project, std::vector<RemagxLayer>& generated,
+                    const std::vector<double>& positions, const std::vector<RemagxLayer>& original,
+                    const std::array<double, 1001>& error_samples) {
+    std::vector<size_t> active;
+    const size_t profile_count = project.array_size("/sample/depthProfileFunctions");
+    for (size_t index = 0; index < profile_count; ++index) {
+        const auto path = "/sample/depthProfileFunctions/" + std::to_string(index);
+        if (project.number(path + "/deltaAmplitude") == 0 && project.number(path + "/betaAmplitude") == 0) continue;
+        if (!project.is_null(path + "/boundToLayer") && project.number(path + "/boundToLayer") == static_cast<double>(generated.size())) continue;
+        active.push_back(index);
+    }
+    if (active.empty()) return;
+    const size_t stored_count = project.array_size("/sample/layers");
+    std::vector<double> stored_depths(stored_count, 0);
+    for (size_t index = 1; index < stored_count; ++index) {
+        stored_depths[index] = stored_depths[index - 1] + project.number("/sample/layers/" + std::to_string(index) + "/thickness");
+        if (!std::isfinite(stored_depths[index])) throw ProjectDocumentError("Stored layer depth exceeds the finite double range.");
+    }
+    std::vector<size_t> indices;
+    if (project.boolean("/sample/multilayer/enabled"))
+        indices = compound_layer_indices(stored_count, project.string("/sample/multilayer/pattern"));
+    else { indices.resize(stored_count); std::iota(indices.begin(), indices.end(), 0); }
+    std::vector<double> boundaries, roughness;
+    boundaries.reserve(indices.size()); roughness.reserve(indices.size());
+    for (size_t index = 0; index < indices.size(); ++index) {
+        boundaries.push_back(stored_depths[indices[index]]);
+        roughness.push_back(original[index].roughness);
+    }
+    const size_t samples = generated.size() - 1;
+    if (active.size() > std::numeric_limits<size_t>::max() / samples)
+        throw ProjectDocumentError("Magnetic-profile weights exceed the supported size.");
+    std::vector<double> midpoints(samples), initial(samples * 2), output(samples * 2);
+    for (size_t index = 0; index < samples; ++index) {
+        midpoints[index] = (positions[index] + positions[index + 1]) * 0.5;
+        if (!std::isfinite(midpoints[index])) throw ProjectDocumentError("Magnetic-profile midpoint overflow.");
+        initial[2 * index] = generated[index + 1].delta_magnetic;
+        initial[2 * index + 1] = generated[index + 1].beta_magnetic;
+    }
+    std::vector<double> weights(samples * active.size(), 1), knots, ordinates;
+    std::vector<int> spline_counts;
+    std::vector<RemagxGaussianProfile> profiles;
+    for (size_t column = 0; column < active.size(); ++column) {
+        const auto path = "/sample/depthProfileFunctions/" + std::to_string(active[column]);
+        profiles.push_back({project.number(path + "/center"), project.number(path + "/width"),
+            project.number(path + "/deltaAmplitude"), project.number(path + "/betaAmplitude")});
+        if (!project.is_null(path + "/boundToLayer")) {
+            const double binding = project.number(path + "/boundToLayer");
+            if (binding >= static_cast<double>(boundaries.size()))
+                throw ProjectDocumentError("Legacy magnetic-profile binding is outside the original layer stack.");
+            const size_t layer_index = boundaries.size() - static_cast<size_t>(binding) - 1;
+            std::vector<double> density(samples);
+            check(remagx_layer_density(boundaries.data(), roughness.data(), boundaries.size(), layer_index,
+                midpoints.data(), samples, error_samples.data(), error_samples.size(), density.data()));
+            for (size_t index = 0; index < samples; ++index) weights[index * active.size() + column] = density[index];
+        }
+        if (project.boolean(path + "/spline/enabled")) {
+            const size_t count = project.array_size(path + "/spline/points");
+            if (count > static_cast<size_t>(std::numeric_limits<int>::max()))
+                throw ProjectDocumentError("Magnetic spline has too many knots.");
+            spline_counts.push_back(static_cast<int>(count));
+            for (size_t index = 0; index < count; ++index) {
+                const auto point = path + "/spline/points/" + std::to_string(index);
+                knots.push_back(project.number(point + "/z"));
+                ordinates.push_back(project.number(point + "/value"));
+            }
+        } else spline_counts.push_back(-1);
+    }
+    const int status = remagx_apply_magnetic_profiles(profiles.data(), profiles.size(), spline_counts.data(),
+        knots.data(), ordinates.data(), knots.size(), midpoints.data(), initial.data(), weights.data(), samples,
+        project.string("/calculation/profileCombination") == "sum" ? 0 : 1, output.data());
+    if (status != REMAGX_SUCCESS) throw ProjectDocumentError("Magnetic-profile application failed; check spline knots and unsupported endpoint coordinates.");
+    for (size_t index = 0; index < samples; ++index) {
+        generated[index + 1].delta_magnetic = output[2 * index];
+        generated[index + 1].beta_magnetic = output[2 * index + 1];
+    }
+}
+
 }
 void segment_project_layers(const ProjectDocument& project, std::vector<RemagxLayer>& layers,
                             std::vector<RemagxMatrixLayer>& matrix) {
@@ -83,6 +163,9 @@ void segment_project_layers(const ProjectDocument& project, std::vector<RemagxLa
             generated_matrix.push_back(layer);
         }
     }
+    if (project.string("/calculation/magnetization/mode") == "profile")
+        apply_profiles(project, generated, positions, layers, error_samples);
+    // Original profile application changes magnetic scalars, not the prepared tensors.
     layers = std::move(generated);
     matrix = std::move(generated_matrix);
 }

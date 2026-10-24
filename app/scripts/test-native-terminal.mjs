@@ -21,6 +21,8 @@ const engine = {
     sample: request => segmentation.calculateSegmentedOptics(instance, request),
     prepareSampler: request => segmentation.createSegmentedOpticalSampler(instance, request),
     subdivide: request => segmentation.calculateAdaptiveSegments(instance, request),
+    density: request => adapter.calculateLayerDensity(instance, request),
+    apply: request => adapter.applyMagneticProfiles(instance, request),
   },
   calculate: request => adapter.calculateParrattQz(instance, request),
   zakQz: request => adapter.calculateZakQz(instance, request),
@@ -219,6 +221,23 @@ try {
       project.activeDatasetIndex = 0
       project.experiment.qzScan.useDatasetPoints = true
       await compare(project, dichroic)
+      for (const combination of ['sum', 'product']) {
+        const profiled = structuredClone(project)
+        profiled.calculation.magnetization.mode = 'profile'
+        profiled.calculation.profileCombination = combination
+        const amplitude = combination === 'sum' ? 0.000003 : 0.3
+        const profile = { center: 11, width: 12, deltaAmplitude: amplitude, betaAmplitude: amplitude / 3,
+          boundToLayer: null, amplitudeCoupledTo: 999, widthCoupledTo: 999, spline: { enabled: false, points: [] } }
+        profiled.sample.depthProfileFunctions = [profile, { ...profile, boundToLayer: 1,
+          spline: { enabled: true, points: [-1000,-300,-11,37,300,1000].map((z, index) =>
+            ({ z, value: [0,0,0.5,0.8,0,0][index] })) } },
+          { ...profile, deltaAmplitude: 0, betaAmplitude: 0, boundToLayer: 999 }]
+        await compare(profiled, dichroic)
+        if (scope === 'global' && algorithm === 'parratt' && !dichroic && combination === 'product') {
+          profiled.experiment.resolution.energyFwhm = 10
+          await compare(profiled, false)
+        }
+      }
       if (scope === 'global' && algorithm === 'matrix' && !dichroic) {
         project.experiment.resolution.energyFwhm = 10
         await compare(project, false)
@@ -322,7 +341,19 @@ try {
     project => { project.sample.multilayer = { enabled: true, pattern: '100000*(1)' } },
     project => { project.sample.multilayer = { enabled: true, pattern: '0*(999)' } },
     project => { project.calculation.roughnessModel = 'segmentation'; project.calculation.segmentation.minThickness = 0 },
-    project => { project.calculation.roughnessModel = 'segmentation'; project.calculation.magnetization.mode = 'profile' },
+    project => {
+      project.calculation.roughnessModel = 'segmentation'; project.calculation.magnetization.mode = 'profile'
+      project.sample.depthProfileFunctions = [{ center: 0, width: 2, deltaAmplitude: 0.00001, betaAmplitude: 0,
+        boundToLayer: 999, amplitudeCoupledTo: null, widthCoupledTo: null, spline: { enabled: false, points: [] } }]
+    },
+    project => {
+      project.calculation.roughnessModel = 'segmentation'; project.calculation.magnetization.mode = 'profile'
+      project.calculation.segmentation.minThickness = 2; project.calculation.segmentation.maxThickness = 2
+      project.sample.layers[0].roughness = 0
+      project.sample.depthProfileFunctions = [{ center: 0, width: 2, deltaAmplitude: 0.00001, betaAmplitude: 0,
+        boundToLayer: null, amplitudeCoupledTo: null, widthCoupledTo: null,
+        spline: { enabled: true, points: [-30,-28,-26,-24].map(z => ({ z, value: 1 })) } }]
+    },
     project => { project.calculation.roughnessModel = 'segmentation'; project.calculation.segmentation.minThickness = 100000; project.calculation.segmentation.maxThickness = 100000 },
     project => { project.scripts.enabled = true; project.scripts.beforeCalculation = 'error("private diagnostic")' },
     project => { project.experiment.scattering = 'transmission' },
