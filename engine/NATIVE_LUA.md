@@ -50,7 +50,7 @@ stays -1; access uses the current qz length plus each column's own bound.
 Replacing the solution keeps existing aliases attached. The same dynamic bound
 applies to array.new(-1, type) for other arrays, as in the web runtime. Columns
 remain separate; unequal lengths are preserved rather than silently padded.
-Actual nested calculation callbacks have not yet been connected.
+CalculateReflectivity is excluded by D-43 and reports a named source-line error.
 
 Project functions now include SetName and SetChemicalFormula with the original
 argument-count, numeric/string conversion and embedded-NUL behavior. Text writes
@@ -81,7 +81,7 @@ calls preserve globals while replacing prepared workspaces. Source or structure
 changes reject. Any failure closes the owned session. Success returns project,
 tensor classifications, scattering tensors and updated cursors together.
 The focused comparison runs this against the actual web createProjectScript
-with three successive input states. Compound/element qz solver invocation and prepared tensors are connected. Fit energy-point invocation is connected; nested solver calls remain integration work.
+with three successive input states. Compound/element qz solver invocation and prepared tensors are connected. Fit energy-point invocation is connected; CalculateReflectivity is excluded by D-43.
 
 An optional stop predicate is polled before/after execution and every 1000 Lua
 instructions during a hook. Cancellation and predicate exceptions latch, close
@@ -100,7 +100,7 @@ app dependencies:
 node app/scripts/test-native-lua.mjs build/engine/project_lua_tests build/wasm
 ```
 
-Seventy-four public synthetic cases compare directly with the actual Wasmoon
+Seventy-five public synthetic cases compare directly with the actual Wasmoon
 runtime, including persistent globals, replaced Start, numeric strings,
 array aliases, element methods, repeated workspace refresh, scalar writeback, native/WASM
 table lookup with duplicate energies and magnetic/tensor companions, all 18
@@ -113,8 +113,7 @@ plus protected global readback when a metatable throws. The existing
 Wasmoon boundary panics for that case; it is not claimed as parity evidence.
 No corpus or broad terminal comparison is needed for this isolated component.
 
-Remaining work: calculation functions, calculation-owned
-hook state, nested calls and process-level cancellation. Standard-library availability must
+Remaining work includes full original-project Lua acceptance. CalculateReflectivity is excluded by D-43; historical nested-solver obligations no longer apply. Standard-library availability must
 be reviewed against the web runtime before activating native scripts. Existing
 unresolved script-semantics decisions still apply.
 

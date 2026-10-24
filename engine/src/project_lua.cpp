@@ -270,6 +270,9 @@ template<bool Fill> int optical_function(lua_State* vm) {
     return 0;
 }
 int no_operation(lua_State*) { return 0; }
+int excluded_reflectivity(lua_State* vm) {
+    return luaL_error(vm, "CalculateReflectivity: not supported (excluded from project scope)");
+}
 int unavailable_function(lua_State* vm) {
     const char* name = lua_tostring(vm, lua_upvalueindex(1));
     return luaL_error(vm, "%s: not supported yet", name);
@@ -285,6 +288,7 @@ int install_functions(lua_State* vm) {
     for (const char* name : {"CalculateDicReflectivity", "CalculateEnergyscan"}) {
         lua_pushcfunction(vm, no_operation); lua_setglobal(vm, name);
     }
+    lua_pushcfunction(vm, excluded_reflectivity); lua_setglobal(vm, "CalculateReflectivity");
     for (const char* name : {"KramersKronigRange", "ShowMatrixEigenvalues", "ShowEScanEigenvalues"}) {
         lua_pushstring(vm, name); lua_pushcclosure(vm, unavailable_function, 1); lua_setglobal(vm, name);
     }

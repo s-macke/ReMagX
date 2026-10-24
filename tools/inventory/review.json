@@ -435,7 +435,7 @@
     {
       "name": "script-editor",
       "status": "ported",
-      "reason": "Default/BeforeCalculation editors, snippets, execution controls and output are connected to the real worker with atomic project application and cancellation. Full legacy Lua API acceptance, including the pending nested-calculation error semantics, remains open.",
+      "reason": "Default/BeforeCalculation editors, snippets, execution controls and output are connected to the real worker with atomic project application and cancellation. Agreed Lua API acceptance remains open; CalculateReflectivity is explicitly excluded by D-43 and reports a named error.",
       "references": [
         "app/src/ui/ScriptWindow.tsx",
         "app/src/ui/LuaEditor.tsx",

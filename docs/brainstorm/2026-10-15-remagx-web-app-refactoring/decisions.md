@@ -1492,3 +1492,13 @@ D-42: [accepted] **Correct native terminal -convert to construct actual dielectr
 - This approval is specific to -convert. The separate nested Lua numerical-failure semantics, spline endpoint, .F assignment and Fourier decisions remain open. No golden-tolerance exception is granted.
 
 - 2026-10-24: Implemented D-42 as remagx-terminal -convert BASENAME: shared parser/lookup and isotropic-plus-magnetic tensor constructor, gamma=phi=90, row-major interleaved real/imaginary .e columns, max_digits10 output and stderr reports. Existing .e data is not loaded. All rows are calculated before staging an output file in an exclusively created same-directory temporary folder; rename publishes it on Linux and failures retain the prior destination. Six focused public CLI cases compare against the analytic 90-degree tensor, check interpolated/absent/empty/out-of-range magnetism, malformed/extra-column reports, original input preservation, replacement and numerical/I/O failure cleanup. Native build, strict compilation and 93-file precision gate pass. Removed -convert from the obsolete unsupported-command assertion; -map remains deferred. App runtime/WASM sources are unchanged, so unit/build evidence is reused and no broad corpus or terminal sweep is run. Full native command acceptance remains open.
+
+
+D-43: [accepted] **Exclude Lua CalculateReflectivity from scope** (2026-10-24; amends D-22 and resolves its nested-calculation error decision)
+
+- User instruction: “Ja, dann lass diese funktion weg. Ist egal.” This refers specifically to the script-only CalculateReflectivity command discussed immediately beforehand.
+- Do not implement its nested solver invocation or solution-array publication. Recognize the name in web/native Lua and raise a source-line error: "CalculateReflectivity: not supported (excluded from project scope)". It is neither a silent no-op nor a temporarily deferred feature.
+- This supersedes the D-22 full-API obligation only for this command and closes the choice between partial result publication and transactional failure. Remove unused preparatory code and its dedicated tests; retain historical evidence as history.
+- Ordinary reflectivity calculations, fits, other Lua APIs (including GetError), legacy no-ops and shared session/solution-array infrastructure remain in scope. Original sources and numerical tolerances remain unchanged.
+
+- Validation: 533 app tests pass (seven optional skips), lint and production build pass. Native build and 75 native/Wasmoon parity cases plus six native-only checks pass; the focused Chromium Lua worker check, inventory and 93-file double-precision gate pass. No private corpus sweep or tolerance change.

@@ -40,7 +40,6 @@ try {
   assert.equal(result.hooksPassed, true)
   assert.equal(result.nestedPassed, true)
   assert.equal(result.childrenPassed, true)
-  assert.equal(result.preparedReflectionPassed, true)
   assert.equal(result.preparedSegmentationPassed, true)
   assert.equal(result.preparedMagneticProfilesPassed, true)
   assert.equal(result.storedDepthsPassed, true)

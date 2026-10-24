@@ -77,3 +77,13 @@ it.each(['CalculateDicReflectivity', 'CalculateEnergyscan'])(
       expect(workspace.snapshot()).toEqual(before)
     } finally { session.close() }
   })
+
+it('reports the excluded CalculateReflectivity command with its source line', async () => {
+  const project = createDefaultProject(), before = structuredClone(project)
+  const session = await runtime.createSession()
+  session.installProjectFunctions(createScriptArrayWorkspace(project))
+  expect(() => session.execute('local x = 1\nCalculateReflectivity()', 'Default'))
+    .toThrow(/Default:2:.*CalculateReflectivity: not supported \(excluded from project scope\)/)
+  expect(project).toEqual(before)
+  expect(() => session.getGlobal('CalculateReflectivity')).toThrow('closed')
+})

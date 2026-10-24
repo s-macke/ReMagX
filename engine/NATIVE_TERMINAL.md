@@ -311,7 +311,7 @@ session executes the constructor hook and survives all candidate, dataset and
 quadrature calls. Objective calls receive renewocs=1; calculation calls receive
 0. Optimizer initialization precedes the constructor script. Failures
 abort without fitted JSON, and an objective with a failed script/calculation
-must not be reused. Nested reflectivity calls remain unavailable. Energy points refresh tables before
+must not be reused. Lua CalculateReflectivity is excluded by D-43 and reports a named source-line error. Energy points refresh tables before
 Lua, skip hooks on range failures, preserve partial updates and carry script state
 into later points. The original difference between monochromatic post-hook and
 dichroic pre-hook solver energy is retained. The focused fit-start gate compares public fixtures against

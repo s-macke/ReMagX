@@ -69,7 +69,7 @@ Native build of the same C++ core → golden-data generator + CI regression test
 ### 3. Scripting (D-2, D-12)
 
 - wasmoon (Lua 5.4) runs inside the compute worker.
-- The full legacy ReMagX script API is provided with legacy semantics (D-22, names per F-30):
+- The legacy ReMagX script API is provided with legacy semantics, except CalculateReflectivity, explicitly excluded by D-43 (D-22, names per F-30):
   arrays (`par` 0-based, `delta`, `beta`, `thickness`, `sigma`, `density`, `deltam`, `betam`,
   `gauss_*`, tensor components `exx_r` … `ezz_i`), element objects with their methods, functions
   (`SetChemicalFormula`, `FillTensors`, `print`, `write`, ...) and globals (`energy`, `epsilon`,
@@ -170,12 +170,13 @@ Native build of the same C++ core → golden-data generator + CI regression test
   1e-6 relative on all corpus files that 2.3.1 can compute (D-17.2).
   DoD: `tools/golden/crosscheck` report shows 0 mismatches (listed exceptions need a documented reason).
 - AC-7: When a project with a legacy "before calculation" Lua script is calculated, the system SHALL
-  execute it with the legacy script API (D-22) and SHALL match the golden output (AC-5 tolerance).
+  execute it with the agreed legacy script API (D-22, excluding CalculateReflectivity per D-43) and SHALL match the golden output (AC-5 tolerance).
   DoD: golden tests for all corpus projects with non-empty scripts pass (at least LNOSTO.all,
   NiL3_try2.all, PNO_LSAT.all).
 - AC-7a: If a script calls a legacy API name that needs a non-MVP feature, the system SHALL report
   "not supported yet" with the name and line number instead of an undefined-name error (D-22).
   DoD: unit test calling `KramersKronigRange()` yields a message containing "KramersKronigRange" and "not supported".
+  The excluded `CalculateReflectivity()` command reports its name, source line and "not supported (excluded from project scope)" (D-43).
 - AC-7b: When a `.all` file with `fitalgorithm = 1` is imported, the system SHALL set the fit
   algorithm to Simplex and SHALL state the fallback in the import report (D-27).
   DoD: fixture import yields `fit.algorithm == "simplex"` and a report entry mentioning Levenberg-Marquardt.

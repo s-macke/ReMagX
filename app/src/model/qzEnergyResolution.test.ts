@@ -1,4 +1,3 @@
-import { calculatePreparedScriptReflectivity, prepareScriptReflectivityInput } from './scriptReflectivity'
 import { expect, it, vi } from 'vitest'
 import { createDefaultProject } from './defaults'
 import { calculateRealCurve, type RealBeforeCalculation, type RealCalculationEngine } from './realCalculation'
@@ -79,17 +78,6 @@ it('rejects the original angular boundary and unsafe Fourier composition without
   project.experiment.qzScan.qzMax = 2 * wave * 1.1
   expect(() => calculateRealCurve(project, [], engine, 'qz', 'monochromatic')).toThrow('boundary')
   expect(calculate).not.toHaveBeenCalled()
-})
-
-it('leaves nested Lua reflectivity on its original unbroadened entry point', () => {
-  const { project, engine, calculate } = fixture()
-  project.experiment.resolution.fastConvolution = false
-  const input = prepareScriptReflectivityInput(project, project.experiment.energy)
-  const broadenedSetting = calculatePreparedScriptReflectivity(project, input, engine)
-  expect(calculate).toHaveBeenCalledTimes(1)
-  project.experiment.resolution.energyFwhm = 0
-  expect(calculatePreparedScriptReflectivity(project, input, engine)).toEqual(broadenedSetting)
-  expect(calculate).toHaveBeenCalledTimes(2)
 })
 
 it('closes temporary script sessions on a failed sample without changing the input', () => {

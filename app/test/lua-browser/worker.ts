@@ -9,7 +9,6 @@ import { createElementDensitySampler } from '../../src/model/elementDensity'
 import { prepareElementLayers } from '../../src/model/elementLayers'
 import { HC_EV_ANGSTROM } from '../../src/model/units'
 import { createBeforeCalculation } from '../../src/compute/lua/beforeCalculation'
-import { calculatePreparedScriptReflectivity, prepareScriptReflectivityInput } from '../../src/model/scriptReflectivity'
 import { calculateRealCurve, type RealCalculationEngine } from '../../src/model/realCalculation'
 import { createLayer } from '../../src/model/defaults'
 import { runProjectHook } from '../../src/compute/lua/projectHook'
@@ -289,42 +288,6 @@ async function run() {
       }
     } finally { depthSession.close() }
     const storedDepthsPassed = true
-    let preparedReflectionPassed = true
-    for (const algorithm of ['parratt', 'zak', 'matrix'] as const) {
-      const project = createDefaultProject()
-      project.sample.layers = [createLayer({ delta: .01, beta: .001 }), createLayer()]
-      project.calculation.algorithm = algorithm
-      project.calculation.automaticOpticalConstants = false
-      project.scripts.enabled = false
-      project.experiment.energy = 640
-      project.experiment.qzScan = { qzMin: .09, qzMax: .06, points: 3, useDatasetPoints: false }
-      const generated = prepareScriptReflectivityInput(project, 640)
-      const inputs = [generated, { ...generated, columns: { qz: [0, -.01, .03, .01],
-        reflectivityPlus: [7, 9, 11, 13], reflectivityMinus: [4, 5, 6, 7] } }]
-      // Capture before a simulated nested hook changes energy and grid settings.
-      project.experiment.energy = 710
-      project.experiment.qzScan.qzMax = .5
-      for (const input of inputs) for (const fast of [false, true]) {
-        project.experiment.resolution = { ...project.experiment.resolution, angularFwhm: .002, fastConvolution: fast }
-        const result = calculatePreparedScriptReflectivity(project, input, numerical)
-        const raw: number[] = [], exact: number[] = []
-        for (const qz of input.columns.qz) {
-          const point = structuredClone(project)
-          point.experiment.qzScan = { qzMin: qz, qzMax: qz, points: 2, useDatasetPoints: false }
-          point.experiment.resolution.fastConvolution = false
-          point.experiment.resolution.angularFwhm = 0
-          raw.push(fast && qz < 0 ? input.columns.reflectivityPlus![raw.length] : calculateRealCurve(point, [], numerical, 'qz', 'monochromatic').reflectivityPlus[0])
-          point.experiment.resolution.angularFwhm = .002
-          exact.push(calculateRealCurve(point, [], numerical, 'qz', 'monochromatic').reflectivityPlus[0])
-        }
-        const convolved = adapter.convolveFastQz(instance, input.columns.qz, new Float64Array(raw.flatMap(value => [value, 0])), .002)
-        const expected = fast ? raw.map((_, index) => convolved[index * 2]) : exact
-        const close = (value: number, reference: number) => Math.abs(value - reference) <= 1e-15 + 1e-10 * Math.abs(reference)
-        preparedReflectionPassed &&= result.reflectivity.every((value, index) => close(value, expected[index])) &&
-          result.reflectivityPlus.every((value, index) => close(value, fast ? raw[index] : input.columns.reflectivityPlus?.[index] ?? 1)) &&
-          JSON.stringify(result.reflectivityMinus) === JSON.stringify(input.columns.reflectivityMinus ?? []) && JSON.stringify(result.qz) === JSON.stringify(input.columns.qz)
-      }
-    }
     for (const algorithm of ['parratt', 'matrix'] as const) {
       const prepared = createDefaultProject(); prepared.sample.mode = 'element'
       prepared.experiment.energy = 700
@@ -470,7 +433,7 @@ async function run() {
     const replacement = await runtime.createSession()
     try {
       const isolated = replacement.getGlobal('energy') === null
-      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedReflectionPassed, preparedSegmentationPassed, preparedMagneticProfilesPassed, storedDepthsPassed, segmentedQzPassed, segmentedEnergyPassed })
+      self.postMessage({ energy, version, diagnostic, isolated, arraysPassed, solutionPassed, tensorPassed, elementsPassed, factorsPassed, functionsPassed, opticsPassed, outputPassed, hooksPassed, nestedPassed, childrenPassed, preparedSegmentationPassed, preparedMagneticProfilesPassed, storedDepthsPassed, segmentedQzPassed, segmentedEnergyPassed })
     } finally { replacement.close() }
   } finally { session.close() }
 }
