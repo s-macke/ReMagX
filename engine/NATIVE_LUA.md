@@ -72,6 +72,16 @@ exceptions crossing the Lua boundary. Captured callback dependencies must outliv
 the session, including Lua finalizers during close. Terminal stderr routing still
 belongs to the pending calculation integration.
 
+`ProjectScriptHook` composes the bindings into a reusable prepared project hook.
+Its caller supplies current project, dielectric/scattering tensors, table cursors
+and renew state. The first call initializes/compiles the selected program; later
+calls preserve globals while replacing prepared workspaces. Source or structure
+changes reject. Any failure closes the owned session. Success returns project,
+tensor classifications, scattering tensors and updated cursors together.
+The focused comparison runs this against the actual web createProjectScript
+with three successive input states. Solver invocation order, fallback tensor
+construction, temporary child sessions and cancellation remain integration work.
+
 Run the focused comparison after building `project_lua_tests` and installing
 app dependencies:
 
@@ -79,13 +89,14 @@ app dependencies:
 node app/scripts/test-native-lua.mjs build/engine/project_lua_tests build/wasm
 ```
 
-Seventy-one public synthetic cases compare directly with the actual Wasmoon
+Seventy-four public synthetic cases compare directly with the actual Wasmoon
 runtime, including persistent globals, replaced Start, numeric strings,
 array aliases, element methods, repeated workspace refresh, scalar writeback, native/WASM
 table lookup with duplicate energies and magnetic/tensor companions, all 18
 dielectric component arrays, solution replacement/dynamic bounds and retained
 aliases after tensor refresh, project text/functions, tensor construction and
-compound table refresh, captured print/write output and callback failures, and
+compound table refresh, captured print/write output and callback failures,
+complete prepared project hooks, and
 unchanged inputs. A separate native-only case
 verifies protected global readback when a metatable throws. The existing
 Wasmoon boundary panics for that case; it is not claimed as parity evidence.

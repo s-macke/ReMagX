@@ -17,8 +17,7 @@ struct ScriptHookValues {
     double energy, epsilon, resolution, energy_scan_qz, renew_optical_constants;
 };
 // Calculation-owned Lua 5.4 session with isolated numeric arrays and elements.
-// Project functions and calculation hooks are still required
-// before this bridge can enable CLI scripts.
+// Solver orchestration and cancellation are still required before CLI activation.
 class ProjectLuaSession {
 public:
     ProjectLuaSession();
@@ -42,6 +41,8 @@ public:
     void replace_tensors(const std::vector<ScriptDielectricTensor>& tensors);
     std::vector<ScriptDielectricTensor> tensor_snapshot() const;
     void install_tables(const std::vector<OpticalTable>& tables);
+    void replace_table_cursors(const std::vector<size_t>& cursors);
+    std::vector<size_t> table_cursors() const;
     void replace_project(const ProjectDocument& project, double renew_optical_constants = 0);
     ScriptHookValues begin_hook();
     void apply_hook(const ScriptHookValues& result);
@@ -49,5 +50,27 @@ public:
 private:
     struct State;
     std::unique_ptr<State> state_;
+};
+struct ScriptProjectResult {
+    ProjectDocument project;
+    std::vector<ScriptDielectricTensor> tensors;
+    std::vector<std::array<double,18>> scattering;
+    std::vector<size_t> cursors;
+};
+// Caller supplies prepared optical state and owns invocation/refresh ordering.
+class ProjectScriptHook {
+public:
+    ProjectScriptHook(std::vector<OpticalTable> tables,
+        std::function<void(const std::string&)> emit, bool before_calculation = true);
+    ScriptProjectResult run(const ProjectDocument& project,
+        const std::vector<ScriptDielectricTensor>& tensors,
+        const std::vector<std::array<double,18>>& scattering,
+        const std::vector<size_t>& cursors, double renew = 0);
+private:
+    ProjectLuaSession session_;
+    std::vector<OpticalTable> tables_;
+    std::function<void(const std::string&)> emit_;
+    bool before_calculation_, initialized_ = false, closed_ = false;
+    std::string source_;
 };
 }

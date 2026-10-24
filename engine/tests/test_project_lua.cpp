@@ -19,6 +19,24 @@ int main() {
             const auto input = Json::parse(line);
             const auto project = remagx::ProjectDocument::parse(input.at("project").get<std::string>());
             const auto before = project.serialize();
+            if (input.value("projectHook", false)) {
+                std::vector<remagx::OpticalTable> tables;
+                for (const auto& table : input.at("tables")) tables.push_back(remagx::parse_optical_table(
+                    table.at("text").get<std::string>(), table.at("name").get<std::string>(), table.at("kind").get<std::string>()));
+                std::vector<std::string> messages;
+                remagx::ProjectScriptHook hook(tables, [&](const std::string& value) {messages.push_back(value);});
+                Json results = Json::array();
+                for (const auto& next : input.at("hookProjects")) {
+                    const auto result = hook.run(remagx::ProjectDocument::parse(next.get<std::string>()), tensors(input.at("tensors")),
+                        input.at("scattering").get<std::vector<std::array<double,18>>>(), std::vector<size_t>(tables.size(), 0), 1);
+                    Json tensor_values = Json::array();
+                    for (const auto& tensor : result.tensors) tensor_values.push_back({{"values",tensor.values},{"anisotropic",tensor.anisotropic}});
+                    results.push_back({{"project",Json::parse(result.project.serialize())},{"tensors",tensor_values},
+                        {"scattering",result.scattering},{"cursors",result.cursors}});
+                }
+                std::cout << Json{{"ok",true},{"results",results},{"messages",messages}}.dump() << '\n';
+                continue;
+            }
             std::vector<std::string> messages;
             remagx::ProjectLuaSession session;
             session.install_project_arrays(project);

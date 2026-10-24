@@ -255,6 +255,39 @@ try {
     requests.push({project:JSON.stringify(project),...test,output:true})
   }
   assert.equal(expected.filter(result=>result.ok).length,40)
+  const { createProjectScript } = await server.ssrLoadModule('/src/compute/lua/beforeCalculation.ts')
+  const hookCases = [
+    "error('public hook failure')",
+    "calls=(calls or 0)+1; thickness[1]=thickness[1]+calls; Fe:setf1(calls); FillTensors(); energy=energy+1; print(calls,':',renewocs)",
+    "calls=(calls or 0)+1; SetName(1,'Fe'); SetDeltaBeta(1,7500); Fe:setf(7500); exy_r[1]=calls/100; print(renewocs)",
+  ]
+  const hookTables = [opticalPrimary,primary,magnetic]
+  for (const source of hookCases) {
+    const projects = [0,1,2].map(index => { const value=structuredClone(project);
+      value.experiment.energy=7500+index*100; value.scripts.beforeCalculation=source; return value })
+    const parsed=hookTables.map(table=>parseOpticalTable(table.text,`${table.name}.${table.kind}`))
+    const initialScattering=project.sample.elementProfiles.map(()=>Array(18).fill(0))
+    const session=await runtime.createSession(), messages=[]
+    try {
+      const before=createProjectScript('BeforeCalculation',session,{
+        lookup:(table,queries,cursor)=>lookupTable(core,table,queries,cursor),
+        dielectricTensor:request=>calculateDielectricTensor(core,request),
+        scatteringTensor:request=>calculateScatteringTensor(core,request)},parsed,message=>messages.push(message))
+      const results=projects.map(value=>{
+        const result=before(value,{layers:value.sample.layers,dielectricTensors:value.sample.layers.map(()=>null),
+          dielectricState:initialTensors.map(tensor=>({...tensor,values:Float64Array.from(tensor.values)})),
+          scatteringTensors:initialScattering.map(values=>Float64Array.from(values)),cursors:new Map()},1)
+        return {project:JSON.parse(JSON.stringify(result.project)),
+          tensors:result.opticalState.dielectricState.map(tensor=>({...tensor,values:Array.from(tensor.values)})),
+          scattering:result.opticalState.scatteringTensors.map(values=>Array.from(values)),
+          cursors:parsed.map(table=>result.opticalState.cursors.get(table)??0)}
+      })
+      expected.push({ok:true,results,messages})
+    } catch {expected.push({ok:false})} finally {session.close()}
+    requests.push({project:JSON.stringify(project),projectHook:true,tables:hookTables,
+      hookProjects:projects.map(value=>JSON.stringify(value)),tensors:initialTensors,scattering:initialScattering})
+  }
+  assert.equal(expected.filter(result=>result.ok).length,42)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),
@@ -266,5 +299,5 @@ try {
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
   assert.equal(actual.length, expected.length)
   actual.forEach((result, index) => assert.ok(isDeepStrictEqual(result, expected[index]), `Native Lua case ${index + 1} differs from Wasmoon`))
-  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length + functionCases.length + opticsCases.length + outputCases.length} parity cases and one native protected-readback case passed.`)
+  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length + functionCases.length + opticsCases.length + outputCases.length + hookCases.length} parity cases and one native protected-readback case passed.`)
 } finally { await server.close() }
