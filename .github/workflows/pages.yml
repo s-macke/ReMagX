@@ -43,7 +43,20 @@ jobs:
       - name: Build and test native numerical core
         run: |
           cmake -S ../engine -B ../build/engine -DCMAKE_BUILD_TYPE=Release
-          cmake --build ../build/engine --parallel 2
+          build_log="$RUNNER_TEMP/remagx-native-build.log"
+          if ! cmake --build ../build/engine --parallel 2 > "$build_log" 2>&1; then
+            python3 - "$build_log" <<'PYTHON'
+          import pathlib, sys
+          lines = pathlib.Path(sys.argv[1]).read_text(errors="replace").splitlines()
+          errors = [line for line in lines if "error:" in line or "Error" in line]
+          message = "\n".join(errors or lines[-30:])[-6000:]
+          for index in range(0, len(message), 2000):
+              part = message[index:index + 2000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title=Native build failed (part {index // 2000 + 1})::" + part)
+          PYTHON
+            exit 1
+          fi
+          tail -n 8 "$build_log"
           ctest --test-dir ../build/engine --output-on-failure
 
       - name: Install pinned Emscripten toolchain

@@ -9,7 +9,11 @@ void resolve_chantler_tables(const ProjectDocument& project, std::vector<Optical
     if (!project.boolean("/calculation/useChantlerDatabase") || project.string("/sample/mode") != "element") return;
     // Same reviewed data and exact-case/first-match symbol mapping as the web.
     // D-37 redistribution permission and D-38's 277 stored uranium rows apply.
-    static const auto data = nlohmann::json::parse(chantler_json);
+    static const auto data = [] {
+        std::string text;
+        for (const auto* chunk : chantler_chunks) text += chunk;
+        return nlohmann::json::parse(text);
+    }();
     const size_t count = project.array_size("/sample/elementProfiles");
     for (size_t index = 0; index < count; ++index) {
         const auto name = project.string("/sample/elementProfiles/" + std::to_string(index) + "/element");
