@@ -78,8 +78,20 @@ These conventions can yield surprising corrections; they are preserved rather
 than silently replaced with the web UI's preparation behavior. The actual solver
 still uses the experiment energy and beams.
 
-Monochromatic energy broadening above 1e-6 eV still rejects; the original dichroic
-qz route does not use that energy broadening setting.
+Monochromatic energy broadening above 1e-6 eV evaluates the existing nineteen-point
+quadrature at fixed angles. Optical state and table cursors carry between samples;
+range-skipped layers retain their most recently prepared values. Each sample uses
+a fresh default dataset for postprocessing, so measured energy columns and pi
+correction do not propagate into these samples. qz^4 and averaging happen before
+weighted summation. The returned coordinates are the original terminal grid;
+negative coordinates use the original zero-angle sample behavior. Repeated
+missing/range warnings are emitted once. Nonpositive/nonfinite sample energies
+or any numerical failure reject the whole calculation without partial output.
+
+Widths at or below 1e-6 eV keep the unbroadened path. The original dichroic qz route
+does not use this energy broadening setting. Broadening together with Fourier
+remains explicitly unavailable, as in the web implementation, pending review of
+the original mismatched array lengths.
 
 Element tables/preparation, segmented preparation, Lua,
 legacy `.all` import, energy scans, `-fit` fitted-project output, filesystem
@@ -102,11 +114,13 @@ Validation uses public synthetic projects only:
 node app/scripts/test-native-terminal.mjs build/engine/remagx-terminal build/wasm
 ```
 
-179 cases compare 2,315 output values with actual WASM through the production web
+236 cases compare 2,675 output values with actual WASM through the production web
 preparation at unchanged D-23 tolerance. They cover all three solvers, both modes,
 complex beams, analyzers, both angular convolution paths, tetragonal/nonmagnetic
 settings, qz^4, polarization correction with independent dataset/solver metadata,
-monochromatic Fourier, averaging, shifted/unsorted/repeated coordinates and eight
+monochromatic Fourier, energy-width thresholds, both angular convolution paths
+combined with energy broadening, serial partial table refresh, averaging,
+shifted/unsorted/repeated coordinates and eight
 multilayer patterns across all solvers and both output modes. Dedicated native
 parser tests cover limits, empty groups, nested patterns, ignored characters,
 embedded NUL and recovery. Further

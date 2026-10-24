@@ -57,6 +57,10 @@ try {
     assert.equal(actual.status, 0, actual.stderr || String(actual.error))
     if (project.calculation.automaticOpticalConstants) assert.match(actual.stderr, /saved optical state retained/)
     else assert.equal(actual.stderr, '')
+    if (!dichroic && project.experiment.resolution.energyFwhm > 1e-6) {
+      const warnings = actual.stderr.trim().split('\n')
+      assert.equal(new Set(warnings).size, warnings.length, 'Repeated sampling warnings should be deduplicated')
+    }
     if (tables.some(table => table.warnings.length)) {
       assert.match(actual.stderr, /malformed rows skipped/)
       assert.match(actual.stderr, /ignored extra columns/)
@@ -70,8 +74,11 @@ try {
     reference.datasets = [{ ...structuredClone(dataset), qzShift: 0, energyShift: 0, columns: { qz } }]
     reference.activeDatasetIndex = 0
     reference.experiment.qzScan.useDatasetPoints = true
-    reference.calculation.postProcessing = { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false }
-    reference.calculation.averaging = 0
+    const broadened = !dichroic && project.experiment.resolution.energyFwhm > 1e-6
+    if (!broadened) {
+      reference.calculation.postProcessing = { multiplyByQz4: false, divideByCos2ThetaSquared: false, fourierTransform: false }
+      reference.calculation.averaging = 0
+    }
     const raw = calculateRealCurve(reference, tables, engine, 'qz', dichroic ? 'dichroic' : 'monochromatic')
     const postProject = structuredClone(project)
     const selected = project.experiment.qzScan.useDatasetPoints ? project.datasets[project.activeDatasetIndex] : undefined
@@ -80,7 +87,7 @@ try {
       beam1: { sigma: { re: 1, im: 0 }, pi: { re: 0, im: 0 } },
       beam2: { sigma: { re: 0, im: 0 }, pi: { re: 1, im: 0 } }, analyzer: 'none',
     }
-    const expected = postprocessDatasetColumns(postProject, {
+    const expected = broadened ? { qz: raw.qz, reflectivity: raw.reflectivityPlus } : postprocessDatasetColumns(postProject, {
       qz, energy: selected?.columns.energy,
       ...(dichroic ? { reflectivityPlus: raw.reflectivityPlus, reflectivityMinus: raw.reflectivityMinus }
         : { reflectivity: raw.reflectivityPlus }),
@@ -166,6 +173,28 @@ try {
       }
     }
   }
+  for (const algorithm of ['parratt', 'matrix', 'zak']) for (const fast of [false, true]) {
+    for (const width of [1e-6, 1.000001e-6, 10, 80]) {
+      const project = structuredClone(base)
+      project.calculation.algorithm = algorithm
+      project.experiment.resolution.fastConvolution = fast
+      project.experiment.resolution.angularFwhm = 0.001
+      project.experiment.resolution.energyFwhm = width
+      project.calculation.postProcessing.multiplyByQz4 = true
+      project.calculation.postProcessing.divideByCos2ThetaSquared = true
+      project.calculation.averaging = 1
+      project.datasets = [{ ...structuredClone(dataset), qzShift: 0, energyShift: 50,
+        columns: { qz: [-0.01, 0.02, 0.08, 0.05], energy: [100,200,300,400] } }]
+      project.activeDatasetIndex = 0
+      project.experiment.qzScan.useDatasetPoints = true
+      await compare(project, false)
+    }
+    const dichroic = structuredClone(base)
+    dichroic.calculation.algorithm = algorithm
+    dichroic.experiment.resolution.fastConvolution = fast
+    dichroic.experiment.resolution.energyFwhm = dichroic.experiment.energy * 2
+    await compare(dichroic, true) // no energy sampling in this original entry point
+  }
   const tensor = Array.from(adapter.calculateDielectricTensor(instance, {
     layer: [50, 1, 0.002, 0.0002, 0.00003, 0.00001, 37, 63], tensor: 0, magnetic: 1,
   }).values)
@@ -203,6 +232,12 @@ try {
       project.activeDatasetIndex = 0
       project.experiment.qzScan.useDatasetPoints = true
       await compare(project, dichroic, tables)
+      if (!dichroic) {
+        project.experiment.resolution.energyFwhm = 75
+        project.calculation.postProcessing.multiplyByQz4 = true
+        project.calculation.averaging = 1
+        await compare(project, false, tables)
+      }
     }
   }
   // At zero incidence the existing tetragonal/magnetization-off kernel can
@@ -242,7 +277,8 @@ try {
     project => { project.scripts.enabled = true; project.scripts.beforeCalculation = 'error("private diagnostic")' },
     project => { project.experiment.scattering = 'transmission' },
     project => { project.calculation.postProcessing.fourierTransform = true; project.experiment.qzScan.qzMax = 0 },
-    project => { project.experiment.resolution.energyFwhm = 1 },
+    project => { project.experiment.resolution.energyFwhm = project.experiment.energy },
+    project => { project.experiment.resolution.energyFwhm = 1; project.calculation.postProcessing.fourierTransform = true },
     project => { project.experiment.qzScan.points = 1000001 },
     project => { project.experiment.qzScan.qzMax = 1e100 },
     project => { project.sample.layers[1].beta = 1e200 },
