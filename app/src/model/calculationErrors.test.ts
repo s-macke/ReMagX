@@ -44,3 +44,13 @@ it('provides database and multilayer guidance without losing specific causes or 
   expect(nested.message).toBe((missing as Error).message)
   expect(calculationErrorMessage(nested)).toContain('Lua script execution failed.')
 })
+
+
+it('retains native operation details together with numerical and memory recovery guidance', () => {
+  for (const status of [1, 2, 3, 4]) {
+    const detail = `Selected operation failed (status ${status})`
+    const message = calculationErrorMessage(Object.assign(new Error(detail), { status }))
+    expect(message.split('\n')[1]).toBe(detail)
+    expect(message.split('\n')[0]).toContain(status === 3 ? 'try again' : 'Check')
+  }
+})

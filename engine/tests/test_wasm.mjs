@@ -1,3 +1,4 @@
+import { checkAllocationErrors } from './allocation_error_checks.mjs'
 import { checkTableSessions, checkTableSessionMemory } from './table_session_checks.mjs'
 import { checkVariableEnergy } from './variable_energy_checks.mjs'
 import { checkSegmentedOptics, sampleSegmentedOptics } from './segmented_optics_checks.mjs'
@@ -22,6 +23,7 @@ import { generateErrorFunctionLookup, calculateFourier, calculateGaussLorentzian
 
 const factory = (await import(pathToFileURL(process.argv[2]).href)).default
 const module = await factory()
+checkAllocationErrors(module, { generateLookup: generateErrorFunctionLookup, fitError: calculateFitError, minimize: minimizeSimplex, subdivide: calculateAdaptiveSegments, prepareOptics: createSegmentedOpticalSampler })
 const input = JSON.parse(readFileSync(0, 'utf8'))
 checkVariableEnergy(module, calculateParrattEnergyScan, input.scans)
 checkVariableEnergy(module, calculateZakEnergyScan, input.zak)

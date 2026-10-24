@@ -32,9 +32,11 @@ export function calculationErrorMessage(error: unknown): string {
   }
   const status = (error as { status?: number })?.status
   const detail = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
-  return status === 4 ? 'Qz exceeds the legacy calculation boundary. Check the qz values and energy; the incident angle cannot exceed 90 degrees.'
-    : status === 3 ? 'The real engine could not allocate calculation memory.'
-    : status === 2 ? 'The real engine produced a nonfinite numerical result.'
-    : status === 1 ? 'The real engine rejected invalid calculation inputs.'
-    : detail.trim() ? detail : 'The real engine calculation failed.'
+  const guidance = status === 4 ? 'Qz exceeds the legacy calculation boundary. Check the qz values and energy; the incident angle cannot exceed 90 degrees.'
+    : status === 3 ? 'The real engine could not allocate calculation memory. Reduce the scan point count or layer count and try again.'
+    : status === 2 ? 'The real engine produced a nonfinite numerical result. Check the optical constants and calculation parameters.'
+    : status === 1 ? 'The real engine rejected invalid calculation inputs. Check the calculation parameters.'
+    : null
+  if (guidance) return detail.trim() ? `${guidance}\n${detail}` : guidance
+  return detail.trim() ? detail : 'The real engine calculation failed.'
 }

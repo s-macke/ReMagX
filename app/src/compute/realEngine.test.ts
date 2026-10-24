@@ -139,9 +139,9 @@ it('reports deferred algorithms before loading physics or running scripts across
 
 
 it.each([
-  [Object.assign(new Error('native status'), { status: 1 }), 'The real engine rejected invalid calculation inputs.'],
-  [Object.assign(new Error('native status'), { status: 2 }), 'The real engine produced a nonfinite numerical result.'],
-  [Object.assign(new Error('native status'), { status: 3 }), 'The real engine could not allocate calculation memory.'],
+  [Object.assign(new Error('native status'), { status: 1 }), 'The real engine rejected invalid calculation inputs. Check the calculation parameters.\nnative status'],
+  [Object.assign(new Error('native status'), { status: 2 }), 'The real engine produced a nonfinite numerical result. Check the optical constants and calculation parameters.\nnative status'],
+  [Object.assign(new Error('native status'), { status: 3 }), 'The real engine could not allocate calculation memory. Reduce the scan point count or layer count and try again.\nnative status'],
   [new Error(''), 'The real engine calculation failed.'],
   [new Error('  \n '), 'The real engine calculation failed.'],
   [null, 'The real engine calculation failed.'],

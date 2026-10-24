@@ -21,7 +21,7 @@ export function calculateFitError(module, {
     if (!Number.isSafeInteger(bytes) || bytes > 0x7fffffff) throw new RangeError('Fit-error buffer too large')
     if (!size) return 0
     const pointer = module._malloc(bytes)
-    if (!pointer) throw new Error('Fit-error allocation failed')
+    if (!pointer) throw Object.assign(new Error('Fit-error allocation failed'), { status: 3 })
     allocations.push(pointer)
     return pointer
   }

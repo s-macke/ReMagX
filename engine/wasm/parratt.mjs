@@ -44,7 +44,7 @@ function withBuffers(module, run) {
     const bytes = count * 8
     if (!Number.isSafeInteger(bytes) || bytes > 0x7fffffff) throw new RangeError('Parratt buffer too large')
     const pointer = module._malloc(bytes)
-    if (!pointer) throw new Error('Parratt allocation failed')
+    if (!pointer) throw Object.assign(new Error('Parratt allocation failed'), { status: 3 })
     allocations.push(pointer)
     return pointer
   }

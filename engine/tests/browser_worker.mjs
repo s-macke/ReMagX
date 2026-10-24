@@ -1,3 +1,4 @@
+import { checkAllocationErrors } from './allocation_error_checks.mjs'
 import { checkTableSessions, checkTableSessionMemory } from './table_session_checks.mjs'
 import { checkVariableEnergy } from './variable_energy_checks.mjs'
 import { checkSegmentedOptics, sampleSegmentedOptics } from './segmented_optics_checks.mjs'
@@ -36,6 +37,7 @@ self.onmessage = ({ data }) => {
       calculateParratt(core, prepared)
       self.postMessage({ kind: 'finished' })
     } else {
+      checkAllocationErrors(core, { generateLookup: generateErrorFunctionLookup, fitError: calculateFitError, minimize: minimizeSimplex, subdivide: calculateAdaptiveSegments, prepareOptics: createSegmentedOpticalSampler })
       checkTableSessions(core, createTableLookupSession, lookupTable, data.tables)
       checkTableSessionMemory(core, createTableLookupSession, () => checkSegmentedOptics(core, calculateSegmentedOptics, calculateAdaptiveSegments, createSegmentedOpticalSampler))
       checkAdaptiveSegments(core, calculateAdaptiveSegments)

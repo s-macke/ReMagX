@@ -14,7 +14,7 @@ export function calculateAdaptiveSegments(module, {
   let callback, callbackFailed = false, callbackError
   const allocate = count => {
     const pointer = module._malloc(count * 8)
-    if (!pointer) throw new Error('Adaptive segmentation allocation failed')
+    if (!pointer) throw Object.assign(new Error('Adaptive segmentation allocation failed'), { status: 3 })
     allocations.push(pointer)
     return pointer
   }
@@ -82,7 +82,7 @@ function opticalSampler(module, {
     const bytes = count * 8
     if (!Number.isSafeInteger(bytes) || bytes > 0x7fffffff) throw new RangeError('Segmented optical buffer too large')
     const pointer = module._malloc(bytes)
-    if (!pointer) throw new Error('Segmented optical allocation failed')
+    if (!pointer) throw Object.assign(new Error('Segmented optical allocation failed'), { status: 3 })
     allocations.push(pointer)
     return pointer
   }

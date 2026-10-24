@@ -26,7 +26,7 @@ function minimize(module, {
   const allocate = bytes => {
     if (!Number.isSafeInteger(bytes) || bytes > 0x7fffffff) throw new RangeError('Optimizer buffer too large')
     const pointer = module._malloc(bytes)
-    if (!pointer) throw new Error('Optimizer allocation failed')
+    if (!pointer) throw Object.assign(new Error('Optimizer allocation failed'), { status: 3 })
     allocations.push(pointer)
     return pointer
   }
