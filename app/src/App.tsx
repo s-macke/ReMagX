@@ -14,6 +14,8 @@ import { applyFitValues } from './model/fitTargets'
 import { canRemoveLayer } from './model/layers'
 import { useAppState, useDispatch } from './state/context'
 import { ProjectProvider } from './state/ProjectProvider'
+import { useScriptExecution } from './state/useScriptExecution'
+import type { ScriptTab } from './ui/ScriptWindow'
 import { useCalculation } from './state/useCalculation'
 import { usePersistence } from './state/usePersistence'
 import { Dialog } from './ui/Dialog'
@@ -81,6 +83,17 @@ function Workspace() {
   const [licenseOpen, setLicenseOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
   const [scriptOpen, setScriptOpen] = useState(false)
+  const [scriptTab, setScriptTab] = useState<ScriptTab>('beforeCalculation')
+  const scriptExecution = useScriptExecution()
+  const executeScript = (tab: ScriptTab) => {
+    setScriptTab(tab)
+    setScriptOpen(true)
+    scriptExecution.execute(tab === 'default' ? 'Default' : 'BeforeCalculation')
+  }
+  const closeScript = () => {
+    scriptExecution.stop()
+    setScriptOpen(false)
+  }
   const [asciiFile, setAsciiFile] = useState<{ name: string; text: string } | null>(null)
 
   const importDatasets = async () => {
@@ -214,8 +227,8 @@ function Workspace() {
           label: 'Script',
           items: [
             { label: 'Open Script Window', onSelect: () => setScriptOpen(true) },
-            { label: 'Execute Script: Default (Lua engine coming)', disabled: true },
-            { label: 'Execute Script: Before Calculation (Lua engine coming)', disabled: true },
+            { label: 'Execute Script: Default', disabled: scriptExecution.busy || scriptExecution.unavailable, onSelect: () => executeScript('default') },
+            { label: 'Execute Script: Before Calculation', disabled: scriptExecution.busy || scriptExecution.unavailable, onSelect: () => executeScript('beforeCalculation') },
           ],
         },
         // The electric field follows later (D-26); the layer profile is shown now.
@@ -325,7 +338,7 @@ function Workspace() {
       {preferencesOpen && <PreferencesDialog onClose={() => setPreferencesOpen(false)} />}
       {scriptOpen && (
         <Suspense fallback={null}>
-          <ScriptWindow onClose={() => setScriptOpen(false)} />
+          <ScriptWindow onClose={closeScript} tab={scriptTab} setTab={setScriptTab} execution={scriptExecution} />
         </Suspense>
       )}
       {licenseOpen && (

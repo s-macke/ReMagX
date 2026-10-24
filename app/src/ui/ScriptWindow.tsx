@@ -1,20 +1,24 @@
-import { useScriptExecution } from '../state/useScriptExecution'
+import type { useScriptExecution } from '../state/useScriptExecution'
 import { useState } from 'react'
 import { generateSnippet, snippetLabels, type SnippetKind } from '../model/scriptSnippets'
 import { useAppState } from '../state/context'
 import { useEditProject } from '../state/useEditProject'
 import { LuaEditor } from './LuaEditor'
 
-type ScriptTab = 'default' | 'beforeCalculation'
+export type ScriptTab = 'default' | 'beforeCalculation'
 
 // Legacy "Script Window" (client/Unit4): Lua scripts with a code generator and an Execute button.
 // A floating, non-modal window so the layer table and plot stay usable next to it.
-export function ScriptWindow({ onClose }: { onClose: () => void }) {
+export function ScriptWindow({ onClose, tab, setTab, execution }: {
+  onClose: () => void
+  tab: ScriptTab
+  setTab: (tab: ScriptTab) => void
+  execution: ReturnType<typeof useScriptExecution>
+}) {
   const { project } = useAppState()
   const edit = useEditProject()
-  const [tab, setTab] = useState<ScriptTab>('beforeCalculation')
   const [line, setLine] = useState(1)
-  const { execute, stop, busy, output, append, unavailable } = useScriptExecution()
+  const { execute, stop, busy, output, append, unavailable } = execution
 
   const code = tab === 'default' ? project.scripts.default : project.scripts.beforeCalculation
   const setCode = (text: string) =>

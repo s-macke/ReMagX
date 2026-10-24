@@ -815,10 +815,13 @@
     },
     {
       "name": "lua-execution",
-      "status": "deferred",
-      "reason": "Execute scripts and show Lua output/errors through the worker with legacy API semantics (D-2, D-22).",
+      "status": "ported",
+      "reason": "Both Tools script commands and the Script Window share real worker execution, output/errors and Stop. Menu execution selects the program and opens its output; closing cancels active work. Full legacy API/numerical acceptance remains separate (D-2, D-22).",
       "references": [
-        "AGENTS.md"
+        "app/src/App.tsx",
+        "app/src/ui/ScriptWindow.tsx",
+        "app/src/state/useScriptExecution.ts",
+        "app/e2e/scriptMenus.spec.ts"
       ],
       "entries": [
         "client/Unit1.cpp::event:e512be6c862f4d28:1",
@@ -827,8 +830,7 @@
         "client/Unit1.dfm::Form1/MainMenu1/Utils1/Script1/ExecuteScriptBeforeCalculation1",
         "client/Unit4.dfm::ScriptWindow/Execute",
         "client/Unit4.dfm::ScriptWindow/Memo1"
-      ],
-      "phase": "engine"
+      ]
     },
     {
       "name": "stop-deadline",
