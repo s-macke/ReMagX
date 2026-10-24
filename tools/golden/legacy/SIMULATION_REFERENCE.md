@@ -1304,3 +1304,9 @@ The proposed D-35 implementation would use the existing double-precision native
 tensor constructor for `.db`/`.m`, at those angles. That would correct legacy
 physics behavior and needs D-29 approval. No correction or acceptance exception
 has been applied; the diagnostic explicitly reports `acceptancePassed: false`.
+
+Update, 2026-10-24: D-42 records the user's approval to correct this conversion.
+The public native `-convert` now constructs tensors from .db/.m at gamma=phi=90
+and replaces .e; it deliberately does not reproduce the zero/copy defect above.
+The original diagnostic and private original are unchanged. Public conversion
+checks use the analytic tensor and retain the standard D-23 tolerance.

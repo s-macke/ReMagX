@@ -1,4 +1,5 @@
 #include "remagx/project_calculation.hpp"
+#include "terminal_conversion.hpp"
 #include "remagx/legacy_import.hpp"
 #include "remagx/project_fit.hpp"
 #include <csignal>
@@ -24,6 +25,7 @@ int main(int argc, char** argv) {
     }
     if (argc == 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
         std::cout << "Usage: remagx-terminal -refl|-dicrefl|-fit project.json|project.all\n"
+                     "       remagx-terminal -convert material-basename\n"
                      "       remagx-terminal -v\n"
                      "Manual/automatic compound or element constants, Parratt/Matrix/Zak.\n"
                      "Output: qz R, or qz Rp Rm; 17 significant digits.\n"
@@ -31,14 +33,21 @@ int main(int argc, char** argv) {
                      "-fit writes the fitted JSON project to stdout; diagnostics go to stderr.\n"
                      "Ctrl+C stops fitting and returns the best evaluated project, if available.\n"
                      "Lua-enabled builds support compound/element qz scripts, including monochromatic energy broadening.\n"
-                     "Other scripted calculation paths and -convert remain pending.\n";
+                     "-convert rebuilds basename.e from basename.db and optional basename.m at gamma=phi=90 degrees.\n";
         return 0;
     }
-    if (argc != 3 || (std::string(argv[1]) != "-refl" && std::string(argv[1]) != "-dicrefl" && std::string(argv[1]) != "-fit")) {
+    if (argc != 3 || (std::string(argv[1]) != "-refl" && std::string(argv[1]) != "-dicrefl" && std::string(argv[1]) != "-fit" && std::string(argv[1]) != "-convert")) {
         std::cerr << "Unsupported invocation; use --help for currently integrated commands.\n";
         return 2;
     }
     try {
+        if (std::string(argv[1]) == "-convert") {
+            std::vector<std::string> messages;
+            try { remagx::convert_terminal_tables(argv[2], messages); }
+            catch (...) { for (const auto& message : messages) std::cerr << message << '\n'; throw; }
+            for (const auto& message : messages) std::cerr << message << '\n';
+            return 0;
+        }
         std::ifstream input(argv[2], std::ios::binary);
         if (!input) throw remagx::ProjectDocumentError("Cannot open project input.");
         const std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};

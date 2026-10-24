@@ -534,7 +534,7 @@ try {
     if (project.scripts.enabled) assert.match(result.stderr,
       /Lua execution failed: BeforeCalculation:1: public script failure|built without Lua support/)
   }
-  for (const command of ['-convert', '-map', '--unknown']) {
+  for (const command of ['-map', '--unknown']) {
     const result = run([command, filename])
     assert.equal(result.status, 2); assert.equal(result.stdout, '')
   }

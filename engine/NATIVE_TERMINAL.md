@@ -13,6 +13,7 @@ build/engine/remagx-terminal -refl project.json
 build/engine/remagx-terminal -dicrefl project.json
 build/engine/remagx-terminal -refl project.all
 build/engine/remagx-terminal -fit project.json > fitted.json
+build/engine/remagx-terminal -convert material
 ```
 
 ## Installing the native terminal
@@ -182,12 +183,11 @@ does not use this energy broadening setting. Broadening together with Fourier
 remains explicitly unavailable, as in the web implementation, pending review of
 the original mismatched array lengths.
 
-Remaining Lua integration, standalone energy-scan commands, transactional file replacement
-and `-convert` remain to be integrated. `-map` follows the separately
+Remaining Lua integration, standalone energy-scan commands and transactional replacement
+for redirected project output remain to be integrated. `-map` follows the separately
 agreed map implementation. Unsupported commands/settings report an error; they
 never run a simplified calculation while silently ignoring active preparation.
-The original terminal's broken `.db`/`.m` → `.e` conversion is a separate pending
-decision and is not implemented here.
+The original conversion defect is corrected under D-42, as described below.
 
 An invalid invocation returns exit code 2. Input/calculation failures return 1
 and report a bounded diagnostic to stderr, without scientific output. The entire
@@ -316,3 +316,29 @@ Lua, skip hooks on range failures, preserve partial updates and carry script sta
 into later points. The original difference between monochromatic post-hook and
 dichroic pre-hook solver energy is retained. The focused fit-start gate compares public fixtures against
 Wasmoon and the actual WASM optimizer, without running the private corpus.
+
+## Optical-table conversion
+
+`remagx-terminal -convert material` reads `material.db` and optional `material.m`,
+then writes `material.e`. Supply the filename without extension; paths with spaces
+work when quoted. An existing `.e` is replaced, never used as a tensor input.
+D-42 explicitly approves correcting the original commented-out tensor construction.
+The private original is unchanged.
+
+Each sorted `.db` energy is looked up through the shared interpolation kernel.
+The native tensor constructor uses gamma=90 degrees, phi=90 degrees and magnetic
+mode when the `.m` table has usable rows. Missing/empty `.m` disables magnetism;
+queries outside its range use zero magnetic constants. Reports identify these
+conditions and malformed/extra-column rows on stderr. An absent/empty `.db`,
+unreadable input or failed calculation exits nonzero without replacing output.
+
+The file has energy followed by 18 row-major interleaved real/imaginary components
+(xx, xy, xz, yx, yy, yz, zx, zy, zz), written with 17 significant digits so doubles
+round-trip without deliberate quantization. Inputs are never rewritten. The full
+result is calculated before writing; a temporary file beside the destination is
+renamed into place on Linux. Write/rename failures leave the previous destination
+unchanged, remove temporary files and return an error. No rows go to stdout.
+
+Focused check: `ctest --test-dir build/engine -R '^terminal_conversion$' --output-on-failure`.
+It uses disposable public tables and analytic 90-degree tensors, not the known
+incorrect original conversion output as a numerical golden.
