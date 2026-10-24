@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { lookupTable } from '../../engine/wasm/parratt.mjs'
+import { lookupTable, calculateGaussLorentzianReal, calculateGaussLorentzianImag } from '../../engine/wasm/parratt.mjs'
 import { createServer } from 'vite'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const executable = resolve(process.argv[2] ?? resolve(root, 'build/engine/project_lua_tests'))
@@ -172,6 +172,30 @@ try {
     requests.push({project:JSON.stringify(project), ...test, solution:initial, repeat:2})
   }
   assert.equal(expected.filter(result => result.ok).length, 22)
+  const functionCases = [
+    "SetName(1.9,'Fe'); SetChemicalFormula(1,'Fe2O3'); SetName(1); SetChemicalFormula(1,'ignored',3)",
+    "SetName({},123); SetChemicalFormula(1,nil); SetName(1,'Fe'..string.char(0)..'ignored')",
+    "SetName(100,'Fe')", "SetName(1,{})",
+    "energy=9000; par[0]=GetGaussLorentzianImag(8000,2,5,25); par[1]=GetGaussLorentzianReal(8000,2,0,25)",
+    "par[0]=GetGaussLorentzianImag('8000','2','5','25'); assert(GetGaussLorentzianReal(1)==nil)",
+    "assert(CalculateDicReflectivity(1,2)==nil); assert(CalculateEnergyscan({})==nil)",
+    "KramersKronigRange()", "ShowMatrixEigenvalues()", "ShowEScanEigenvalues()", "FillTensors()", "SetDeltaBeta(1,8000)",
+  ]
+  for (const source of functionCases) {
+    const workspace = createScriptArrayWorkspace(project)
+    const session = await runtime.createSession()
+    try {
+      session.installArrays(workspace.arrays); session.installElements(workspace.elements)
+      session.installProjectFunctions({setLayerText: workspace.setLayerText,
+        gaussLorentzianReal: (...values) => calculateGaussLorentzianReal(core, [workspace.calculationEnergy(), ...values]),
+        gaussLorentzianImag: (...values) => calculateGaussLorentzianImag(core, [workspace.calculationEnergy(), ...values])})
+      session.compile(source, 'BeforeCalculation')
+      const result = session.runHook(hook)
+      expected.push(JSON.parse(JSON.stringify({ok:true, project:workspace.snapshot(), hook:result})))
+    } catch { expected.push({ok:false}) } finally { session.close() }
+    requests.push({project:JSON.stringify(project), source, functions:true})
+  }
+  assert.equal(expected.filter(result => result.ok).length, 27)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),
@@ -182,5 +206,5 @@ try {
   assert.equal(run.status, 0, run.stderr || String(run.error))
   const actual = run.stdout.trimEnd().split('\n').map(line => JSON.parse(line))
   assert.deepEqual(actual, expected)
-  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length} parity cases and one native protected-readback case passed.`)
+  console.log(`Native/Wasmoon scalar and array sessions: ${sources.length + workspaceCases.length + tableCases.length + tensorCases.length + solutionCases.length + functionCases.length} parity cases and one native protected-readback case passed.`)
 } finally { await server.close() }

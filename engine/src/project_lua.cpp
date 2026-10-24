@@ -192,6 +192,54 @@ int install_elements(lua_State* vm) {
     for (auto& binding : *elements) { push_element(vm, &binding); lua_setglobal(vm, binding.name.c_str()); }
     return 0;
 }
+struct ProjectFunctions { ProjectLuaSession* session; std::string error; };
+template<bool OpticalTable> int set_layer_text(lua_State* vm) {
+    if (lua_gettop(vm) != 2) return 0;
+    auto* context = static_cast<ProjectFunctions*>(lua_touserdata(vm, lua_upvalueindex(1)));
+    const double index = std::trunc(lua_tonumber(vm, 1));
+    const bool is_string = lua_isstring(vm, 2);
+    if (OpticalTable && !is_string) return luaL_error(vm, "SetName: string or number expected");
+    const char* value = is_string ? lua_tostring(vm, 2) : "";
+    bool failed = false;
+    try { context->session->set_layer_text(index, OpticalTable, value); }
+    catch (const std::exception& error) { context->error = error.what(); failed = true; }
+    if (failed) return luaL_error(vm, "%s", context->error.c_str());
+    return 0;
+}
+template<bool Real> int line_shape(lua_State* vm) {
+    if (lua_gettop(vm) != 4) return 0;
+    auto* context = static_cast<ProjectFunctions*>(lua_touserdata(vm, lua_upvalueindex(1)));
+    double energy = 0, result = 0;
+    bool failed = false;
+    try { energy = context->session->calculation_energy(); }
+    catch (const std::exception& error) { context->error = error.what(); failed = true; }
+    if (failed) return luaL_error(vm, "%s", context->error.c_str());
+    const auto calculate = Real ? remagx_gauss_lorentzian_real : remagx_gauss_lorentzian_imag;
+    if (calculate(energy, lua_tonumber(vm,1), lua_tonumber(vm,2), lua_tonumber(vm,3), lua_tonumber(vm,4), &result) != 0)
+        return luaL_error(vm, "GetGaussLorentzian%s: invalid or nonfinite result", Real ? "Real" : "Imag");
+    lua_pushnumber(vm, result); return 1;
+}
+int no_operation(lua_State*) { return 0; }
+int unavailable_function(lua_State* vm) {
+    const char* name = lua_tostring(vm, lua_upvalueindex(1));
+    if (std::string_view(name) == "SetDeltaBeta" && lua_gettop(vm) != 2) return 0;
+    return luaL_error(vm, "%s: not supported yet", name);
+}
+int install_functions(lua_State* vm) {
+    auto* context = static_cast<ProjectFunctions*>(lua_touserdata(vm, 1));
+    const luaL_Reg functions[] = {{"SetName", set_layer_text<true>}, {"SetChemicalFormula", set_layer_text<false>},
+        {"GetGaussLorentzianReal", line_shape<true>}, {"GetGaussLorentzianImag", line_shape<false>}, {nullptr,nullptr}};
+    for (const auto* function = functions; function->name; ++function) {
+        lua_pushlightuserdata(vm, context); lua_pushcclosure(vm, function->func, 1); lua_setglobal(vm, function->name);
+    }
+    for (const char* name : {"CalculateDicReflectivity", "CalculateEnergyscan"}) {
+        lua_pushcfunction(vm, no_operation); lua_setglobal(vm, name);
+    }
+    for (const char* name : {"KramersKronigRange", "ShowMatrixEigenvalues", "ShowEScanEigenvalues", "FillTensors", "SetDeltaBeta"}) {
+        lua_pushstring(vm, name); lua_pushcclosure(vm, unavailable_function, 1); lua_setglobal(vm, name);
+    }
+    return 0;
+}
 struct HookRequest { ScriptHookValues input, output; };
 // Keep only trivial locals inside Lua's longjmp boundary.
 int execute_hook(lua_State* vm) {
@@ -219,6 +267,7 @@ int install_program(lua_State* vm) { lua_pushvalue(vm, 1); lua_setglobal(vm, "St
 struct ProjectLuaSession::State {
     lua_State* vm = nullptr;
     bool compiled = false;
+    ProjectFunctions functions{nullptr, {}};
     double wavelength = 0, renew_optical_constants = 0;
     std::optional<ProjectDocument> project;
     std::deque<NumericArray> arrays;
@@ -310,6 +359,29 @@ void validate_script_tensors(const std::vector<ScriptDielectricTensor>& tensors)
     for (const auto& tensor : tensors) for (const double value : tensor.values)
         if (!std::isfinite(value)) throw ProjectDocumentError("Invalid script dielectric tensor");
 }
+}
+void ProjectLuaSession::install_project_functions() {
+    if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
+    if (state_->compiled) throw ProjectDocumentError("Install project functions before compiling Lua");
+    state_->functions.session = this;
+    lua_pushcfunction(state_->vm, install_functions); lua_pushlightuserdata(state_->vm, &state_->functions);
+    if (lua_pcall(state_->vm, 1, 0, 0) != LUA_OK) {
+        const char* message = lua_tostring(state_->vm, -1);
+        const std::string detail = message ? message : "Cannot install project functions";
+        close(); throw ProjectDocumentError(detail);
+    }
+}
+void ProjectLuaSession::set_layer_text(double index, bool optical_table, const std::string& value) {
+    if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
+    if (!std::isfinite(index) || std::trunc(index) != index || index < 0 || index > 9007199254740991.0 ||
+        index >= static_cast<double>(state_->project->array_size("/sample/layers")))
+        throw ProjectDocumentError("Layer index out of range");
+    state_->project = state_->project->with_calculation_string("/sample/layers/" + std::to_string(static_cast<size_t>(index)) +
+        (optical_table ? "/opticalTable" : "/material"), value);
+}
+double ProjectLuaSession::calculation_energy() const {
+    if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");
+    return 12398.326 / state_->wavelength;
 }
 void ProjectLuaSession::install_solution() {
     if (!state_ || !state_->project) throw ProjectDocumentError("No active Lua project workspace.");

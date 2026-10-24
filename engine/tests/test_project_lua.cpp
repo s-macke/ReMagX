@@ -32,6 +32,7 @@ int main() {
             if (input.contains("solution")) {
                 session.install_solution(); session.replace_solution(solution(input.at("solution")));
             }
+            if (input.value("functions", false)) session.install_project_functions();
             session.compile(input.at("source").get<std::string>(), true);
             const remagx::ScriptHookValues values{8000, 1e-12, .001, .03, 1};
             auto result = values;

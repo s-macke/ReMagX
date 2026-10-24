@@ -34,6 +34,8 @@ public:
     // list-order writes. Transient fit values may exceed persisted field domains;
     // solver preparation validates them, and serialize() rejects invalid projects.
     ProjectDocument with_calculation_numbers(const std::vector<std::pair<std::string, double>>& edits) const;
+    // Calculation-only text edit of an existing string; serialization validates.
+    ProjectDocument with_calculation_string(std::string_view path, const std::string& value) const;
     // Select a validated dataset for calculation without adapting its raw columns.
     ProjectDocument for_fit_dataset(size_t index) const;
 private:

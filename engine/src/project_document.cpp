@@ -275,6 +275,16 @@ ProjectDocument ProjectDocument::with_calculation_numbers(const std::vector<std:
     } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing calculation target."); }
 }
 
+ProjectDocument ProjectDocument::with_calculation_string(std::string_view path, const std::string& value) const {
+    try {
+        auto document = storage_->document;
+        auto& target = document.at(Json::json_pointer(std::string(path)));
+        if (!target.is_string()) throw ProjectDocumentError("Calculation target is not text.");
+        target = value;
+        return ProjectDocument(std::make_shared<Storage>(std::move(document)), false);
+    } catch (const Json::exception&) { throw ProjectDocumentError("Invalid or missing calculation target."); }
+}
+
 ProjectDocument ProjectDocument::for_fit_dataset(size_t index) const {
     const auto& datasets = storage_->document.at("datasets");
     if (index >= datasets.size()) throw ProjectDocumentError("Invalid fit dataset index.");

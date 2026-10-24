@@ -26,6 +26,9 @@ public:
     ScriptHookValues run_hook(const ScriptHookValues& input);
     void install_project_arrays(const ProjectDocument& project);
     ProjectDocument project_snapshot() const;
+    void install_project_functions();
+    void set_layer_text(double index, bool optical_table, const std::string& value);
+    double calculation_energy() const;
     void install_solution();
     void replace_solution(const ScriptSolution& solution);
     ScriptSolution solution_snapshot() const;
