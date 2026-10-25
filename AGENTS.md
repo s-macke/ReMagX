@@ -228,10 +228,14 @@ required merely to close a documentation or UI task.
   handling is unchanged. Focused Chromium load/remove/undo/save passes, as do 534
   app tests, lint/build, 371 native/WASM terminal comparisons and precision/inventory
   checks. Historical original-only diagnostics remain separate from the product.
-- [ ] **I2 — Preserve double coefficients in generated Lua (D-41).** Remove the two
+- [x] **I2 — Preserve double coefficients in generated Lua (D-41).** Remove the two
   `toFixed(10)` serializations of beta/delta and betam/deltam in scriptSnippets.ts.
   Done when generated executable numbers round-trip the computed double, including
   small ratios, with a focused regression check; do not round stored numerics.
+  Completed 2026-10-25: shortest round-tripping coefficient literals replace fixed
+  decimals; -0 uses a floating Lua literal. Seven focused generator/actual-Lua
+  checks pass, including tiny/subnormal/large values, signed zero, unchanged layer
+  selection and caller state. App regression baseline, lint and build pass.
 - [ ] **I3 — Finish the agreed Lua API audit and resulting gaps (D-22/D-43).** Map the
   original registered functions/globals to web and native bindings. Trace GetError,
   which has no current registration, and unresolved fractional-index conversion
