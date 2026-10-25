@@ -251,3 +251,10 @@ Native build of the same C++ core → golden-data generator + CI regression test
 ## Open questions
 
 Current unresolved decisions and their dependent work are tracked in [AGENTS.md](../../../AGENTS.md#decisions-and-dependent-work), S1–S8. The decision journal governs their resolution. Earlier D-22 to D-32 decisions did not resolve subsequently discovered legacy defects or all UI/infrastructure scope questions.
+
+
+### Approved scope clarifications (2026-10-25)
+
+- D-46: magnetic splines return the stored ordinate at the first usable knot; the original undefined read is not reproduced.
+- D-47: single-medium layer conversion is excluded for now; reject application explicitly and preserve project data. Multi-row conversion remains in scope.
+- D-48: private-corpus CI integration is deferred; private acceptance checks run locally. AC-4 behavior and AC-5/6/9 criteria remain unchanged. Public CI continues without private data.

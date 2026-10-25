@@ -90,7 +90,9 @@ class ProfileApplicationTest(unittest.TestCase):
         self.assertEqual(evaluate(profiles, [0], [10, 20], [1, .5], 1, shapes), (0, [270, 880]))
         self.assertEqual(evaluate(profiles, [0], [10, 20], [1, .5], 1, [None, ([], [])]), (0, [30, 80]))
         self.assertEqual(evaluate([], [0], [10, 20], [], 1, []), (0, [10, 20]))
-        self.assertEqual(evaluate(profiles, [0, -1], [10, 20]*2, [1, 1]*2, 0, shapes), (1, [-123]*4))
+        endpoint = evaluate(profiles, [-1], [10, 20], [0, .5], 0, shapes)
+        self.assertEqual(endpoint, (0, [18, 30]))
+        self.assertEqual(evaluate(profiles, [-1], [10, 20], [0, .5], 1, shapes), (0, [90, 220]))
         skipped = evaluate(profiles, [0, -1], [10, 20]*2, [1, 1, 1, 0], 0, shapes)
         self.assertEqual(skipped[0], 0)
         profiles[1].delta_amplitude = profiles[1].beta_amplitude = 0

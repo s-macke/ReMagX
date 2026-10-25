@@ -22,7 +22,11 @@ int splineValue(const double* knots, const double* values, size_t knot_count, do
         // TSplineFunc selects the first knot >= position, without sorting.
         size_t right = 1;
         while (right < knot_count && position > knots[right]) ++right;
-        // At the exact left endpoint the original would read values[-1].
+        // D-46: use the stored ordinate where the original reads values[-1].
+        if (position == knots[1]) {
+            shape = values[1];
+            return REMAGX_SUCCESS;
+        }
         if (right < 2 || right + 1 >= knot_count) return REMAGX_INVALID_ARGUMENT;
         const double fraction = 0.0 - (knots[right - 1] - position) /
             (knots[right - 1] - knots[right]) * (0.0 - 1.0);

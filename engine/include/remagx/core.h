@@ -337,8 +337,8 @@ int remagx_gaussian_spline_knots(const RemagxGaussianProfile* profile, int inter
 // Evaluate the legacy four-point magnetic spline at supplied positions, scaling
 // its ordinates by the profile delta/beta amplitudes. Knots retain caller order;
 // fewer than four knots and positions outside [knots[1], knots[n-2]] give zero.
-// The exact left endpoint has an undefined legacy array read and is rejected
-// pending an explicit compatibility decision. Invalid stencils/nonfinite results
+// The exact left endpoint returns its stored ordinate (approved correction D-46).
+// Invalid stencils/nonfinite results
 // fail atomically. count>0; output holds 2*count interleaved doubles. Center/width
 // are finite metadata only; knot positions already encode the shape.
 int remagx_spline_profile(const RemagxGaussianProfile* profile,
@@ -362,7 +362,7 @@ int remagx_apply_gaussian_profiles(const RemagxGaussianProfile* profiles, size_t
 // a spline with that many knots (including an empty, zero-valued spline).
 // knots/values concatenate spline data in profile order; their length knot_count
 // must equal the sum of nonnegative counts. Zero-weight/zero-amplitude profiles
-// skip evaluation, including otherwise unsupported spline endpoints.
+// skip evaluation.
 int remagx_apply_magnetic_profiles(const RemagxGaussianProfile* profiles, size_t profile_count,
     const int* spline_counts, const double* knots, const double* values, size_t knot_count,
     const double* positions, const double* initial_values, const double* weights,

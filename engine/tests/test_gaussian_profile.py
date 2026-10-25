@@ -126,9 +126,21 @@ class GaussianProfileTest(unittest.TestCase):
             self.assertEqual(spline(profile, list(range(count)), [1]*count, [-5, 0, 5]), (0, [0]*6))
         self.assertEqual(spline(profile, [4, 3, 2, 1, 0], [1]*5, [0, 1, 2, 3, 4]), (0, [0]*10))
 
+    def test_spline_first_usable_knot_and_neighbors(self):
+        profile = Profile(0, 1, 2, -3)
+        positions = [math.nextafter(1, 0), 1, math.nextafter(1, 2), 1.25, 1.5]
+        status, actual = spline(profile, [0, 1, 2, 3, 4], [0, 1, 2, 3, 4], positions)
+        self.assertEqual(status, 0)
+        self.assertEqual(actual[:4], [0, 0, 2, -3])
+        for position, delta, beta in zip(positions[2:], actual[4::2], actual[5::2]):
+            self.assertAlmostEqual(delta, 2 * position, delta=1e-15)
+            self.assertAlmostEqual(beta, -3 * position, delta=1e-15)
+        # Stored ordinate, not the first guard knot or an extrapolated value.
+        self.assertEqual(spline(profile, [0, 1, 2, 3], [9, -7, 4, 2], [1]), (0, [-14, 21]))
+
     def test_spline_errors_are_atomic(self):
         profile = Profile(0, 1, 1, 1)
-        for positions in [[1.5, 1], [1.5, math.nan]]:
+        for positions in [[1.5, math.nan]]:
             self.assertEqual(spline(profile, [0, 1, 2, 3], [1]*4, positions), (1, [-123]*4))
         self.assertEqual(spline(profile, [0, 1, 2, 3], [1, math.inf, 1, 1], [1.5]), (1, [-123]*2))
         self.assertEqual(spline(profile, [0, 1, 2, 3], [1e308]*4, [0, 1.5]), (2, [-123]*4))

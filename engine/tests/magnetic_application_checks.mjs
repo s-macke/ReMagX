@@ -53,8 +53,11 @@ export function checkMagneticApplication(module, calculate) {
       })
       failure(() => calculate(wrapped, prepared), error => /allocation failed/.test(error.message))
       ensure(outstanding.size === 0, 'Mixed allocation failure leaked')
-      failure(() => calculate(wrapped, { ...request, positions: [-1] }), error => error.status === 1)
-      ensure(outstanding.size === 0, 'Mixed endpoint failure leaked')
+      for (const [coupled, expected] of [[0, '[18,30]'], [1, '[90,220]']]) {
+        const result = calculate(wrapped, { ...request, positions: [-1], weights: [[0, .5, 0]], coupled })
+        ensure(JSON.stringify(Array.from(result)) === expected, 'Mixed stored endpoint mismatch')
+      }
+      ensure(outstanding.size === 0, 'Mixed endpoint evaluation leaked')
       const overflow = { ...request, splines: [null, { knots: [-2, -1, 1, 2], values: Array(4).fill(1e308) }, null] }
       failure(() => calculate(wrapped, overflow), error => error.status === 2)
       ensure(outstanding.size === 0, 'Mixed numerical failure leaked')

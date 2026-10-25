@@ -48,8 +48,10 @@ export function checkSpline(module, calculate) {
       failure(() => calculate(wrapped, prepared), error => /allocation failed/.test(error.message))
       ensure(outstanding.size === 0, 'Spline allocation leaked')
       // Subsequent allocations succeed; test real native late failures/recovery.
-      failure(() => calculate(wrapped, { ...request, positions: [1.5, 1] }), error => error.status === 1)
-      ensure(outstanding.size === 0, 'Spline endpoint failure leaked')
+      const endpoint = calculate(wrapped, { ...request, positions: [1.5, 1, 1 + Number.EPSILON] })
+      ensure(endpoint[2] === 2 && endpoint[3] === -3, 'Spline stored endpoint mismatch')
+      ensure(Math.abs(endpoint[4] - 2) < 1e-14 && Math.abs(endpoint[5] + 3) < 1e-14, 'Spline right limit mismatch')
+      ensure(outstanding.size === 0, 'Spline endpoint evaluation leaked')
       failure(() => calculate(wrapped, { ...request, values: Array(5).fill(1e308), positions: [0, 1.5] }), error => error.status === 2)
       ensure(outstanding.size === 0, 'Spline numerical failure leaked')
       same(calculate(wrapped, request))

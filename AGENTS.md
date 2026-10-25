@@ -280,14 +280,14 @@ No option below is approved by reorganizing this list. Once decided, implement a
 verify that decision before checking the item, or record the approved exclusion
 and its user-visible handling. Preserve the original source tree throughout.
 
-- [ ] **S1 — Spline first usable knot.** Original code reads before its array exactly
-  at the second stored knot. Choose the continuous stored knot value or explicit
-  unavailability at that coordinate (D-29). Close with the chosen endpoint behavior
-  and a focused endpoint/interior check; broader profile accuracy belongs to A2.
-- [ ] **S2 — Single-row layer conversion.** Original solver/segmentation relies on a
-  second storage slot or missing penultimate row. Choose defined homogeneous-medium
-  support or an explicit scope exclusion (D-29). Close with conversion/application
-  and solver handling that preserves project data. Multi-row conversion already works.
+- [x] **S1 — Spline first usable knot (D-46).** Native/WASM return the stored
+  ordinate at the second stored knot instead of the original undefined read. Focused
+  endpoint/neighbor and additive/multiplicative checks pass, as do defined original
+  profile comparisons and the public native/WASM gate. Broader accuracy remains A2.
+- [x] **S2 — Single-row layer conversion (D-47).** Explicitly excluded for now.
+  Existing application guard reports the unsupported one-layer result and preserves
+  the project, with a regression covering unchanged element-mode data. No padding or
+  homogeneous-medium solver semantics are introduced. Multi-row conversion remains supported.
 - [ ] **S3 — Out-of-range magnetic-profile bindings.** Current implementation rejects
   these explicitly. Trace the undefined original mappings and ask whether to retain
   explicit unavailability or approve a defined correction (D-29). Do not restore
@@ -324,11 +324,10 @@ and its user-visible handling. Preserve the original source tree throughout.
   Source trace: [coupling-column audit](docs/analysis/layer-coupling-column-audit-2026-10-25.md).
   The active 2.6 grid has eight columns; the ninth-column reader is commented out
   and the layer class has no coupling field. Exclusion was proposed; answer pending.
-- [ ] **S8 — Private-corpus CI access and integration.** Choose a private repository
-  with read-only credentials or a self-hosted runner. Then connect strict import/
-  golden gates without private data in public logs/artifacts (D-17.3/D-20, AC-4).
-  Close only after the configured runner demonstrably fails on missing corpus and
-  comparison failures. Public Pages checks alone do not complete this requirement.
+- [x] **S8 — Private-corpus CI deferred (D-48).** User chose local private checks
+  for now; private CI infrastructure/integration is later scope. Public CI continues.
+  AC-4 import and numerical/fit acceptance remain required with local private evidence;
+  private data must never enter public repository, logs or artifacts.
 
 ### Final acceptance — after functional work (D-40)
 
