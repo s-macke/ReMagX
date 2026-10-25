@@ -69,7 +69,7 @@ Native build of the same C++ core → golden-data generator + CI regression test
 ### 3. Scripting (D-2, D-12)
 
 - wasmoon (Lua 5.4) runs inside the compute worker.
-- The legacy ReMagX script API is provided with legacy semantics, except CalculateReflectivity, explicitly excluded by D-43 (D-22, names per F-30):
+- The legacy ReMagX script API is provided with legacy semantics, except CalculateReflectivity and GetError, explicitly excluded by D-43/D-49 (D-22, names per F-30):
   arrays (`par` 0-based, `delta`, `beta`, `thickness`, `sigma`, `density`, `deltam`, `betam`,
   `gauss_*`, tensor components `exx_r` … `ezz_i`), element objects with their methods, functions
   (`SetChemicalFormula`, `FillTensors`, `print`, `write`, ...) and globals (`energy`, `epsilon`,
@@ -172,13 +172,13 @@ Native build of the same C++ core → golden-data generator + CI regression test
   1e-6 relative on all corpus files that 2.3.1 can compute (D-17.2).
   DoD: `tools/golden/crosscheck` report shows 0 mismatches (listed exceptions need a documented reason).
 - AC-7: When a project with a legacy "before calculation" Lua script is calculated, the system SHALL
-  execute it with the agreed legacy script API (D-22, excluding CalculateReflectivity per D-43) and SHALL match the golden output (AC-5 tolerance).
+  execute it with the agreed legacy script API (D-22, excluding CalculateReflectivity/GetError per D-43/D-49) and SHALL match the golden output (AC-5 tolerance).
   DoD: golden tests for all corpus projects with non-empty scripts pass (at least LNOSTO.all,
   NiL3_try2.all, PNO_LSAT.all).
 - AC-7a: If a script calls a legacy API name that needs a non-MVP feature, the system SHALL report
   "not supported yet" with the name and line number instead of an undefined-name error (D-22).
   DoD: unit test calling `KramersKronigRange()` yields a message containing "KramersKronigRange" and "not supported".
-  The excluded `CalculateReflectivity()` command reports its name, source line and "not supported (excluded from project scope)" (D-43).
+  The excluded `CalculateReflectivity()` and `GetError()` commands report their name, source line and "not supported (excluded from project scope)" (D-43/D-49).
 - AC-7b: When a `.all` file with `fitalgorithm = 1` is imported, the system SHALL set the fit
   algorithm to Simplex and SHALL state the fallback in the import report (D-27).
   DoD: fixture import yields `fit.algorithm == "simplex"` and a report entry mentioning Levenberg-Marquardt.
@@ -258,3 +258,6 @@ Current unresolved decisions and their dependent work are tracked in [AGENTS.md]
 - D-46: magnetic splines return the stored ordinate at the first usable knot; the original undefined read is not reproduced.
 - D-47: single-medium layer conversion is excluded for now; reject application explicitly and preserve project data. Multi-row conversion remains in scope.
 - D-48: private-corpus CI integration is deferred; private acceptance checks run locally. AC-4 behavior and AC-5/6/9 criteria remain unchanged. Public CI continues without private data.
+
+- D-49: GetError is explicitly excluded; its named error does not disable ordinary chi-squared calculation or fitting.
+- D-50: Lua array integer arguments use nearest-integer conversion with ties to even; numeric values retain full double precision. Nonfinite arguments, signed-32-bit overflow and invalid accesses remain errors.

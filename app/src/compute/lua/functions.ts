@@ -59,10 +59,12 @@ export function installProjectFunctions(global: LuaGlobal, project: ScriptProjec
   for (const name of ['CalculateDicReflectivity', 'CalculateEnergyscan']) {
     global.set(name, callback(() => new LuaRawResult(0)))
   }
-  // D-43 excludes this command; retain its name for a useful legacy-script error.
-  global.set('CalculateReflectivity', callback(() => {
-    throw new Error('CalculateReflectivity: not supported (excluded from project scope)')
-  }))
+  // D-43/D-49 retain excluded names for useful legacy-script diagnostics.
+  for (const name of ['CalculateReflectivity', 'GetError']) {
+    global.set(name, callback(() => {
+      throw new Error(`${name}: not supported (excluded from project scope)`)
+    }))
+  }
   // Explicit deferred-feature errors required by D-22 / AC-7a, not missing globals.
   for (const name of ['KramersKronigRange', 'ShowMatrixEigenvalues', 'ShowEScanEigenvalues']) {
     global.set(name, callback(() => { throw new Error(`${name}: not supported yet`) }))

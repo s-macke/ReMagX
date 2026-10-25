@@ -50,3 +50,26 @@ it.each([
   expect(() => session.getGlobal('par')).toThrow('closed')
   expect(JSON.stringify(source)).toBe(original)
 })
+
+
+it('uses original integer conversion without rounding stored array values', async () => {
+  const source = createDefaultProject(); source.scripts.parameters = [0, 0, 0]
+  const workspace = createScriptArrayWorkspace(source)
+  const session = await runtime.createSession()
+  try {
+    session.installArrays(workspace.arrays)
+    session.execute(`
+      local alias = array.new("2.5", "33.5")
+      assert(array.size(alias) == 2)
+      alias[1.8] = 1.0000000000000002
+      assert(par[1.5] == 1.0000000000000002 and par[2.5] == par[2])
+      par[-0.5] = -0.0
+      assert(1/par[0.5] == -math.huge)
+      assert(array.size(array.new(-1.5, 34)) == -2)
+      assert(not pcall(array.get, par, -0.5000000000000001))
+      assert(not pcall(array.new, 2147483647.5, 34))
+    `, 'BeforeCalculation')
+    expect(workspace.snapshot().scripts.parameters).toEqual([-0, 0, 1.0000000000000002])
+    expect(source.scripts.parameters).toEqual([0, 0, 0])
+  } finally { session.close() }
+})

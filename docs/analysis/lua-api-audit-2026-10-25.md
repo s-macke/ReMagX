@@ -37,7 +37,7 @@ scripts have been accepted. Existing tests are evidence, not fresh runs in this 
 | CalculateEnergyscan | Registered original no-op | Same; this does not disable ordinary energy scans |
 | ShowMatrixEigenvalues | Named deferred-feature error | Deferred tooling under D-22/D-25; no undefined global |
 | ShowEScanEigenvalues | Named deferred-feature error | Same |
-| GetError | **Missing in both bindings** | GUI calculates a new fit objective; non-Borland original returns zero. Scope question is pending; see below |
+| GetError | Explicit excluded-command error | D-49; named source-line failure in web/native, ordinary chi-squared and fitting unchanged |
 | SetChemicalFormula | Implemented | Workspace text update; native/Wasmoon argument/text cases |
 | SetName | Implemented | Optical-table name update; shared lookup/cache behavior |
 | SetDeltaBeta | Implemented | scriptOptics and native table refresh; partial/range handling |
@@ -46,8 +46,8 @@ scripts have been accepted. Existing tests are evidence, not fresh runs in this 
 | GetGaussLorentzianReal | Implemented | Maintained double kernel through both bindings |
 
 There are eight implemented calculation/text/output functions, two original no-ops,
-three explicit deferred commands, one approved exclusion and one missing command.
-GetError must not be treated as covered by the CalculateReflectivity exclusion.
+three explicit deferred commands and two approved exclusions.
+GetError has its own explicit D-49 exclusion.
 
 ## Arrays: all 39 initialized names
 
@@ -76,8 +76,8 @@ from retained array userdata. Tensor component access marks its tensor anisotrop
 matching the original accessor side effect.
 
 Bounds and finite-value checks avoid undefined original memory access. Fractional
-array arguments are still rejected pending the policy resolution below. This is
-not a claim of complete legacy integer-conversion parity.
+array arguments now use the D-50 nearest-integer/ties-to-even conversion. Numeric
+strings are accepted; signed-32-bit overflow and invalid accesses reject explicitly.
 
 ## Element objects and hook globals
 
@@ -107,32 +107,18 @@ surface under D-2, not additional ReMagX registrations. Native/Wasmoon library a
 real-script compatibility remains part of A5; native OS facilities must not be
 mistaken for browser facilities.
 
-## Concrete unresolved work
+## I3 resolution and remaining acceptance
 
-1. **GetError:** the outer `#ifdef __BORLANDC__` at scriptfunctions.cpp:293 selects
-   the GUI implementation at line 458; its `#else` selects the zero-return stub at
-   line 710. The GUI creates CMultiFit and calls Error with an empty variable vector.
-   Implementing it requires the objective, hook lifetime/recursion, state and failure
-   behavior, not a constant-zero stand-in. Asked the user whether to retain this
-   script-only command or explicitly exclude it. Neither answer is inferred; normal
-   UI chi-squared and fitting remain in scope and operational.
-2. **Fractional array arguments:** original array.new sizes/type IDs and array
-   indices use luaL_checkint. A follow-up binary/source trace now establishes which
-   branch the supplied GUI library uses; see the artifact evidence below. It uses
-   the Lua 5.1 add-large-constant conversion, yielding nearest-even integers under
-   the normal nearest rounding mode. Current web/native bindings reject fractions.
-   Asked whether to adopt that ordinary original conversion for valid array
-   arguments, or approve continued explicit rejection as a documented deviation.
-   No answer is inferred. Out-of-range/invalid access remains an error, and the
-   separate direct-cast element/slab argument policy is unchanged.
-3. **Final integration acceptance:** existing alias, tensor, factor, solution,
-   output, hook lifecycle, native parity and worker tests establish their stated
-   cases. A5 still requires representative original-script review, including
-   standard-library differences and final error/cancellation/data preservation.
+D-49 excludes GetError: both bindings report the command name and source location
+instead of invoking an objective or returning the terminal's constant-zero stub.
+D-50 approves the original ordinary nearest-even conversion for array integer
+arguments, now implemented in both bindings. The separate element/slab truncation
+rule remains unchanged. No stored numeric values are rounded.
 
-I3 remains open for the first two items. This audit found no further missing named
-ReMagX registration in the enumerated supported surface; that finding does not
-certify every semantic edge case or constitute final A5 acceptance.
+The enumeration now has implementation or approved handling for every registered
+ReMagX function/global in this audit. I3 is complete with the focused binding checks;
+this does not close A5 representative original-script review, Lua 5.1→5.4 standard
+library compatibility, or complete original-script/golden acceptance in A1/A2.
 
 ## Fractional-index artifact evidence (follow-up, 2026-10-25)
 
@@ -165,6 +151,15 @@ artifacts. No live GUI floating-point control word or original script execution
 was measured in this trace; it does not establish behavior under deliberately
 altered rounding modes, overflow or malformed array accesses. No private binary,
 object bytes, disassembly listing or original-source modification is committed.
-The proposed implementation policy concerns only integer API arguments; it does
-not quantize stored project values or any numerical calculation. I3 stays open
-for the explicit policy choice and GetError decision.
+The approved D-50 implementation concerns only integer API arguments; it does
+not quantize stored project values or any numerical calculation. D-49 separately
+resolves GetError.
+
+
+Verification after D-49/D-50: 546 app tests pass (seven optional skips), including
+independent tie/boundary/value-preservation cases and named source-line errors.
+The native/Wasmoon driver passes all 75 parity cases plus six readback/cancellation
+cases. Its successful-array count now includes the formerly rejected 0.5 index,
+with explicit expected outcomes for signed ties, numeric strings and overflow.
+The actual Chromium Lua worker, native build, precision/inventory gates, lint and
+production build pass. No broad numerical/corpus sweep was repeated.

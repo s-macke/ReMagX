@@ -201,7 +201,7 @@ without deliberate rounding. Checklist totals are not progress percentages.
 | Layers and profiles | Adaptive segmentation, multi-row layer conversion with preview/application/undo, element density, optical/magnetic profiles and spectra | S1–S3, A2 |
 | Optical tables | Imported scalars/tensors, Chantler fallback, approved 277-row Uranium data; complete .F assignment to the selected element (D-37/38/45) | I4, A2 |
 | Fitting | Clean Simplex/annealing, bounds, Q regularization, weighted datasets and scripted qz/energy/mixed fits | I4, A3 |
-| Lua | Worker execution, persistent hooks, output/line errors, project APIs and cancellation; CalculateReflectivity explicitly excluded (D-43) | I2, I3, A5 |
+| Lua | Worker execution, persistent hooks, output/line errors, project APIs and cancellation; CalculateReflectivity/GetError explicitly excluded (D-43/D-49) | I2, I3, A5 |
 | UI and files | Legacy project import, JSON save/load, autosave, editing/undo, plots, fit controls and error/recovery dialogs | S4–S7, A5 |
 | Native tools | Unchanged original 2.6 reference build; separate public full-double terminal: .all/JSON, -refl, -dicrefl, -fit, -convert, -v; clean optimizers and installation/licence packaging | I1, I3, A1, A4, A5 |
 | Regression infrastructure | Public native/WASM and Chromium checks, source inventory and double-precision gates; private comparison tools available locally | S8, A1–A5 |
@@ -236,20 +236,17 @@ required merely to close a documentation or UI task.
   decimals; -0 uses a floating Lua literal. Seven focused generator/actual-Lua
   checks pass, including tiny/subnormal/large values, signed zero, unchanged layer
   selection and caller state. App regression baseline, lint and build pass.
-- [ ] **I3 — Finish the agreed Lua API audit and resulting gaps (D-22/D-43).** Map the
-  original registered functions/globals to web and native bindings. Trace GetError,
-  which has no current registration, and unresolved fractional-index conversion
-  semantics. Distinguish implemented functions, original no-ops, agreed exclusions
-  and actual gaps. Done when every required API has an implementation or explicit
-  approved handling, and focused hook/error/state checks cover corrections. Ask
-  under D-29 before changing semantics; do not restore CalculateReflectivity.
-  The [2026-10-25 API audit](docs/analysis/lua-api-audit-2026-10-25.md) maps all 15
+- [x] **I3 — Agreed Lua API audit and resulting gaps (D-22/D-43/D-49/D-50).**
+  The [API audit](docs/analysis/lua-api-audit-2026-10-25.md) accounts for all 15
   original function registrations, 39 initialized arrays, 18 element methods and
-  five hook globals. Remaining concrete blockers: GetError scope/implementation
-  (question pending) and fractional array-argument policy. The supplied GUI library
-  and DLL now prove the add-constant integer-conversion branch; adopting its normal
-  nearest-even behavior versus retaining rejection is awaiting a decision. The normal chi-squared
-  workflow is separate; the audit does not close final script acceptance.
+  five hook globals. GetError is explicitly excluded and reports a named source-line
+  error in web/native bindings; ordinary chi-squared and fitting remain available.
+  Array indices, sizes and type IDs now use original nearest-integer/ties-to-even
+  conversion, including numeric strings. Nonfinite values, signed-32-bit overflow
+  and invalid accesses fail explicitly. Element/slab truncation and stored double
+  values remain unchanged. Focused negative/tie/boundary/value-preservation tests,
+  native/Wasmoon parity and actual Chromium checks pass. Full original-script and
+  standard-library acceptance remains A1/A2/A5; CalculateReflectivity stays excluded.
 - [x] **I4 — Resolve unspecified capability gaps.** Replace the old claims of
   "remaining core extraction", "unsupported table kinds" and "remaining fit
   parameters" with a source/inventory-to-production-route audit. Include magnetic

@@ -29,9 +29,14 @@ double numeric_argument(lua_State* vm, int index, bool integer) {
     if (!lua_isnumber(vm, index)) luaL_error(vm, "argument %d: number expected", index);
     const double value = lua_tonumber(vm, index);
     if (!std::isfinite(value)) luaL_error(vm, "argument %d: finite number expected", index);
-    if (integer && (std::floor(value) != value || std::abs(value) > 9007199254740991.0))
-        luaL_error(vm, "argument %d: safe integer expected", index);
-    return value;
+    if (!integer) return value;
+    // D-50: nearest integer, ties to even, for the original signed int arguments.
+    const double lower = std::floor(value), fraction = value - lower;
+    const double rounded = fraction < 0.5 || (fraction == 0.5 && std::fmod(lower, 2.0) == 0.0)
+        ? lower : lower + 1.0;
+    if (rounded < -2147483648.0 || rounded > 2147483647.0)
+        luaL_error(vm, "argument %d: integer out of range", index);
+    return rounded == 0.0 ? 0.0 : rounded;
 }
 ArrayHandle* array_handle(lua_State* vm) { return static_cast<ArrayHandle*>(luaL_checkudata(vm, 1, "LuaBook.array")); }
 size_t array_index(lua_State* vm, ArrayHandle* handle) {
@@ -270,8 +275,9 @@ template<bool Fill> int optical_function(lua_State* vm) {
     return 0;
 }
 int no_operation(lua_State*) { return 0; }
-int excluded_reflectivity(lua_State* vm) {
-    return luaL_error(vm, "CalculateReflectivity: not supported (excluded from project scope)");
+int excluded_function(lua_State* vm) {
+    const char* name = lua_tostring(vm, lua_upvalueindex(1));
+    return luaL_error(vm, "%s: not supported (excluded from project scope)", name);
 }
 int unavailable_function(lua_State* vm) {
     const char* name = lua_tostring(vm, lua_upvalueindex(1));
@@ -288,7 +294,9 @@ int install_functions(lua_State* vm) {
     for (const char* name : {"CalculateDicReflectivity", "CalculateEnergyscan"}) {
         lua_pushcfunction(vm, no_operation); lua_setglobal(vm, name);
     }
-    lua_pushcfunction(vm, excluded_reflectivity); lua_setglobal(vm, "CalculateReflectivity");
+    for (const char* name : {"CalculateReflectivity", "GetError"}) {
+        lua_pushstring(vm, name); lua_pushcclosure(vm, excluded_function, 1); lua_setglobal(vm, name);
+    }
     for (const char* name : {"KramersKronigRange", "ShowMatrixEigenvalues", "ShowEScanEigenvalues"}) {
         lua_pushstring(vm, name); lua_pushcclosure(vm, unavailable_function, 1); lua_setglobal(vm, name);
     }

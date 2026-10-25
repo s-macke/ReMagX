@@ -387,6 +387,14 @@ async function run() {
     const solution = createScriptSolutionWorkspace()
     const tensors = createScriptTensorWorkspace([{ values: new Float64Array(18).fill(.5), anisotropic: false }])
     session.installArrays(new Map([...workspace.arrays, ...solution.arrays, ...tensors.arrays]), solution.dynamicMaximumIndex)
+    session.execute(`
+      local ok, message = pcall(GetError)
+      assert(not ok and tostring(message):find('GetError: not supported (excluded from project scope)',1,true))
+      for _, pair in ipairs({{1.8,2},{1.5,2},{2.5,2},{-1.5,-2},{-2.5,-2},{0.5,0},{-0.5,0}}) do
+        assert(array.size(array.new(pair[1], 3.5)) == pair[2])
+      end
+      assert(not pcall(array.new,2147483647.5,3))
+    `, 'Default')
     session.execute('Fe:setthickness(0, 12); Fe:setf1(24); assert(f1[0] == 24)', 'Default')
     const elementsPassed = workspace.snapshot().sample.elementProfiles[0].slabs[0].thickness === 12
     session.execute('assert(exy_i[0] == 0.5); ezz_r[0] = 0.75', 'Default')

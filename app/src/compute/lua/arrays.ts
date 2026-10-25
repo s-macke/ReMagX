@@ -1,5 +1,6 @@
 import { decorateFunction, decorateProxy, LuaRawResult, LuaTypeExtension,
   type Decoration, type LuaGlobal, type LuaThread } from 'wasmoon'
+import { scriptIntegerArgument } from '../../model/scriptIntegerArgument'
 import type { ScriptNumericArray } from '../../model/scriptArrays'
 
 class ArrayHandle {
@@ -18,12 +19,11 @@ export function numericArgument(thread: LuaThread, index: number): number {
   return value
 }
 
-// Lua 5.1 accepted numeric strings. Fractional rounding depends on its build.
+// Numeric strings retain Lua 5.1 acceptance; D-50 defines integer conversion.
 function integerArgument(thread: LuaThread, index: number): number {
   const value = numericArgument(thread, index)
-  if (!Number.isInteger(value)) throw new Error(`argument ${index}: fractional indices are not supported yet`)
-  if (!Number.isSafeInteger(value)) throw new Error(`argument ${index}: integer out of range`)
-  return value
+  try { return scriptIntegerArgument(value) }
+  catch { throw new Error(`argument ${index}: integer out of range`) }
 }
 
 export function callback(action: (thread: LuaThread) => LuaRawResult | void) {

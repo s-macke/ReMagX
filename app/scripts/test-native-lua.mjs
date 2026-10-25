@@ -32,7 +32,12 @@ try {
     "local e=element.new('0.9'); e:setthickness(1.9,42); element.setsigma(Fe,1,3); Fe:setdensity(1,0.125); assert(e:getthickness(1)==42 and e:getsigma(1)==3 and e:getdensity(1)==0.125)",
     "Fe:set(nil,123); assert(Co:get()==123); local e=element.new(1); e:setf1(9); assert(Co:getf1()==9)",
     "element.new(2)", "Fe:getdensity(2)", "Fe:setf2m(0/0)", "Fe:setf(8000)",
-    "Start=function() energy=42 end", "delta[0.5]=1", "delta[100]=1", "delta[1]=0/0",
+    "Start=function() energy=42 end", `delta[0.5]=1; assert(delta[0]==1)
+      for _, pair in ipairs({{1.8,2},{1.5,2},{2.5,2},{-1.5,-2},{-2.5,-2},{0.5,0},{-0.5,0},{2147483647.4,2147483647},{-2147483648.5,-2147483648}}) do
+        assert(array.size(array.new(pair[1],33.5))==pair[2])
+      end
+      local a=array.new('1.2','34.4'); a['0.5']=1.0000000000000002; assert(par[0]==1.0000000000000002)
+      for _, x in ipairs({2147483647.5,-2147483648.6,math.huge,0/0}) do assert(not pcall(array.new,x,34)) end`, "delta[100]=1", "delta[1]=0/0",
     "gauss_z[0]=1", "array.new(1,999)", "energy={}", "error('public diagnostic')", "local =",
   ]
   const requests = [], expected = []
@@ -52,7 +57,7 @@ try {
     assert.deepEqual(project, original)
     requests.push({ project: JSON.stringify(project), source, repeat: 2 })
   }
-  assert.equal(expected.filter(result => result.ok).length, 8)
+  assert.equal(expected.filter(result => result.ok).length, 9)
   const replacement = structuredClone(project)
   replacement.experiment.energy = 7123.456789012345
   replacement.sample.layers[1].thickness = 81
@@ -82,7 +87,7 @@ try {
     requests.push({ project: JSON.stringify(project), source: test.source, repeat: 3,
       workspace: true, replacement: JSON.stringify(test.replacement) })
   }
-  assert.equal(expected.filter(result => result.ok).length, 9)
+  assert.equal(expected.filter(result => result.ok).length, 10)
   const { createScriptFactorLookup } = await server.ssrLoadModule('/src/model/scriptFactors.ts')
   const { parseOpticalTable } = await server.ssrLoadModule('/src/import/tables.ts')
   const { default: createCore } = await import(pathToFileURL(resolve(process.argv[3] ?? resolve(root, 'build/wasm'), 'remagx-core.mjs')))
@@ -109,7 +114,7 @@ try {
     } catch { expected.push({ ok: false }) } finally { session.close() }
     requests.push({ project: JSON.stringify(project), source, repeat: 4, tables })
   }
-  assert.equal(expected.filter(result => result.ok).length, 16)
+  assert.equal(expected.filter(result => result.ok).length, 17)
   const { createScriptTensorWorkspace } = await server.ssrLoadModule('/src/model/scriptTensors.ts')
   const initialTensors = Array.from({length: project.sample.layers.length}, (_, layer) => ({
     values: Array.from({length: 18}, (_, index) => layer + index / 100), anisotropic: false }))
@@ -140,7 +145,7 @@ try {
     } catch { expected.push({ok: false}) } finally { session.close() }
     requests.push({project: JSON.stringify(project), ...test, tensors: initialTensors, repeat: 2})
   }
-  assert.equal(expected.filter(result => result.ok).length, 19)
+  assert.equal(expected.filter(result => result.ok).length, 20)
   const { createScriptSolutionWorkspace } = await server.ssrLoadModule('/src/model/scriptSolution.ts')
   const initialSolution = {qz: [0.01,0.02], reflectivity: [0.5,0.25], reflectivityPlus: [0.6,0.3],
     reflectivityMinus: [0.4,0.2], energy: [7000,8000]}
@@ -172,9 +177,9 @@ try {
     } catch { expected.push({ok:false}) } finally { session.close() }
     requests.push({project:JSON.stringify(project), ...test, solution:initial, repeat:2})
   }
-  assert.equal(expected.filter(result => result.ok).length, 22)
+  assert.equal(expected.filter(result => result.ok).length, 23)
   const functionCases = [
-    "local ok, message = pcall(CalculateReflectivity); assert(not ok and tostring(message):find('CalculateReflectivity: not supported (excluded from project scope)',1,true))",
+    "for _, name in ipairs({'CalculateReflectivity','GetError'}) do local ok, message = pcall(_G[name]); assert(not ok and tostring(message):find(name..': not supported (excluded from project scope)',1,true)) end",
     "SetName(1.9,'Fe'); SetChemicalFormula(1,'Fe2O3'); SetName(1); SetChemicalFormula(1,'ignored',3)",
     "SetName({},123); SetChemicalFormula(1,nil); SetName(1,'Fe'..string.char(0)..'ignored')",
     "SetName(100,'Fe')", "SetName(1,{})",
@@ -197,7 +202,7 @@ try {
     } catch { expected.push({ok:false}) } finally { session.close() }
     requests.push({project:JSON.stringify(project), source, functions:true})
   }
-  assert.equal(expected.filter(result => result.ok).length, 28)
+  assert.equal(expected.filter(result => result.ok).length, 29)
   const { createScriptOptics } = await server.ssrLoadModule('/src/model/scriptOptics.ts')
   const { createScatteringTensorWorkspace } = await server.ssrLoadModule('/src/model/scatteringTensors.ts')
   const opticsCases = []
@@ -235,7 +240,7 @@ try {
     requests.push({project:JSON.stringify(test.input),source:test.source,tables:test.tables,functions:true,
       tensors:initialTensors,scattering:initialScattering})
   }
-  assert.equal(expected.filter(result=>result.ok).length,37)
+  assert.equal(expected.filter(result=>result.ok).length,38)
   const outputCases = [
     {source:"print('Fe',123,nil,false,{},'!',1.2345678901234567); write('a'..string.char(0)..'b','c'); print(); par[0]=1.2345678901234567"},
     {source:"local p=print; type=nil; select=nil; string.format=nil; string.match=nil; table.concat=nil; p('value=',1.25)"},
@@ -255,7 +260,7 @@ try {
     } catch { expected.push({ok:false}) } finally {session.close()}
     requests.push({project:JSON.stringify(project),...test,output:true})
   }
-  assert.equal(expected.filter(result=>result.ok).length,41)
+  assert.equal(expected.filter(result=>result.ok).length,42)
   const { createProjectScript } = await server.ssrLoadModule('/src/compute/lua/beforeCalculation.ts')
   const hookCases = [
     "error('public hook failure')",
@@ -288,7 +293,7 @@ try {
     requests.push({project:JSON.stringify(project),projectHook:true,tables:hookTables,
       hookProjects:projects.map(value=>JSON.stringify(value)),tensors:initialTensors,scattering:initialScattering})
   }
-  assert.equal(expected.filter(result=>result.ok).length,43)
+  assert.equal(expected.filter(result=>result.ok).length,44)
   // Native protected global readback: Wasmoon currently panics on this metatable,
   // so this regression is deliberately not presented as a parity comparison.
   requests.push({ project: JSON.stringify(project),
