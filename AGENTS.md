@@ -303,6 +303,9 @@ and its user-visible handling. Preserve the original source tree throughout.
 - [ ] **S7 — Layer-table coupl. column.** Trace the legacy control (no .all key) and
   decide whether it belongs in the release. Close with agreed data/UI behavior or
   a documented exclusion; do not confuse it with existing profile bindings.
+  Source trace: [coupling-column audit](docs/analysis/layer-coupling-column-audit-2026-10-25.md).
+  The active 2.6 grid has eight columns; the ninth-column reader is commented out
+  and the layer class has no coupling field. Exclusion was proposed; answer pending.
 - [ ] **S8 — Private-corpus CI access and integration.** Choose a private repository
   with read-only credentials or a self-hosted runner. Then connect strict import/
   golden gates without private data in public logs/artifacts (D-17.3/D-20, AC-4).
