@@ -675,6 +675,7 @@ struct ProjectFitObjective::State {
 ProjectFitObjective::ProjectFitObjective(const ProjectDocument& project, std::vector<OpticalTable> tables,
     const ProjectCalculationOptions& options)
     : state_(std::make_unique<State>(project)) {
+    assert_supported_fit_targets(project);
     state_->tables = std::move(tables);
     state_->weight = project.number("/fit/occamQ"); state_->options = options;
 }

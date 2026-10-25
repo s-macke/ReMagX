@@ -1,3 +1,4 @@
+import { assertSupportedFitTargets } from '../model/fitCapabilities'
 import { convertMaterialElements } from '../model/materialElements'
 import { calculationErrorMessage } from '../model/calculationErrors'
 import { realLayerList } from '../model/realLayerList'
@@ -43,6 +44,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
           message.kind === 'chi2' || message.kind === 'fit') {
         assertRealAlgorithm(message.project.calculation.algorithm)
       }
+      if (message.kind === 'fit') assertSupportedFitTargets(message.project)
       const suppliedTables = 'spectrum' in message ? message.spectrum.tables : message.tables ?? []
       // Load the static asset only in the real worker when fallback is enabled.
       // Keep the resolved list request-local; never write built-ins into the library.

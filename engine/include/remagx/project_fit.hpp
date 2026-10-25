@@ -7,6 +7,7 @@
 #include "optimizer.h"
 #include <vector>
 namespace remagx {
+void assert_supported_fit_targets(const ProjectDocument& project);
 // Dimensionless initialization metadata for the maintained clean-room optimizer.
 // Saved fit steps are deliberately ignored, matching the legacy constructor.
 class ProjectFitSpace {

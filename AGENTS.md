@@ -259,14 +259,17 @@ required merely to close a documentation or UI task.
   maps all six original table formats, all 28 fit-target IDs, magnetic-profile
   composition, worker dispatch and native command paths to implementation/evidence.
   The concrete new gap is I5; existing I3/S/A obligations remain separate.
-- [ ] **I5 — Reject deferred fit targets before evaluation (D-25).** Add named,
-  early capability errors for betaKramersKronig/deltaKramersKronig and
-  electronEscapeDepth/electronGain in web and native fit paths. The current
-  electronEscapeDepth mapping can reach a non-TEY reflectivity objective; the other
-  deferred targets fail later with generic messages. Done when neither optimizer
-  evaluates these unsupported targets, imported rows/project data remain intact,
-  errors identify the deferred feature, and valid fits recover. Do not add TEY or
-  Kramers-Kronig physics. Use focused entry-path checks, not a broad corpus sweep.
+- [x] **I5 — Reject deferred fit targets before evaluation (D-25).** Web worker,
+  standalone preparation and optimizer entry, plus native CLI and fit-objective
+  construction, reject betaKramersKronig/deltaKramersKronig and
+  electronEscapeDepth/electronGain with named deferred-feature guidance before
+  optical/script preparation or objective evaluation. Imported target metadata
+  remains unchanged; no TEY or Kramers-Kronig physics was added.
+  Completed 2026-10-25: focused worker/model checks cover both optimizers, unchanged
+  projects and supported-fit recovery. The native CLI gate covers eight named early
+  rejections and two supported fits with unchanged input files; it runs in Pages CI.
+  App tests, lint/build, native compilation and the precision gate pass. No broad
+  private-corpus or numerical-accuracy sweep was repeated.
 
 
 ### Decisions and dependent work

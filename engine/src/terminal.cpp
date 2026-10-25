@@ -69,6 +69,7 @@ int main(int argc, char** argv) {
         const bool dichroic = std::string(argv[1]) == "-dicrefl";
         std::vector<std::string> warnings;
         const bool fitting = std::string(argv[1]) == "-fit";
+        if (fitting) remagx::assert_supported_fit_targets(project);
         bool energy_tables = false;
         if (fitting) for (size_t index = 0; index < project.array_size("/datasets"); ++index) {
             const auto path = "/datasets/" + std::to_string(index);

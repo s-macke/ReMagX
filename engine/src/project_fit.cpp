@@ -21,6 +21,15 @@ double initial_step(double value, double upper) {
     return step <= 1e-7 ? 1e-8 : step;
 }
 }
+void assert_supported_fit_targets(const ProjectDocument& project) {
+    for (size_t index = 0; index < project.array_size("/fit/parameters"); ++index) {
+        const auto target = project.string("/fit/parameters/" + std::to_string(index) + "/target");
+        const std::string feature = target == "betaKramersKronig" || target == "deltaKramersKronig"
+            ? "Kramers-Kronig" : target == "electronEscapeDepth" || target == "electronGain" ? "TEY" : "";
+        if (!feature.empty()) throw ProjectDocumentError("Fit parameter \"" + target + "\" requires " + feature +
+            ", which is deferred. Remove this parameter from the fit list to fit supported parameters.");
+    }
+}
 ProjectFitSpace::ProjectFitSpace(const ProjectDocument& project) {
     const size_t count = project.array_size("/fit/parameters");
     origins_.reserve(count); lower_.reserve(count); upper_.reserve(count);

@@ -94,6 +94,14 @@ for these four targets in web and native fit entry paths. Preserve imported rows
 original projects and metadata; do not implement the deferred physics or silently
 remove parameters. This follows existing D-25 scope, without a new physics choice.
 
+**I5 resolution (2026-10-25):** Implemented early rejection in
+[fitCapabilities.ts](../../app/src/model/fitCapabilities.ts), the real worker and
+standalone/optimizer entry paths; native CLI and fit-objective construction share
+[project_fit.cpp](../../engine/src/project_fit.cpp)'s validator. Model/worker tests
+and [the focused native CLI gate](../../app/scripts/test-native-fit-capabilities.mjs)
+cover both optimizers, named errors, unchanged input and supported-fit recovery.
+The historical finding above is resolved; final fit acceptance remains A3.
+
 ## Magnetic-profile composition
 
 `segmentedMagneticProfiles.ts` maps prepared midpoints, stored-layer density weights,

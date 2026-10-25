@@ -1,3 +1,4 @@
+import { assertSupportedFitTargets } from './fitCapabilities'
 import { copyLayerDepths, rebuildLayerDepths } from './layerDepths'
 import type { FitProgress, FitResult, FitDatasetUpdate, FitDatasetPreview } from '../compute/ComputeService'
 import type { OpticalTable } from '../import/tables'
@@ -39,6 +40,7 @@ export class FitStoppedBeforeEvaluation extends Error {}
 export function runRealFit(project: Project, tables: OpticalTable[],
   engine: RealCalculationEngine & { fitError: FitErrorCalculator }, minimize: RealMinimizer,
   onProgress: (progress: FitProgress) => void, shouldStop = () => false, beforeCalculation?: RealBeforeCalculation, initialOpticalState?: SerialOpticalState, annealingSeed?: number): FitResult {
+  assertSupportedFitTargets(project)
   // CMultiFit passes state.evo.random to the optimizer constructor for every fit.
   // Preserve the Windows unsigned-32-bit seed conversion for saved integer values;
   // explicit reference overrides must already be uint32 values.

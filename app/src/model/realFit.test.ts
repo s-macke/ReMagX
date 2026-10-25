@@ -316,3 +316,27 @@ it.each(['available', 'outside-range', 'missing'] as const)('refreshes automatic
   expect(Array.from(initial.scatteringTensors[0])).toEqual(Array(18).fill(3))
   expect(project).toEqual(before)
 })
+
+it.each(['simplex', 'simplex-annealing'] as const)('rejects deferred targets before %s evaluates and permits recovery', algorithm => {
+  const { project, engine } = fixture()
+  project.fit.algorithm = algorithm
+  const minimize = vi.fn<RealMinimizer>(({ objective }) => ({
+    termination: 'converged', parameters: new Float64Array([0]),
+    value: objective(new Float64Array([0])), iterations: 0, evaluations: 1,
+  }))
+  const hook = vi.fn()
+  for (const target of ['betaKramersKronig', 'deltaKramersKronig', 'electronEscapeDepth', 'electronGain'] as const) {
+    project.fit.parameters[0].target = target
+    const before = structuredClone(project)
+    expect(() => runRealFit(project, [], engine, minimize, vi.fn(), () => false, hook))
+      .toThrow(`Fit parameter "${target}" requires ${target.includes('Kramers') ? 'Kramers-Kronig' : 'TEY'}`)
+    expect(project).toEqual(before)
+  }
+  expect(minimize).not.toHaveBeenCalled()
+  expect(engine.calculate).not.toHaveBeenCalled()
+  expect(engine.lookup).not.toHaveBeenCalled()
+  expect(hook).not.toHaveBeenCalled()
+  project.fit.parameters[0].target = 'qzShift'
+  expect(runRealFit(project, [], engine, minimize, vi.fn()).chi2).toBe(2)
+  expect(minimize).toHaveBeenCalledOnce()
+})

@@ -201,3 +201,25 @@ it('owns separate table sessions per request and disposes them after success or 
   expect(baseLookup).not.toHaveBeenCalled()
   expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ type: 'error' })
 })
+
+it('rejects deferred fit targets before loading tables, physics or Lua without changing the project', async () => {
+  const send = vi.fn(), load = vi.fn(), lua = vi.fn()
+  const handle = createRealRequestHandler(send, load, lua)
+  const project = createDefaultProject()
+  project.sample.mode = 'element'; project.calculation.useChantlerDatabase = true
+  project.scripts.enabled = true; project.scripts.beforeCalculation = 'error("must not run")'
+  for (const algorithm of ['simplex', 'simplex-annealing'] as const) {
+    project.fit.algorithm = algorithm
+    for (const target of ['betaKramersKronig', 'deltaKramersKronig', 'electronEscapeDepth', 'electronGain'] as const) {
+      project.fit.parameters = [{ target, index: 0, elementIndex: null, value: 1, step: 1, lowerBound: 0, upperBound: 2 }]
+      const before = structuredClone(project)
+      await handle({ id: 1, kind: 'fit', project })
+      expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ type: 'error', message: expect.stringContaining(`Fit parameter "${target}" requires`) })
+      expect(project).toEqual(before)
+    }
+  }
+  expect(load).not.toHaveBeenCalled(); expect(lua).not.toHaveBeenCalled()
+  // A later independent request on the same handler is still accepted.
+  await handle({ id: 2, kind: 'materialToElements', project: createDefaultProject() })
+  expect(send.mock.calls.at(-1)?.[0]).toMatchObject({ id: 2, type: 'result' })
+})
