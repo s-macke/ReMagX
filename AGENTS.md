@@ -305,6 +305,10 @@ and its user-visible handling. Preserve the original source tree throughout.
 - [ ] **S5 — Summary window.** Decide its scope and const-qz-from-energy semantics
   before implementation: sizing, refresh, clipboard exports, axes and error display.
   Close with agreed behavior and interaction checks, or a documented exclusion.
+  [Summary source review](docs/analysis/summary-window-audit-2026-10-25.md) records
+  all-dataset snapshots, layout-only Update, weighted errors and exports. The extra
+  command interpolates a chart overlay, not project data or a unit conversion.
+  Recommended regular Summary without that extra command is awaiting a scope choice.
 - [ ] **S6 — Hidden experimental controls.** Review inventory group
   `hidden-tools-decision` item by item. Close when each control has an explicit
   scope decision and corresponding implementation/deferral/exclusion record.
