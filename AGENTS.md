@@ -244,7 +244,7 @@ required merely to close a documentation or UI task.
   approved handling, and focused hook/error/state checks cover corrections. Ask
   under D-29 before changing semantics; do not restore CalculateReflectivity.
   The [2026-10-25 API audit](docs/analysis/lua-api-audit-2026-10-25.md) maps all 15
-  original function registrations, 39 initialized arrays, 17 element methods and
+  original function registrations, 39 initialized arrays, 18 element methods and
   five hook globals. Remaining concrete blockers: GetError scope/implementation
   (question pending) and fractional array-argument policy. The normal chi-squared
   workflow is separate; the audit does not close final script acceptance.

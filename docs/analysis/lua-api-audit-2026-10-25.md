@@ -81,7 +81,7 @@ not a claim of complete legacy integer-conversion parity.
 
 ## Element objects and hook globals
 
-Both runtimes register `element` and per-element named userdata. Their 17 methods
+Both runtimes register `element` and per-element named userdata. Their 18 methods
 are accounted for: `new`; `getf1`, `getf2`, `getf1m`, `getf2m`; `setf1`, `setf2`,
 `setf1m`, `setf2m`; `setf`; `getsigma`, `setsigma`; `getthickness`, `setthickness`;
 `getdensity`, `setdensity`; `get`, `set`.
