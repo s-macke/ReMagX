@@ -304,6 +304,10 @@ and its user-visible handling. Preserve the original source tree throughout.
 - [ ] **S6 — Hidden experimental controls.** Review inventory group
   `hidden-tools-decision` item by item. Close when each control has an explicit
   scope decision and corresponding implementation/deferral/exclusion record.
+  [Item-by-item source review](docs/analysis/hidden-controls-audit-2026-10-25.md)
+  accounts for all ten IDs (eight controls, two event bindings), including active
+  harmonic admixture, hard-coded GIF generation and fringe-spacing analysis.
+  Recommended exclusion is pending; hidden does not mean inactive.
 - [ ] **S7 — Layer-table coupl. column.** Trace the legacy control (no .all key) and
   decide whether it belongs in the release. Close with agreed data/UI behavior or
   a documented exclusion; do not confuse it with existing profile bindings.
