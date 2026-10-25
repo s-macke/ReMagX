@@ -283,7 +283,10 @@ and its user-visible handling. Preserve the original source tree throughout.
 - [x] **S1 — Spline first usable knot (D-46).** Native/WASM return the stored
   ordinate at the second stored knot instead of the original undefined read. Focused
   endpoint/neighbor and additive/multiplicative checks pass, as do defined original
-  profile comparisons and the public native/WASM gate. Broader accuracy remains A2.
+  profile comparisons and the public native/WASM gate. CI exposed two stale
+  integration assertions expecting endpoint rejection; these now verify success.
+  The 373-case native/WASM terminal gate and actual Chromium Lua-worker composition
+  pass locally, retaining numerical-error recovery. Broader accuracy remains A2.
 - [x] **S2 — Single-row layer conversion (D-47).** Explicitly excluded for now.
   Existing application guard reports the unsupported one-layer result and preserves
   the project, with a regression covering unchanged element-mode data. No padding or

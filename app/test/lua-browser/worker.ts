@@ -139,15 +139,29 @@ async function run() {
         applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
           [{ ...profiles[0], boundToLayer: 3 }], true, Array(1001).fill(0), profileEngine)
       } catch (error) { rejected = error instanceof Error && error.message.includes('outside the original layer stack') }
-      let endpointRejected = false
+      const endpointProfile = { ...profiles[0], spline: { enabled: true,
+        points: [-100, -23, 80, 100].map(z => ({ z, value: 1 })) } }
+      for (const additive of [true, false]) {
+        const endpoint = applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
+          [endpointProfile], additive, Array(1001).fill(0), profileEngine)
+        for (const [component, amplitude] of [[4, endpointProfile.deltaAmplitude], [5, endpointProfile.betaAmplitude]]) {
+          const original = generated.layers[1][component]
+          const expected = original + (additive ? amplitude : original * amplitude)
+          if (Math.abs(endpoint[1][component] - expected) > 1e-15 + 1e-10 * Math.abs(expected)) {
+            throw new Error('Magnetic-profile stored endpoint application failed')
+          }
+        }
+      }
+      let numericalRejected = false
       try {
         applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
-          [{ ...profiles[0], spline: { enabled: true, points: [-100, -23, 80, 100].map(z => ({ z, value: 1 })) } }],
+          [{ ...endpointProfile, deltaAmplitude: 1e308,
+            spline: { enabled: true, points: endpointProfile.spline.points.map(point => ({ ...point, value: 1e308 })) } }],
           true, Array(1001).fill(0), profileEngine)
-      } catch { endpointRejected = true }
+      } catch { numericalRejected = true }
       const recovered = applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
         profiles, true, Array(1001).fill(0), profileEngine)
-      if (!endpointRejected || !recovered.flat().every(Number.isFinite)) throw new Error('Magnetic-profile native-error recovery failed')
+      if (!numericalRejected || !recovered.flat().every(Number.isFinite)) throw new Error('Magnetic-profile native-error recovery failed')
       if (!rejected || JSON.stringify(generated) !== generatedBefore || JSON.stringify(profiles) !== profilesBefore) {
         throw new Error('Magnetic-profile binding failure or input isolation failed')
       }

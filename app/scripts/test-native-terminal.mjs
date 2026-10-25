@@ -480,6 +480,18 @@ try {
     assert.equal(actual.status, 1)
     assert.equal(actual.stdout, '')
   }
+  // D-46: a segment midpoint at the first usable spline knot now succeeds.
+  for (const combination of ['sum', 'product']) {
+    const project = structuredClone(base)
+    project.calculation.profileCombination = combination
+    project.calculation.roughnessModel = 'segmentation'; project.calculation.magnetization.mode = 'profile'
+    project.calculation.segmentation.minThickness = 2; project.calculation.segmentation.maxThickness = 2
+    project.sample.layers[0].roughness = 0
+    project.sample.depthProfileFunctions = [{ center: 0, width: 2, deltaAmplitude: 0.00001, betaAmplitude: 0,
+      boundToLayer: null, amplitudeCoupledTo: null, widthCoupledTo: null,
+      spline: { enabled: true, points: [-30,-28,-26,-24].map(z => ({ z, value: 1 })) } }]
+    await compare(project, false)
+  }
   const invalid = [
     project => { project.sample.mode = 'element' },
     project => { project.sample.multilayer = { enabled: true, pattern: '2*(1' } },
@@ -491,14 +503,7 @@ try {
       project.sample.depthProfileFunctions = [{ center: 0, width: 2, deltaAmplitude: 0.00001, betaAmplitude: 0,
         boundToLayer: 999, amplitudeCoupledTo: null, widthCoupledTo: null, spline: { enabled: false, points: [] } }]
     },
-    project => {
-      project.calculation.roughnessModel = 'segmentation'; project.calculation.magnetization.mode = 'profile'
-      project.calculation.segmentation.minThickness = 2; project.calculation.segmentation.maxThickness = 2
-      project.sample.layers[0].roughness = 0
-      project.sample.depthProfileFunctions = [{ center: 0, width: 2, deltaAmplitude: 0.00001, betaAmplitude: 0,
-        boundToLayer: null, amplitudeCoupledTo: null, widthCoupledTo: null,
-        spline: { enabled: true, points: [-30,-28,-26,-24].map(z => ({ z, value: 1 })) } }]
-    },
+
     project => { project.calculation.roughnessModel = 'segmentation'; project.calculation.segmentation.minThickness = 100000; project.calculation.segmentation.maxThickness = 100000 },
     project => { project.scripts.enabled = true; project.scripts.beforeCalculation = 'error("public script failure")' },
     project => { project.experiment.scattering = 'transmission' },
