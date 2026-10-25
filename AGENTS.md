@@ -298,6 +298,10 @@ and its user-visible handling. Preserve the original source tree throughout.
 - [ ] **S4 — Plot Select Area / Fit Lorentzian+Step.** Decide their release scope.
   Close with implementation and focused interaction checks, or an explicit exclusion
   recorded in spec/inventory. Existing plot navigation is already implemented.
+  [Plot source review](docs/analysis/plot-area-audit-2026-10-25.md) separates the
+  three menu commands from four unrelated TMultiChart activation handlers. Both
+  inventory groups retain decision status; the menu-only question does not decide
+  the separate multi-chart records.
 - [ ] **S5 — Summary window.** Decide its scope and const-qz-from-energy semantics
   before implementation: sizing, refresh, clipboard exports, axes and error display.
   Close with agreed behavior and interaction checks, or a documented exclusion.
@@ -344,6 +348,8 @@ coverage, failures and unavailable references. A missing reference is not a pass
   exactly by enabling the pinned library's explicit FMA branch. The build shim now
   selects its scalar branch on both platforms; the complete public native/WASM
   comparison passes even when the compiler advertises FMA. D-23 is unchanged.
+  Pages run 40177396886 for 6304a58 subsequently passed all native/WASM, worker,
+  responsiveness and Chromium UI gates and deployed successfully.
 - [ ] **A3 — Fit acceptance.** Complete original-project and original-annealing review,
   including broader parameter combinations/Q. AC-9/D-28 still require at least three
   corpus projects with the same project/seed and final chi-squared(new) <=

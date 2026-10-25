@@ -620,14 +620,27 @@
     {
       "name": "plot-area-decision",
       "status": "deferred",
-      "reason": "Select/Clear Area, Lorentzian+Step fitting and linked chart-area interaction await the existing plot scope decision.",
+      "reason": "Select/Clear Area and Lorentzian+Step line fitting await the plot scope decision; they are separate from existing zoom and layer fitting.",
       "references": [
-        "AGENTS.md"
+        "AGENTS.md",
+        "docs/analysis/plot-area-audit-2026-10-25.md"
       ],
       "entries": [
         "client/Chart1.cpp::item:dd8adcda0dd7dce5:1",
         "client/Chart1.cpp::item:c02a07f1e65563c0:1",
-        "client/Chart1.cpp::item:50ecd49ed4da6b45:1",
+        "client/Chart1.cpp::item:50ecd49ed4da6b45:1"
+      ],
+      "phase": "decision"
+    },
+    {
+      "name": "multichart-activation-decision",
+      "status": "deferred",
+      "reason": "Four TMultiChart handlers select the active chart and its border, not an x-area. No instantiation was found in current client/guidll sources; scope remains undecided under S4.",
+      "references": [
+        "AGENTS.md",
+        "docs/analysis/plot-area-audit-2026-10-25.md"
+      ],
+      "entries": [
         "client/Chart1.cpp::event:a5cf93c3305a047f:1",
         "client/Chart1.cpp::event:158f588639a63a8f:1",
         "client/Chart1.cpp::event:02712c6b7660c6d8:1",
