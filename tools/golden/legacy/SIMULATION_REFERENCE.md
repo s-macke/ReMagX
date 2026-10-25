@@ -1058,6 +1058,29 @@ outputs and project identities stay private. No tolerance, normalization, solver
 behavior or unavailable-case classification was changed by this review.
 
 
+#### qz-shift diagnostic for the retained Wine pairs (2026-10-25)
+
+The two qz-failing cases are stable IDs 37 and 89. Their current original project
+SHA-256 values still equal the recorded input hashes. The relevant saved
+`datasetqztranslation` values are -0.001 and +0.006, respectively. In all 1,118
+and 198 points, the Wine coordinate differs from the adapter coordinate by one
+additional saved shift, within terminal printing precision. Adding that shift
+only to the in-memory diagnostic coordinate comparison leaves zero qz failures
+at the unchanged 1e-6 criterion (maximum absolute residuals approximately 4e-10
+and 5.55e-17). Original files, stored outputs and the raw manifest are unchanged.
+
+Source trace: `CStateHandler.cpp` reads datasetqztranslation into qzshift;
+`CDataSet::Adapt` applies it; the supplied 2.6 `ButtonReflectivity` calls Adapt
+and then adds it again. This is already independently established for the 2.6
+terminal above. The retained 2.3.1 output is consistent with the same behavior,
+but this review does not directly inspect or execute the old binary's internal
+control flow. It is therefore evidence for the cause, not a claim that the two
+binaries share identical implementation. No shifted reflectivity values were
+recalculated here, so this coordinate diagnostic does not resolve their R
+failures or justify an AC-6 exception. The web/GUI path continues applying the
+shift once; do not introduce a double shift to imitate terminal output.
+
+
 ### Monochromatic energy resolution in the reference adapter
 
 The original GUI calls `CalcReflectivityDLL`, whose double branch calls

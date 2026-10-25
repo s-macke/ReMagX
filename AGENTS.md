@@ -370,7 +370,10 @@ coverage, failures and unavailable references. A missing reference is not a pass
   Retained-output review reproduces all 90 computable records: 89 R mismatches
   (including two qz mismatches), one match and nine unavailable cases. Only 30
   failing pairs have maximum relative R error <= 2e-6; the small public-fixture
-  resolution difference does not explain all failures. See SIMULATION_REFERENCE.md.
+  resolution difference does not explain all failures. The two qz failures match
+  one additional saved dataset shift across all 1,316 points, consistent with the
+  known 2.6 terminal double shift; raw Wine failures and their R differences remain
+  unwaived. See SIMULATION_REFERENCE.md.
 - [ ] **A5 — Final workflow/CLI acceptance.** The [coverage record](docs/analysis/workflow-acceptance-evidence-2026-10-25.md)
   maps existing passing automated evidence and its limits; user-example review
   and scope-dependent checks remain open. Review agreed Lua programs, UI/worker
