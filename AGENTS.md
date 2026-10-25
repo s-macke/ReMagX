@@ -246,7 +246,9 @@ required merely to close a documentation or UI task.
   The [2026-10-25 API audit](docs/analysis/lua-api-audit-2026-10-25.md) maps all 15
   original function registrations, 39 initialized arrays, 18 element methods and
   five hook globals. Remaining concrete blockers: GetError scope/implementation
-  (question pending) and fractional array-argument policy. The normal chi-squared
+  (question pending) and fractional array-argument policy. The supplied GUI library
+  and DLL now prove the add-constant integer-conversion branch; adopting its normal
+  nearest-even behavior versus retaining rejection is awaiting a decision. The normal chi-squared
   workflow is separate; the audit does not close final script acceptance.
 - [x] **I4 — Resolve unspecified capability gaps.** Replace the old claims of
   "remaining core extraction", "unsupported table kinds" and "remaining fit

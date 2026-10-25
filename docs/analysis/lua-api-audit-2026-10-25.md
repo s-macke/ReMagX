@@ -117,13 +117,14 @@ mistaken for browser facilities.
    script-only command or explicitly exclude it. Neither answer is inferred; normal
    UI chi-squared and fitting remain in scope and operational.
 2. **Fractional array arguments:** original array.new sizes/type IDs and array
-   indices use luaL_checkint. Bundled Lua 5.1.4 luaconf.h:557–581 selects an x87/
-   Pentium rounding path for certain 32-bit non-ANSI, non-SSE2 builds, otherwise a
-   truncating cast. The native rebuild with modern Lua/compiler is not proof of the
-   shipped GUI's policy. Current web/native bindings require finite safe integers.
-   Resolve by evidence from the relevant original build, or an explicit D-29 decision
-   accepting a defined policy (including retaining clear rejection). No choice is
-   approved by this audit. Element/slab direct-cast behavior is a separate case.
+   indices use luaL_checkint. A follow-up binary/source trace now establishes which
+   branch the supplied GUI library uses; see the artifact evidence below. It uses
+   the Lua 5.1 add-large-constant conversion, yielding nearest-even integers under
+   the normal nearest rounding mode. Current web/native bindings reject fractions.
+   Asked whether to adopt that ordinary original conversion for valid array
+   arguments, or approve continued explicit rejection as a documented deviation.
+   No answer is inferred. Out-of-range/invalid access remains an error, and the
+   separate direct-cast element/slab argument policy is unchanged.
 3. **Final integration acceptance:** existing alias, tensor, factor, solution,
    output, hook lifecycle, native parity and worker tests establish their stated
    cases. A5 still requires representative original-script review, including
@@ -132,3 +133,38 @@ mistaken for browser facilities.
 I3 remains open for the first two items. This audit found no further missing named
 ReMagX registration in the enumerated supported surface; that finding does not
 certify every semantic edge case or constitute final A5 acceptance.
+
+## Fractional-index artifact evidence (follow-up, 2026-10-25)
+
+The original `guidll/guidll.cbproj` explicitly links
+`shared/lua/lib/lua5.1.lib` for Win32 and compiles the script/array bindings. This
+library is a Borland-compatible OMF archive, not proof of a modern rebuild's
+compiler choices. Its public symbol `_lua_tointeger` is in segment 1 at offset
+0x670 in its object module. A read-only OMF record inspection recovered the
+92-byte function/data span and its add-constant conversion sequence.
+
+The corresponding span occurs exactly once in the supplied `bin/guidll.dll`,
+at file offset 0x137fcc: 84 bytes match, with only the eight relocation operand
+bytes for one external call and the constant address masked. The linked constant
+at virtual address 0x538a24 is exactly 6755399441055744. The code loads the argument,
+adds that constant, stores a double and returns its low integer word. This is the
+non-Microsoft Pentium branch in the bundled luaconf.h, not the truncating cast
+branch. The source `luaL_checkinteger` calls lua_tointeger; `luaL_checkint` then
+casts that returned integer, and the array binding uses it for size/type/index.
+
+Artifact SHA-256 identifiers (files remain private and unchanged):
+
+- `shared/lua/lib/lua5.1.lib`:
+  `dac2e3e05e5b5a40fd3497cc33ddd93660ae82a15c103f654da67d9991510990`
+- `bin/guidll.dll`:
+  `d451f2a81975a6a257fd44c1b7d682feba7a108e6cf3ab73f2f3f9494d048002`
+
+For ordinary in-range values under round-to-nearest, the routine yields nearest
+integers with ties to even. This establishes the compiled branch for these two
+artifacts. No live GUI floating-point control word or original script execution
+was measured in this trace; it does not establish behavior under deliberately
+altered rounding modes, overflow or malformed array accesses. No private binary,
+object bytes, disassembly listing or original-source modification is committed.
+The proposed implementation policy concerns only integer API arguments; it does
+not quantize stored project values or any numerical calculation. I3 stays open
+for the explicit policy choice and GetError decision.
