@@ -3,7 +3,22 @@
 Local Node/CMake/Emscripten builds remain supported. Docker is a build tool here;
 the deliverable is a static site and does not require a container server.
 
-From the repository root, with Docker Buildx available:
+From the repository root, the agreed Compose entry point builds and checks the
+same pinned image, then exports a static site to `app/dist`:
+
+```sh
+docker compose run --rm build
+python3 -m http.server 8000 --directory app/dist
+```
+
+On subsequent source changes, use `docker compose run --build --rm build` to rebuild
+the image. The export container has no network access and mounts only `app/dist`;
+the source/corpus is not mounted. `app/dist/engine.wasm` is a byte-identical alias
+of the core at `app/dist/assets/remagx-core.wasm`, retaining AC-1's named artifact.
+The runtime uses the module and asset paths supplied by the normal app build.
+
+Alternatively, with Docker Buildx available, export the site and separate native/
+WASM artifacts together:
 
 ```sh
 docker buildx build --platform linux/amd64 \

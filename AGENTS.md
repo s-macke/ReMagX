@@ -373,6 +373,10 @@ coverage, failures and unavailable references. A missing reference is not a pass
   -refl/-dicrefl/-fit/-convert/-v with optional Lua. Include standard Chromium file
   upload/download fallback, responsive fitting/Stop and static local execution
   (AC-1/3/4/7/7a/7b/8/10–15). Reuse existing checks; add only missing coverage.
+  Delivery follow-up: the D-19 Compose entry point now exports the checked static
+  site to app/dist, including the AC-1 engine.wasm alias. The optional container
+  workflow checks this command and byte equality with the normal WASM asset;
+  fresh runtime verification is pending on its Docker-capable runner.
   Done when the coverage record links passing evidence and user examples, with
   exclusions and unresolved limitations stated. This is acceptance of implemented
   workflows, not another generic implementation task.

@@ -140,7 +140,9 @@ Native build of the same C++ core → golden-data generator + CI regression test
   `docker compose run build`. Building with a local toolchain is also possible; tests are not tied
   to Docker.
 - git repository. The legacy `old/` tree and release zips stay outside git (`.gitignore`; D-30). The legacy
-  sources needed for golden data are copied into `tools/golden/legacy/` and versioned.
+  sources needed for original golden data remain private and unchanged;
+  `tools/golden/legacy/` versions only maintained adapters, provenance and tooling
+  (D-30/D-32), never the original optimizer implementation.
 - Layout: `engine/` (C++, native + Emscripten), `app/` (React + Vite), `tools/golden/`
   (rebuild of legacy core + generator), `tools/inventory/` (.dfm parser), `docker/`, `docs/`.
 

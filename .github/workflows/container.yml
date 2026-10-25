@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
     paths:
+      - compose.yaml
       - docker/**
       - .dockerignore
       - .github/workflows/container.yml
@@ -52,6 +53,16 @@ jobs:
                     + "; exported paths: " + ", ".join(inventory))
               raise SystemExit(1)
           PYTHON
+      - name: Verify Compose entry point and static export
+        run: |
+          docker compose config --quiet
+          # Reuse the build cache from the Buildx export above.
+          docker compose run --rm build
+          test -s app/dist/index.html
+          test -s app/dist/engine.wasm
+          cmp app/dist/engine.wasm app/dist/assets/remagx-core.wasm
+          cmp app/dist/engine.wasm build/container/wasm/remagx-core.wasm
+          cmp app/dist/index.html build/container/site/index.html
       - uses: actions/upload-artifact@v4
         with:
           name: container-build

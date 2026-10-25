@@ -1,0 +1,17 @@
+services:
+  build:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: build
+    network_mode: none
+    volumes:
+      - ./app/dist:/output
+    # The image build already compiled and checked the public inputs. This
+    # offline command only exports the static site; no source tree is mounted.
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        cp -a /work/app/dist/. /output/
+        cp /work/build/wasm/remagx-core.wasm /output/engine.wasm
