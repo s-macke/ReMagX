@@ -367,7 +367,9 @@ coverage, failures and unavailable references. A missing reference is not a pass
   between native 2.6 and Wine 2.3.1; retain the strict raw qz/R criterion of 1e-6
   (AC-6). Done with the maintained crosscheck report for computable cases and explicit
   unavailable cases; a version-specific exception requires approval, not normalization.
-- [ ] **A5 — Final workflow/CLI acceptance.** Review agreed Lua programs, UI/worker
+- [ ] **A5 — Final workflow/CLI acceptance.** The [coverage record](docs/analysis/workflow-acceptance-evidence-2026-10-25.md)
+  maps existing passing automated evidence and its limits; user-example review
+  and scope-dependent checks remain open. Review agreed Lua programs, UI/worker
   errors (RX_QZ/DB/CSCRIPT/ESCRIPT/ML/UNKNOWN), cancellation/recovery and data/undo
   preservation, project/table import and save/reload, and native .all/JSON commands
   -refl/-dicrefl/-fit/-convert/-v with optional Lua. Include standard Chromium file
