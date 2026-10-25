@@ -286,7 +286,9 @@ and its user-visible handling. Preserve the original source tree throughout.
   profile comparisons and the public native/WASM gate. CI exposed two stale
   integration assertions expecting endpoint rejection; these now verify success.
   The 373-case native/WASM terminal gate and actual Chromium Lua-worker composition
-  pass locally, retaining numerical-error recovery. Broader accuracy remains A2.
+  pass locally, retaining numerical-error recovery. Pages run 40180491022 for
+  07fb44d subsequently passed the complete build/test job, including Chromium
+  integration, and deployed successfully. Broader accuracy remains A2.
 - [x] **S2 — Single-row layer conversion (D-47).** Explicitly excluded for now.
   Existing application guard reports the unsupported one-layer result and preserves
   the project, with a regression covering unchanged element-mode data. No padding or
@@ -365,6 +367,10 @@ coverage, failures and unavailable references. A missing reference is not a pass
   passes; the separate weak adaptive-fit case, slow case and annealing coverage
   remain unresolved. Do not silently change optimizer policy or treat identical
   objective values as fit-quality acceptance. Kramers-Kronig remains deferred.
+  A fresh 30-second instrumented probe of slow case 10 reaches iteration 32; its
+  25-second snapshot attributes about 17.3 seconds to isolated script-project
+  copying, versus 1.1 seconds inside reflectivity. Any optimization must preserve
+  source/snapshot isolation. This is a performance lead, not final fit acceptance.
 - [ ] **A4 — Original rebuild versus Wine.** Resolve the native 2.6 versus Wine
   2.3.1 discrepancies, including fast resolution and the larger unexplained cases;
   retain the strict raw qz/R criterion of 1e-6
