@@ -375,8 +375,10 @@ coverage, failures and unavailable references. A missing reference is not a pass
   (AC-1/3/4/7/7a/7b/8/10–15). Reuse existing checks; add only missing coverage.
   Delivery follow-up: the D-19 Compose entry point now exports the checked static
   site to app/dist, including the AC-1 engine.wasm alias. The optional container
-  workflow checks this command and byte equality with the normal WASM asset;
-  fresh runtime verification is pending on its Docker-capable runner.
+  workflow checks this command and byte equality with the normal WASM asset.
+  Run 40178826026 for 0246045 passed the pinned build, artifact checks and actual
+  Compose invocation on its Docker-capable runner; AC-1 delivery evidence is
+  established. This does not close the other A5 workflow/user-review obligations.
   Done when the coverage record links passing evidence and user examples, with
   exclusions and unresolved limitations stated. This is acceptance of implemented
   workflows, not another generic implementation task.
