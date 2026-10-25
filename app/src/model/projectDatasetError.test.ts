@@ -1,7 +1,9 @@
+import { calculateRealCurve } from './realCalculation'
+import { summaryText, summaryRange, type SummaryDataset } from './summary'
 import { expect, it, vi } from 'vitest'
 import { createDefaultProject, createLayer } from './defaults'
 import type { Dataset } from './project'
-import { calculateProjectDatasetError, evaluateProjectDatasetError, prepareStandaloneDatasetError, type FitErrorRequest } from './projectDatasetError'
+import { calculateProjectDatasetError, evaluateProjectDatasetErrorAsync, evaluateProjectDatasetError, prepareStandaloneDatasetError, type FitErrorRequest } from './projectDatasetError'
 import type { RealEngine } from '../compute/realEngine'
 
 function fixture() {
@@ -172,4 +174,31 @@ it.each([false, true])('prepares stored and inactive tensors before chi2 dataset
     expect(engine.lookup).not.toHaveBeenCalled()
   }
   expect(project).toEqual(before)
+})
+
+
+it('Summary includes inactive datasets, preserves serial preparation and exports full precision without changing fit scope', async () => {
+  const { project, dataset, engine, tables } = fixture()
+  const asymmetry = { ...structuredClone(dataset), title: 'inactive energy', active: false, errorWeight: 2,
+    columns: { qz: [.01, .02], energy: [640, 650], asymmetry: [-.12345678901234566, .2] } }
+  project.datasets = [dataset, asymmetry]
+  const before = structuredClone(project)
+  const summary: SummaryDataset[] = []
+  const initial = prepareStandaloneDatasetError(project, tables, engine)
+  const result = await evaluateProjectDatasetErrorAsync(initial.project, engine.fitError,
+    async (prepared, previous) => calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, previous), initial.opticalState, summary)
+  expect(summary).toHaveLength(2)
+  expect(summary.map(row => row.weightedError)).toEqual([3, 14])
+  expect(result.error).toBe(17)
+  expect(summary[1]).toMatchObject({ datasetIndex: 1, scan: 'energy', mode: 'asymmetry', measurement: { energy: [642, 652] } })
+  expect(summaryText(summary)).toContain(String(asymmetry.columns.asymmetry[0]))
+  expect(summaryText(summary)).toContain('inactive energy')
+  expect(summaryRange(summary, 'x', 'energy')).toEqual([642, 652])
+  expect(summaryRange(summary, 'x', 'qz')).toEqual([.011, .021])
+  expect(project).toEqual(before)
+  expect(calculateProjectDatasetError(project, tables, engine)).toBe(3)
+  const invalid = structuredClone(project)
+  invalid.datasets[1].columns = { qz: [.01], electronYield: [1] }
+  await expect(evaluateProjectDatasetErrorAsync(invalid, engine.fitError,
+    async (prepared, previous) => calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, previous), undefined, [])).rejects.toThrow('Dataset 2: TEY')
 })

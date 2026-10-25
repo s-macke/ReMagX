@@ -108,6 +108,7 @@ export interface FitResult {
 }
 
 export interface ComputeService {
+  summary(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<import('../model/summary').SummaryDataset[]>
   executeScript(project: Project, program: ScriptProgram, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<ScriptExecutionResult>
   readonly supportsElementLayerConversion?: boolean
   readonly providesFitPreviews?: boolean

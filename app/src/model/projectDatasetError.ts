@@ -1,3 +1,4 @@
+import type { SummaryDataset } from './summary'
 import type { OpticalTable } from '../import/tables'
 import type { SerialOpticalState } from './refreshOpticalConstants'
 import { prepareProjectOptics, refreshStrictProjectOptics } from './projectOptics'
@@ -54,23 +55,26 @@ export function evaluateProjectDatasetError(project: Project, tables: OpticalTab
 export async function evaluateProjectDatasetErrorAsync(project: Project,
   fitError: FitErrorCalculator,
   calculate: (prepared: ReturnType<typeof prepareFitDataset>, previous?: SerialOpticalState) => Promise<RealCurve>,
-  previous?: SerialOpticalState) {
-  const evaluation = datasetErrorSteps(project, fitError, previous)
+  previous?: SerialOpticalState, summary?: SummaryDataset[]) {
+  const evaluation = datasetErrorSteps(project, fitError, previous, undefined, summary)
   let step = evaluation.next()
   while (!step.done) step = evaluation.next(await calculate(step.value.prepared, step.value.opticalState))
   return step.value
 }
 
 function* datasetErrorSteps(project: Project, fitError: FitErrorCalculator, previous?: SerialOpticalState,
-  observe?: (index: number, scan: 'qz' | 'energy', beams: 'monochromatic' | 'dichroic', curve: RealCurve) => void): Generator<
+  observe?: (index: number, scan: 'qz' | 'energy', beams: 'monochromatic' | 'dichroic', curve: RealCurve) => void, summary?: SummaryDataset[]): Generator<
     { prepared: ReturnType<typeof prepareFitDataset>; opticalState?: SerialOpticalState },
     { error: number; project: Project; opticalState?: SerialOpticalState }, RealCurve> {
   let current = project
   let opticalState = previous
   let total = 0
   for (let index = 0; index < project.datasets.length; index++) {
-    if (!project.datasets[index].active) continue
-    const prepared = prepareFitDataset(current, index)
+    if (!summary && !project.datasets[index].active) continue
+    if (summary && project.datasets[index].columns.electronYield?.length) throw new Error(`Dataset ${index + 1}: TEY is deferred and cannot be displayed in Summary.`)
+    let prepared: ReturnType<typeof prepareFitDataset>
+    try { prepared = prepareFitDataset(current, index) }
+    catch (error) { throw new Error(`Dataset ${index + 1}: ${error instanceof Error ? error.message : String(error)}`) }
     const curve = yield { prepared, opticalState }
     opticalState = curve.opticalState
     const calculatedProject = curve.scriptedProject ?? prepared.project
@@ -96,6 +100,13 @@ function* datasetErrorSteps(project: Project, fitError: FitErrorCalculator, prev
     }
     total += prepared.weight * result.error
     if (!Number.isFinite(total)) throw new Error('Weighted dataset error exceeds the supported numerical range.')
+    summary?.push({ datasetIndex: index, title: project.datasets[index].title || `Dataset ${index + 1}`,
+      scan: prepared.scan, mode: asymmetry ? 'asymmetry' : dichroic ? 'dichroic' : 'monochromatic',
+      weightedError: prepared.weight * result.error, measurement: structuredClone(columns),
+      calculated: { qz: [...curve.qz], ...(curve.energy ? { energy: [...curve.energy] } : {}),
+        ...(asymmetry ? { asymmetry: [...curve.asymmetry] } : dichroic
+          ? { reflectivityPlus: [...curve.reflectivityPlus], reflectivityMinus: [...curve.reflectivityMinus] }
+          : { reflectivity: [...curve.reflectivityPlus] }) } })
     observe?.(index, prepared.scan, prepared.beams, curve)
   }
   return { error: total, project: current, opticalState }

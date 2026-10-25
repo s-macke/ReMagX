@@ -1,7 +1,7 @@
 # Summary window scope and conversion — 2026-10-25
 
-Source trace for S5; neither implementation nor exclusion is approved by this
-record. Original paths refer to private unchanged `old/reMagX3/` files. The source
+Source trace for S5; D-52 approves the regular overview and excludes the extra
+interpolation command for now. Original paths refer to private unchanged `old/reMagX3/` files. The source
 is not copied into the maintained app.
 
 ## Overview behavior
@@ -32,8 +32,7 @@ The DFM and handler behavior are:
 | Copy All Graphic | Compose all small charts into one clipboard image, including charts beyond the visible scroll area. |
 
 These cover the 14 entries in inventory group `summary`, including the main-menu
-entry, form and popup container. The group remains deferred/UI: the audit does
-not remove the implementation obligation if Summary remains in scope.
+entry, form and popup container. The regular overview is in scope under D-52; runtime evidence is recorded below.
 
 ## Build const-qz from const-energy
 
@@ -59,9 +58,8 @@ be reviewed under D-29; this audit does not silently normalize or merge data.
 
 ## Proposed scope and implementation boundary
 
-Asked the user to choose the regular Summary with the extra interpolation command
-excluded for now (recommended), the complete window including separately reviewed
-conversion semantics, or exclusion of the whole window. No response is assumed.
+The user accepted the regular Summary with the extra interpolation command excluded
+for now (D-52). No cross-dataset interpolation semantics are introduced.
 
 If Summary is retained, use a read-only project/table snapshot and the existing
 real worker preparation/error machinery via ComputeService. The current aggregate
@@ -76,3 +74,25 @@ explicitly agreed. Use existing plot/export primitives and full double values;
 clipboard denial must remain visible. Focused checks should cover mixed qz/energy
 and inactive datasets, layout/scaling, errors, complete exports, cancellation and
 unchanged saved project. Final original-example acceptance remains A5.
+
+
+## Implementation evidence (D-52)
+
+Tools → Summary uses a dedicated WorkerComputeService request and captures project
+and tables when opened. The request reuses strict initial optical preparation,
+serial per-dataset error evaluation and temporary Lua sessions; only the Summary
+request includes inactive datasets and collects measured/calculated arrays plus
+each weighted error. Normal chi-squared and fits keep their existing selection.
+The renderer uses uPlot with bounded logarithmic ticks. Coordinates remain in
+qz/energy, x ranges are shared within each scan type, and y scaling affects qz
+charts only. Log charts exclude nonpositive values from their visible bounds;
+all numerical values remain in the data export. All-chart PNG includes legends
+and selected errors; clipboard denial is visible. Unsupported TEY fails the
+request explicitly. No partial snapshot is published on failure or Stop.
+
+Model/service tests cover inactive data, coordinate preparation, weighted errors,
+full-precision exports, table forwarding, cancellation and input isolation.
+The maintained app/e2e/summary.spec.ts uses the real WASM engine with public
+synthetic mixed datasets and tables, plus a deliberately blocked-worker case.
+These are bounded functional checks; full original/user-example review remains
+A5. No private corpus or original source was changed.

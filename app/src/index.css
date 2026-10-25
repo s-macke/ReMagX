@@ -1128,3 +1128,12 @@ button.primary {
 .tensor-preview label { display: flex; align-items: center; gap: 4px; }
 .tensor-preview input { width: 0; }
 .cell-fit-menu { max-height: calc(100vh - 16px); overflow-y: auto; }
+
+.summary-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.summary-controls input[type=number] { width: 80px; }
+.summary-grid { display: flex; flex-wrap: wrap; gap: 12px; max-height: 65vh; overflow: auto; }
+.summary-chart { background: white; color: #111; padding: 4px; }
+.summary-chart strong { display: block; overflow-wrap: anywhere; }
+.summary-legend, .summary-error { font-size: 12px; overflow-wrap: anywhere; }
+
+.dialog:has(.summary-grid) { max-width: calc(100vw - 32px); }

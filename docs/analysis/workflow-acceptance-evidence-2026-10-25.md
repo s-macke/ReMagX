@@ -39,7 +39,7 @@ missing original outputs, or a user's review of real measurements.
 | Actual WASM/no fallback | [realEngine UI tests](../../app/e2e/realEngine.spec.ts) check the local binary signature/versioned request, actual engine label, explicit missing-binary failure and reload recovery. Script-menu tests execute real Lua under the same network restriction. | Core load success alone does not establish numerical acceptance. |
 | AC-14 autosave | Persistence UI tests edit a layer, reload and check IndexedDB restoration. | User recovery from damaged/private files remains part of final example review. |
 | AC-15 import/save paths | Persistence UI tests disable picker APIs to exercise actual upload/download and JSON round trip; they also provide real OPFS handles for Open/Save/Save As and assert saved contents. | Native picker dialogs are injected at the dialog boundary because headless Chromium cannot operate them; manual desktop-picker review is not claimed. |
-| Tables/datasets/exports | [material library](../../app/e2e/materialLibrary.spec.ts), [datasets](../../app/e2e/datasets.spec.ts) and [plot exports](../../app/e2e/plotExport.spec.ts) cover persisted tables, imports, replacement/clear/error behavior and data/image export. | They do not validate arbitrary private optical data or unresolved Summary/plot additions. |
+| Tables/datasets/exports | [material library](../../app/e2e/materialLibrary.spec.ts), [datasets](../../app/e2e/datasets.spec.ts) and [plot exports](../../app/e2e/plotExport.spec.ts) cover persisted tables, imports, replacement/clear/error behavior and data/image export. | They do not validate arbitrary private optical data or unresolved plot additions. Summary has separate focused coverage below. |
 | D-35 native CLI | [terminal gate](../../app/scripts/test-native-terminal.mjs), [fit-start gate](../../app/scripts/test-native-fit-start.mjs) and [native Lua gate](../../app/scripts/test-native-lua.mjs), plus [conversion](../../engine/tests/test_terminal_conversion.py) and [relocated-install checks](../../engine/tests/test_terminal_install.py), cover maintained commands and scripted/non-scripted paths. | Use their public cases as bounded evidence for -refl/-dicrefl/-fit/-convert/-v and .all/JSON; no -map promise before maps exist, no original optimizer trajectory claim. |
 
 ## Remaining A5 work
@@ -52,8 +52,22 @@ rather than repeating already passing suites without a changed input or reason.
 
 I3 API decisions are resolved by D-49/D-50. Resolve remaining S scope choices and add focused evidence for
 any implemented paths. Retain explicit exclusions and unavailable cases. The
-Summary and plot-extra decisions cannot be closed by this table. S3 has the
+Plot-extra decisions cannot be closed by this table. Summary is implemented under D-52 with focused actual-WASM Chromium evidence; its final real-example review remains here. S3 has the
 approved D-51 none-binding correction with focused model/native/WASM evidence.
 S1 now has the approved D-46 correction and targeted native/WASM evidence; that
 does not replace full original-project profile acceptance. A5 stays unchecked until its user-example review and all
 applicable resulting workflow checks are complete.
+
+
+## Summary implementation increment (D-52)
+
+The maintained [Summary Chromium cases](../../app/e2e/summary.spec.ts) run against
+the real production WASM worker and local optical tables. They cover mixed qz,
+energy and paired-beam charts, inclusion of inactive data, weighted-error display,
+layout/axis changes without altering exported values, full-precision data and PNG
+clipboard output, explicit TEY rejection, Stop of an injected blocked worker,
+reopening/recovery and unchanged undo state. Model tests verify that the ordinary
+chi-squared path still skips inactive datasets and that Summary uses the shared
+serial dataset preparation. This closes the functional S5 requirement, not final
+original/user-example numerical or workflow acceptance. The extra interpolation
+command is explicitly excluded under D-52.

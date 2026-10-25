@@ -9,6 +9,7 @@ import type { Project } from '../model/project'
 import type { LayerConversionResult, TensorQuery, AsymmetryCurve, EnergyAsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
+  summary: import('../model/summary').SummaryDataset[]
   executeScript: ScriptExecutionResult
   materialToElements: ElementConversion
   segmentLayers: LayerConversionResult

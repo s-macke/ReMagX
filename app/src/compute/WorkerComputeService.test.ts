@@ -281,7 +281,7 @@ describe('WorkerComputeService failure recovery', () => {
 })
 
 describe('cancellation deadline', () => {
-  it.each(['calcReflectivity', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcAsymmetry', 'depthProfile', 'calcChi2'] as const)(
+  it.each(['summary', 'calcReflectivity', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcAsymmetry', 'depthProfile', 'calcChi2'] as const)(
     'immediately stops %s and queued work without changing the project', async (method) => {
       const first = controlledWorker()
       const second = controlledWorker()
@@ -626,7 +626,7 @@ it.each(['segmentLayers', 'densityProfiles', 'depthProfile', 'calcReflectivity',
 })
 
 
-it.each(['segmentLayers', 'densityProfiles', 'depthProfile', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcChi2', 'startFit'] as const)('uses explicit library replacements and clears for %s', async method => {
+it.each(['summary', 'segmentLayers', 'densityProfiles', 'depthProfile', 'calcReflectivity', 'calcAsymmetry', 'calcEnergyScan', 'calcEnergyAsymmetry', 'calcChi2', 'startFit'] as const)('uses explicit library replacements and clears for %s', async method => {
   const worker = controlledWorker(), service = new WorkerComputeService(() => worker, () => { throw new Error('stale factory tables') })
   const project = createDefaultProject()
   for (const tables of [

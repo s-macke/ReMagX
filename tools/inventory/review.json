@@ -805,10 +805,14 @@
     },
     {
       "name": "summary",
-      "status": "deferred",
-      "reason": "Implement Summary, sizing, refresh, clipboard exports, axis scaling and error display; review const-qz-from-energy conversion before implementation.",
+      "status": "ported",
+      "reason": "D-52: real-worker all-dataset Summary snapshot with measured/calculated charts, weighted errors, sizing/layout-only Update, scan-specific x scaling, qz y scaling and full clipboard exports. Inactive datasets included; unsupported TEY fails explicitly. Independent Stop/close preserves project state. Extra interpolation excluded; final user-example acceptance stays A5.",
       "references": [
-        "AGENTS.md"
+        "app/src/ui/SummaryDialog.tsx",
+        "app/src/model/summary.ts",
+        "app/src/model/projectDatasetError.ts",
+        "app/src/compute/realEngine.ts",
+        "app/e2e/summary.spec.ts"
       ],
       "entries": [
         "client/Unit1.dfm::Form1/MainMenu1/Utils1/Summary1",
@@ -825,20 +829,18 @@
         "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/Scaleyaxistominandmax1",
         "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/Scalexaxistominandmax1",
         "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/ShowError1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "summary-conversion-decision",
-      "status": "deferred",
-      "reason": "Decide scope of Summary const-qz-from-energy conversion before building it.",
+      "status": "dropped",
+      "reason": "D-52 explicitly excludes the extra Summary cross-dataset interpolation command for now; the regular Summary remains in scope.",
       "references": [
-        "AGENTS.md"
+        "docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md"
       ],
       "entries": [
         "guidll/SummaryForm.dfm::SummaryForm2/PopupMenu1/Buildconstqzfromconstenergy1"
-      ],
-      "phase": "decision"
+      ]
     },
     {
       "name": "lua-execution",

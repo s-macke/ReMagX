@@ -67,6 +67,8 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
     try {
       let result
       switch (request.kind) {
+        case 'summary':
+          throw new ComputeError('Summary requires the real engine.')
         case 'executeScript':
           throw new ComputeError('Script execution is not available in the mock engine.')
         case 'scatteringFactors':

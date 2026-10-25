@@ -263,3 +263,5 @@ Current unresolved decisions and their dependent work are tracked in [AGENTS.md]
 - D-50: Lua array integer arguments use nearest-integer conversion with ties to even; numeric values retain full double precision. Nonfinite arguments, signed-32-bit overflow and invalid accesses remain errors.
 
 - D-51: magnetic-profile none uses the stored layer count before repetition/subdivision and always disables the profile. Reject unknown active bindings; preserve other valid mappings and zero-amplitude skips.
+
+Summary scope clarification (D-52, 2026-10-25): include the all-dataset measured/calculated overview with weighted errors, sizing/layout, axis scaling and full clipboard data/graphic exports. It is a snapshot on opening; Update changes layout only. Exclude the additional “Build const-qz from const-energy” interpolation command for now; TEY remains deferred. Preserve project data and undo state, and support cancellation and explicit errors through the real worker.

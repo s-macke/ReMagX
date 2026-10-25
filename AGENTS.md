@@ -202,7 +202,7 @@ without deliberate rounding. Checklist totals are not progress percentages.
 | Optical tables | Imported scalars/tensors, Chantler fallback, approved 277-row Uranium data; complete .F assignment to the selected element (D-37/38/45) | I4, A2 |
 | Fitting | Clean Simplex/annealing, bounds, Q regularization, weighted datasets and scripted qz/energy/mixed fits | I4, A3 |
 | Lua | Worker execution, persistent hooks, output/line errors, project APIs and cancellation; CalculateReflectivity/GetError explicitly excluded (D-43/D-49) | I2, I3, A5 |
-| UI and files | Legacy project import, JSON save/load, autosave, editing/undo, plots, fit controls and error/recovery dialogs | S4–S7, A5 |
+| UI and files | Legacy project import, JSON save/load, autosave, editing/undo, plots, all-dataset Summary, fit controls and error/recovery dialogs | S4, S6, S7, A5 |
 | Native tools | Unchanged original 2.6 reference build; separate public full-double terminal: .all/JSON, -refl, -dicrefl, -fit, -convert, -v; clean optimizers and installation/licence packaging | I1, I3, A1, A4, A5 |
 | Regression infrastructure | Public native/WASM and Chromium checks, source inventory and double-precision gates; private comparison tools available locally | S8, A1–A5 |
 
@@ -307,13 +307,18 @@ and its user-visible handling. Preserve the original source tree throughout.
   three menu commands from four unrelated TMultiChart activation handlers. Both
   inventory groups retain decision status; the menu-only question does not decide
   the separate multi-chart records.
-- [ ] **S5 — Summary window.** Decide its scope and const-qz-from-energy semantics
-  before implementation: sizing, refresh, clipboard exports, axes and error display.
-  Close with agreed behavior and interaction checks, or a documented exclusion.
-  [Summary source review](docs/analysis/summary-window-audit-2026-10-25.md) records
-  all-dataset snapshots, layout-only Update, weighted errors and exports. The extra
-  command interpolates a chart overlay, not project data or a unit conversion.
-  Recommended regular Summary without that extra command is awaiting a scope choice.
+- [x] **S5 — Summary overview (D-52).** Tools → Summary now calculates a
+  read-only snapshot of all datasets, including inactive fit datasets, through a
+  dedicated real ComputeService worker. It shows measured/calculated qz/energy
+  reflectivity, asymmetry and paired beams with optional weighted dataset errors.
+  Chart sizing, layout-only Update, x scaling by scan type, qz y scaling, full
+  precision data and all-chart PNG clipboard exports are implemented. Stop/close
+  cancel the independent request; project/undo state is preserved. Unsupported TEY
+  is explicitly reported. The extra const-qz-from-energy interpolation command is
+  excluded for now. Focused model/service and actual-WASM Chromium checks cover
+  mixed/inactive datasets, exports, layout, errors and blocked-worker Stop/recovery.
+  See the [Summary source/evidence review](docs/analysis/summary-window-audit-2026-10-25.md).
+  Final user-example acceptance remains A5.
 - [ ] **S6 — Hidden experimental controls.** Review inventory group
   `hidden-tools-decision` item by item. Close when each control has an explicit
   scope decision and corresponding implementation/deferral/exclusion record.

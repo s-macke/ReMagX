@@ -135,6 +135,10 @@ export class WorkerComputeService implements ComputeService {
     return this.request('depthProfile', project, undefined, undefined, onScriptMessages, tables)
   }
 
+  summary(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]) {
+    return this.request('summary', project, undefined, undefined, onScriptMessages, tables)
+  }
+
   calcChi2(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]): Promise<number> {
     return this.request('chi2', project, undefined, undefined, onScriptMessages, tables)
   }
@@ -210,7 +214,7 @@ export class WorkerComputeService implements ComputeService {
       this.pending.set(id, { kind, resolve: resolve as (value: unknown) => void, reject, onProgress, onScriptMessages })
       try {
         this.worker ??= this.connect()
-        const tables = (kind === 'segmentLayers' || kind === 'densityProfiles' || kind === 'depthProfile' || kind === 'fit' || kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || kind === 'reflectivity' || kind === 'asymmetry') ? explicitTables ?? this.getTables?.() : undefined
+        const tables = (kind === 'summary' || kind === 'segmentLayers' || kind === 'densityProfiles' || kind === 'depthProfile' || kind === 'fit' || kind === 'chi2' || kind === 'energyScan' || kind === 'energyAsymmetry' || kind === 'reflectivity' || kind === 'asymmetry') ? explicitTables ?? this.getTables?.() : undefined
         this.worker.postMessage({ id, kind, project, ...(tables ? { tables } : {}), ...(spectrum ? { spectrum } : {}) } as WorkerRequest)
       } catch (error) {
         this.failWorker(`Could not start the computation: ${String(error)}`)

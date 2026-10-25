@@ -32,7 +32,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     let lookupSession: ReturnType<NonNullable<RealEngine['createLookupSession']>> | undefined
     try {
-      if (message.kind !== 'materialToElements' && message.kind !== 'segmentLayers' && message.kind !== 'densityProfiles' && message.kind !== 'depthProfile' && message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
+      if (message.kind !== 'materialToElements' && message.kind !== 'segmentLayers' && message.kind !== 'densityProfiles' && message.kind !== 'depthProfile' && message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'summary' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }
       if (message.kind === 'materialToElements') {
@@ -41,7 +41,7 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
       }
       if (message.kind === 'reflectivity' || message.kind === 'asymmetry' ||
           message.kind === 'energyScan' || message.kind === 'energyAsymmetry' ||
-          message.kind === 'chi2' || message.kind === 'fit') {
+          message.kind === 'summary' || message.kind === 'chi2' || message.kind === 'fit') {
         assertRealAlgorithm(message.project.calculation.algorithm)
       }
       if (message.kind === 'fit') assertSupportedFitTargets(message.project)
@@ -128,7 +128,8 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
         } finally { session?.close() }
         return
       }
-      if (message.kind === 'chi2') {
+      if (message.kind === 'chi2' || message.kind === 'summary') {
+        const summary: import('../model/summary').SummaryDataset[] | undefined = message.kind === 'summary' ? [] : undefined
         // Table resolution belongs to the film state, even across temporary Lua VMs.
         const resolvedTables = new Map<number, OpticalTable>()
         const initial = prepareStandaloneDatasetError(message.project, tables, engine)
@@ -140,8 +141,8 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
               text => send({ id: message.id, type: 'scriptMessages', lines: [text] }), resolvedTables) : undefined
             return calculateRealCurve(prepared.project, tables, engine, prepared.scan, prepared.beams, previous, hook)
           } finally { session?.close() }
-        }, initial.opticalState)
-        send({ id: message.id, type: 'result', result: result.error })
+        }, initial.opticalState, summary)
+        send({ id: message.id, type: 'result', result: summary ?? result.error })
         return
       }
       const energy = message.kind === 'energyScan' || message.kind === 'energyAsymmetry'

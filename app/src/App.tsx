@@ -1,3 +1,4 @@
+import { SummaryDialog } from './ui/SummaryDialog'
 import { fitPreviewCurve } from './model/fitPreview'
 import { useMaterialLibrary } from './state/useMaterialLibrary'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
@@ -79,6 +80,7 @@ function Workspace() {
   const unsaved = project !== state.savedProject
   const [error, setError] = useState<string | null>(null)
   const [calculationErrorDetails, setCalculationErrorDetails] = useState<string | null>(null)
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [licenseOpen, setLicenseOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
@@ -235,7 +237,7 @@ function Workspace() {
         },
         // The electric field follows later (D-26); the layer profile is shown now.
         { label: 'Show layers and electric field', onSelect: () => dispatch({ type: 'setPlotView', plotView: 'opticalProfile' }) },
-        { label: 'Summary (coming)', disabled: true },
+        { label: 'Summary', onSelect: () => setSummaryOpen(true) },
         {
           label: 'Scratch',
           items: legacyScratchTools.map((label) => ({ label: `${label} (later)`, disabled: true })),
@@ -337,6 +339,7 @@ function Workspace() {
           }}
         />
       )}
+      {summaryOpen && <SummaryDialog project={project} tables={state.opticalTables} onClose={() => setSummaryOpen(false)} />}
       {preferencesOpen && <PreferencesDialog onClose={() => setPreferencesOpen(false)} />}
       {scriptOpen && (
         <Suspense fallback={null}>
