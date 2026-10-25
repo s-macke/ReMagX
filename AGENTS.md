@@ -291,6 +291,10 @@ and its user-visible handling. Preserve the original source tree throughout.
   explicit unavailability or approve a defined correction (D-29). Do not restore
   obsolete amplitude/width copying from backup code. Close with documented handling
   and focused binding checks; global additive/multiplicative accuracy belongs to A2.
+  [Binding trace](docs/analysis/magnetic-binding-audit-2026-10-25.md): the GUI stores
+  none using the stored row count, but calculation compares with generated slices.
+  Repetition can even turn none into a valid unintended density index. A correction
+  using the stored sentinel and rejecting unknown active bindings is awaiting approval.
 - [ ] **S4 — Plot Select Area / Fit Lorentzian+Step.** Decide their release scope.
   Close with implementation and focused interaction checks, or an explicit exclusion
   recorded in spec/inventory. Existing plot navigation is already implemented.
