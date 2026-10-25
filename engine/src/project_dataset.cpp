@@ -39,7 +39,7 @@ PreparedFitDataset prepare_fit_dataset(const ProjectDocument& source, size_t ind
     else if (columns.count("reflectivityPlus") && columns.count("reflectivityMinus")) mode = energy_scan ? 7 : 3;
     else throw ProjectDocumentError("Dataset has no supported reflectivity, asymmetry or paired-beam fit data.");
     require(!project.boolean("/calculation/postProcessing/fourierTransform"),
-        "Fourier fitting remains unavailable pending the original fitting-semantics decision.");
+        "Fourier transformation is excluded from this application. Remove the obsolete Fourier setting before calculating.");
     const double qz_shift = project.number(path + "/qzShift"), energy_shift = project.number(path + "/energyShift");
     if (std::abs(qz_shift) > 1e-10) for (auto& value : columns.at("qz")) value += qz_shift;
     if (energy_scan && std::abs(energy_shift) > 1e-10) for (auto& value : columns.at("energy")) value += energy_shift;

@@ -171,7 +171,7 @@ resolution and polarization into a calculation context, and retains raw stored
 columns. Measured columns apply shifts only above the original 1e-10 threshold,
 then offset/scale, qz^4, pure-pi correction, asymmetry reconstruction and averaging.
 Error modes follow available columns (R before A before paired beams), with
-separate energy modes. Fourier fitting rejects pending its semantics decision.
+separate energy modes. Fourier fitting is excluded by D-44 and rejects active legacy settings explicitly.
 
 `evaluate_fit_dataset` requires matching calculation coordinates and selected
 column lengths, calls the shared native error kernel, then applies dataset weight.

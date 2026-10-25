@@ -7,7 +7,7 @@ import { WorkerComputeService, type WorkerPort } from '../../src/compute/WorkerC
 import type { OpticalTable } from '../../src/import/tables'
 import { applyDatabaseValues } from '../../src/model/databaseValues'
 import { projectSchema } from '../../src/model/project'
-import { mountFitPreview, renderFourierPlot } from './preview'
+import { mountFitPreview } from './preview'
 import { mergeFitResult } from '../../src/model/mergeFitResult'
 import { applyRealFitParameters } from '../../src/model/realFitParameters'
 import { prepareFitDataset } from '../../src/model/fitDataset'
@@ -25,4 +25,4 @@ const createReferenceComputeService = (samples: readonly number[]) => {
     return worker as unknown as WorkerPort
   }, undefined, true, true)
 }
-Object.assign(window, { realServiceHarness: { calculateView, mountLayerConversion, compareDiagnosticDensity, compareDiagnosticProfile, compareDiagnosticColumns, diagnosticCategory, withDiagnosticDeadline, createReferenceComputeService, parseOpticalTable, createSegmentedComputeService, applyDatabaseValues, projectSchema, renderFourierPlot, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } })
+Object.assign(window, { realServiceHarness: { calculateView, mountLayerConversion, compareDiagnosticDensity, compareDiagnosticProfile, compareDiagnosticColumns, diagnosticCategory, withDiagnosticDeadline, createReferenceComputeService, parseOpticalTable, createSegmentedComputeService, applyDatabaseValues, projectSchema, mountFitPreview, mergeFitResult, applyRealFitParameters, prepareFitDataset, importAllFile, precisionFixture, createDefaultProject, createLayer, createRealComputeService } })

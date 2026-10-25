@@ -28,14 +28,3 @@ it('converts simulation and shifted measurements together without modifying the 
   expect(invalid.curve).toBeNull()
   expect(invalid.error).toContain('exceeds maximum')
 })
-
-it('keeps Fourier depth independent of angle mode and uses only transformed measurements', () => {
-  const curve: CalculatedCurve = { axis: 'depth', x: [0, 100], series: [{ label: 'FFT', y: [0, 1] }],
-    logScale: false, yLabel: 'Fourier magnitude',
-    measured: [{ label: 'measured FFT', curve: { x: [0, 90], y: [0, .9] } }] }
-  const raw = [{ label: 'raw R', curve: { x: [.1, .2, .3], y: [1, 2, 3] } }]
-  for (const showAngle of [false, true]) {
-    expect(plotCoordinates(curve, raw, showAngle, 1)).toEqual({ curve, measured: curve.measured, error: null })
-    expect(plotCoordinates({ ...curve, measured: undefined }, raw, showAngle, 1).measured).toEqual([])
-  }
-})

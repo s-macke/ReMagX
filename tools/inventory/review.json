@@ -47,7 +47,6 @@
         "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/CheckBox1",
         "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/CheckBox2",
         "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/Edit6",
-        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/CheckBox3",
         "client/MeasurementParamsFrame.dfm::Frame17/GroupBox3",
         "client/MeasurementParamsFrame.dfm::Frame17/GroupBox3/Label1",
         "client/MeasurementParamsFrame.dfm::Frame17/GroupBox3/MultiLayerEdit",
@@ -467,7 +466,7 @@
     {
       "name": "preferences-controls",
       "status": "ported",
-      "reason": "Preferences preserve project settings. D-39 uses the real WASM engine, but stored options do not imply support for deferred physics or unresolved Fourier semantics.",
+      "reason": "Preferences preserve project settings. D-39 uses the real WASM engine, but stored options do not imply support for deferred physics or the excluded Fourier feature (D-44).",
       "references": [
         "app/src/ui/PreferencesDialog.tsx",
         "app/src/model/realAlgorithm.ts"
@@ -1339,6 +1338,18 @@
       ],
       "entries": [
         "client/AdaptiveLayerSegmentationForm.dfm::Frame6/GroupBox4/CheckBox1"
+      ]
+    },
+    {
+      "name": "fourier-excluded",
+      "status": "dropped",
+      "reason": "Fourier transformation and fitting are excluded by D-44. The activation control and execution paths are removed; old saved settings remain readable and explicitly reported with an undoable removal action.",
+      "references": [
+        "app/src/ui/sections/ExperimentSections.tsx",
+        "app/src/model/datasetPostprocessing.ts"
+      ],
+      "entries": [
+        "client/MeasurementParamsFrame.dfm::Frame17/GroupBox1/CheckBox3"
       ]
     }
   ],

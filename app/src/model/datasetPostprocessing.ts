@@ -1,16 +1,11 @@
 import type { Dataset, Project } from './project'
 import { HC_EV_ANGSTROM } from './units'
 
-export type FourierCalculator = (qz: number[], reflectivity: number[]) => {
-  depths: Float64Array; magnitudes: Float64Array
-}
-
 // CDataSet::PostModifications for already adapted coordinates/intensities.
 // Preserve optional columns: asymmetry is rebuilt only if it and both beams exist.
-// FFT changes only R and qz; the resulting other columns can have different lengths.
-export function postprocessDatasetColumns(project: Project, input: Dataset['columns'], correctSecondBeam = true, fourier?: FourierCalculator): Dataset['columns'] {
+export function postprocessDatasetColumns(project: Project, input: Dataset['columns'], correctSecondBeam = true): Dataset['columns'] {
   const { calculation, experiment } = project
-  if (calculation.postProcessing.fourierTransform && !fourier) throw new Error('Fourier postprocessing is not implemented in this real-engine path yet.')
+  if (calculation.postProcessing.fourierTransform) throw new Error('Fourier transformation is excluded from this application. Remove the obsolete Fourier setting before calculating.')
   const columns = Object.fromEntries(Object.entries(input).map(([key, values]) => [key, values ? [...values] : values])) as Dataset['columns']
   for (const values of Object.values(columns)) {
     if (values && (!values.every(Number.isFinite) || (values.length && values.length !== columns.qz.length))) {
@@ -62,16 +57,6 @@ export function postprocessDatasetColumns(project: Project, input: Dataset['colu
   }
   if (Object.values(columns).some(values => values && !values.every(Number.isFinite))) {
     throw new Error('Dataset postprocessing exceeds the supported numerical range.')
-  }
-  if (calculation.postProcessing.fourierTransform && columns.reflectivity?.length) {
-    const count = Math.floor(columns.qz.length / 2)
-    const result = fourier!([...columns.qz], [...columns.reflectivity])
-    if (result.depths.length !== count || result.magnitudes.length !== count ||
-        !result.depths.every(Number.isFinite) || !result.magnitudes.every(Number.isFinite)) {
-      throw new Error('The real engine returned invalid Fourier values.')
-    }
-    columns.qz = Array.from(result.depths)
-    columns.reflectivity = Array.from(result.magnitudes)
   }
   return columns
 }

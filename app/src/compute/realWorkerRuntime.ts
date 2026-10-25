@@ -39,7 +39,7 @@ export function startRealWorker(errorSamples?: readonly number[] | 'standard', a
       density: request => adapter.calculateElementDensity(instance, request),
       optics: request => adapter.calculateElementOptics(instance, request),
     } : undefined
-    return { segmentation, elementPreparation, createLookupSession: () => adapter.createTableLookupSession(instance), fourier: (qz, reflectivity) => adapter.calculateFourier(instance, qz, reflectivity),
+    return { segmentation, elementPreparation, createLookupSession: () => adapter.createTableLookupSession(instance),
       convolveFastQz: (qz, values, width) => adapter.convolveFastQz(instance, qz, values, width),
       gaussLorentzianReal: (...parameters) => adapter.calculateGaussLorentzianReal(instance, parameters),
       gaussLorentzianImag: (...parameters) => adapter.calculateGaussLorentzianImag(instance, parameters),

@@ -96,7 +96,6 @@ static void postprocess_curve(const ProjectDocument& project, ProjectCurve& resu
     const double average_width = project.number("/calculation/averaging");
     require(std::isfinite(average_width) && average_width >= 0 && std::floor(average_width) == average_width && average_width <= 2147483647.0,
         "Invalid moving-average half-width.");
-    const bool fourier = project.boolean("/calculation/postProcessing/fourierTransform");
     result.plus.reserve(values.size()); result.minus.reserve(values.size());
     const bool multiply = project.boolean("/calculation/postProcessing/multiplyByQz4");
     const bool divide = project.boolean("/calculation/postProcessing/divideByCos2ThetaSquared");
@@ -127,13 +126,7 @@ static void postprocess_curve(const ProjectDocument& project, ProjectCurve& resu
     average(result.plus, static_cast<size_t>(average_width));
     average(result.minus, static_cast<size_t>(average_width));
     finite_column(result.plus); finite_column(result.minus);
-    if (fourier) {
-        std::vector<double> depths(result.qz.size() / 2), magnitudes(result.qz.size() / 2);
-        status_check(remagx_fourier(result.qz.data(), result.plus.data(), result.qz.size(), depths.data(), magnitudes.data()));
-        result.qz = std::move(depths);
-        result.plus = std::move(magnitudes);
-        result.minus.assign(result.qz.size(), 0);
-    }
+
 }
 
 static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichroic,
@@ -164,8 +157,7 @@ static ProjectCurve calculate_inner(const ProjectDocument& original, bool dichro
 #endif
     }
     const bool segmented = project.string("/calculation/roughnessModel") == "segmentation";
-    const bool fourier = project.boolean("/calculation/postProcessing/fourierTransform");
-    require(!fourier || !dichroic, "Dichroic Fourier processing remains unavailable pending the legacy column-semantics decision.");
+    require(!project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier transformation is excluded from this application. Remove the obsolete Fourier setting before calculating.");
     const double average_width = project.number("/calculation/averaging");
     require(std::isfinite(average_width) && average_width >= 0 && std::floor(average_width) == average_width && average_width <= 2147483647.0, "Moving-average half-width exceeds the supported range.");
 
@@ -486,7 +478,7 @@ static ProjectCurve calculate_qz(const ProjectDocument& project, bool dichroic, 
     if (dichroic || width <= 1e-6) return calculate_inner(project, dichroic, tables, fit_coordinates,
         project.number("/experiment/energy"), previous, fit_coordinates ? CalculationContext::fit_dataset : CalculationContext::terminal, options, script_result, persistent_hook);
     require(!project.boolean("/calculation/postProcessing/fourierTransform"),
-        "Energy broadening with Fourier processing remains unavailable pending review of the original array lengths.");
+        "Fourier transformation is excluded from this application. Remove the obsolete Fourier setting before calculating.");
     // Same active quadrature as angular_resolution.cpp and the web wrapper.
     constexpr double offsets[] = {-2, -1.77777777777778, -1.55555555555556, -1.33333333333333,
       -1.11111111111111, -.888888888888889, -.666666666666667, -.444444444444444,
@@ -544,7 +536,7 @@ ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic
 }
 ProjectCurve calculate_fit_dataset_qz(const PreparedFitDataset& dataset, const std::vector<OpticalTable>& tables) {
     require(!dataset.energy_scan, "Native fit energy-scan integration is not available yet.");
-    require(!dataset.project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier fitting remains unavailable.");
+    require(!dataset.project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier transformation is excluded from this application. Remove the obsolete Fourier setting before calculating.");
     return calculate_qz(dataset.project, dataset.dichroic, tables, &dataset.measurement.at("qz"));
 }
 
@@ -554,7 +546,7 @@ static ProjectCurve calculate_dataset(const PreparedFitDataset& dataset, const s
     if (!dataset.energy_scan) return calculate_qz(dataset.project, dataset.dichroic, tables, &dataset.measurement.at("qz"), &state, options, hook, script_result);
     auto project = dataset.project;
     const bool scripted = hook != nullptr;
-    require(!project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier fitting remains unavailable.");
+    require(!project.boolean("/calculation/postProcessing/fourierTransform"), "Fourier transformation is excluded from this application. Remove the obsolete Fourier setting before calculating.");
     const auto& energies = dataset.measurement.at("energy");
     const auto& coordinates = dataset.measurement.at("qz");
     require(!energies.empty() && energies.size() == coordinates.size(), "Energy scan coordinates must be aligned and nonempty.");

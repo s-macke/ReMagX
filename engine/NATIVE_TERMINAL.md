@@ -155,10 +155,10 @@ The terminal preserves the original command's coordinate convention:
   it to measurement precision. There are no headers or progress messages on stdout.
 
 The integrated postprocessing applies qz^4, the pure-pi correction, then the
-original moving average. Monochromatic Fourier processing follows these steps
-through the existing core transform; its first output column contains depth in
-Angstrom and the row count is halved. Dichroic Fourier remains explicitly
-unavailable pending the recorded column-semantics decision.
+original moving average. Fourier transformation is excluded by D-44. Saved JSON
+retains its compatibility field, but an active setting rejects explicitly before
+curve publication; remove it before calculating. The web UI provides an undoable
+removal action. The native/WASM Fourier kernel and export have been removed.
 
 Polarization correction follows the original terminal's **dataset** metadata,
 not the solver's experiment settings. A generated grid has the original default
@@ -180,9 +180,8 @@ missing/range warnings are emitted once. Nonpositive/nonfinite sample energies
 or any numerical failure reject the whole calculation without partial output.
 
 Widths at or below 1e-6 eV keep the unbroadened path. The original dichroic qz route
-does not use this energy broadening setting. Broadening together with Fourier
-remains explicitly unavailable, as in the web implementation, pending review of
-the original mismatched array lengths.
+does not use this energy broadening setting. Fourier processing is excluded in
+all modes (D-44).
 
 Remaining Lua integration, standalone energy-scan commands and transactional replacement
 for redirected project output remain to be integrated. `-map` follows the separately
@@ -203,11 +202,11 @@ Validation uses public synthetic projects only:
 node app/scripts/test-native-terminal.mjs build/engine/remagx-terminal build/wasm
 ```
 
-275 cases compare 2,903 output values with actual WASM through the production web
+Historical pre-D-44 checks compared 275 cases and 2,903 output values with actual WASM through the production web
 preparation at unchanged D-23 tolerance. They cover all three solvers, both modes,
 complex beams, analyzers, both angular convolution paths, tetragonal/nonmagnetic
 settings, qz^4, polarization correction with independent dataset/solver metadata,
-monochromatic Fourier, energy-width thresholds, both angular convolution paths
+then-supported monochromatic Fourier (now removed), energy-width thresholds, both angular convolution paths
 combined with energy broadening, serial partial table refresh, global/local
 segmentation across all solvers/modes, segmented Matrix energy broadening and
 imported tensor composition, mixed Gaussian/spline sum/product profiles with

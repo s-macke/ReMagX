@@ -21,7 +21,7 @@ type SampleCalculation = (project: Project, previous: SerialOpticalState | undef
 export function calculateQzEnergyResolution(original: Project, previous: SerialOpticalState | undefined,
   hook: RealBeforeCalculation | undefined, lifetime: ScriptSessionLifetime, calculate: SampleCalculation): RealCurve {
   if (original.calculation.postProcessing.fourierTransform) {
-    throw new Error('Energy broadening combined with Fourier processing requires review of the original mismatched array lengths.')
+    throw new Error('Fourier transformation is excluded from this application. Remove the obsolete Fourier setting before calculating.')
   }
   const qz = prepareQzCoordinates(original)
   const energy = HC_EV_ANGSTROM / (HC_EV_ANGSTROM / original.experiment.energy)

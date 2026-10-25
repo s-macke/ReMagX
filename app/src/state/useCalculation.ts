@@ -82,7 +82,7 @@ export async function calculateView(service: ComputeService, project: Project, r
   }
   if (mode === 'monochromatic') {
     const curve = await service.calcReflectivity(project, onScriptMessages, request.tables ?? [])
-    return reflectivityPlot(curve, project)
+    return reflectivityPlot(curve)
   }
   const curve = await service.calcAsymmetry(project, onScriptMessages, request.tables ?? [])
   if (mode === 'dichroic') {

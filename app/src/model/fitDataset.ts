@@ -1,5 +1,5 @@
 import { datasetSchema, type Dataset, type Project } from './project'
-import { postprocessDatasetColumns, type FourierCalculator } from './datasetPostprocessing'
+import { postprocessDatasetColumns } from './datasetPostprocessing'
 
 export type FitErrorMode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
 export interface PreparedFitDataset {
@@ -12,7 +12,7 @@ export interface PreparedFitDataset {
 }
 
 // GetFitType / CalcErrorOfDataset: select by stored columns, not the visible UI mode.
-export function prepareFitDataset(project: Project, index: number, fourier?: FourierCalculator): PreparedFitDataset {
+export function prepareFitDataset(project: Project, index: number): PreparedFitDataset {
   if (!Number.isSafeInteger(index) || index < 0 || index >= project.datasets.length) throw new Error('Invalid fit dataset index.')
   const dataset = datasetSchema.parse(project.datasets[index])
   const source = dataset.columns
@@ -35,7 +35,7 @@ export function prepareFitDataset(project: Project, index: number, fourier?: Fou
     if (source[name]) columns[name] = source[name].map(value => (value + dataset.intensityOffset) * dataset.intensityScale)
   }
   // Keep local.datasets raw: existing calculation preparation applies its shifts once.
-  return { project: local, measurement: postprocessDatasetColumns(local, columns, true, fourier), errorMode,
+  return { project: local, measurement: postprocessDatasetColumns(local, columns, true), errorMode,
     scan: energyScan ? 'energy' : 'qz', beams: [0, 1, 4, 5].includes(errorMode) ? 'monochromatic' : 'dichroic',
     weight: dataset.errorWeight }
 }

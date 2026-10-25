@@ -117,7 +117,7 @@ function Workspace() {
   const saveDiagramData = () => {
     const curve = plot.curve
     if (!curve) return
-    const xLabel = curve.axis === 'angle' ? 'theta (degrees)' : curve.axis === 'qz' ? 'qz (1/A)' : curve.axis === 'energy' ? 'energy (eV)' : curve.axis === 'depth' ? 'Fourier depth (A)' : 'z (A)'
+    const xLabel = curve.axis === 'angle' ? 'theta (degrees)' : curve.axis === 'qz' ? 'qz (1/A)' : curve.axis === 'energy' ? 'energy (eV)' : 'z (A)'
     downloadText(`${baseName}-diagram.txt`, seriesToText(xLabel, diagramSeries(curve, plot.measured)))
   }
 

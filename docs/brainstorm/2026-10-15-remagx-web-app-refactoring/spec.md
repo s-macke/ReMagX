@@ -234,7 +234,7 @@ Native build of the same C++ core → golden-data generator + CI regression test
 
 ## Out of Scope (MVP)
 
-- Fourier transformation, Fourier plots and Fourier fitting are excluded (D-44). Remove their UI and execution paths while retaining saved-project/import compatibility and explicitly reporting active legacy Fourier settings.
+- Fourier transformation, Fourier plots and Fourier fitting are excluded (D-44). Their UI and execution paths are removed. Saved-project/import compatibility is retained; active legacy JSON Fourier settings are explicitly reported with an undoable removal action.
 
 - Levenberg-Marquardt fitting and parameter standard deviations (D-11, F-17).
 - Evolutionary fit algorithm (CEvolution) (D-11).

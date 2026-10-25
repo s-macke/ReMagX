@@ -21,7 +21,6 @@ const assets = new Map([
   ['/layer_density_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/layer_density_checks.mjs'))]],
   ['/magnetic_application_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/magnetic_application_checks.mjs'))]],
   ['/spline_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/spline_checks.mjs'))]],
-  ['/fourier_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/fourier_checks.mjs'))]],
   ['/element_optics_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/element_optics_checks.mjs'))]],
   ['/scattering_checks.mjs', ['text/javascript', readFileSync(resolve(root, 'engine/tests/scattering_checks.mjs'))]],
   ['/remagx-core.mjs', ['text/javascript', readFileSync(modulePath)]],
@@ -49,7 +48,7 @@ try {
   browser = await chromium.launch()
   const page = await browser.newPage()
   await page.goto(`http://127.0.0.1:${server.address().port}/`)
-  const result = await page.evaluate(async ({ fourier, elementOptics, scattering, lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors }) => {
+  const result = await page.evaluate(async ({ elementOptics, scattering, lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors }) => {
     const next = (worker, kind) => new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { cleanup(); reject(new Error(`Worker timeout: ${kind}`)) }, 10000)
       const cleanup = () => {
@@ -69,8 +68,8 @@ try {
     try {
       await next(worker, 'ready')
       const response = next(worker, 'results')
-      worker.postMessage({ fourier, elementOptics, scattering, lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors })
-      const { fourier: fourierCount, elementOptics: elementOpticsCount, scattering: scatteringCount, lineShapes: lineShapeResults, values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults, matrices: matrixResults, zak: zakResults, profiles: profileResults, optimizer: optimizerResults, fitErrors: fitErrorValues } = await response
+      worker.postMessage({ elementOptics, scattering, lineShapes, cases, tables, energy, scans, tensors, matrices, zak, profiles, optimizer, fitErrors })
+      const { elementOptics: elementOpticsCount, scattering: scatteringCount, lineShapes: lineShapeResults, values, tables: tableResults, energy: energyResults, scans: scanResults, tensors: tensorResults, matrices: matrixResults, zak: zakResults, profiles: profileResults, optimizer: optimizerResults, fitErrors: fitErrorValues } = await response
       const entered = next(worker, 'entered')
       let finished = false
       worker.addEventListener('message', event => { if (event.data.kind === 'finished') finished = true })
@@ -87,15 +86,13 @@ try {
       const replacementResponse = next(worker, 'results')
       worker.postMessage({ cases: [cases[0]] })
       const replacement = (await replacementResponse).values[0]
-      return { fourierCount, elementOpticsCount, scatteringCount, lineShapeResults, fitErrorValues, optimizerResults, profileResults, zakResults, matrixResults, tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
+      return { elementOpticsCount, scatteringCount, lineShapeResults, fitErrorValues, optimizerResults, profileResults, zakResults, matrixResults, tensorResults, scanResults, energyResults, values, tableResults, replacement, finished, tickMilliseconds, recoveryMilliseconds: performance.now() - start }
     } finally {
       worker.terminate()
     }
-  }, { fourier: input.fourier, elementOptics: input.elementOptics, scattering: input.scattering, lineShapes: input.lineShapes, cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors, matrices: input.matrices, zak: input.zak, profiles: input.profiles, optimizer: input.optimizer, fitErrors: input.fitErrors })
+  }, { elementOptics: input.elementOptics, scattering: input.scattering, lineShapes: input.lineShapes, cases, tables: input.tables, energy: input.energy, scans: input.scans, tensors: input.tensors, matrices: input.matrices, zak: input.zak, profiles: input.profiles, optimizer: input.optimizer, fitErrors: input.fitErrors })
   assert.equal(result.elementOpticsCount, 5200)
   console.log('Chromium element optics: 5,200 values, validation, growth and cleanup passed.')
-  assert.equal(result.fourierCount, 75658)
-  console.log('Chromium Fourier: 75,658 values, validation, growth and cleanup passed.')
   assert.equal(result.scatteringCount, 8640)
   console.log('Chromium scattering tensors: 8,640 components, validation, growth and cleanup passed.')
   assert.equal(result.fitErrorValues, 12480)

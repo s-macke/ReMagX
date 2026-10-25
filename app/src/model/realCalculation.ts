@@ -17,7 +17,6 @@ import { prepareParrattQzRequest, type PreparedParrattQzRequest } from './parrat
 import { postprocessParrattResult } from './parrattResult'
 import type { Project } from './project'
 import type { OpticalTable } from '../import/tables'
-import type { FourierCalculator } from './datasetPostprocessing'
 
 export type RealQzCalculator = (request: PreparedParrattQzRequest) => Float64Array
 
@@ -25,7 +24,6 @@ export interface RealCalculationEngine {
   // Explicit samples only until a production error-function policy is approved.
   elementPreparation?: ElementPreparationEngine & { errorSamples: readonly number[] }
   segmentation?: SegmentationEngine & MagneticProfileEngine & { errorSamples: readonly number[] }
-  fourier?: FourierCalculator
   convolveFastQz?(qz: number[], values: Float64Array, width: number): Float64Array
   gaussLorentzianImag?(energy: number, center: number, area: number, width: number, mixingPercent: number): number
   gaussLorentzianReal?(energy: number, center: number, area: number, width: number, mixingPercent: number): number
@@ -122,24 +120,20 @@ function calculateInnerCurve(original: Project, tables: OpticalTable[], engine: 
     cursors = scripted.opticalState.cursors
   }
   let qz: number[], values: Float64Array
-  const transform = project.calculation.postProcessing.fourierTransform
-  if (transform && (mode !== 'monochromatic' || !engine.fourier)) throw new Error('Fourier processing is not available for this real-engine request.')
-  // Fourier operates on the completed curve, never on individual kernel calls.
-  const packedProject = transform ? { ...project, calculation: { ...project.calculation,
-    postProcessing: { ...project.calculation.postProcessing, fourierTransform: false } } } : project
-  const segmented = prepareStack(packedProject, { layers: project.sample.layers,
+  if (project.calculation.postProcessing.fourierTransform) throw new Error('Fourier transformation is excluded from this application. Remove the obsolete Fourier setting before calculating.')
+  const segmented = prepareStack(project, { layers: project.sample.layers,
     layerDepths, dielectricTensors, dielectricState, scatteringTensors, cursors })
   if (project.calculation.algorithm === 'matrix') {
-    const request = prepareVisnovskyQzRequest(packedProject, mode, engine.dielectricTensor, project.sample.mode === 'element' ? undefined : dielectricTensors, coordinates, segmented,
+    const request = prepareVisnovskyQzRequest(project, mode, engine.dielectricTensor, project.sample.mode === 'element' ? undefined : dielectricTensors, coordinates, segmented,
       project.sample.mode === 'element' ? undefined : dielectricState)
     qz = request.qz
     values = engine.matrixQz(request)
   } else if (project.calculation.algorithm === 'zak') {
-    const request = prepareZakQzRequest(packedProject, mode, coordinates, segmented?.layers)
+    const request = prepareZakQzRequest(project, mode, coordinates, segmented?.layers)
     qz = request.qz
     values = engine.zakQz(request)
   } else {
-    const request = prepareParrattQzRequest(packedProject, mode, coordinates, segmented?.layers)
+    const request = prepareParrattQzRequest(project, mode, coordinates, segmented?.layers)
     qz = request.qz
     values = engine.calculate(request)
   }
@@ -154,7 +148,7 @@ function calculateInnerCurve(original: Project, tables: OpticalTable[], engine: 
     experiment: { ...project.experiment, qzScan: { ...project.experiment.qzScan, useDatasetPoints: false } },
     calculation: { ...project.calculation, postProcessing: { ...project.calculation.postProcessing, divideByCos2ThetaSquared: false } },
   } : project
-  const result = postprocessParrattResult(postProject, qz, values, mode, undefined, engine.fourier)
-  return { ...result, ...(transform ? { axis: 'depth' as const } : {}), opticalState: { layers: project.sample.layers, layerDepths: layerDepths.slice(), dielectricTensors, dielectricState, scatteringTensors, cursors },
+  const result = postprocessParrattResult(postProject, qz, values, mode, undefined)
+  return { ...result, opticalState: { layers: project.sample.layers, layerDepths: layerDepths.slice(), dielectricTensors, dielectricState, scatteringTensors, cursors },
     finalEnergy: project.experiment.energy, ...(scriptedProject ? { scriptedProject } : {}) }
 }

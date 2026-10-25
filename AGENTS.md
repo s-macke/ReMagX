@@ -209,7 +209,7 @@ without deliberate rounding. Checklist totals are not progress percentages.
 These are bounded functional statements backed by the historical evidence, not
 claims that every imported project works. No implementation is newly claimed by
 this documentation change. Maps/-map remain later scope; Fourier is excluded by
-D-44 and still requires cleanup below.
+D-44 and has been removed (I1).
 
 ### Concrete implementation work
 
@@ -217,11 +217,17 @@ Work in this order unless a user decision changes the priority. For every change
 use the targeted checks and reuse rules above; no new broad numerical sweep is
 required merely to close a documentation or UI task.
 
-- [ ] **I1 — Remove Fourier (D-44).** Remove controls and web/native calculation/fit
+- [x] **I1 — Remove Fourier (D-44).** Remove controls and web/native calculation/fit
   execution paths. Keep old JSON/.all projects readable and explicitly report
   active old Fourier settings; do not silently change their meaning. Update affected
   inventory/tests/docs. Done when no product workflow invokes Fourier and old-file
   handling is verified. Kernel/history cleanup is part of this same task.
+  Completed 2026-10-25: controls, transform/rendering paths, native/WASM kernel and
+  export removed. Legacy JSON keeps its compatibility field and active settings
+  reject explicitly; the UI offers undoable removal. Existing .all import/report
+  handling is unchanged. Focused Chromium load/remove/undo/save passes, as do 534
+  app tests, lint/build, 371 native/WASM terminal comparisons and precision/inventory
+  checks. Historical original-only diagnostics remain separate from the product.
 - [ ] **I2 — Preserve double coefficients in generated Lua (D-41).** Remove the two
   `toFixed(10)` serializations of beta/delta and betam/deltam in scriptSnippets.ts.
   Done when generated executable numbers round-trip the computed double, including

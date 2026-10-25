@@ -153,3 +153,36 @@ test('numeric editing and saving preserve all double digits', async ({ page }) =
   })
   expect(saved).toEqual(project)
 })
+
+test('obsolete Fourier setting stays readable, is reported, and can be removed with undo', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'showOpenFilePicker', { value: undefined })
+    Object.defineProperty(window, 'showSaveFilePicker', { value: undefined })
+  })
+  await page.goto('/')
+  const project = createDefaultProject()
+  project.calculation.automaticOpticalConstants = false
+  project.calculation.postProcessing.fourierTransform = true
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Open… (Ctrl+O)', exact: true }).click()
+  await (await chooser).setFiles({ name: 'old-fourier.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(project)) })
+  await expect(page.locator('.status-bar__error')).toContainText('Fourier transformation is excluded')
+  await page.getByRole('tab', { name: 'Experiment', exact: true }).click()
+  const section = page.getByRole('button', { name: 'Simulation Parameters', exact: true })
+  if (await section.getAttribute('aria-expanded') !== 'true') await section.click()
+  await expect(page.getByRole('checkbox', { name: 'Fourier transformation', exact: true })).toHaveCount(0)
+  const remove = page.getByRole('button', { name: 'Remove obsolete Fourier setting', exact: true })
+  await expect(remove).toBeVisible()
+  await remove.click()
+  await expect(remove).toHaveCount(0)
+  await expect(page.locator('.status-bar__error')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true }).click()
+  await expect(remove).toBeVisible()
+  await expect(page.locator('.status-bar__error')).toContainText('Fourier transformation is excluded')
+  await remove.click()
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Save (Ctrl+S)', exact: true }).click()
+  const saved = await download
+  project.calculation.postProcessing.fourierTransform = false
+  expect(JSON.parse(await readFile((await saved.path())!, 'utf8'))).toEqual(project)
+})

@@ -110,7 +110,7 @@ try {
       qz, energy: selected?.columns.energy,
       ...(dichroic ? { reflectivityPlus: raw.reflectivityPlus, reflectivityMinus: raw.reflectivityMinus }
         : { reflectivity: raw.reflectivityPlus }),
-    }, dichroic, (coordinates, reflectivity) => adapter.calculateFourier(instance, coordinates, reflectivity))
+    }, dichroic)
     const rows = actual.stdout.trim().split('\n').map(line => line.split(/\s+/).map(Number))
     assert.equal(rows.length, expected.qz.length)
     rows.forEach((row, index) => {
@@ -174,15 +174,6 @@ try {
         corrected.calculation.postProcessing.multiplyByQz4 = true
         corrected.calculation.averaging = 1
         await compare(corrected, dichroic)
-        if (!dichroic) {
-          corrected.calculation.postProcessing.fourierTransform = true
-          await compare(corrected, false)
-        }
-      }
-      if (!dichroic) {
-        const transformed = structuredClone(generatedCorrection)
-        transformed.calculation.postProcessing.fourierTransform = true
-        await compare(transformed, false)
       }
       for (const pattern of ['3*(1)', '2*(1,2*(1))', '', '0*(1),1', '0,1,2', '1\0,2', '1)2', '1a']) {
         const multilayer = structuredClone(base)
@@ -539,7 +530,7 @@ try {
   await writeFile(filename, JSON.stringify(dichroicFourier))
   const deferredFourier = run(['-dicrefl', filename])
   assert.equal(deferredFourier.status, 1); assert.equal(deferredFourier.stdout, '')
-  assert.match(deferredFourier.stderr, /Dichroic Fourier/)
+  assert.match(deferredFourier.stderr, /Fourier transformation is excluded/)
   const invalidTable = structuredClone(base)
   invalidTable.calculation.automaticOpticalConstants = true
   invalidTable.sample.layers[1].opticalTable = 'directory-input'

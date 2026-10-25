@@ -24,8 +24,6 @@ export interface DensityProfiles {
 }
 
 export interface ReflectivityCurve {
-  axis?: 'depth'
-  measuredFourier?: { qz: number[]; reflectivity: number[] }
   scriptMessages?: string[]
   qz: number[]
   reflectivity: number[]

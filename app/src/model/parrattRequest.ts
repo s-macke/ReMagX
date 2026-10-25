@@ -51,7 +51,7 @@ export function prepareCompoundQzRequest(project: Project, mode: 'monochromatic'
   if (calculation.automaticOpticalConstants) throw new Error('Automatic optical-table refresh is not implemented in real-engine preparation yet.')
   if (project.scripts.enabled && project.scripts.beforeCalculation.trim()) throw new Error('BeforeCalculation Lua execution is not implemented in real-engine preparation yet.')
   if (calculation.postProcessing.fourierTransform) {
-    throw new Error('Fourier postprocessing is not implemented in this real-engine path yet.')
+    throw new Error('Fourier transformation is excluded from this application. Remove the obsolete Fourier setting before calculating.')
   }
   if (preparedLayers && (preparedLayers.length < 2 ||
       !Array.from(preparedLayers).every(row => row && row.length === 8 && Array.from(row).every(Number.isFinite) && row[0] >= 0 && row[1] >= 0))) {

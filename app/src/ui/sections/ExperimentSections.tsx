@@ -131,11 +131,12 @@ export function SimulationParametersSection() {
           checked={calculation.postProcessing.divideByCos2ThetaSquared}
           onChange={(v) => edit((p) => void (p.calculation.postProcessing.divideByCos2ThetaSquared = v))}
         />
-        <CheckboxField
-          label="Fourier transformation"
-          checked={calculation.postProcessing.fourierTransform}
-          onChange={(v) => edit((p) => void (p.calculation.postProcessing.fourierTransform = v))}
-        />
+        {calculation.postProcessing.fourierTransform && <div role="alert">
+          <p>This project contains an obsolete Fourier setting. Fourier transformation is no longer supported.</p>
+          <button type="button" onClick={() => edit((p) => void (p.calculation.postProcessing.fourierTransform = false))}>
+            Remove obsolete Fourier setting
+          </button>
+        </div>}
       </Group>
       <Group title="Multilayers">
         <CheckboxField label="Enable multilayer" checked={sample.multilayer.enabled} onChange={(v) => edit((p) => void (p.sample.multilayer.enabled = v))} />

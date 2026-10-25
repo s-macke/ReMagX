@@ -22,7 +22,7 @@ struct ProjectCurve {
 // Current integration: manual/automatic compound constants, Nevot-Croce/adaptive
 // roughness, three solvers,
 // multilayer expansion, angular/monochromatic energy convolution and postprocessing
-// (monochromatic Fourier only). Other preparation rejects explicitly.
+// (Fourier is excluded by D-44). Other preparation rejects explicitly.
 // No input mutation and no partial curve on failure.
 ProjectCurve calculate_terminal_qz(const ProjectDocument& project, bool dichroic,
                                    const std::vector<OpticalTable>& tables = {},

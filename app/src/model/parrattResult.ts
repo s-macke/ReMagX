@@ -1,5 +1,5 @@
 import type { Project } from './project'
-import { postprocessDatasetColumns, type FourierCalculator } from './datasetPostprocessing'
+import { postprocessDatasetColumns } from './datasetPostprocessing'
 
 // CDataSet::PostModifications: normalized asymmetry is zero when the sum is zero.
 export function unpackParrattResult(qz: number[], values: Float64Array, definition: Project['calculation']['asymmetryDefinition']) {
@@ -16,7 +16,7 @@ export function unpackParrattResult(qz: number[], values: Float64Array, definiti
 
 // Preserve CDataSet::PostModifications ordering: qz^4, pure-pi correction,
 // asymmetry, then independent moving averages of both beams and asymmetry.
-export function postprocessParrattResult(project: Project, qz: number[], values: Float64Array, mode: 'monochromatic' | 'dichroic' = 'dichroic', scanEnergies?: number[], fourier?: FourierCalculator) {
+export function postprocessParrattResult(project: Project, qz: number[], values: Float64Array, mode: 'monochromatic' | 'dichroic' = 'dichroic', scanEnergies?: number[]) {
   const { experiment } = project
   if (values.length !== qz.length * 2 || !values.every(Number.isFinite)) throw new Error('The real engine returned invalid reflectivity values.')
   const dataset = experiment.qzScan.useDatasetPoints && project.activeDatasetIndex !== null
@@ -24,16 +24,13 @@ export function postprocessParrattResult(project: Project, qz: number[], values:
   const energies = scanEnergies ?? dataset?.columns.energy
   if (energies?.length && energies.length !== qz.length) throw new Error('Dataset energy and qz columns have different lengths.')
   const shift = !scanEnergies && dataset && Math.abs(dataset.energyShift) > 1e-10 ? dataset.energyShift : 0
-  const transform = project.calculation.postProcessing.fourierTransform
-  if (transform && (mode !== 'monochromatic' || scanEnergies)) throw new Error('Fourier processing for energy or dichroic scans is not implemented yet.')
   const columns = postprocessDatasetColumns(project, {
     qz,
     energy: energies?.map(value => value + shift),
     reflectivityPlus: qz.map((_, index) => values[index * 2]),
     reflectivityMinus: qz.map((_, index) => values[index * 2 + 1]),
     asymmetry: qz.map(() => 0),
-    ...(transform ? { reflectivity: qz.map((_, index) => values[index * 2]) } : {}),
-  }, mode === 'dichroic', fourier)
-  return { qz: columns.qz, reflectivityPlus: transform ? columns.reflectivity! : columns.reflectivityPlus!,
+  }, mode === 'dichroic')
+  return { qz: columns.qz, reflectivityPlus: columns.reflectivityPlus!,
     reflectivityMinus: columns.reflectivityMinus!, asymmetry: columns.asymmetry! }
 }

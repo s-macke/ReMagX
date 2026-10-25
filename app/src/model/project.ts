@@ -161,6 +161,7 @@ export const calculationSchema = z.object({
   postProcessing: z.object({
     multiplyByQz4: z.boolean(),
     divideByCos2ThetaSquared: z.boolean(),
+    // Legacy JSON compatibility only; D-44 excludes execution of this setting.
     fourierTransform: z.boolean(),
   }),
   automaticOpticalConstants: z.boolean(),

@@ -4,7 +4,6 @@ import { realLayerList } from '../model/realLayerList'
 import { realDensityProfiles } from '../model/realDensityProfiles'
 import { realDepthProfile } from '../model/realDepthProfile'
 import { assertRealAlgorithm } from '../model/realAlgorithm'
-import { prepareFitDataset } from '../model/fitDataset'
 import { prepareStandaloneQz } from '../model/standaloneQz'
 import { prepareStandaloneFit } from '../model/standaloneFit'
 import { prepareStandaloneEnergyScan } from '../model/standaloneEnergyScan'
@@ -161,16 +160,8 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
           ? { energy: result.energy, reflectivity: result.reflectivityPlus, ...(session ? { scriptMessages } : {}) }
           : { energy: result.energy, reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry, ...(session ? { scriptMessages } : {}) } })
       } else {
-        let measuredFourier
-        if (result.axis === 'depth' && message.project.activeDatasetIndex !== null) {
-          const index = message.project.activeDatasetIndex
-          if (message.project.datasets[index]?.columns.reflectivity?.length) {
-            const columns = prepareFitDataset(result.scriptedProject ?? message.project, index, engine.fourier).measurement
-            measuredFourier = { qz: columns.qz, reflectivity: columns.reflectivity! }
-          }
-        }
         send({ id: message.id, type: 'result', result: message.kind === 'reflectivity'
-          ? { qz: result.qz, reflectivity: result.reflectivityPlus, ...(result.axis ? { axis: result.axis, measuredFourier } : {}), ...(session ? { scriptMessages } : {}) }
+          ? { qz: result.qz, reflectivity: result.reflectivityPlus, ...(session ? { scriptMessages } : {}) }
           : { qz: result.qz, reflectivityPlus: result.reflectivityPlus, reflectivityMinus: result.reflectivityMinus, asymmetry: result.asymmetry, ...(session ? { scriptMessages } : {}) } })
       }
     } catch (error) {
