@@ -340,6 +340,10 @@ coverage, failures and unavailable references. A missing reference is not a pass
   lookup and D-45 tensor correction explicitly; comparisons using injected original
   lookup samples do not prove their acceptance. Done with a coverage/results record
   and user review; any unverified requirement or necessary exception stays open.
+  Portability follow-up 2026-10-25: the CI Zak asymmetry failure was reproduced
+  exactly by enabling the pinned library's explicit FMA branch. The build shim now
+  selects its scalar branch on both platforms; the complete public native/WASM
+  comparison passes even when the compiler advertises FMA. D-23 is unchanged.
 - [ ] **A3 — Fit acceptance.** Complete original-project and original-annealing review,
   including broader parameter combinations/Q. AC-9/D-28 still require at least three
   corpus projects with the same project/seed and final chi-squared(new) <=

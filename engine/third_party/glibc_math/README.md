@@ -48,3 +48,11 @@ The exponential uses the upstream portable table implementation with contraction
 including on CPUs where system glibc selects FMA instructions. The integration shim supplies
 binary64 bit casts, the upstream data layout, and overflow/underflow reporting; errno is
 not part of the engine API. Its rounding regression is checked independently of system exp.
+
+The integration shim also clears `__FP_FAST_FMA` after including the system math
+headers. Upstream hypot and compensated-product helpers use this macro to select
+explicit `fma()` calls; disabling compiler contraction alone does not select their
+scalar branch. Both native and WASM must use that same existing scalar branch.
+A native build advertising this feature reproduced Zak regression case 3624's
+CI asymmetry difference exactly; selecting the scalar branch restores agreement
+without changing the upstream source, precision or D-23 tolerance.

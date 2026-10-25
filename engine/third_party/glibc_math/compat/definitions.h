@@ -18,6 +18,12 @@
 #include <float.h>
 #include <math.h>
 #include <complex.h>
+// The upstream hypot and compensation helpers select explicit fma() calls
+// through this feature macro. -ffp-contract=off alone does not disable that
+// alternate algorithm. Keep the same scalar branch as WASM on FMA hosts too.
+#ifdef __FP_FAST_FMA
+#undef __FP_FAST_FMA
+#endif
 #define FLOAT double
 #define CFLOAT double _Complex
 #define __csqrt remagx_reference_math_csqrt
