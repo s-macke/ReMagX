@@ -90,7 +90,7 @@ export function createProjectScript(name: 'Default' | 'BeforeCalculation', sessi
       }
       const { workspace, tensors } = context
       workspace.replace(project, renewOpticalConstants)
-      const result = runProjectHook(session, workspace)
+      const result = runProjectHook(session, workspace, 'transfer')
       return { project: result, opticalState: { layers: result.sample.layers, layerDepths, dielectricTensors: tensors.overrides(), dielectricState: tensors.snapshot(), scatteringTensors: context.scattering.snapshot(), cursors: new Map(cursors) } }
     } catch (error) {
       session.close()

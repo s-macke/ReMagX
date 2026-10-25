@@ -367,10 +367,14 @@ coverage, failures and unavailable references. A missing reference is not a pass
   passes; the separate weak adaptive-fit case, slow case and annealing coverage
   remain unresolved. Do not silently change optimizer policy or treat identical
   objective values as fit-quality acceptance. Kramers-Kronig remains deferred.
-  A fresh 30-second instrumented probe of slow case 10 reaches iteration 32; its
-  25-second snapshot attributes about 17.3 seconds to isolated script-project
-  copying, versus 1.1 seconds inside reflectivity. Any optimization must preserve
-  source/snapshot isolation. This is a performance lead, not final fit acceptance.
+  Script-hook copying optimization (2026-10-25): a successful internal hook transfers
+  its isolated project to the caller and revokes workspace access until refresh,
+  avoiding the second full copy. Ordinary snapshots remain independent copies.
+  Focused ownership/error/refresh checks, 543 app tests, native/Wasmoon parity and
+  actual Chromium Lua-worker checks pass. The same bounded 30-second slow-case
+  probe reaches iteration 63 rather than 32; the 25-second snapshots contain 6,963
+  rather than 4,396 reflectivity calls. These instrumented observations do not
+  establish final fit quality, convergence or a general speedup; A3 remains open.
 - [ ] **A4 — Original rebuild versus Wine.** Resolve the native 2.6 versus Wine
   2.3.1 discrepancies, including fast resolution and the larger unexplained cases;
   retain the strict raw qz/R criterion of 1e-6

@@ -62,3 +62,23 @@ it.each([
     expect(createProjectScript('Default', fresh, engine, [])(project, state(project)).project.sample.layers[1].thickness).toBe(17)
   } finally { fresh.close() }
 })
+
+it('isolates successive transferred hook results while retaining compiled Lua state', async () => {
+  const project = createDefaultProject()
+  project.scripts.beforeCalculation = 'calls = (calls or 0) + 1; thickness[1] = thickness[1] + calls'
+  const original = structuredClone(project)
+  const session = await runtime.createSession()
+  try {
+    const execute = createProjectScript('BeforeCalculation', session, engine, [])
+    const first = execute(project, state(project))
+    const firstValue = first.project.sample.layers[1].thickness
+    const second = execute(first.project, first.opticalState)
+    expect(second.project.sample.layers[1].thickness).toBe(firstValue + 2)
+    expect(first.project.sample.layers[1].thickness).toBe(firstValue)
+    first.project.sample.layers[1].thickness = -99
+    const third = execute(second.project, second.opticalState)
+    expect(third.project.sample.layers[1].thickness).toBe(firstValue + 5)
+    expect(second.project.sample.layers[1].thickness).toBe(firstValue + 2)
+    expect(project).toEqual(original)
+  } finally { session.close() }
+})

@@ -138,3 +138,41 @@ it('copies the complete project graph while retaining shared metadata only withi
   first.scripts.parameters[0] = 55
   expect(workspace.snapshot()).toEqual(refreshed)
 })
+
+it('transfers completed state, revokes access, and refreshes without retaining result aliases', () => {
+  const source = fixture()
+  source.sample.elementProfiles[0].slabs = [{ thickness: 2, roughness: 0, density: 1 }]
+  const workspace = createScriptArrayWorkspace(source)
+  const thickness = workspace.arrays.get('thickness')!
+  const element = workspace.elements[0]
+  const energy = workspace.calculationEnergy()
+  const state = workspace.beginHook()
+  thickness.write(0, 17)
+  const released = workspace.releaseSnapshot()
+  expect(released.sample.layers[0].thickness).toBe(17)
+  expect(source.sample.layers[0].thickness).not.toBe(17)
+  for (const access of [() => thickness.read(0), () => thickness.write(0, 19),
+    () => element.getFactor('f1'), () => element.setFactor('f1', 3),
+    () => element.getSlab(0, 'density'), () => element.setSlab(0, 'density', 3),
+    () => workspace.snapshot(), () => workspace.releaseSnapshot(), () => workspace.beginHook(),
+    () => workspace.applyHook(state), () => workspace.calculationEnergy(),
+    () => workspace.setLayerText(0, 'material', 'changed')]) {
+    expect(access).toThrow('ownership was transferred')
+  }
+  const invalid = structuredClone(source)
+  invalid.sample.layers.pop()
+  expect(() => workspace.replace(invalid)).toThrow('structure changed')
+  expect(() => workspace.snapshot()).toThrow('ownership was transferred')
+  // The result owner cannot change the session's structural/energy bookkeeping.
+  released.sample.layers.pop()
+  released.sample.elementProfiles[0].element = 'changed'
+  released.experiment.energy = 812
+  workspace.replace(source)
+  expect(workspace.calculationEnergy()).toBe(energy)
+  expect(workspace.snapshot()).toEqual(source)
+  thickness.write(0, 21)
+  element.setFactor('f1', 13)
+  expect(source.sample.elementProfiles[0].f1).toBe(26)
+  expect(released.sample.layers[0].thickness).toBe(17)
+  expect(released.sample.elementProfiles[0].f1).toBe(26)
+})

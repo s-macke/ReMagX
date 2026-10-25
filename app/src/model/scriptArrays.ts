@@ -34,13 +34,24 @@ export interface ScriptElementBinding {
 
 /** Mutable script workspace, isolated from the UI/project until a request succeeds. */
 export function createScriptArrayWorkspace(source: Project) {
-  const project = cloneScriptProject(source)
+  let project = cloneScriptProject(source)
+  let released = false
+  let previousEnergy = project.experiment.energy
+  const structure = {
+    mode: project.sample.mode, layers: project.sample.layers.length,
+    profiles: project.sample.depthProfileFunctions.length, parameters: project.scripts.parameters.length,
+    elements: project.sample.elementProfiles.map(element => ({ name: element.element, slabs: element.slabs.length })),
+  }
+  function requireActive() {
+    if (released) throw new Error('Script project ownership was transferred; refresh before accessing it')
+  }
   let wavelength = HC_EV_ANGSTROM / project.experiment.energy
   let renewOpticalConstants = 0
   const arrays = new Map<string, ScriptNumericArray>()
   function register(name: string, typeId: number, count: number,
     read: (index: number) => number, write: (index: number, value: number) => void) {
     function checkIndex(index: number) {
+      requireActive()
       if (!Number.isSafeInteger(index) || index < 0 || index >= count) {
         throw new Error(`${name}: index out of range`)
       }
@@ -80,18 +91,19 @@ export function createScriptArrayWorkspace(source: Project) {
       (index, value) => { project.sample.elementProfiles[index][name] = value })
   }
   const elements: ScriptElementBinding[] = project.sample.elementProfiles.map((initialProfile, elementIndex) => {
-    const current = () => project.sample.elementProfiles[elementIndex]
+    const name = initialProfile.element
+    const current = () => { requireActive(); return project.sample.elementProfiles[elementIndex] }
     function slab(index: number) {
       if (!Number.isSafeInteger(index) || index < 0 || index >= current().slabs.length) {
-        throw new Error(`${initialProfile.element}: slab index out of range`)
+        throw new Error(`${name}: slab index out of range`)
       }
       return current().slabs[index]
     }
     function finite(value: number) {
-      if (!Number.isFinite(value)) throw new Error(`${initialProfile.element}: value must be finite`)
+      if (!Number.isFinite(value)) throw new Error(`${name}: value must be finite`)
     }
     return {
-      name: initialProfile.element,
+      name,
       getFactor: field => current()[field],
       setFactor(field, value) { finite(value); current()[field] = value },
       getSlab: (index, field) => slab(index)[field],
@@ -100,26 +112,29 @@ export function createScriptArrayWorkspace(source: Project) {
   })
   return {
     replace(next: Project, renew = 0): void {
-      const previous = project.sample, sample = next.sample
-      if (sample.mode !== previous.mode || sample.layers.length !== previous.layers.length ||
-        sample.depthProfileFunctions.length !== previous.depthProfileFunctions.length ||
-        sample.elementProfiles.length !== previous.elementProfiles.length ||
-        next.scripts.parameters.length !== project.scripts.parameters.length ||
-        sample.elementProfiles.some((element, index) => element.element !== previous.elementProfiles[index].element ||
-          element.slabs.length !== previous.elementProfiles[index].slabs.length)) {
+      const sample = next.sample
+      if (sample.mode !== structure.mode || sample.layers.length !== structure.layers ||
+        sample.depthProfileFunctions.length !== structure.profiles ||
+        sample.elementProfiles.length !== structure.elements.length ||
+        next.scripts.parameters.length !== structure.parameters ||
+        sample.elementProfiles.some((element, index) => element.element !== structure.elements[index].name ||
+          element.slabs.length !== structure.elements[index].slabs)) {
         throw new Error('Script project structure changed; create a new session')
       }
-      const nextWavelength = next.experiment.energy === project.experiment.energy ? wavelength : HC_EV_ANGSTROM / next.experiment.energy
+      const nextWavelength = next.experiment.energy === (released ? previousEnergy : project.experiment.energy)
+        ? wavelength : HC_EV_ANGSTROM / next.experiment.energy
       if (!(nextWavelength > 0) || !Number.isFinite(nextWavelength) || !Number.isFinite(renew)) {
         throw new Error('Invalid script project refresh')
       }
       const copy = cloneScriptProject(next)
-      Object.assign(project, copy)
+      project = copy
+      released = false
       wavelength = nextWavelength
       renewOpticalConstants = renew
     },
-    calculationEnergy: (): number => HC_EV_ANGSTROM / wavelength,
+    calculationEnergy: (): number => { requireActive(); return HC_EV_ANGSTROM / wavelength },
     beginHook(): ScriptHookState {
+      requireActive()
       const state = { energy: HC_EV_ANGSTROM / wavelength, epsilon: project.calculation.epsilon,
         resolution: project.experiment.resolution.angularFwhm, energyScanQz: project.experiment.energyScan.qz,
         renewOpticalConstants }
@@ -128,6 +143,7 @@ export function createScriptArrayWorkspace(source: Project) {
       return state
     },
     applyHook(state: ScriptHookState): void {
+      requireActive()
       const nextWavelength = HC_EV_ANGSTROM / state.energy
       if (![state.energy, state.epsilon, state.resolution, state.energyScanQz].every(Number.isFinite) ||
         !(nextWavelength > 0) || !Number.isFinite(nextWavelength)) throw new Error('Invalid script result state')
@@ -138,6 +154,7 @@ export function createScriptArrayWorkspace(source: Project) {
       project.experiment.energyScan.qz = state.energyScanQz
     },
     setLayerText(index: number, field: 'material' | 'opticalTable', value: string): void {
+      requireActive()
       if (!Number.isSafeInteger(index) || index < 0 || index >= project.sample.layers.length) {
         throw new Error('Layer index out of range')
       }
@@ -146,7 +163,14 @@ export function createScriptArrayWorkspace(source: Project) {
     elements,
     arrays: arrays as ReadonlyMap<string, ScriptNumericArray>,
     /** A fresh snapshot prevents callers from mutating the running script's state. */
-    snapshot: (): Project => cloneScriptProject(project),
+    snapshot: (): Project => { requireActive(); return cloneScriptProject(project) },
+    /** Transfer a completed hook result; all access is revoked until replace(). */
+    releaseSnapshot(): Project {
+      requireActive()
+      previousEnergy = project.experiment.energy
+      released = true
+      return project
+    },
   }
 }
 
