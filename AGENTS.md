@@ -177,7 +177,7 @@ recorded path and its Steps 0–8 have not been verified.
 
 - **Implemented:** the stated workflow exists and has targeted functional evidence.
   This does not establish complete original-project or numerical acceptance.
-- **Implementation complete:** I1–I4 are resolved and each applicable S-item has an
+- **Implementation complete:** all I-items are resolved and each applicable S-item has an
   explicit decision plus its required implementation, or an approved exclusion
   with clear handling. Newly discovered concrete gaps get their own task here;
   do not reopen vague "complete the engine" umbrella tasks.
@@ -248,13 +248,26 @@ required merely to close a documentation or UI task.
   five hook globals. Remaining concrete blockers: GetError scope/implementation
   (question pending) and fractional array-argument policy. The normal chi-squared
   workflow is separate; the audit does not close final script acceptance.
-- [ ] **I4 — Resolve unspecified capability gaps.** Replace the old claims of
+- [x] **I4 — Resolve unspecified capability gaps.** Replace the old claims of
   "remaining core extraction", "unsupported table kinds" and "remaining fit
   parameters" with a source/inventory-to-production-route audit. Include magnetic
   profile application, accepted optical formats, fit targets/regularization and
   native CLI routing. Done when each in-scope route has an implementation reference
   and targeted evidence, or a named concrete follow-up here. An inventory label
   alone is not runtime evidence. Existing S/A records must not be duplicated.
+  Completed 2026-10-25: [production capability audit](docs/analysis/production-capability-audit-2026-10-25.md)
+  maps all six original table formats, all 28 fit-target IDs, magnetic-profile
+  composition, worker dispatch and native command paths to implementation/evidence.
+  The concrete new gap is I5; existing I3/S/A obligations remain separate.
+- [ ] **I5 — Reject deferred fit targets before evaluation (D-25).** Add named,
+  early capability errors for betaKramersKronig/deltaKramersKronig and
+  electronEscapeDepth/electronGain in web and native fit paths. The current
+  electronEscapeDepth mapping can reach a non-TEY reflectivity objective; the other
+  deferred targets fail later with generic messages. Done when neither optimizer
+  evaluates these unsupported targets, imported rows/project data remain intact,
+  errors identify the deferred feature, and valid fits recover. Do not add TEY or
+  Kramers-Kronig physics. Use focused entry-path checks, not a broad corpus sweep.
+
 
 ### Decisions and dependent work
 
