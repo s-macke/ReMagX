@@ -374,7 +374,11 @@ coverage, failures and unavailable references. A missing reference is not a pass
   actual Chromium Lua-worker checks pass. The same bounded 30-second slow-case
   probe reaches iteration 63 rather than 32; the 25-second snapshots contain 6,963
   rather than 4,396 reflectivity calls. These instrumented observations do not
-  establish final fit quality, convergence or a general speedup; A3 remains open.
+  establish final fit quality, convergence or a general speedup. The maintained
+  three-project gate (IDs 4/5/14, distinct inputs and saved seeds) also passes after
+  this change at unchanged D-28, using its established 300-second observation
+  limit and explicit original lookup. Remaining cases/production lookup/user review
+  keep A3 open.
 - [ ] **A4 — Original rebuild versus Wine.** Resolve the native 2.6 versus Wine
   2.3.1 discrepancies, including fast resolution and the larger unexplained cases;
   retain the strict raw qz/R criterion of 1e-6
