@@ -362,10 +362,15 @@ coverage, failures and unavailable references. A missing reference is not a pass
   passes; the separate weak adaptive-fit case, slow case and annealing coverage
   remain unresolved. Do not silently change optimizer policy or treat identical
   objective values as fit-quality acceptance. Kramers-Kronig remains deferred.
-- [ ] **A4 — Original rebuild versus Wine.** Resolve the fast-resolution difference
-  between native 2.6 and Wine 2.3.1; retain the strict raw qz/R criterion of 1e-6
+- [ ] **A4 — Original rebuild versus Wine.** Resolve the native 2.6 versus Wine
+  2.3.1 discrepancies, including fast resolution and the larger unexplained cases;
+  retain the strict raw qz/R criterion of 1e-6
   (AC-6). Done with the maintained crosscheck report for computable cases and explicit
   unavailable cases; a version-specific exception requires approval, not normalization.
+  Retained-output review reproduces all 90 computable records: 89 R mismatches
+  (including two qz mismatches), one match and nine unavailable cases. Only 30
+  failing pairs have maximum relative R error <= 2e-6; the small public-fixture
+  resolution difference does not explain all failures. See SIMULATION_REFERENCE.md.
 - [ ] **A5 — Final workflow/CLI acceptance.** The [coverage record](docs/analysis/workflow-acceptance-evidence-2026-10-25.md)
   maps existing passing automated evidence and its limits; user-example review
   and scope-dependent checks remain open. Review agreed Lua programs, UI/worker

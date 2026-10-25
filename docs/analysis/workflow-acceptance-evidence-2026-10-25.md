@@ -26,7 +26,7 @@ missing original outputs, or a user's review of real measurements.
 |---|---|---|
 | AC-1 optional reproducible static build | [Compose](../../compose.yaml), [container workflow](../../.github/workflows/container.yml) and successful container run: nonempty index/core, named engine.wasm alias, equality with runtime/Buildx assets. | Linux amd64 and the pinned toolchain; Docker remains optional. |
 | AC-3 saved precision normalization | [allFile tests](../../app/src/import/allFile.test.ts) compare precision=3 and precision=1 imported project objects and require the override report. The real core uses the double-only source gate. | This is identical prepared input, not a separate paired original numerical run; broader physics evidence is A2. |
-| AC-4 import/report | Same tests exercise LF/CRLF, invalid UTF-8/Latin-1 bytes, unknown-key counts and schema-compatible imported state. The strict private corpus runner is separate. | Public tests alone do not prove current all-private-project acceptance or S8 CI access. |
+| AC-4 import/report | Same tests exercise LF/CRLF, invalid UTF-8/Latin-1 bytes, unknown-key counts and schema-compatible imported state. The strict private corpus runner is separate. | Public tests alone do not prove current all-private-project acceptance. Private CI is deferred by D-48; local corpus evidence remains required. |
 | AC-7 legacy scripts | [Lua API audit](lua-api-audit-2026-10-25.md), native/Wasmoon comparisons and actual Chromium worker gates cover the registered surface and bounded hooks/state cases. | GetError and fractional argument policy remain I3; complete original script/golden acceptance remains A1/A2/A5. |
 | AC-7a unavailable/excluded APIs | [luaFunctions tests](../../app/test/luaFunctions.test.ts) and [Chromium Lua gate](../../app/scripts/test-lua-runtime.mjs) assert named/source-line diagnostics, including KramersKronigRange. D-43 governs CalculateReflectivity exclusion. | Do not restore excluded/deferred physics to satisfy an old script silently. |
 | AC-7b optimizer import fallback | allFile tests assert fitalgorithm=1 becomes Simplex with a Levenberg-Marquardt warning. | This does not prove fit-quality acceptance, which is A3. |
@@ -52,6 +52,7 @@ rather than repeating already passing suites without a changed input or reason.
 
 Resolve the I3 API decisions and S scope choices, then add focused evidence for
 any implemented paths. Retain explicit exclusions and unavailable cases. The
-Summary, plot extras, spline endpoint and profile-binding decisions cannot be
-closed by this table. A5 stays unchecked until its user-example review and all
+Summary, plot extras and profile-binding decisions cannot be closed by this table.
+S1 now has the approved D-46 correction and targeted native/WASM evidence; that
+does not replace full original-project profile acceptance. A5 stays unchecked until its user-example review and all
 applicable resulting workflow checks are complete.

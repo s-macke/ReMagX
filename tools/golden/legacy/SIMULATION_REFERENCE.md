@@ -1022,6 +1022,42 @@ normalizing results, changing the production 2.6 calculation, or waiving AC-6 ca
 The unmodified comparison remains a failure and corpus acceptance stays open.
 
 
+#### Retained full-corpus evidence review (2026-10-25)
+
+Re-evaluated the retained private `build/wine-crosscheck-20261023-v6` stdout
+pairs using the current `validate_curve`, `parse_wine_curve` and `compare_curves`.
+All 90 computable comparison records reproduce every stored comparison field
+exactly. This reads existing outputs; it is not a new original/Wine execution or
+acceptance of the current web engine. The full manifest records 89 mismatches,
+one match, five Wine errors and four native errors. All 90 pairs have equal curve
+lengths. Two mismatching projects also fail qz; all 89 fail reflectivity.
+
+The maximum relative reflectivity errors of the 89 failing pairs fall into these
+**disjoint** ranges (zero-reference points remain governed by the strict comparator):
+
+| Maximum relative R error | Failing projects |
+|---|---:|
+| <= 2e-6 | 30 |
+| > 2e-6 and <= 1e-5 | 0 |
+| > 1e-5 and <= 1e-3 | 5 |
+| > 1e-3 and <= 0.1 | 26 |
+| > 0.1 and <= 1 | 18 |
+| > 1 or nonfinite ratio | 10 |
+
+Consequently the public-default fast-resolution diagnostic does not establish a
+common cause for all failures. Its approximately 1e-6 weight-sum effect alone
+cannot explain the larger group; nonzero resolution and other version/preparation
+changes still require case-specific investigation. Three cases with maximum
+relative R error above 0.1 nevertheless have maximum absolute R difference below
+1e-8 across their curves. This illustrates why absolute/logarithmic diagnostics
+are useful, but 1e-8 is neither an acceptance cutoff nor an approved exception.
+
+A4 must account for both qz failures, the larger R discrepancies and the nine
+unavailable cases, not just the small zero-resolution discrepancy. Retained raw
+outputs and project identities stay private. No tolerance, normalization, solver
+behavior or unavailable-case classification was changed by this review.
+
+
 ### Monochromatic energy resolution in the reference adapter
 
 The original GUI calls `CalcReflectivityDLL`, whose double branch calls
