@@ -31,16 +31,22 @@ int sample(double position, size_t slot, double* values, void* context) {
 void apply_profiles(const ProjectDocument& project, std::vector<RemagxLayer>& generated,
                     const std::vector<double>& positions, const std::vector<RemagxLayer>& original,
                     const std::array<double, 1001>& error_samples, const std::vector<double>* prepared_depths) {
+    const size_t stored_count = project.array_size("/sample/layers");
     std::vector<size_t> active;
     const size_t profile_count = project.array_size("/sample/depthProfileFunctions");
     for (size_t index = 0; index < profile_count; ++index) {
         const auto path = "/sample/depthProfileFunctions/" + std::to_string(index);
         if (project.number(path + "/deltaAmplitude") == 0 && project.number(path + "/betaAmplitude") == 0) continue;
-        if (!project.is_null(path + "/boundToLayer") && project.number(path + "/boundToLayer") == static_cast<double>(generated.size())) continue;
+        // D-51: the GUI none sentinel is the stored row count.
+        if (!project.is_null(path + "/boundToLayer")) {
+            const double binding = project.number(path + "/boundToLayer");
+            if (binding == static_cast<double>(stored_count)) continue;
+            if (binding < 0 || binding >= static_cast<double>(stored_count) || std::floor(binding) != binding)
+                throw ProjectDocumentError("Magnetic-profile binding is outside the stored layer choices.");
+        }
         active.push_back(index);
     }
     if (active.empty()) return;
-    const size_t stored_count = project.array_size("/sample/layers");
     std::vector<double> stored_depths = prepared_depths ? *prepared_depths : std::vector<double>(stored_count, 0);
     if (stored_depths.size() != stored_count || !std::all_of(stored_depths.begin(), stored_depths.end(), [](double value) {return std::isfinite(value);}))
         throw ProjectDocumentError("Stored layer depths must match the compound layer count.");
@@ -100,7 +106,7 @@ void apply_profiles(const ProjectDocument& project, std::vector<RemagxLayer>& ge
     const int status = remagx_apply_magnetic_profiles(profiles.data(), profiles.size(), spline_counts.data(),
         knots.data(), ordinates.data(), knots.size(), midpoints.data(), initial.data(), weights.data(), samples,
         project.string("/calculation/profileCombination") == "sum" ? 0 : 1, output.data());
-    if (status != REMAGX_SUCCESS) throw ProjectDocumentError("Magnetic-profile application failed; check spline knots and unsupported endpoint coordinates.");
+    if (status != REMAGX_SUCCESS) throw ProjectDocumentError("Magnetic-profile application failed; check spline knots and finite profile values.");
     for (size_t index = 0; index < samples; ++index) {
         generated[index + 1].delta_magnetic = output[2 * index];
         generated[index + 1].beta_magnetic = output[2 * index + 1];

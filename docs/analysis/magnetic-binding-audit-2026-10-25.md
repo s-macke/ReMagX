@@ -1,9 +1,8 @@
 # Magnetic-profile binding trace — 2026-10-25
 
 Checklist S3 concerns an ambiguous binding sentinel, not the separate spline
-endpoint decision S1. The proposed correction below requires D-29 approval.
-Original sources remain private and unchanged; no numerical deviation is applied
-by this audit.
+endpoint decision S1. The correction below is approved by D-51 under D-29.
+Original sources remain private and unchanged.
 
 ## Three different layer counts
 
@@ -45,33 +44,31 @@ claimed numerical reference outputs.
 | 3 | 3 | 4 | null/all | Unit weights; no layer lookup. |
 
 The maintained [web implementation](../../app/src/model/segmentedMagneticProfiles.ts)
-and [native implementation](../../engine/src/project_segmentation.cpp) currently
-retain the generated-count skip, but reject an out-of-range density index instead
-of accessing invalid memory. The second example can therefore still compute:
-range checking alone does not implement the UI meaning of none.
+and [native implementation](../../engine/src/project_segmentation.cpp) previously
+retained the generated-count skip with a density-index range check. The second
+example could therefore still compute: range checking alone did not implement
+the UI meaning of none. D-51 replaces that sentinel test in both routes.
 
-Existing [focused tests](../../app/src/model/segmentedMagneticProfiles.test.ts)
-prove reverse mapping, midpoint/weight layout, zero-amplitude/generated-count
-skips, explicit out-of-range rejection and unchanged input. They deliberately
-encode the current behavior; they are not evidence that the none mismatch is
-correct or accepted.
+## Approved correction and verification scope
 
-## Proposed decision and bounded implementation
+D-51 identifies none by N before expansion/subdivision and rejects unknown active
+bindings explicitly, including accidental equality with G. Web preparation now
+receives N explicitly from the project; native preparation uses its stored table
+count. Both skip zero-amplitude profiles before binding evaluation. All, air,
+bulk and other valid bindings retain their existing density mapping, including
+its interaction with repetition. No profile/imported values are rewritten.
 
-Asked the user whether to make none always disable the profile, identify it by N
-before expansion/subdivision, and reject unknown active bindings explicitly.
-Valid stored bindings keep the established density mapping; this proposal does
-not redesign how valid bindings interact with multilayer repetition. Zero-amplitude
-profiles remain inactive, and project/imported values are preserved rather than
-silently clamped or rewritten. The alternative is to retain current behavior and
-its explicit range errors for now. No answer is inferred.
+[Focused model tests](../../app/src/model/segmentedMagneticProfiles.test.ts) cover
+N=3 with generated count 4 and expanded count 5: none skips even where the old
+formula produced a valid density index, and an unknown binding equal to the
+generated count rejects. Existing reverse mapping, additive/multiplicative inputs,
+zero amplitudes and unchanged inputs remain checked. The actual Chromium worker
+covers none with/without expansion in both combination modes. Native/actual-WASM
+terminal checks compare no-profile and none-profile results, then require an error
+for an unknown binding equal to the generated slice count and preserve the input
+file. These are bounded synthetic checks, not full original-project acceptance.
 
-On approval, pass the stored count explicitly into web profile preparation and
-use the stored count already available natively. Replace the generated-count
-sentinel comparison in both routes. Cover none with/without expansion, unknown
-bindings including accidental equality with G, valid air/bulk/all mappings,
-zero-amplitude skips and project preservation. Check native/web agreement using
-public synthetic cases, without a broad corpus rerun. Keep S3 unchecked until the
-chosen behavior is implemented and verified. Global additive/multiplicative
-accuracy remains A2; this does not restore obsolete amplitude/width copying or
-change solver/tensor behavior.
+The old generated-count skip is intentionally no longer an expected result.
+Original numerical comparisons must distinguish this approved correction from
+unexplained mismatches. Global profile accuracy and original-project review remain
+A2; this does not restore obsolete amplitude/width copying or change tensor state.

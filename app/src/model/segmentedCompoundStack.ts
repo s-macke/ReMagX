@@ -31,7 +31,7 @@ export function prepareSegmentedCompoundStack(project: Project, storedDepths: re
   if (project.calculation.magnetization.mode === 'profile') {
     result.layers = applySegmentedMagneticProfiles(result.layers, result.positions,
       indices.map(index => storedDepths[index]), layers.map(layer => layer[1]), project.sample.depthProfileFunctions,
-      project.calculation.profileCombination === 'sum', errorSamples, engine)
+      project.calculation.profileCombination === 'sum', errorSamples, engine, count)
   }
   return result
 }

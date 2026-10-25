@@ -52,7 +52,8 @@ rather than repeating already passing suites without a changed input or reason.
 
 I3 API decisions are resolved by D-49/D-50. Resolve remaining S scope choices and add focused evidence for
 any implemented paths. Retain explicit exclusions and unavailable cases. The
-Summary, plot extras and profile-binding decisions cannot be closed by this table.
+Summary and plot-extra decisions cannot be closed by this table. S3 has the
+approved D-51 none-binding correction with focused model/native/WASM evidence.
 S1 now has the approved D-46 correction and targeted native/WASM evidence; that
 does not replace full original-project profile acceptance. A5 stays unchecked until its user-example review and all
 applicable resulting workflow checks are complete.

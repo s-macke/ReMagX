@@ -25,7 +25,7 @@ for (const [index, item] of payload.cases.entries()) {
       item.layers.map(layer => layer[1]), item.profiles, item.additive, payload.samples, {
         density: request => calculateLayerDensity(core, request),
         apply: request => applyMagneticProfiles(core, request),
-      })
+      }, item.layers.length)
   }
   if (before !== JSON.stringify(item)) throw new Error(`Segmentation case ${index}: input changed`)
   const actual = generated.layers.flatMap((layer, row) => [generated.positions[row], ...layer,

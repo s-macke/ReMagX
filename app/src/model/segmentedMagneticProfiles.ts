@@ -14,19 +14,23 @@ export function applySegmentedMagneticProfiles(
   layers: readonly PreparedCompoundLayer[], positions: readonly number[],
   boundaries: readonly number[], roughness: readonly number[],
   profiles: Project['sample']['depthProfileFunctions'], additive: boolean,
-  errorSamples: readonly number[], engine: MagneticProfileEngine,
+  errorSamples: readonly number[], engine: MagneticProfileEngine, storedLayerCount: number,
 ): PreparedCompoundLayer[] {
   const finite = (values: readonly number[], count: number) => values.length === count && Array.from(values).every(Number.isFinite)
-  if (layers.length < 1 || !finite(positions, layers.length) ||
+  if (!Number.isSafeInteger(storedLayerCount) || storedLayerCount < 2 || layers.length < 1 || !finite(positions, layers.length) ||
       !Array.from(layers).every(row => row && finite(row, 8)) || boundaries.length < 2 ||
       !finite(boundaries, boundaries.length) || !finite(roughness, boundaries.length) ||
       roughness.some(value => value < 0) || !finite(errorSamples, 1001)) {
     throw new Error('Invalid segmented magnetic-profile input.')
   }
   const result = layers.map(row => row.slice() as PreparedCompoundLayer)
-  // Match the original skips before resolving binding indices or spline shapes.
+  // D-51: none refers to the stored table, not expanded or generated layers.
   const active = profiles.filter(profile => (profile.deltaAmplitude !== 0 || profile.betaAmplitude !== 0) &&
-    profile.boundToLayer !== layers.length)
+    profile.boundToLayer !== storedLayerCount)
+  if (active.some(profile => profile.boundToLayer !== null &&
+      (!Number.isSafeInteger(profile.boundToLayer) || profile.boundToLayer < 0 || profile.boundToLayer >= storedLayerCount))) {
+    throw new Error('Magnetic-profile binding is outside the stored layer choices.')
+  }
   if (layers.length === 1 || active.length === 0) return result
   const midpoints = positions.slice(1).map((value, index) => (value + positions[index]) * 0.5)
   if (!midpoints.every(Number.isFinite)) throw new Error('Magnetic-profile midpoint overflow.')

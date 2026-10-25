@@ -10,7 +10,7 @@ const profile = (binding: number | null): Project['sample']['depthProfileFunctio
 const layers: PreparedCompoundLayer[] = Array.from({ length: 4 }, () => [2, 0, 1, 2, 3, 4, 90, 90])
 const table = Array(1001).fill(0)
 const invoke = (profiles: ReturnType<typeof profile>[], engine: MagneticProfileEngine, additive = true) =>
-  applySegmentedMagneticProfiles(layers, [-2, 2, 6, 10], [0, 7, 7], [1, 2, 0], profiles, additive, table, engine)
+  applySegmentedMagneticProfiles(layers, [-2, 2, 6, 10], [0, 7, 7], [1, 2, 0], profiles, additive, table, engine, 3)
 
 describe('segmented magnetic profile preparation', () => {
   it('uses original reversed bindings, generated midpoints and sample-major weights without changing inputs', () => {
@@ -26,12 +26,27 @@ describe('segmented magnetic profile preparation', () => {
     expect(layers).toEqual(before)
     expect(result[0]).not.toBe(layers[0])
   })
-  it('preserves legacy skips and rejects undefined original-stack indices', () => {
+  it('disables stored none and zero amplitudes, rejecting unknown active bindings', () => {
     const engine = { density: vi.fn(), apply: vi.fn() }
-    expect(invoke([profile(4), { ...profile(100), deltaAmplitude: 0, betaAmplitude: 0 }], engine)).toEqual(layers)
+    expect(invoke([profile(3), { ...profile(100), deltaAmplitude: 0, betaAmplitude: 0 }], engine)).toEqual(layers)
     expect(engine.apply).not.toHaveBeenCalled()
-    expect(() => invoke([profile(3)], engine)).toThrow('outside the original layer stack')
+    expect(() => invoke([profile(4)], engine)).toThrow('outside the stored layer choices')
     expect(engine.density).not.toHaveBeenCalled()
+  })
+  it('keeps none disabled when repetition makes its old density index valid', () => {
+    const engine = { density: vi.fn(), apply: vi.fn() }
+    const profiles = [profile(3)]
+    const before = structuredClone(profiles)
+    for (const additive of [false, true]) {
+      expect(applySegmentedMagneticProfiles(layers, [-2, 2, 6, 10],
+        [0, 7, 7, 14, 14], [1, 2, 0, 2, 0], profiles, additive, table, engine, 3)).toEqual(layers)
+      expect(() => applySegmentedMagneticProfiles(layers, [-2, 2, 6, 10],
+        [0, 7, 7, 14, 14], [1, 2, 0, 2, 0], [profile(4)], additive, table, engine, 3))
+        .toThrow('outside the stored layer choices')
+    }
+    expect(engine.density).not.toHaveBeenCalled()
+    expect(engine.apply).not.toHaveBeenCalled()
+    expect(profiles).toEqual(before)
   })
   it('passes spline shapes and additive mode, rejecting invalid engine output atomically', () => {
     const apply = vi.fn<MagneticProfileEngine['apply']>(() => new Float64Array(6))

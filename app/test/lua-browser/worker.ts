@@ -96,7 +96,7 @@ async function run() {
       }
       for (const additive of [true, false]) {
         const applied = applySegmentedMagneticProfiles(generated.layers, generated.positions,
-          [0, 7, 7], segmentationLayers.map(layer => layer[1]), profiles, additive, Array(1001).fill(0), profileEngine)
+          [0, 7, 7], segmentationLayers.map(layer => layer[1]), profiles, additive, Array(1001).fill(0), profileEngine, 3)
         const stackProject = createDefaultProject()
         stackProject.sample.layers = segmentationLayers.map(row => createLayer({ thickness: row[0], roughness: row[1],
           delta: row[2], beta: row[3], deltaMag: row[4], betaMag: row[5], magnetization: { gamma: row[6], phi: row[7] } }))
@@ -134,16 +134,22 @@ async function run() {
           }
         })
       }
+      for (const additive of [true, false]) for (const repeated of [false, true]) {
+        const untouched = applySegmentedMagneticProfiles(generated.layers, generated.positions,
+          repeated ? [0, 7, 7, 14, 14] : [0, 7, 7], repeated ? [11, 12, 100, 12, 100] : [11, 12, 100],
+          [{ ...profiles[0], boundToLayer: 3 }], additive, Array(1001).fill(0), profileEngine, 3)
+        if (JSON.stringify(untouched) !== JSON.stringify(generated.layers)) throw new Error('Stored none binding changed layers')
+      }
       let rejected = false
       try {
         applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
-          [{ ...profiles[0], boundToLayer: 3 }], true, Array(1001).fill(0), profileEngine)
-      } catch (error) { rejected = error instanceof Error && error.message.includes('outside the original layer stack') }
+          [{ ...profiles[0], boundToLayer: generated.layers.length }], true, Array(1001).fill(0), profileEngine, 3)
+      } catch (error) { rejected = error instanceof Error && error.message.includes('outside the stored layer choices') }
       const endpointProfile = { ...profiles[0], spline: { enabled: true,
         points: [-100, -23, 80, 100].map(z => ({ z, value: 1 })) } }
       for (const additive of [true, false]) {
         const endpoint = applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
-          [endpointProfile], additive, Array(1001).fill(0), profileEngine)
+          [endpointProfile], additive, Array(1001).fill(0), profileEngine, 3)
         for (const [component, amplitude] of [[4, endpointProfile.deltaAmplitude], [5, endpointProfile.betaAmplitude]]) {
           const original = generated.layers[1][component]
           const expected = original + (additive ? amplitude : original * amplitude)
@@ -157,10 +163,10 @@ async function run() {
         applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
           [{ ...endpointProfile, deltaAmplitude: 1e308,
             spline: { enabled: true, points: endpointProfile.spline.points.map(point => ({ ...point, value: 1e308 })) } }],
-          true, Array(1001).fill(0), profileEngine)
+          true, Array(1001).fill(0), profileEngine, 3)
       } catch { numericalRejected = true }
       const recovered = applySegmentedMagneticProfiles(generated.layers, generated.positions, [0, 7, 7], [11, 12, 100],
-        profiles, true, Array(1001).fill(0), profileEngine)
+        profiles, true, Array(1001).fill(0), profileEngine, 3)
       if (!numericalRejected || !recovered.flat().every(Number.isFinite)) throw new Error('Magnetic-profile native-error recovery failed')
       if (!rejected || JSON.stringify(generated) !== generatedBefore || JSON.stringify(profiles) !== profilesBefore) {
         throw new Error('Magnetic-profile binding failure or input isolation failed')

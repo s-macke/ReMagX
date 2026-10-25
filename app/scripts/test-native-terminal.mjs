@@ -125,6 +125,7 @@ try {
       })
     })
     comparisons++
+    return rows
   }
   for (const algorithm of ['parratt', 'matrix', 'zak']) {
     for (const dichroic of [false, true]) {
@@ -491,6 +492,39 @@ try {
       boundToLayer: null, amplitudeCoupledTo: null, widthCoupledTo: null,
       spline: { enabled: true, points: [-30,-28,-26,-24].map(z => ({ z, value: 1 })) } }]
     await compare(project, false)
+  }
+  // D-51: none is the stored table count, even after repetition/subdivision.
+  const { prepareSegmentedCompoundStack } = await server.ssrLoadModule('/src/model/segmentedCompoundStack.ts')
+  const { copyLayerDepths } = await server.ssrLoadModule('/src/model/layerDepths.ts')
+  for (const repeated of [false, true]) for (const combination of ['sum', 'product']) {
+    const project = structuredClone(base)
+    project.sample.layers = [project.sample.layers[0], project.sample.layers[1], project.sample.layers.at(-1)]
+    project.sample.multilayer = { enabled: repeated, pattern: '3*(1)' }
+    project.calculation.roughnessModel = 'segmentation'
+    project.calculation.segmentation.minThickness = 2; project.calculation.segmentation.maxThickness = 2
+    project.calculation.magnetization.mode = 'profile'
+    project.calculation.profileCombination = combination
+    project.sample.depthProfileFunctions = []
+    const absent = await compare(project, false)
+    const generated = prepareSegmentedCompoundStack(project, copyLayerDepths(project),
+      engine.segmentation.errorSamples, engine.segmentation)
+    assert.ok(generated.layers.length > project.sample.layers.length)
+    const profile = { center: 0, width: 100, deltaAmplitude: .01, betaAmplitude: .02,
+      boundToLayer: project.sample.layers.length, amplitudeCoupledTo: null, widthCoupledTo: null,
+      spline: { enabled: false, points: [] } }
+    project.sample.depthProfileFunctions = [profile]
+    const disabled = await compare(project, false)
+    disabled.forEach((row, i) => row.forEach((value, j) =>
+      assert.ok(Math.abs(value - absent[i][j]) <= 1e-15 + 1e-10 * Math.abs(absent[i][j]), 'none changed reflectivity')))
+    // This value previously skipped solely because it equalled the generated count.
+    profile.boundToLayer = generated.layers.length
+    const text = JSON.stringify(project)
+    await writeFile(filename, text)
+    const rejected = run(['-refl', filename])
+    assert.equal(rejected.status, 1)
+    assert.equal(rejected.stdout, '')
+    assert.match(rejected.stderr, /outside the stored layer choices/)
+    assert.equal(await readFile(filename, 'utf8'), text)
   }
   const invalid = [
     project => { project.sample.mode = 'element' },

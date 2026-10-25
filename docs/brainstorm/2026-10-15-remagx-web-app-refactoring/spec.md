@@ -261,3 +261,5 @@ Current unresolved decisions and their dependent work are tracked in [AGENTS.md]
 
 - D-49: GetError is explicitly excluded; its named error does not disable ordinary chi-squared calculation or fitting.
 - D-50: Lua array integer arguments use nearest-integer conversion with ties to even; numeric values retain full double precision. Nonfinite arguments, signed-32-bit overflow and invalid accesses remain errors.
+
+- D-51: magnetic-profile none uses the stored layer count before repetition/subdivision and always disables the profile. Reject unknown active bindings; preserve other valid mappings and zero-amplitude skips.

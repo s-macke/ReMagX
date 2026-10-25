@@ -331,9 +331,15 @@ try {
       project.calculation.segmentation.scope = 'global'
       project.datasets[0].columns = { qz: [.02], energy: [640], reflectivity: [1] }
       const baseline = await service.calcReflectivity(project)
-      const invalid = structuredClone(project); invalid.sample.depthProfileFunctions[0].boundToLayer = 3
+      const disabled = structuredClone(project)
+      disabled.sample.depthProfileFunctions.forEach(profile => { profile.boundToLayer = disabled.sample.layers.length })
+      const disabledBefore = JSON.stringify(disabled)
+      const absent = structuredClone(disabled); absent.sample.depthProfileFunctions = []
+      same((await service.calcReflectivity(disabled)).reflectivity, (await service.calcReflectivity(absent)).reflectivity)
+      if (JSON.stringify(disabled) !== disabledBefore) throw new Error('None binding modified its project')
+      const invalid = structuredClone(project); invalid.sample.depthProfileFunctions[0].boundToLayer = project.sample.layers.length + 1
       const failure = await service.calcReflectivity(invalid).then(() => '', error => error.message)
-      if (!failure.includes('outside the original layer stack')) throw new Error('Invalid binding was not reported by service')
+      if (!failure.includes('outside the stored layer choices')) throw new Error('Invalid binding was not reported by service')
       same((await service.calcReflectivity(project)).reflectivity, baseline.reflectivity)
       const unavailable = await unconfigured.calcReflectivity(project).then(() => '', error => error.message)
       if (!unavailable.includes('explicit error-function lookup')) throw new Error('Default worker silently selected a lookup')

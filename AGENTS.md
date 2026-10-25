@@ -290,15 +290,16 @@ and its user-visible handling. Preserve the original source tree throughout.
   Existing application guard reports the unsupported one-layer result and preserves
   the project, with a regression covering unchanged element-mode data. No padding or
   homogeneous-medium solver semantics are introduced. Multi-row conversion remains supported.
-- [ ] **S3 — Out-of-range magnetic-profile bindings.** Current implementation rejects
-  these explicitly. Trace the undefined original mappings and ask whether to retain
-  explicit unavailability or approve a defined correction (D-29). Do not restore
-  obsolete amplitude/width copying from backup code. Close with documented handling
-  and focused binding checks; global additive/multiplicative accuracy belongs to A2.
-  [Binding trace](docs/analysis/magnetic-binding-audit-2026-10-25.md): the GUI stores
-  none using the stored row count, but calculation compares with generated slices.
-  Repetition can even turn none into a valid unintended density index. A correction
-  using the stored sentinel and rejecting unknown active bindings is awaiting approval.
+- [x] **S3 — Magnetic-profile none binding (D-51).** None now uses the stored
+  compound row count, before repetition/subdivision, in web/native preparation.
+  Unknown active bindings reject even when equal to the generated slice count;
+  zero-amplitude skips and other valid reverse density mappings remain unchanged.
+  Saved values and original sources are not rewritten. Model and actual-WASM
+  checks cover disabled none with/without repetition, both combination modes,
+  unknown bindings and unchanged inputs. Native terminal comparisons additionally
+  require no-profile/none-profile equivalence and explicit failure with no partial
+  output for unknown bindings. See the [binding trace](docs/analysis/magnetic-binding-audit-2026-10-25.md).
+  Broader magnetic-profile/original-project acceptance remains A2.
 - [ ] **S4 — Plot Select Area / Fit Lorentzian+Step.** Decide their release scope.
   Close with implementation and focused interaction checks, or an explicit exclusion
   recorded in spec/inventory. Existing plot navigation is already implemented.
@@ -348,7 +349,7 @@ coverage, failures and unavailable references. A missing reference is not a pass
   fast/exact angular and energy convolution, combined roughness/segmentation,
   multi-row conversion, spectra, optical/magnetic and density profiles, and global
   additive/multiplicative magnetic profiles. Review the production D-41 full-double
-  lookup and D-45 tensor correction explicitly; comparisons using injected original
+  lookup, D-45 tensor correction, D-46 spline endpoint and D-51 none binding explicitly; comparisons using injected original
   lookup samples do not prove their acceptance. Done with a coverage/results record
   and user review; any unverified requirement or necessary exception stays open.
   Portability follow-up 2026-10-25: the CI Zak asymmetry failure was reproduced
