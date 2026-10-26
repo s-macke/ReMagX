@@ -1137,3 +1137,6 @@ button.primary {
 .summary-legend, .summary-error { font-size: 12px; overflow-wrap: anywhere; }
 
 .dialog:has(.summary-grid) { max-width: calc(100vw - 32px); }
+
+.plot-panel__analysis { position: absolute; bottom: 28px; left: 8px; right: 84px; background: var(--panel); padding: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
+.plot-panel__analysis button[aria-pressed=true] { outline: 2px solid #3c82dc; }

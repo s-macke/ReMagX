@@ -618,19 +618,31 @@
       ]
     },
     {
-      "name": "plot-area-decision",
+      "name": "plot-area-selection",
+      "status": "ported",
+      "reason": "D-54: chart-local Select/Clear Area uses an ordered full-height x interval on linear/log axes; zero-width selections clear and project fit windows remain unchanged.",
+      "references": [
+        "app/src/ui/PlotPanel.tsx",
+        "app/src/model/plotArea.ts",
+        "app/e2e/plotArea.spec.ts"
+      ],
+      "entries": [
+        "client/Chart1.cpp::item:dd8adcda0dd7dce5:1",
+        "client/Chart1.cpp::item:c02a07f1e65563c0:1"
+      ]
+    },
+    {
+      "name": "plot-line-fit",
       "status": "deferred",
-      "reason": "Select/Clear Area and Lorentzian+Step line fitting await the plot scope decision; they are separate from existing zoom and layer fitting.",
+      "reason": "D-54 approves line fitting; source/formula/initialization helpers exist, but worker fitting and curve/export integration await the D-29 consistent-result decision.",
       "references": [
         "AGENTS.md",
         "docs/analysis/plot-area-audit-2026-10-25.md"
       ],
       "entries": [
-        "client/Chart1.cpp::item:dd8adcda0dd7dce5:1",
-        "client/Chart1.cpp::item:c02a07f1e65563c0:1",
         "client/Chart1.cpp::item:50ecd49ed4da6b45:1"
       ],
-      "phase": "decision"
+      "phase": "ui"
     },
     {
       "name": "multichart-activation-decision",

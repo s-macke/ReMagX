@@ -1,3 +1,4 @@
+import { selectedPlotArea, type PlotArea } from '../model/plotArea'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
@@ -27,7 +28,9 @@ interface PlotPanelProps {
 
 function cssColor(name: string, fallback: string): string {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return value || fallback
+  // CSS minification can shorten #ffffff to #fff; color inputs require six digits.
+  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(value)
+  return short ? `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}` : value || fallback
 }
 
 const isDecade = (v: number) => Math.abs(Math.log10(v) - Math.round(Math.log10(v))) < 1e-9
@@ -79,6 +82,12 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
   const logY = properties?.y.logarithmic ?? curve?.logScale ?? false
   const logX = properties?.x.logarithmic ?? false
   const [exportMessage, setExportMessage] = useState('')
+  const [selectingArea, setSelectingArea] = useState(false)
+  const selectingAreaRef = useRef(false)
+  selectingAreaRef.current = selectingArea
+  const [area, setArea] = useState<PlotArea | null>(null)
+  const areaRef = useRef<PlotArea | null>(null)
+  areaRef.current = area
   const [held, setHeld] = useState<HeldCurve | null>(null)
 
   const heldVisible = held && curve && held.axis === curve.axis && held.logScale === curve.logScale ? held : null
@@ -142,6 +151,19 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
           ctx.moveTo(x, plot.valToPos(mark.y - 0.002, 'y', true))
           ctx.lineTo(x, plot.valToPos(mark.y + 0.002, 'y', true))
           ctx.stroke()
+        }
+        const region = areaRef.current
+        if (region) {
+          const left = Math.max(bbox.left, plot.valToPos(logX ? Math.max(region.min, plot.scales.x.min ?? region.min) : region.min, 'x', true))
+          const right = Math.min(bbox.left + bbox.width, plot.valToPos(region.max, 'x', true))
+          if (Number.isFinite(left) && Number.isFinite(right) && left < right) {
+            ctx.beginPath(); ctx.rect(left, bbox.top, right - left, bbox.height); ctx.clip()
+            ctx.fillStyle = 'rgba(60, 130, 220, 0.12)'; ctx.fillRect(left, bbox.top, right - left, bbox.height)
+            ctx.strokeStyle = 'rgba(60, 130, 220, 0.4)'; ctx.lineWidth = devicePixelRatio
+            for (let x = left - bbox.height; x < right; x += 12 * devicePixelRatio) {
+              ctx.beginPath(); ctx.moveTo(x, bbox.top + bbox.height); ctx.lineTo(x + bbox.height, bbox.top); ctx.stroke()
+            }
+          }
         }
         ctx.restore()
       }] },
@@ -219,11 +241,33 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       zoom(event.deltaY < 0 ? 0.5 : 2, event.clientX - bounds.left, event.clientY - bounds.top)
     }
     plot.over.addEventListener('wheel', wheel, { passive: false })
+    let areaStart: number | null = null
+    const pointerValue = (event: MouseEvent) => plot.posToVal(event.clientX - plot.over.getBoundingClientRect().left, 'x')
+    const beginArea = (event: MouseEvent) => {
+      if (!selectingAreaRef.current || event.button !== 0) return
+      event.preventDefault(); event.stopImmediatePropagation()
+      areaStart = pointerValue(event)
+      setArea(null)
+    }
+    const dragArea = (event: MouseEvent) => {
+      if (areaStart === null) return
+      setArea(selectedPlotArea(areaStart, pointerValue(event)))
+    }
+    const finishArea = (event: MouseEvent) => {
+      if (areaStart === null) return
+      dragArea(event); areaStart = null
+    }
+    plot.over.addEventListener('mousedown', beginArea, true)
+    document.addEventListener('mousemove', dragArea)
+    document.addEventListener('mouseup', finishArea)
     const observer = new ResizeObserver(() => plot.setSize({ width: container.clientWidth, height: Math.max(120, container.clientHeight) }))
     observer.observe(container)
     return () => {
       observer.disconnect()
       plot.over.removeEventListener('wheel', wheel)
+      plot.over.removeEventListener('mousedown', beginArea, true)
+      document.removeEventListener('mousemove', dragArea)
+      document.removeEventListener('mouseup', finishArea)
       zoomRef.current = null
       if (coordinateDisplay) coordinateDisplay.textContent = 'X: —  Y: —'
       plot.destroy()
@@ -235,6 +279,9 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
   useEffect(() => {
     if (series) plotRef.current?.setData(series.data, false)
   }, [series])
+
+  useEffect(() => { plotRef.current?.redraw() }, [area])
+  useEffect(() => { setArea(null) }, [viewKey])
 
   const hold = () => {
     if (curve) setHeld({ x: curve.x, y: curve.series[0].y, logScale: curve.logScale, axis: curve.axis })
@@ -324,6 +371,11 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       <span className="plot-panel__coordinates" ref={coordinatesRef} aria-label="Cursor coordinates" aria-live="off">X: —  Y: —</span>
       {exportMessage && <p className="plot-panel__export-message" aria-live="polite">{exportMessage}</p>}
       {propertiesDraft && <PlotPropertiesDialog initial={propertiesDraft} onApply={value => setPropertiesByView(current => ({ ...current, [viewKey]: value }))} onClose={() => setPropertiesDraft(null)} />}
+      <div className="plot-panel__analysis">
+        <button type="button" disabled={!curve} aria-pressed={selectingArea} onClick={() => setSelectingArea(value => !value)}>Select Area</button>
+        <button type="button" disabled={!area} onClick={() => setArea(null)}>Clear Selected Area</button>
+        <span aria-label="Selected plot area">{area ? `Selected x: ${area.min} to ${area.max}` : 'No selected area'}</span>
+      </div>
       <div className="plot-panel__buttons">
         <button type="button" disabled={!curve} onClick={openProperties}>Properties</button>
         <details className="plot-panel__export">

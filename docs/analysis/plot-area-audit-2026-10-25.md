@@ -1,6 +1,7 @@
 # Plot-area and line-fit scope review — 2026-10-25
 
-This source review supports checklist S4. Scope remains undecided. References to
+This source review supports checklist S4. The user approved implementation of the area/line-fit commands (D-54).
+Specific result-consistency and multi-chart-container questions remain pending. References to
 original code are locations in the private unchanged `old/reMagX3/` tree, not
 published original implementation code.
 
@@ -70,14 +71,31 @@ not established by the Summary window either; that separate scope is S5.
 
 ## Decision boundary
 
-Asked whether to exclude the three additional plot commands for this release
-(recommended), keep area selection only, or implement both area selection and
-the line fit. Ordinary layer fitting, plot navigation and exports remain in scope
-under every choice. No response is assumed. The four separate multi-chart
-activation records also remain a scope decision; approving exclusion of the
-three menu commands alone does not decide those records.
+The user chose implementation under D-54. Ordinary layer fitting, plot navigation
+and exports remain supported. The consistent fit-result correction and the four
+separate multi-chart activation records still have pending questions; no answer
+is inferred for those details.
 
 On approval, update spec, decision journal, checklist and relevant inventory IDs
 together. An implementation needs focused selection/linear-log/empty-data and
 worker-fit/cancellation/result checks. An exclusion needs only a documented scope
 record. S4 remains unchecked until its included records are explicitly resolved.
+
+
+## Implementation increment, 2026-10-26
+
+Select Area and Clear Selected Area now work in PlotPanel, using a full-height
+hatched interval and x-axis coordinate transforms for both linear and logarithmic
+scales. Area mode captures left dragging before zoom; normal drag and wheel zoom
+remain separate. Zero-width selections clear, and switching plot views clears
+stale intervals. Selection never changes the project fit window or undo history.
+
+Pure plotArea/lorentzianStep helpers establish the second-series source (held
+curves are excluded), inclusive selection, original seeds/bounds and analytic
+line shape. Empty/degenerate/nonfinite selections fail explicitly. Negative
+minimum values retain explicit unavailability because the legacy background
+bounds are reversed; no new bounds are invented. These helpers do not yet run
+a fit or publish a fitted result. The consistent result question remains pending,
+as does the separate multi-chart container disposition. No original optimizer
+implementation is copied or translated; worker integration will reuse the
+existing independent clean-room optimizer.

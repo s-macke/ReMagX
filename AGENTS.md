@@ -300,13 +300,16 @@ and its user-visible handling. Preserve the original source tree throughout.
   require no-profile/none-profile equivalence and explicit failure with no partial
   output for unknown bindings. See the [binding trace](docs/analysis/magnetic-binding-audit-2026-10-25.md).
   Broader magnetic-profile/original-project acceptance remains A2.
-- [ ] **S4 — Plot Select Area / Fit Lorentzian+Step.** Decide their release scope.
-  Close with implementation and focused interaction checks, or an explicit exclusion
-  recorded in spec/inventory. Existing plot navigation is already implemented.
-  [Plot source review](docs/analysis/plot-area-audit-2026-10-25.md) separates the
-  three menu commands from four unrelated TMultiChart activation handlers. Both
-  inventory groups retain decision status; the menu-only question does not decide
-  the separate multi-chart records.
+- [ ] **S4 — Plot Select Area / Fit Lorentzian+Step (D-54).** Implementation
+  approved. Select Area now marks an ordered full-height x interval on linear or
+  logarithmic axes without changing project fit windows; Clear Selected Area
+  removes it. Pure line-shape/source/initialization helpers preserve the original
+  second-series source, inclusive samples and six-parameter formula. Worker fit,
+  result display/export and cancellation integration remain. The D-29 question
+  about using one consistent fitted curve/export result is pending; no correction
+  is assumed. The separate unused TMultiChart container still needs the requested
+  disposition (1/2/4 active-chart implementation or exclusion). See the
+  [source review](docs/analysis/plot-area-audit-2026-10-25.md).
 - [x] **S5 — Summary overview (D-52).** Tools → Summary now calculates a
   read-only snapshot of all datasets, including inactive fit datasets, through a
   dedicated real ComputeService worker. It shows measured/calculated qz/energy
