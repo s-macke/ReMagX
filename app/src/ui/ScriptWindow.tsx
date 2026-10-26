@@ -83,6 +83,7 @@ export function ScriptWindow({ onClose, tab, setTab, execution }: {
         </button>
         <button type="button" disabled={!busy} onClick={stop}>Stop</button>
       </div>
+      <p>For layer coupling, use Code Generator → coupling of layers in BeforeCalculation. The obsolete coupl. table column is not used.</p>
       <pre className="script-window__output" aria-live="polite">
         {output.length ? output.join('\n') : 'Script output appears here.'}
       </pre>

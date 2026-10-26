@@ -650,15 +650,16 @@
     },
     {
       "name": "layer-table-interactions",
-      "status": "deferred",
-      "reason": "Layer/slab editing, Fit, value slider, spectra, material settings and database actions exist. The layer grid remains conservatively deferred until the legacy coupl. column scope decision is resolved.",
+      "status": "ported",
+      "reason": "Layer/slab editing, Fit, value slider, spectra, material settings and database actions are implemented. D-53 excludes the obsolete coupl. column; Lua layer coupling remains supported. Original 2.6 has no file key for the column, so no inferred import warning.",
       "references": [
-        "AGENTS.md"
+        "app/src/ui/LayerTable.tsx",
+        "app/src/ui/ScriptWindow.tsx",
+        "docs/analysis/layer-coupling-column-audit-2026-10-25.md"
       ],
       "entries": [
         "client/Unit1.dfm::Form1/SchichtEingabe"
-      ],
-      "phase": "decision"
+      ]
     },
     {
       "name": "value-slider",

@@ -326,12 +326,13 @@ and its user-visible handling. Preserve the original source tree throughout.
   accounts for all ten IDs (eight controls, two event bindings), including active
   harmonic admixture, hard-coded GIF generation and fringe-spacing analysis.
   Recommended exclusion is pending; hidden does not mean inactive.
-- [ ] **S7 — Layer-table coupl. column.** Trace the legacy control (no .all key) and
-  decide whether it belongs in the release. Close with agreed data/UI behavior or
-  a documented exclusion; do not confuse it with existing profile bindings.
-  Source trace: [coupling-column audit](docs/analysis/layer-coupling-column-audit-2026-10-25.md).
-  The active 2.6 grid has eight columns; the ninth-column reader is commented out
-  and the layer class has no coupling field. Exclusion was proposed; answer pending.
+- [x] **S7 — Obsolete layer-table coupl. column excluded (D-53).** The user
+  requested removal; no new column or coupling field is added. The Script Window
+  points to its existing layer-coupling generator and BeforeCalculation hook.
+  Original 2.6 has no saved key for this column, so a filled column cannot be
+  identified on import; unknown fields retain the normal import report. Magnetic
+  profile bindings and coupling metadata are unaffected. See the
+  [source trace](docs/analysis/layer-coupling-column-audit-2026-10-25.md).
 - [x] **S8 — Private-corpus CI deferred (D-48).** User chose local private checks
   for now; private CI infrastructure/integration is later scope. Public CI continues.
   AC-4 import and numerical/fit acceptance remain required with local private evidence;

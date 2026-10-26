@@ -1,8 +1,7 @@
 # Layer-table coupling column — 2026-10-25
 
-This is the source trace for checklist S7, not an approved scope exclusion.
-Recommendation: exclude the inactive `coupl.` column while retaining Lua layer
-coupling and existing magnetic-profile bindings. No runtime behavior is changed.
+This is the source trace for checklist S7. D-53 now approves exclusion of the inactive `coupl.` column while retaining Lua layer
+coupling and existing magnetic-profile bindings. No numerical coupling behavior is changed.
 
 ## Original 2.6 evidence
 
@@ -49,3 +48,15 @@ the inventory group with the already implemented layer-table interactions. No
 new project field, import mapping, numerical coupling or UI control is needed.
 A request for an active control instead requires a defined relationship, affected
 parameters and interaction with Lua/fitting before implementation.
+
+
+## User decision, 2026-10-26
+
+D-53 excludes this obsolete column and directs users to the existing scripting
+engine for coupling. The Script Window now explains that route. No .all key
+exists for the column in the inspected 2.6 loader/writer, so the requested
+conditional warning cannot be inferred reliably from those files. Unknown keys
+still enter the import report; magnetic-profile coupling keys are not evidence
+of this column. No importer or physics changes are needed. Older-format support
+would require a real file and corresponding source trace, not guessed aliases.
+S7 is closed; the layer-grid inventory entry now reflects its implemented scope.
