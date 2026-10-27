@@ -63,6 +63,10 @@ export function createRequestHandler(post: (response: WorkerResponse) => void) {
       stopRequested = true
       return
     }
+    if (request.kind === 'lineFit') {
+      post({ id: request.id, type: 'error', message: 'Line fitting requires the real engine.' })
+      return
+    }
     const { id, project } = request
     try {
       let result

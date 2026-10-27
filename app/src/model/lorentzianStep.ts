@@ -1,3 +1,5 @@
+import type { RealMinimizer } from './realFit'
+import { prepareRealFitSimplex } from './realFitSimplex'
 import type { PlotArea, PlotLineSource } from './plotArea'
 import { selectedLineSamples } from './plotArea'
 
@@ -44,4 +46,30 @@ export function lineFitText(result: LineFitResult): string {
     'Re = -2*A/Pi * 2*(E-e) / (4*(E-e)*(E-e) + G*G)',
     'Im = 2*A/Pi * G / (4*(E-e)*(E-e) + G*G) + S*0.5*(tanh((e-E)*O)+1) + M',
     `Squared error = ${result.squaredError}`, `Termination = ${result.termination}`].join('\n')
+}
+
+
+// Worker-only orchestration with the existing clean-room native/WASM optimizer.
+// Keep the best actually evaluated bounded candidate, so curve and export agree.
+export function fitLorentzianStep(request: LineFitRequest, minimize: RealMinimizer): LineFitResult {
+  const { source, start, lower, upper } = prepareLorentzianStep(request)
+  const prepared = prepareRealFitSimplex(start.map((value, index) => ({ value, lowerBound: lower[index], upperBound: upper[index] })))
+  let bestParameters = start.slice(), bestError = Infinity
+  const evaluate = (coordinates: Float64Array): number => {
+    const parameters = prepared.decode(coordinates).map((value, index) => Math.max(lower[index], Math.min(upper[index], value)))
+    let error = 0
+    for (let index = 0; index < source.x.length; index++) {
+      const residual = lorentzianStepValue(source.x[index], parameters) - source.y[index]
+      error += residual * residual
+    }
+    if (!Number.isFinite(error)) throw new Error('Lorentzian+Step produced an undefined or overflowing value; check the selected range and peak width.')
+    if (error < bestError) { bestError = error; bestParameters = parameters.slice() }
+    return error
+  }
+  evaluate(new Float64Array(prepared.simplex[0]))
+  const result = minimize({ simplex: prepared.simplex, objective: evaluate, shouldStop: () => false, onProgress: () => {} })
+  if (result.termination === 'stopped') throw new Error('Line fit stopped before completion.')
+  if (!Number.isFinite(bestError)) throw new Error('Line fitting did not produce a finite result.')
+  return { sourceLabel: source.label, x: source.x.slice(), y: source.x.map(x => lorentzianStepValue(x, bestParameters)),
+    parameters: bestParameters, squaredError: bestError, iterations: result.iterations, termination: result.termination }
 }

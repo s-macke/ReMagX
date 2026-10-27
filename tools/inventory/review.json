@@ -633,23 +633,25 @@
     },
     {
       "name": "plot-line-fit",
-      "status": "deferred",
-      "reason": "D-54 approves line fitting; source/formula/initialization helpers exist, but worker fitting and curve/export integration await the D-29 consistent-result decision.",
+      "status": "ported",
+      "reason": "D-54/D-55: second-series Lorentzian+Step fit via real ComputeService/WASM clean-room optimizer, consistent best-result overlay/error/parameter export, explicit invalid-input errors, Stop and stale-result cancellation. Project state is unchanged; original trajectory equivalence is not claimed.",
       "references": [
-        "AGENTS.md",
-        "docs/analysis/plot-area-audit-2026-10-25.md"
+        "app/src/model/lorentzianStep.ts",
+        "app/src/state/usePlotLineFit.ts",
+        "app/src/compute/realEngine.ts",
+        "app/src/ui/PlotPanel.tsx",
+        "app/e2e/lineFit.spec.ts"
       ],
       "entries": [
         "client/Chart1.cpp::item:50ecd49ed4da6b45:1"
-      ],
-      "phase": "ui"
+      ]
     },
     {
       "name": "multichart-activation-decision",
-      "status": "deferred",
-      "reason": "Four TMultiChart handlers select the active chart and its border, not an x-area. No instantiation was found in current client/guidll sources; scope remains undecided under S4.",
+      "status": "dropped",
+      "reason": "D-56 explicitly excludes the unused TMultiChart 1/2/4-chart container and its four activation handlers. Ordinary plots and the separate Summary overview remain supported.",
       "references": [
-        "AGENTS.md",
+        "docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md",
         "docs/analysis/plot-area-audit-2026-10-25.md"
       ],
       "entries": [
@@ -657,8 +659,7 @@
         "client/Chart1.cpp::event:158f588639a63a8f:1",
         "client/Chart1.cpp::event:02712c6b7660c6d8:1",
         "client/Chart1.cpp::event:4386716aee1f7b18:1"
-      ],
-      "phase": "decision"
+      ]
     },
     {
       "name": "layer-table-interactions",

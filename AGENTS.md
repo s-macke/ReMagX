@@ -202,7 +202,7 @@ without deliberate rounding. Checklist totals are not progress percentages.
 | Optical tables | Imported scalars/tensors, Chantler fallback, approved 277-row Uranium data; complete .F assignment to the selected element (D-37/38/45) | I4, A2 |
 | Fitting | Clean Simplex/annealing, bounds, Q regularization, weighted datasets and scripted qz/energy/mixed fits | I4, A3 |
 | Lua | Worker execution, persistent hooks, output/line errors, project APIs and cancellation; CalculateReflectivity/GetError explicitly excluded (D-43/D-49) | I2, I3, A5 |
-| UI and files | Legacy project import, JSON save/load, autosave, editing/undo, plots, all-dataset Summary, fit controls and error/recovery dialogs | S4, S6, S7, A5 |
+| UI and files | Legacy project import, JSON save/load, autosave, editing/undo, plots, all-dataset Summary, fit controls and error/recovery dialogs | S6, A5 |
 | Native tools | Unchanged original 2.6 reference build; separate public full-double terminal: .all/JSON, -refl, -dicrefl, -fit, -convert, -v; clean optimizers and installation/licence packaging | I1, I3, A1, A4, A5 |
 | Regression infrastructure | Public native/WASM and Chromium checks, source inventory and double-precision gates; private comparison tools available locally | S8, A1–A5 |
 
@@ -300,16 +300,20 @@ and its user-visible handling. Preserve the original source tree throughout.
   require no-profile/none-profile equivalence and explicit failure with no partial
   output for unknown bindings. See the [binding trace](docs/analysis/magnetic-binding-audit-2026-10-25.md).
   Broader magnetic-profile/original-project acceptance remains A2.
-- [ ] **S4 — Plot Select Area / Fit Lorentzian+Step (D-54).** Implementation
-  approved. Select Area now marks an ordered full-height x interval on linear or
-  logarithmic axes without changing project fit windows; Clear Selected Area
-  removes it. Pure line-shape/source/initialization helpers preserve the original
-  second-series source, inclusive samples and six-parameter formula. Worker fit,
-  result display/export and cancellation integration remain. The D-29 question
-  about using one consistent fitted curve/export result is pending; no correction
-  is assumed. The separate unused TMultiChart container still needs the requested
-  disposition (1/2/4 active-chart implementation or exclusion). See the
-  [source review](docs/analysis/plot-area-audit-2026-10-25.md).
+- [x] **S4 — Plot area and Lorentzian+Step fit (D-54/D-55/D-56).** Select/Clear
+  Area marks an ordered x interval on linear/log axes without changing project fit
+  windows. Fit Lorentzian+Step uses the original second-series source, inclusive
+  samples, six-parameter shape, supported seeds/bounds and unweighted residuals
+  through a dedicated real ComputeService/WASM optimizer request. The plotted
+  overlay, error and parameter/expression export share one best evaluated result.
+  Empty/degenerate/nonfinite selections, negative legacy background bounds and
+  undefined numerical evaluations fail explicitly. Stop, source/selection changes
+  and unmount discard pending work; project parameters/undo remain unchanged.
+  Focused model/service and actual-WASM Chromium checks cover synthetic recovery,
+  result/export agreement, invalid-input recovery, cancellation and stale results.
+  The unused 1/2/4-chart container is explicitly excluded. See the
+  [source/evidence review](docs/analysis/plot-area-audit-2026-10-25.md).
+  Final real-example review remains A5; no original optimizer trajectory claim.
 - [x] **S5 — Summary overview (D-52).** Tools → Summary now calculates a
   read-only snapshot of all datasets, including inactive fit datasets, through a
   dedicated real ComputeService worker. It shows measured/calculated qz/energy

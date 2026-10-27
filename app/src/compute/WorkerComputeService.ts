@@ -135,6 +135,10 @@ export class WorkerComputeService implements ComputeService {
     return this.request('depthProfile', project, undefined, undefined, onScriptMessages, tables)
   }
 
+  fitLine(input: import('../model/lorentzianStep').LineFitRequest) {
+    return this.request('lineFit', undefined, undefined, { lineFit: input })
+  }
+
   summary(project: Project, onScriptMessages?: (lines: string[]) => void, tables?: OpticalTable[]) {
     return this.request('summary', project, undefined, undefined, onScriptMessages, tables)
   }
@@ -201,9 +205,9 @@ export class WorkerComputeService implements ComputeService {
 
   private request<K extends keyof CalculationResults>(
     kind: K,
-    project: Project,
+    project: Project | undefined,
     onProgress?: (progress: FitProgress) => void,
-    spectrum?: { program: ScriptProgram; tables: OpticalTable[] } | TensorQuery | LayerSpectrumQuery | ElementSpectrumQuery | { tables: OpticalTable[] },
+    spectrum?: { lineFit: import('../model/lorentzianStep').LineFitRequest } | { program: ScriptProgram; tables: OpticalTable[] } | TensorQuery | LayerSpectrumQuery | ElementSpectrumQuery | { tables: OpticalTable[] },
     onScriptMessages?: (lines: string[]) => void,
     explicitTables?: OpticalTable[],
   ): Promise<CalculationResults[K]> {

@@ -12,7 +12,7 @@ function initialStep(value: number, upperBound: number): number {
 // remain in decoded candidates but are excluded from the optimization dimensions.
 // One coordinate unit is the actual bounded initial displacement, so nanometre
 // thicknesses and tiny optical constants do not share an absolute stopping scale.
-export function prepareRealFitSimplex(parameters: readonly FitParameter[]) {
+export function prepareRealFitSimplex(parameters: readonly Pick<FitParameter, 'value' | 'lowerBound' | 'upperBound'>[]) {
   const origins = parameters.map((parameter, index) => {
     if (![parameter.value, parameter.lowerBound, parameter.upperBound].every(Number.isFinite) ||
         parameter.lowerBound > parameter.upperBound) throw new Error(`Invalid value or bounds for fit parameter ${index + 1}.`)

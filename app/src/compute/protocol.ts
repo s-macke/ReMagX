@@ -9,6 +9,7 @@ import type { Project } from '../model/project'
 import type { LayerConversionResult, TensorQuery, AsymmetryCurve, EnergyAsymmetryCurve, DensityProfiles, DepthProfile, ElementSpectrumQuery, LayerSpectrum, LayerSpectrumQuery, EnergyScanCurve, FitProgress, FitResult, ReflectivityCurve } from './ComputeService'
 
 export interface CalculationResults {
+  lineFit: import('../model/lorentzianStep').LineFitResult
   summary: import('../model/summary').SummaryDataset[]
   executeScript: ScriptExecutionResult
   materialToElements: ElementConversion
@@ -27,9 +28,10 @@ export interface CalculationResults {
   fit: FitResult
 }
 
-export type CalculationKind = Exclude<keyof CalculationResults, 'executeScript' | 'fit' | 'layerSpectrum' | 'scatteringFactors' | 'databaseValues' | 'dielectricTensor'>
+export type CalculationKind = Exclude<keyof CalculationResults, 'lineFit' | 'executeScript' | 'fit' | 'layerSpectrum' | 'scatteringFactors' | 'databaseValues' | 'dielectricTensor'>
 
 export type WorkerRequest =
+  | { id: number; kind: 'lineFit'; spectrum: { lineFit: import('../model/lorentzianStep').LineFitRequest } }
   | { id: number; kind: 'executeScript'; project: Project; spectrum: { program: ScriptProgram; tables: OpticalTable[] } }
   | { id: number; kind: 'dielectricTensor'; project: Project; spectrum: TensorQuery }
   | { id: number; kind: 'databaseValues'; project: Project; spectrum: { tables: OpticalTable[] } }

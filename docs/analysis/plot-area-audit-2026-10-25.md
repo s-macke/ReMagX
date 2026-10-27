@@ -1,7 +1,7 @@
 # Plot-area and line-fit scope review — 2026-10-25
 
 This source review supports checklist S4. The user approved implementation of the area/line-fit commands (D-54).
-Specific result-consistency and multi-chart-container questions remain pending. References to
+D-55 approves consistent results; D-56 excludes the unused multi-chart container. References to
 original code are locations in the private unchanged `old/reMagX3/` tree, not
 published original implementation code.
 
@@ -56,8 +56,8 @@ They wire the four `TMultiChart` mouse-down handlers at lines 1015–1018. The b
 at 1110–1145 only switch `activeChart`, remove the previous border, highlight the
 selected chart and redraw. They do not select an x interval or fit anything.
 Search of the current client/guidll C++ sources and headers found the class
-implementation/declaration but no instantiation; this is source evidence of no
-located caller, not a user-approved exclusion.
+implementation/declaration but no instantiation. The source finding alone did not
+authorize exclusion; the user subsequently approved it explicitly under D-56.
 
 These four IDs now have their own `multichart-activation-decision` group, retaining
 deferred/decision status. The three menu IDs remain `plot-area-decision`:
@@ -72,9 +72,9 @@ not established by the Summary window either; that separate scope is S5.
 ## Decision boundary
 
 The user chose implementation under D-54. Ordinary layer fitting, plot navigation
-and exports remain supported. The consistent fit-result correction and the four
-separate multi-chart activation records still have pending questions; no answer
-is inferred for those details.
+and exports remain supported. D-55 approves one consistent fitted result for display/export, and D-56 excludes
+the separate unused multi-chart container. The historical first increment below
+records the earlier pending state; the completion record supersedes it.
 
 On approval, update spec, decision journal, checklist and relevant inventory IDs
 together. An implementation needs focused selection/linear-log/empty-data and
@@ -99,3 +99,33 @@ a fit or publish a fitted result. The consistent result question remains pending
 as does the separate multi-chart container disposition. No original optimizer
 implementation is copied or translated; worker integration will reuse the
 existing independent clean-room optimizer.
+
+
+## Completed integration, 2026-10-27
+
+D-55/D-56 resolve the two outstanding choices. The line-fit request carries only
+plot samples/selection and does not prepare or mutate a project. Its dedicated
+real worker reuses the maintained native/WASM adaptive Simplex optimizer and its
+normal bounded work policy. Existing normalization/initial-step metadata is
+reused without changing ordinary project-fit behavior. Every evaluated candidate
+uses the original supported parameter bounds and unweighted plotted-value error;
+the best actually evaluated candidate supplies the overlay, score and exported
+parameters/expressions. A termination limit is reported, not called convergence.
+No original optimizer trajectory equivalence is claimed.
+
+The result is an additional labeled overlay; existing measurement/reference data
+remain available. The result dialog supplies explicit Copy fit parameters, while
+plot clipboard data/graphics also include the overlay. No automatic clipboard
+write is required to obtain a result. Clear selection, a changed input/view,
+unmount or Stop revoke pending results and terminate the isolated worker.
+Unsupported negative-background bounds and undefined/overflowing evaluations
+report errors without modifying source data or inventing new physics.
+
+Model tests verify retained best-result consistency even when a minimizer returns
+an unrelated last snapshot. The service check verifies chart-only routing and
+immediate Stop/recovery without project-table preparation. The maintained
+app/e2e/lineFit.spec.ts uses the actual WASM worker with an independently generated
+analytic peak, checks recovery and all 101 exported fit points against the copied
+parameters, empty-input recovery, view/selection invalidation and blocked-worker
+Stop. S4 is functionally complete; user-selected real-example acceptance remains
+A5. The four unused TMultiChart handlers are dropped explicitly under D-56.

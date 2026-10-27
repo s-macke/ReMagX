@@ -132,7 +132,7 @@ function controlledWorker() {
   return port
 }
 
-function deliverResult(port: WorkerPort, result: number) {
+function deliverResult(port: WorkerPort, result: Extract<WorkerResponse, { type: 'result' }>['result']) {
   const request = vi.mocked(port.postMessage).mock.calls.findLast(([message]) => 'id' in message)![0]
   if (!('id' in request)) throw new Error('Expected a calculation request')
   port.onmessage?.({ data: { id: request.id, type: 'result', result } } as MessageEvent<WorkerResponse>)
@@ -640,5 +640,24 @@ it.each(['summary', 'segmentLayers', 'densityProfiles', 'depthProfile', 'calcRef
     worker.onmessage!({ data: { id: message.id, type: 'result', result: 0 } } as MessageEvent<WorkerResponse>)
     await pending
   }
+  service.dispose()
+})
+
+it('sends a chart-only line-fit request, cancels immediately and recovers without project/table preparation', async () => {
+  const first = controlledWorker(), next = controlledWorker()
+  const service = new WorkerComputeService(vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(next), () => { throw new Error('Line fit must not load project tables') })
+  const input = { source: { label: 'second series', x: [1, 2], y: [1, 2] }, area: { min: 1, max: 2 } }
+  const before = structuredClone(input)
+  const pending = service.fitLine(input)
+  expect(first.postMessage).toHaveBeenCalledWith(expect.objectContaining({ kind: 'lineFit', spectrum: { lineFit: input } }))
+  const failed = expect(pending).rejects.toBeInstanceOf(ComputeCancelled)
+  service.stop()
+  await failed
+  expect(first.terminate).toHaveBeenCalledOnce()
+  const retry = service.fitLine(input)
+  const result = { sourceLabel: 'second series', x: [1, 2], y: [1, 2], parameters: [1, 2, 3, 4, 5, 6], squaredError: 0, iterations: 1, termination: 'converged' }
+  deliverResult(next, result)
+  await expect(retry).resolves.toEqual(result)
+  expect(input).toEqual(before)
   service.dispose()
 })

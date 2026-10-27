@@ -1,4 +1,7 @@
-import { selectedPlotArea, type PlotArea } from '../model/plotArea'
+import { usePlotLineFit } from '../state/usePlotLineFit'
+import { lineFitText } from '../model/lorentzianStep'
+import { Dialog } from './Dialog'
+import { selectedPlotArea, plotLineSource, type PlotArea } from '../model/plotArea'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
@@ -90,6 +93,11 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
   areaRef.current = area
   const [held, setHeld] = useState<HeldCurve | null>(null)
 
+  const lineSource = useMemo(() => plotLineSource(curve, measured, logX, logY), [curve, measured, logX, logY])
+  const lineInput = useMemo(() => lineSource && area ? { source: lineSource, area } : null, [lineSource, area])
+  const lineFit = usePlotLineFit(lineInput)
+  const [lineResultOpen, setLineResultOpen] = useState(false)
+  const fittedLine = lineFit.result
   const heldVisible = held && curve && held.axis === curve.axis && held.logScale === curve.logScale ? held : null
 
   const series = useMemo(() => {
@@ -98,11 +106,13 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       ...curve.series.map((s) => s.label),
       ...measured.map((m) => m.label),
       ...(heldVisible ? ['held'] : []),
+      ...(fittedLine ? ['Lorentzian+Step fit'] : []),
     ]
     const tables: uPlot.AlignedData[] = [
       [curve.x, ...curve.series.map((s) => forScale(s.y, logY))] as uPlot.AlignedData,
       ...measured.map((m) => [m.curve.x, forScale(m.curve.y, logY)] as uPlot.AlignedData),
       ...(heldVisible ? [[heldVisible.x, forScale(heldVisible.y, logY)] as uPlot.AlignedData] : []),
+      ...(fittedLine ? [[fittedLine.x, forScale(fittedLine.y, logY)] as uPlot.AlignedData] : []),
     ]
     let data = tables.length === 1 ? tables[0] : uPlot.join(tables)
     if (logX) {
@@ -110,7 +120,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       data = data.map(column => indices.map(i => column[i])) as uPlot.AlignedData
     }
     return { labels, data, signature: `${curve.axis}|${curve.logScale}|${labels.join(',')}` }
-  }, [curve, measured, heldVisible, logY, logX])
+  }, [curve, measured, heldVisible, fittedLine, logY, logX])
 
   // (Re)create the plot when the set of series changes; otherwise only replace the data.
   const signature = series?.signature
@@ -188,6 +198,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
         {},
         ...series.labels.map((label, i): uPlot.Series => {
           if (i < simulatedCount) return { label, stroke: SIMULATED_COLORS[i % SIMULATED_COLORS.length], width: 1.5, spanGaps: true }
+          if (label === 'Lorentzian+Step fit') return { label, stroke: '#9854b3', width: 2, dash: [4, 3], spanGaps: true }
           if (label === 'held') return { label, stroke: HELD_COLOR, width: 1, dash: [6, 4], spanGaps: true }
           return { label, stroke: MEASURED_COLOR, width: 1, spanGaps: true, points: { show: false } }
         }),
@@ -302,7 +313,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
     color: properties?.colors[i % properties.colors.length] ?? (
       curve && i < curve.series.length
         ? SIMULATED_COLORS[i % SIMULATED_COLORS.length]
-        : label === 'held'
+        : label === 'Lorentzian+Step fit' ? '#9854b3' : label === 'held'
           ? HELD_COLOR
           : MEASURED_COLOR),
   }))
@@ -331,6 +342,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
         if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable. Use File → Save diagram data.')
         const curves = diagramSeries(curve, measured)
         if (heldVisible) curves.push({ label: 'held', x: heldVisible.x, y: heldVisible.y })
+        if (fittedLine) curves.push({ label: 'Lorentzian+Step fit', x: fittedLine.x, y: fittedLine.y })
         await navigator.clipboard.writeText(diagramClipboardText(curves))
         setExportMessage('Diagram data copied.')
       } else {
@@ -355,6 +367,12 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
     }
   }
 
+  const copyLineFit = async () => {
+    if (!fittedLine) return
+    try { await navigator.clipboard.writeText(lineFitText(fittedLine)); setExportMessage('Line-fit parameters and expressions copied.') }
+    catch (error) { setExportMessage(`Could not copy line fit: ${(error as Error).message}`) }
+  }
+
   return (
     <section className="plot-panel" aria-label="Plot">
       <div className="plot-panel__canvas" ref={containerRef} aria-label={curve ? `Plot axis: ${curve.axis}` : 'No calculated curve'} />
@@ -371,10 +389,21 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       <span className="plot-panel__coordinates" ref={coordinatesRef} aria-label="Cursor coordinates" aria-live="off">X: —  Y: —</span>
       {exportMessage && <p className="plot-panel__export-message" aria-live="polite">{exportMessage}</p>}
       {propertiesDraft && <PlotPropertiesDialog initial={propertiesDraft} onApply={value => setPropertiesByView(current => ({ ...current, [viewKey]: value }))} onClose={() => setPropertiesDraft(null)} />}
+      {lineResultOpen && fittedLine && <Dialog title="Lorentzian+Step result" onClose={() => setLineResultOpen(false)}>
+        <pre className="dialog__pre">{lineFitText(fittedLine)}</pre>
+        <p>The fit uses the second plot series and unweighted squared residuals. Project parameters are unchanged.</p>
+        <button type="button" onClick={() => void copyLineFit()}>Copy fit parameters</button>
+        {exportMessage && <p role="status">{exportMessage}</p>}
+      </Dialog>}
       <div className="plot-panel__analysis">
         <button type="button" disabled={!curve} aria-pressed={selectingArea} onClick={() => setSelectingArea(value => !value)}>Select Area</button>
         <button type="button" disabled={!area} onClick={() => setArea(null)}>Clear Selected Area</button>
+        <button type="button" disabled={!lineInput || lineFit.busy} onClick={() => { setLineResultOpen(false); setExportMessage(''); void lineFit.start() }}>Fit Lorentzian+Step</button>
+        {lineFit.busy && <button type="button" onClick={lineFit.stop}>Stop line fit</button>}
+        {fittedLine && <button type="button" onClick={() => { setExportMessage(''); setLineResultOpen(true) }}>Line-fit result</button>}
+        <span aria-label="Line-fit source">{lineSource ? `Fit source: ${lineSource.label}` : 'No second plot series to fit'}</span>
         <span aria-label="Selected plot area">{area ? `Selected x: ${area.min} to ${area.max}` : 'No selected area'}</span>
+        {lineFit.message && <span role="status" className="plot-panel__line-fit-status">{lineFit.message}</span>}
       </div>
       <div className="plot-panel__buttons">
         <button type="button" disabled={!curve} onClick={openProperties}>Properties</button>

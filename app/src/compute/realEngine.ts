@@ -1,3 +1,4 @@
+import { fitLorentzianStep } from '../model/lorentzianStep'
 import { assertSupportedFitTargets } from '../model/fitCapabilities'
 import { convertMaterialElements } from '../model/materialElements'
 import { calculationErrorMessage } from '../model/calculationErrors'
@@ -32,6 +33,13 @@ export function createRealRequestHandler(send: (response: WorkerResponse) => voi
     if (message.kind === 'stopFit') return // Standalone Stop terminates this worker through WorkerComputeService.
     let lookupSession: ReturnType<NonNullable<RealEngine['createLookupSession']>> | undefined
     try {
+      if (message.kind === 'lineFit') {
+        calculator ??= load().catch(error => { calculator = null; throw error })
+        const engine = await calculator
+        if (!engine.minimize) throw new Error('The real optimizer is unavailable.')
+        send({ id: message.id, type: 'result', result: fitLorentzianStep(message.spectrum.lineFit, engine.minimize) })
+        return
+      }
       if (message.kind !== 'materialToElements' && message.kind !== 'segmentLayers' && message.kind !== 'densityProfiles' && message.kind !== 'depthProfile' && message.kind !== 'executeScript' && message.kind !== 'reflectivity' && message.kind !== 'asymmetry' && message.kind !== 'energyScan' && message.kind !== 'energyAsymmetry' && message.kind !== 'summary' && message.kind !== 'chi2' && message.kind !== 'fit' && message.kind !== 'databaseValues' && message.kind !== 'layerSpectrum' && message.kind !== 'scatteringFactors' && message.kind !== 'dielectricTensor') {
         throw new Error(`The real engine does not support ${message.kind} yet.`)
       }

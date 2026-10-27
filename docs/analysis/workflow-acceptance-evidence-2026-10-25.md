@@ -71,3 +71,15 @@ chi-squared path still skips inactive datasets and that Summary uses the shared
 serial dataset preparation. This closes the functional S5 requirement, not final
 original/user-example numerical or workflow acceptance. The extra interpolation
 command is explicitly excluded under D-52.
+
+
+## Plot line-fit implementation increment (D-54/D-55/D-56)
+
+The maintained [line-fit Chromium checks](../../app/e2e/lineFit.spec.ts) use the
+actual WASM optimizer for independent analytic peak recovery, consistent
+parameter/curve export, empty-input recovery, view/selection invalidation and
+Stop of a blocked worker. Existing plot-area/navigation/export checks cover the
+shared renderer. Model/service checks preserve input/project state and the best
+actually evaluated snapshot. The unused multi-chart container is explicitly
+excluded. This closes S4 functional work; private real-example review remains A5,
+with no original optimizer trajectory or global convergence claim.
