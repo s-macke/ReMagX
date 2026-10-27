@@ -421,6 +421,16 @@ coverage, failures and unavailable references. A missing reference is not a pass
   exclusions and unresolved limitations stated. This is acceptance of implemented
   workflows, not another generic implementation task.
 
+### Maintenance increments
+
+- [x] **Plot component refactoring (2026-10-27).** Extracted uPlot lifecycle,
+  series preparation, listeners, zoom/selection drawing and property snapshots
+  into `ui/usePlotChart.ts`; axis-label/color formatting lives in
+  `ui/plotAppearance.ts`. `PlotPanel` retains controls, dialogs and exports.
+  View changes reset selection before rendering. All 557 app tests, lint/build
+  and seven focused Chromium plot/line-fit checks pass. Numerical code and
+  tolerances are unchanged; A1–A5 remain open for later review.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the
