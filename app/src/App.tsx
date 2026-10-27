@@ -2,14 +2,9 @@ import { SummaryDialog } from './ui/SummaryDialog'
 import { fitPreviewCurve } from './model/fitPreview'
 import { useMaterialLibrary } from './state/useMaterialLibrary'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import defaultExample from '../test/fixtures/default.all?raw'
-import tutorial1 from '../test/fixtures/Tut1.all?raw'
-import tutorial2 from '../test/fixtures/Tut2.all?raw'
-import tutorial3 from '../test/fixtures/Tut3.all?raw'
-import { importAllFile } from './import/allFile'
+import { projectExamples, useProjectFileCommands } from './state/useProjectFileCommands'
 import { plotCoordinates } from './model/plotCoordinates'
 import { measuredSeries } from './model/datasets'
-import { createDefaultProject } from './model/defaults'
 import { canRemoveSlab } from './model/elements'
 import { applyFitValues } from './model/fitTargets'
 import { canRemoveLayer } from './model/layers'
@@ -20,7 +15,7 @@ import type { ScriptTab } from './ui/ScriptWindow'
 import { useCalculation } from './state/useCalculation'
 import { usePersistence } from './state/usePersistence'
 import { Dialog } from './ui/Dialog'
-import { chooseFile, downloadText, forgetCurrentFile, openProjectInteractive, saveProjectToFile } from './ui/fileActions'
+import { chooseFile, downloadText } from './ui/fileActions'
 import { AsciiImportDialog } from './ui/AsciiImportDialog'
 import { diagramSeries, layerTableToText, seriesToText } from './import/asciiData'
 import { ImportReportDialog } from './ui/ImportReportDialog'
@@ -51,13 +46,6 @@ const legacyScratchTools = [
   'Sort Datasets',
 ]
 
-const examples = [
-  { label: 'Example: Co/Cu multilayer (default)', file: 'default.all', content: defaultExample },
-  { label: 'Example: Tutorial 1', file: 'Tut1.all', content: tutorial1 },
-  { label: 'Example: Tutorial 2 (with data)', file: 'Tut2.all', content: tutorial2 },
-  { label: 'Example: Tutorial 3 (with data)', file: 'Tut3.all', content: tutorial3 },
-]
-
 function Workspace() {
   const state = useAppState()
   const [materialDialog, setMaterialDialog] = useState<{ index: number; epoch: number } | null>(null)
@@ -78,7 +66,7 @@ function Workspace() {
   usePersistence()
   useMaterialLibrary()
   const unsaved = project !== state.savedProject
-  const [error, setError] = useState<string | null>(null)
+  const { open, save, newProject, openExample, error, clearError } = useProjectFileCommands()
   const [calculationErrorDetails, setCalculationErrorDetails] = useState<string | null>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -123,29 +111,6 @@ function Workspace() {
     downloadText(`${baseName}-diagram.txt`, seriesToText(xLabel, diagramSeries(curve, plot.measured)))
   }
 
-  const open = async () => {
-    try {
-      const opened = await openProjectInteractive()
-      if (opened) dispatch({ type: 'loadProject', ...opened, unsaved: opened.report !== undefined })
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
-
-  const save = async (saveAs: boolean) => {
-    try {
-      const savedAs = await saveProjectToFile(project, state.fileName, saveAs)
-      if (savedAs) dispatch({ type: 'markSaved', fileName: savedAs })
-    } catch (e) {
-      setError(`Saving failed: ${(e as Error).message}`)
-    }
-  }
-
-  const newProject = () => {
-    forgetCurrentFile()
-    dispatch({ type: 'loadProject', project: createDefaultProject(), fileName: 'untitled.json' })
-  }
-
   // Keyboard shortcuts of the File menu.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -169,16 +134,6 @@ function Workspace() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  const openExample = (example: (typeof examples)[number]) => {
-    try {
-      const { project: imported, report } = importAllFile(example.content, example.file)
-      forgetCurrentFile()
-      dispatch({ type: 'loadProject', project: imported, fileName: example.file.replace('.all', '.json'), report, unsaved: true })
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
-
   const menus: Menu[] = [
     {
       label: 'File',
@@ -192,7 +147,7 @@ function Workspace() {
         { label: 'Save diagram data', onSelect: saveDiagramData, disabled: !plot.curve },
         { label: 'Export Table as ASCII', onSelect: () => downloadText(`${baseName}-layers.txt`, layerTableToText(project)) },
         'separator',
-        ...examples.map((example) => ({ label: example.label, onSelect: () => openExample(example) })),
+        ...projectExamples.map((example) => ({ label: example.label, onSelect: () => openExample(example) })),
       ],
     },
     {
@@ -321,7 +276,7 @@ function Workspace() {
         <ImportReportDialog report={state.importReport} fileName={state.fileName.replace('.json', '.all')} onClose={() => dispatch({ type: 'dismissImportReport' })} />
       )}
       {error && (
-        <Dialog title="Could not open the file" onClose={() => setError(null)}>
+        <Dialog title="Could not open the file" onClose={clearError}>
           <pre className="dialog__pre">{error}</pre>
         </Dialog>
       )}

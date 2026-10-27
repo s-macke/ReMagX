@@ -186,3 +186,57 @@ test('obsolete Fourier setting stays readable, is reported, and can be removed w
   project.calculation.postProcessing.fourierTransform = false
   expect(JSON.parse(await readFile((await saved.path())!, 'utf8'))).toEqual(project)
 })
+
+test('project file commands preserve cancellation and reset save handles for New and examples', async ({ page }) => {
+  const project = createDefaultProject()
+  project.sample.layers[1].thickness = 42
+  await page.addInitScript(project => {
+    window.showOpenFilePicker = async () => {
+      const handle = await (await navigator.storage.getDirectory()).getFileHandle('original.json', { create: true })
+      const stream = await handle.createWritable()
+      await stream.write(JSON.stringify(project)); await stream.close()
+      return [handle]
+    }
+    window.showSaveFilePicker = async options =>
+      (await navigator.storage.getDirectory()).getFileHandle(options?.suggestedName ?? 'saved.json', { create: true })
+  }, project)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Open… (Ctrl+O)', exact: true }).click()
+  await expect(page.locator('.menu-bar__file')).toHaveText('original.json')
+  await editThickness(page, '43')
+  await page.evaluate(() => {
+    window.showOpenFilePicker = async () => { throw new DOMException('Cancelled', 'AbortError') }
+    window.showSaveFilePicker = async () => { throw new DOMException('Cancelled', 'AbortError') }
+  })
+  await page.getByRole('button', { name: 'Open… (Ctrl+O)', exact: true }).click()
+  await page.getByRole('button', { name: 'File', exact: true }).click()
+  await page.getByRole('menuitem', { name: /Save As/ }).click()
+  await expect(page.locator('.menu-bar__file')).toHaveText('original.json • unsaved')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Save (Ctrl+S)', exact: true }).click()
+  await expect(page.locator('.menu-bar__file')).toHaveText('original.json')
+
+  await page.evaluate(() => {
+    window.showSaveFilePicker = async options =>
+      (await navigator.storage.getDirectory()).getFileHandle(options?.suggestedName ?? 'saved.json', { create: true })
+  })
+  await page.getByRole('button', { name: 'New project', exact: true }).click()
+  await expect(page.locator('.menu-bar__file')).toHaveText('untitled.json')
+  await page.getByRole('button', { name: 'Save (Ctrl+S)', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('Saved untitled.json.')
+  await page.getByRole('button', { name: 'File', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Example: Co/Cu multilayer (default)', exact: true }).click()
+  await expect(page.locator('.menu-bar__file')).toHaveText('default.json • unsaved')
+  await page.getByRole('dialog', { name: 'Imported default.all', exact: true }).getByRole('button', { name: 'Close', exact: true }).click()
+  await page.getByRole('button', { name: 'Save (Ctrl+S)', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('Saved default.json.')
+  const saved = await page.evaluate(async () => {
+    const directory = await navigator.storage.getDirectory()
+    const read = async (name: string) => JSON.parse(await (await (await directory.getFileHandle(name)).getFile()).text())
+    return { original: await read('original.json'), fresh: await read('untitled.json'), example: await read('default.json') }
+  })
+  project.sample.layers[1].thickness = 43
+  expect(saved.original).toEqual(project)
+  expect(saved.fresh).toEqual(createDefaultProject())
+  expect(saved.example.sample.layers.length).toBeGreaterThan(2)
+})

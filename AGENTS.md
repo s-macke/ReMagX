@@ -431,6 +431,13 @@ coverage, failures and unavailable references. A missing reference is not a pass
   and seven focused Chromium plot/line-fit checks pass. Numerical code and
   tolerances are unchanged; A1–A5 remain open for later review.
 
+- [x] **Project file command refactoring (2026-10-27).** Extracted New/Open/Save/
+  Save As/example loading and their error state into `state/useProjectFileCommands.ts`.
+  Browser I/O stays in `ui/fileActions.ts`; menus, shortcuts and dialogs remain in
+  `App.tsx`. All 557 app tests, lint/build and seven Chromium persistence checks
+  pass, including cancellation and preserving earlier files after New/example
+  handle resets. Import parsing and numerical behavior are unchanged; A1–A5 remain open.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the
