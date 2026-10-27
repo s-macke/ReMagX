@@ -446,6 +446,13 @@ coverage, failures and unavailable references. A missing reference is not a pass
   lint/build, inventory and 14 targeted Chromium lifecycle/script/WASM checks pass.
   Numerical behavior and acceptance A1–A5 are unchanged.
 
+- [x] **Summary responsibility separation (2026-10-27).** Extracted chart rendering
+  into `ui/SummaryChart.tsx`, snapshot/worker lifecycle into
+  `state/useSummaryCalculation.ts`, and full-grid image encoding into
+  `ui/summaryImage.ts`. The dialog retains layout controls, messages and clipboard
+  actions. All 557 app tests, lint/build, inventory and both Summary Chromium
+  checks pass, including exports and Stop/reopen recovery. A1–A5 remain open.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the
