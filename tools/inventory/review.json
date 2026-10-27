@@ -1057,9 +1057,11 @@
     },
     {
       "name": "hidden-tools-decision",
-      "status": "deferred",
-      "reason": "Hidden experimental/test controls require a scope review; not silently treated as ported or dropped.",
+      "status": "dropped",
+      "reason": "D-57 explicitly excludes reviewed controls H1–H8 and the H1/H6 event wiring: test controls, E/2E harmonic contamination, hard-coded GIF experiment, fringe-spacing estimate, inactive global/profile Fit checkboxes and unbound tensor-fill button. Active H2/H3/H5 behavior is excluded by user decision. Supported ordinary workflows remain included.",
       "references": [
+        "docs/brainstorm/2026-10-15-remagx-web-app-refactoring/decisions.md",
+        "docs/analysis/hidden-controls-audit-2026-10-25.md",
         "AGENTS.md"
       ],
       "entries": [
@@ -1073,8 +1075,7 @@
         "client/MzFrame.dfm::Frame8/CheckBox11",
         "client/Unit1.cpp::event:da8c2ba785fe8675:1",
         "guidll/MaterialsForm.dfm::MaterialForm/GroupBox1/Button1"
-      ],
-      "phase": "decision"
+      ]
     },
     {
       "name": "precision-parallel",

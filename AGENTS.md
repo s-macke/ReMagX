@@ -202,7 +202,7 @@ without deliberate rounding. Checklist totals are not progress percentages.
 | Optical tables | Imported scalars/tensors, Chantler fallback, approved 277-row Uranium data; complete .F assignment to the selected element (D-37/38/45) | I4, A2 |
 | Fitting | Clean Simplex/annealing, bounds, Q regularization, weighted datasets and scripted qz/energy/mixed fits | I4, A3 |
 | Lua | Worker execution, persistent hooks, output/line errors, project APIs and cancellation; CalculateReflectivity/GetError explicitly excluded (D-43/D-49) | I2, I3, A5 |
-| UI and files | Legacy project import, JSON save/load, autosave, editing/undo, plots, all-dataset Summary, fit controls and error/recovery dialogs | S6, A5 |
+| UI and files | Legacy project import, JSON save/load, autosave, editing/undo, plots, all-dataset Summary, fit controls and error/recovery dialogs | A5 |
 | Native tools | Unchanged original 2.6 reference build; separate public full-double terminal: .all/JSON, -refl, -dicrefl, -fit, -convert, -v; clean optimizers and installation/licence packaging | I1, I3, A1, A4, A5 |
 | Regression infrastructure | Public native/WASM and Chromium checks, source inventory and double-precision gates; private comparison tools available locally | S8, A1–A5 |
 
@@ -326,13 +326,14 @@ and its user-visible handling. Preserve the original source tree throughout.
   mixed/inactive datasets, exports, layout, errors and blocked-worker Stop/recovery.
   See the [Summary source/evidence review](docs/analysis/summary-window-audit-2026-10-25.md).
   Final user-example acceptance remains A5.
-- [ ] **S6 — Hidden experimental controls.** Review inventory group
-  `hidden-tools-decision` item by item. Close when each control has an explicit
-  scope decision and corresponding implementation/deferral/exclusion record.
-  [Item-by-item source review](docs/analysis/hidden-controls-audit-2026-10-25.md)
-  accounts for all ten IDs (eight controls, two event bindings), including active
-  harmonic admixture, hard-coded GIF generation and fringe-spacing analysis.
-  Recommended exclusion is pending; hidden does not mean inactive.
+- [x] **S6 — Hidden experimental controls excluded (D-57).** The user explicitly
+  excluded all eight reviewed controls H1–H8 and the two associated H1/H6 event
+  assignments. This includes active harmonic admixture, the hard-coded GIF
+  experiment and fringe-spacing analysis; exclusion is not a no-op claim.
+  Normal segmentation/profiles, energy/resolution, exports, per-layer/profile
+  fitting and tensor preparation/display remain supported. All ten inventory IDs
+  are classified as dropped with the [item-by-item decision record](docs/analysis/hidden-controls-audit-2026-10-25.md).
+  No product code or original sources changed; final acceptance remains A1–A5.
 - [x] **S7 — Obsolete layer-table coupl. column excluded (D-53).** The user
   requested removal; no new column or coupling field is added. The Script Window
   points to its existing layer-coupling generator and BeforeCalculation hook.
