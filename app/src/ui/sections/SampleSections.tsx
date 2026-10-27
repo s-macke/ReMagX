@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import type { ComputeService } from '../../compute/ComputeService'
-import { computeService } from '../../state/useCalculation'
+import { computeService } from '../../compute/sharedComputeService'
 import { tableKinds } from '../../import/tables'
 import { datasetMetadata, deleteDataset, moveDataset, updateDataset } from '../../model/datasets'
 import { buildProfileSpline, profileBindingOptions, removeMagneticProfile } from '../../model/magneticProfiles'

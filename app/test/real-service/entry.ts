@@ -1,4 +1,4 @@
-import { calculateView } from '../../src/state/useCalculation'
+import { calculateView } from '../../src/compute/calculateView'
 import { mountLayerConversion } from './conversionUi'
 import { compareDiagnosticDensity, compareDiagnosticColumns, compareDiagnosticProfile } from './diagnosticComparison'
 import { diagnosticCategory, withDiagnosticDeadline } from './diagnosticCategory'

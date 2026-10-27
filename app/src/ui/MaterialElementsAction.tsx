@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { applyElementConversion, type ElementConversion } from '../model/materialElements'
 import { useAppState, useDispatch } from '../state/context'
-import { computeService } from '../state/useCalculation'
+import { computeService } from '../compute/sharedComputeService'
 import { Dialog } from './Dialog'
 
 export function MaterialElementsAction() {

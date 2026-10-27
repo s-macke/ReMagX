@@ -902,6 +902,7 @@
         "app/src/compute/WorkerComputeService.ts",
         "app/src/compute/WorkerComputeService.test.ts",
         "app/src/state/useCalculation.ts",
+        "app/src/compute/sharedComputeService.ts",
         "app/src/state/useFitRunner.ts",
         "app/src/model/fitStructure.ts",
         "app/src/state/fitSession.test.ts"
@@ -1228,6 +1229,7 @@
       "references": [
         "app/src/ui/LayerSpectrumMenu.tsx",
         "app/src/state/useCalculation.ts",
+        "app/src/compute/calculateView.ts",
         "app/e2e/layerSpectrum.spec.ts",
         "app/src/model/compoundSpectrum.ts",
         "app/src/model/realSpectrum.ts"
@@ -1244,6 +1246,7 @@
       "references": [
         "app/src/ui/sections/SampleSections.tsx",
         "app/src/state/useCalculation.ts",
+        "app/src/compute/calculateView.ts",
         "app/e2e/scatteringFactors.spec.ts",
         "app/src/model/elementSpectrum.ts",
         "app/src/model/realSpectrum.ts"

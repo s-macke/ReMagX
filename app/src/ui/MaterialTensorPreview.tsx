@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { tensorComponents, type TensorPreview } from '../model/tensorView'
 import { useAppState } from '../state/context'
-import { computeService } from '../state/useCalculation'
+import { computeService } from '../compute/sharedComputeService'
 import { Note } from './form'
 import { formatNumber } from './numberFormat'
 

@@ -3,7 +3,7 @@ import { ComputeCancelled } from '../compute'
 import { mergeFitResult } from '../model/mergeFitResult'
 import type { FitEvent } from './appState'
 import { useAppState, useDispatch } from './context'
-import { computeService } from './useCalculation'
+import { computeService } from '../compute/sharedComputeService'
 
 // Starts and stops fits in the compute worker and reports progress through the app state.
 // When a fit ends, only the fitted quantities are written back, so edits made meanwhile survive.

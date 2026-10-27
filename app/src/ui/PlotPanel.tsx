@@ -11,7 +11,7 @@ import { plotImage } from './plotImage'
 import { usePlotChart } from './usePlotChart'
 import { cssColor } from './plotAppearance'
 import type { MeasuredCurve } from '../model/datasets'
-import type { CalculatedCurve } from '../state/useCalculation'
+import type { CalculatedCurve } from '../model/plotCoordinates'
 
 interface HeldCurve {
   x: number[]

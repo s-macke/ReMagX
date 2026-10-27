@@ -1,5 +1,5 @@
 import { useEffect, useReducer, type ReactNode } from 'react'
-import { discardComputeService } from './useCalculation'
+import { discardComputeService } from '../compute/sharedComputeService'
 import { initialState, reducer } from './appState'
 import { DispatchContext, StateContext } from './context'
 

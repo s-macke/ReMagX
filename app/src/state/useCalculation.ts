@@ -1,29 +1,10 @@
-import { spectrumPlot } from '../model/spectrumView'
-import { densityProfilePlot } from '../model/densityProfileView'
-// Recalculates the curve for the current view whenever the project or view changes, debounced so
-// that typing does not flood the worker. Stale results (from an older request) are discarded.
-
+// Recalculates the current view with debounce and stale-result protection.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ComputeCancelled, WorkerComputeService, type ComputeService } from '../compute'
-import type { OpticalTable } from '../import/tables'
+import { ComputeCancelled } from '../compute/ComputeService'
+import { computeService } from '../compute/sharedComputeService'
+import { calculateView, type CalculationRequest } from '../compute/calculateView'
 import type { Project } from '../model/project'
-import type { DisplayMode, PlotView, ScanKind } from './appState'
-
-import { profilePlot } from '../model/profileView'
-import { reflectivityPlot } from '../model/reflectivityView'
-import { tensorPlot } from '../model/tensorView'
 import type { CalculatedCurve } from '../model/plotCoordinates'
-export type { CalculatedCurve, CurveSeries } from '../model/plotCoordinates'
-
-export interface CalculationRequest {
-  scanKind: ScanKind
-  displayMode: DisplayMode
-  plotView: PlotView
-  illustrateSegmentation?: boolean
-  elementIndex?: number
-  layerIndex?: number
-  tables?: OpticalTable[]
-}
 
 export interface CalculationState {
   curve: CalculatedCurve | null
@@ -33,73 +14,6 @@ export interface CalculationState {
 }
 
 const DEBOUNCE_MS = 120
-
-let sharedService: ComputeService | null = null
-export function computeService(): ComputeService {
-  sharedService ??= new WorkerComputeService()
-  return sharedService
-}
-
-// A structural edit makes all old worker work unusable. Dispose immediately so
-// the new project can calculate without waiting for cooperative fit cancellation.
-export function discardComputeService(): void {
-  sharedService?.dispose()
-  sharedService = null
-}
-
-export async function calculateView(service: ComputeService, project: Project, request: CalculationRequest, onScriptMessages?: (lines: string[]) => void): Promise<CalculatedCurve & { scriptMessages?: string[] }> {
-  const { scanKind, displayMode: mode, plotView } = request
-  if (plotView === 'tensorDiagonal' || plotView === 'tensorUpper' || plotView === 'tensorLower') {
-    const tensor = await service.dielectricTensor(project, { layerIndex: request.layerIndex ?? 0, tables: request.tables ?? [], spectrum: true }, onScriptMessages)
-    return { ...tensorPlot(tensor, plotView === 'tensorDiagonal' ? 'diagonal' : plotView === 'tensorUpper' ? 'upper' : 'lower'), scriptMessages: tensor.scriptMessages }
-  }
-  if (plotView === 'densityProfiles') {
-    return densityProfilePlot(await service.densityProfiles(project, onScriptMessages, request.tables ?? []))
-  }
-  if (plotView === 'scatteringFactors') {
-    const spectrum = await service.scatteringFactors(project, { elementIndex: request.elementIndex ?? 0, tables: request.tables ?? [] }, onScriptMessages)
-    return spectrumPlot(spectrum, plotView)
-  }
-  if (plotView === 'opticalSpectrum' || plotView === 'magneticSpectrum') {
-    const magnetic = plotView === 'magneticSpectrum'
-    const spectrum = await service.layerSpectrum(project, { elementIndex: request.elementIndex ?? 0, layerIndex: request.layerIndex ?? 0, magnetic, tables: request.tables ?? [] }, onScriptMessages)
-    return spectrumPlot(spectrum, plotView)
-  }
-  if (plotView !== 'scan') {
-    const profile = await service.depthProfile(project, onScriptMessages, request.tables ?? [])
-    return { ...profilePlot(profile, plotView === 'magneticProfile', request.illustrateSegmentation ?? true), scriptMessages: profile.scriptMessages }
-  }
-  if (scanKind === 'energyScan') {
-    if (mode !== 'monochromatic') {
-      const scan = await service.calcEnergyAsymmetry(project, onScriptMessages, request.tables ?? [])
-      return mode === 'dichroic'
-        ? { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated R+', y: scan.reflectivityPlus },
-          { label: 'simulated R−', y: scan.reflectivityMinus }], logScale: true, yLabel: 'R' }
-        : { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated asymmetry', y: scan.asymmetry }], logScale: false, yLabel: 'asymmetry' }
-    }
-    const scan = await service.calcEnergyScan(project, onScriptMessages, request.tables ?? [])
-    return { scriptMessages: scan.scriptMessages, axis: 'energy', x: scan.energy, series: [{ label: 'simulated R', y: scan.reflectivity }], logScale: true, yLabel: 'R' }
-  }
-  if (mode === 'monochromatic') {
-    const curve = await service.calcReflectivity(project, onScriptMessages, request.tables ?? [])
-    return reflectivityPlot(curve)
-  }
-  const curve = await service.calcAsymmetry(project, onScriptMessages, request.tables ?? [])
-  if (mode === 'dichroic') {
-    return {
-      scriptMessages: curve.scriptMessages,
-      axis: 'qz',
-      x: curve.qz,
-      series: [
-        { label: 'simulated R+', y: curve.reflectivityPlus },
-        { label: 'simulated R−', y: curve.reflectivityMinus },
-      ],
-      logScale: true,
-      yLabel: 'R',
-    }
-  }
-  return { scriptMessages: curve.scriptMessages, axis: 'qz', x: curve.qz, series: [{ label: 'simulated asymmetry', y: curve.asymmetry }], logScale: false, yLabel: 'asymmetry' }
-}
 
 export function useCalculation(project: Project, request: CalculationRequest, paused = false, live = false, onScriptMessages?: (lines: string[]) => void) {
   const { scanKind, displayMode, plotView, illustrateSegmentation, layerIndex, elementIndex, tables } = request

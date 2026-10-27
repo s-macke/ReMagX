@@ -438,6 +438,14 @@ coverage, failures and unavailable references. A missing reference is not a pass
   pass, including cancellation and preserving earlier files after New/example
   handle resets. Import parsing and numerical behavior are unchanged; A1–A5 remain open.
 
+- [x] **Calculation responsibility separation (2026-10-27).** Shared worker
+  ownership/disposal now lives in `compute/sharedComputeService.ts`, and view
+  dispatch/result mapping in `compute/calculateView.ts`. `useCalculation` keeps
+  React state, debouncing and stale-request tracking. All consumers use the same
+  shared service; Summary/line-fit workers remain independent. All 557 app tests,
+  lint/build, inventory and 14 targeted Chromium lifecycle/script/WASM checks pass.
+  Numerical behavior and acceptance A1–A5 are unchanged.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the

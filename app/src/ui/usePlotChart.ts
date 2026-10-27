@@ -4,7 +4,7 @@ import { selectedPlotArea, type PlotArea } from '../model/plotArea'
 import { logarithmicPlotTicks, plotTicks, type PlotProperties } from '../model/plotProperties'
 import { zoomPlotRange } from '../model/plotZoom'
 import type { MeasuredCurve } from '../model/datasets'
-import type { CalculatedCurve } from '../state/useCalculation'
+import type { CalculatedCurve } from '../model/plotCoordinates'
 import { SIMULATED_COLORS, MEASURED_COLOR, HELD_COLOR, cssColor, formatDecade, formatLinearTicks, decadesOnly } from './plotAppearance'
 
 interface PlotChartOptions {

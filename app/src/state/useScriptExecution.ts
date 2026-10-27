@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ComputeCancelled, type ComputeService } from '../compute'
 import type { ScriptProgram } from '../model/manualScript'
 import { useAppState, useDispatch } from './context'
-import { computeService } from './useCalculation'
+import { computeService } from '../compute/sharedComputeService'
 
 export function useScriptExecution() {
   const { project, opticalTables, fitEpoch, fitStatus, databaseUpdate } = useAppState()

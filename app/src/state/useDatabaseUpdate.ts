@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useAppState, useDispatch } from './context'
-import { computeService } from './useCalculation'
+import { computeService } from '../compute/sharedComputeService'
 
 let nextRequestId = 0
 
