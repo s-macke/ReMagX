@@ -70,23 +70,33 @@ const JSON_TYPES: FilePickerAcceptType[] = [{ description: 'ReMagX project', acc
 // The file the current project was opened from or last saved to (JSON only; a legacy .all
 // file is never overwritten).
 let currentHandle: FileSystemFileHandle | null = null
+let fileGeneration = 0
+let saveSequence = 0
 
 export function forgetCurrentFile(): void {
   currentHandle = null
+  fileGeneration++
+  saveSequence++
 }
 
 const isAbort = (error: unknown) => error instanceof DOMException && error.name === 'AbortError'
 
-export async function openProjectInteractive(): Promise<OpenedProject | null> {
+export async function openProjectInteractive(isCurrent: () => boolean = () => true): Promise<OpenedProject | null> {
+  const generation = fileGeneration
+  const active = () => isCurrent() && generation === fileGeneration
   if (!window.showOpenFilePicker) {
     const file = await chooseFile('.all,.json')
     if (!file) return null
-    currentHandle = null
-    return readProjectFile(file)
+    const opened = await readProjectFile(file)
+    if (!active()) return null
+    forgetCurrentFile()
+    return opened
   }
   try {
     const [handle] = await window.showOpenFilePicker({ types: PROJECT_TYPES })
     const opened = await readProjectFile(await handle.getFile())
+    if (!active()) return null
+    forgetCurrentFile()
     currentHandle = handle.name.toLowerCase().endsWith('.json') ? handle : null
     return opened
   } catch (error) {
@@ -102,15 +112,20 @@ async function writeToHandle(handle: FileSystemFileHandle, project: Project): Pr
 }
 
 // Saves the project. Returns the file name it was saved under, or null if the user cancelled.
-export async function saveProjectToFile(project: Project, fileName: string, saveAs: boolean): Promise<string | null> {
+export async function saveProjectToFile(project: Project, fileName: string, saveAs: boolean, isCurrent: () => boolean = () => true): Promise<string | null> {
+  const generation = fileGeneration, sequence = ++saveSequence
+  const active = () => isCurrent() && generation === fileGeneration && sequence === saveSequence
   try {
     if (!saveAs && currentHandle) {
-      await writeToHandle(currentHandle, project)
-      return currentHandle.name
+      const handle = currentHandle
+      await writeToHandle(handle, project)
+      return active() ? handle.name : null
     }
     if (window.showSaveFilePicker) {
       const handle = await window.showSaveFilePicker({ types: JSON_TYPES, suggestedName: fileName.endsWith('.json') ? fileName : `${fileName}.json` })
+      if (!active()) return null
       await writeToHandle(handle, project)
+      if (!active()) return null
       currentHandle = handle
       return handle.name
     }

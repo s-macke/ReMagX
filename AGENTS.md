@@ -478,11 +478,13 @@ follow-ups, not completed fixes or reopened numerical acceptance umbrellas.
   3…16 instead of 39…160 at x=0.2…0.8. Correct grid updates while retaining x/y
   ranges. Completed: 20→200→30 point plots match freshly constructed canvases
   at retained x/y ranges; existing slider repaint/export checks also pass.
-- [ ] **R2 — Bind save completion to the written project/session.** Async save
+- [x] **R2 — Bind save completion to the written project/session.** Async save
   currently marks the current project saved, even if edits or a project switch
   occurred while writing. Capture the written snapshot and handle/session;
   preserve newer unsaved edits and prevent stale completion changing a new project.
-  Verify delayed writes, edits, New/Open and Save As with controlled completion.
+  Completed: six controlled delayed Save/Save As cases verify edits, New and Open;
+  written snapshots, unsaved state and subsequent save destinations remain correct.
+  Existing seven persistence checks pass as well.
 - [x] **R3 — Preserve all held series and current zoom.** Hold captures only the
   first simulated series, whereas the original copies active graph slots with
   their legends. Hold/Clear also rebuild the chart without retaining current

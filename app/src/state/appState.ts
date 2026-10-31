@@ -43,6 +43,7 @@ export interface AppState {
   fitEpoch: number // callbacks must match the current fit/evaluation session
   fitInvalidations: number // requests worker cancellation independently of panel mounting
   fileName: string
+  fileSession: number // distinguishes loaded projects for asynchronous file commands
   selectedLayer: number // row of the layer table (a slab of selectedElement in element mode)
   selectedElement: number
   scanKind: ScanKind
@@ -89,7 +90,7 @@ export type Action =
   | { type: 'beginFit'; parameters: FitParameter[] | null; workerPreviews?: boolean }
   | { type: 'fitEvent'; epoch: number; event: FitEvent }
   | { type: 'loadProject'; project: Project; fileName: string; report?: ImportReport; notice?: string; unsaved?: boolean }
-  | { type: 'markSaved'; fileName: string }
+  | { type: 'markSaved'; fileName: string; project: Project; session: number }
   | { type: 'setNotice'; notice: string | null }
   // coalesce: consecutive edits with the same key within a second form one undo step
   | { type: 'updateProject'; update: (project: Project) => Project; coalesce?: string }
@@ -125,6 +126,7 @@ export function initialState(): AppState {
     fitEpoch: 0,
     fitInvalidations: 0,
     savedProject: project,
+    fileSession: 0,
     notice: null,
     history: { past: [], future: [], lastKey: null, lastAt: 0 },
     fileName: 'default.json',
@@ -234,6 +236,7 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
       return {
         ...state,
         project: action.project,
+        fileSession: state.fileSession + 1,
         // An imported legacy file or a restored autosave has not been saved as a project yet.
         savedProject: action.unsaved ? state.savedProject : action.project,
         fileName: action.fileName,
@@ -243,7 +246,7 @@ function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | 
         notice: action.notice ?? null,
       }
     case 'markSaved':
-      return { ...state, savedProject: state.project, fileName: action.fileName, notice: `Saved ${action.fileName}.` }
+      return action.session !== state.fileSession ? state : { ...state, savedProject: action.project, fileName: action.fileName, notice: `Saved ${action.fileName}.` }
     case 'setNotice':
       return { ...state, notice: action.notice }
     case 'updateProject':

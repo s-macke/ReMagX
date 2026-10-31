@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { importAllFile } from '../import/allFile'
 import { createDefaultProject } from '../model/defaults'
 import { forgetCurrentFile, openProjectInteractive, saveProjectToFile } from '../ui/fileActions'
@@ -17,25 +17,27 @@ export const projectExamples = [
 
 // Coordinates project state changes; browser pickers and file handles stay in fileActions.
 export function useProjectFileCommands() {
-  const { project, fileName } = useAppState()
+  const { project, fileName, fileSession } = useAppState()
+  const currentSession = useRef(fileSession)
+  useLayoutEffect(() => { currentSession.current = fileSession }, [fileSession])
   const dispatch = useDispatch()
   const [error, setError] = useState<string | null>(null)
 
   const open = async () => {
     try {
-      const opened = await openProjectInteractive()
+      const opened = await openProjectInteractive(() => currentSession.current === fileSession)
       if (opened) dispatch({ type: 'loadProject', ...opened, unsaved: opened.report !== undefined })
     } catch (e) {
-      setError((e as Error).message)
+      if (currentSession.current === fileSession) setError((e as Error).message)
     }
   }
 
   const save = async (saveAs: boolean) => {
     try {
-      const savedAs = await saveProjectToFile(project, fileName, saveAs)
-      if (savedAs) dispatch({ type: 'markSaved', fileName: savedAs })
+      const savedAs = await saveProjectToFile(project, fileName, saveAs, () => currentSession.current === fileSession)
+      if (savedAs) dispatch({ type: 'markSaved', fileName: savedAs, project, session: fileSession })
     } catch (e) {
-      setError(`Saving failed: ${(e as Error).message}`)
+      if (currentSession.current === fileSession) setError(`Saving failed: ${(e as Error).message}`)
     }
   }
 
@@ -50,7 +52,7 @@ export function useProjectFileCommands() {
       forgetCurrentFile()
       dispatch({ type: 'loadProject', project: imported, fileName: example.file.replace('.all', '.json'), report, unsaved: true })
     } catch (e) {
-      setError((e as Error).message)
+      if (currentSession.current === fileSession) setError((e as Error).message)
     }
   }
 
