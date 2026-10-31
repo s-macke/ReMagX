@@ -466,6 +466,46 @@ coverage, failures and unavailable references. A missing reference is not a pass
   All 557 app tests, lint/build, inventory and seven Material Settings/slider Chromium
   checks pass, including density persistence and the graph repaint regression.
 
+### Review follow-ups — 2026-10-31
+
+Three independent reviews compared current UI, interactions and calculation flow
+with active original 2.6 sources, honoring accepted exclusions. These are concrete
+follow-ups, not completed fixes or reopened numerical acceptance umbrellas.
+
+- [ ] **R1 — Refresh plot indices when the x grid changes.** The current
+  `setData(data, false)` / `redraw(false)` sequence retains cached visible indices.
+  An isolated Chromium/uPlot probe reproduced 20→200 points retaining indices
+  3…16 instead of 39…160 at x=0.2…0.8. Correct grid updates while retaining x/y
+  ranges; verify increasing/decreasing sample counts against a fresh plot.
+- [ ] **R2 — Bind save completion to the written project/session.** Async save
+  currently marks the current project saved, even if edits or a project switch
+  occurred while writing. Capture the written snapshot and handle/session;
+  preserve newer unsaved edits and prevent stale completion changing a new project.
+  Verify delayed writes, edits, New/Open and Save As with controlled completion.
+- [ ] **R3 — Preserve all held series and current zoom.** Hold captures only the
+  first simulated series, whereas the original copies active graph slots with
+  their legends. Hold/Clear also rebuild the chart without retaining current
+  manual zoom (source-traced). Preserve plotted companion/measurement series in
+  Hold and exports, and retain x/y ranges. Verify paired beams and zoom through
+  Hold/edit/Clear. Review original clearing of active slots separately before
+  changing that additional behavior.
+- [ ] **R4 — Align boundary-cell availability across tables.** Main compound and
+  element tables allow ambient roughness edits where the original displays `--`.
+  The secondary element editor also permits outer-medium thickness edits blocked
+  by the main table. Apply consistent unavailable-cell rules without rewriting
+  stored/imported values. This does not authorize changing legacy fit semantics.
+- [ ] **R5 — Correct angle descriptions and stale capability notes.** The table
+  reverses gamma/phi descriptions: gamma is azimuth, phi polar. Correct text only,
+  not stored values or tensor equations. Remove stale notes claiming automatic
+  optical refresh and production element lookup remain unimplemented.
+- [ ] **R6 — Trace element optical-spectrum row mapping.** Original
+  `Unit1.cpp:912–923` derives the density row from the stored compound count;
+  `realSpectrum.ts` uses the selected logical slab. With different stack lengths
+  these differ. This is an unresolved source discrepancy, not an established web
+  bug. Use a synthetic distinguishable-density case, check existing approvals,
+  and seek D-29 approval if a correction remains undecided. Do not copy an invalid
+  original index merely to match it.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the
