@@ -14,8 +14,7 @@ import type { MeasuredCurve } from '../model/datasets'
 import type { CalculatedCurve } from '../model/plotCoordinates'
 
 interface HeldCurve {
-  x: number[]
-  y: number[]
+  series: { label: string; x: number[]; y: number[] }[]
   logScale: boolean
   axis: CalculatedCurve['axis']
 }
@@ -56,7 +55,10 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
   })
 
   const hold = () => {
-    if (curve) setHeld({ x: curve.x, y: curve.series[0].y, logScale: curve.logScale, axis: curve.axis })
+    if (!curve) return
+    const snapshot = diagramSeries(curve, measured)
+    if (fittedLine) snapshot.push({ label: 'Lorentzian+Step fit', x: fittedLine.x, y: fittedLine.y })
+    setHeld({ series: snapshot.map(series => ({ label: `held: ${series.label}`, x: [...series.x], y: [...series.y] })), logScale: curve.logScale, axis: curve.axis })
   }
   const openProperties = () => {
     const draft = readProperties()
@@ -70,7 +72,7 @@ export function PlotPanel({ curve, measured }: PlotPanelProps) {
       if (action === 'data') {
         if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable. Use File → Save diagram data.')
         const curves = diagramSeries(curve, measured)
-        if (heldVisible) curves.push({ label: 'held', x: heldVisible.x, y: heldVisible.y })
+        if (heldVisible) curves.push(...heldVisible.series)
         if (fittedLine) curves.push({ label: 'Lorentzian+Step fit', x: fittedLine.x, y: fittedLine.y })
         await navigator.clipboard.writeText(diagramClipboardText(curves))
         setExportMessage('Diagram data copied.')

@@ -10,7 +10,7 @@ import { SIMULATED_COLORS, MEASURED_COLOR, HELD_COLOR, cssColor, formatDecade, f
 interface PlotChartOptions {
   curve: CalculatedCurve | null
   measured: { label: string; curve: MeasuredCurve }[]
-  heldVisible: { x: number[]; y: number[] } | null
+  heldVisible: { series: { label: string; x: number[]; y: number[] }[] } | null
   fittedLine: { x: number[]; y: number[] } | null
   properties: PlotProperties | undefined
   logX: boolean
@@ -36,18 +36,20 @@ export function usePlotChart({ curve, measured, heldVisible, fittedLine, propert
   selectingAreaRef.current = selectingArea
   const areaRef = useRef(area)
   areaRef.current = area
+  const viewKey = `${curve?.axis}|${curve?.yLabel}|${logX}|${logY}`
+  const retainedRanges = useRef<{ viewKey: string; properties: PlotProperties | undefined; x: { min: number; max: number }; y: { min: number; max: number } } | null>(null)
   const series = useMemo(() => {
     if (!curve) return null
     const labels = [
       ...curve.series.map((s) => s.label),
       ...measured.map((m) => m.label),
-      ...(heldVisible ? ['held'] : []),
+      ...(heldVisible?.series.map(series => series.label) ?? []),
       ...(fittedLine ? ['Lorentzian+Step fit'] : []),
     ]
     const tables: uPlot.AlignedData[] = [
       [curve.x, ...curve.series.map((s) => forScale(s.y, logY))] as uPlot.AlignedData,
       ...measured.map((m) => [m.curve.x, forScale(m.curve.y, logY)] as uPlot.AlignedData),
-      ...(heldVisible ? [[heldVisible.x, forScale(heldVisible.y, logY)] as uPlot.AlignedData] : []),
+      ...(heldVisible?.series.map(series => [series.x, forScale(series.y, logY)] as uPlot.AlignedData) ?? []),
       ...(fittedLine ? [[fittedLine.x, forScale(fittedLine.y, logY)] as uPlot.AlignedData] : []),
     ]
     let data = tables.length === 1 ? tables[0] : uPlot.join(tables)
@@ -135,7 +137,7 @@ export function usePlotChart({ curve, measured, heldVisible, fittedLine, propert
         ...series.labels.map((label, i): uPlot.Series => {
           if (i < simulatedCount) return { label, stroke: SIMULATED_COLORS[i % SIMULATED_COLORS.length], width: 1.5, spanGaps: true }
           if (label === 'Lorentzian+Step fit') return { label, stroke: '#9854b3', width: 2, dash: [4, 3], spanGaps: true }
-          if (label === 'held') return { label, stroke: HELD_COLOR, width: 1, dash: [6, 4], spanGaps: true }
+          if (label.startsWith('held: ')) return { label, stroke: HELD_COLOR, width: 1, dash: [6, 4], spanGaps: true }
           return { label, stroke: MEASURED_COLOR, width: 1, spanGaps: true, points: { show: false } }
         }),
       ],
@@ -170,7 +172,10 @@ export function usePlotChart({ curve, measured, heldVisible, fittedLine, propert
       }]
     }
     const plot = new uPlot(options, series.data, container)
-    if (properties) plot.batch(() => { plot.setScale('x', properties.x); plot.setScale('y', properties.y) })
+    const retained = retainedRanges.current
+    if (retained?.viewKey === viewKey && retained.properties === properties) {
+      plot.batch(() => { plot.setScale('x', retained.x); plot.setScale('y', retained.y) })
+    } else if (properties) plot.batch(() => { plot.setScale('x', properties.x); plot.setScale('y', properties.y) })
     plotRef.current = plot
     const zoom = (factor: number, left = plot.over.clientWidth / 2, top = plot.over.clientHeight / 2) => {
       const x = plot.scales.x
@@ -210,6 +215,9 @@ export function usePlotChart({ curve, measured, heldVisible, fittedLine, propert
     const observer = new ResizeObserver(() => plot.setSize({ width: container.clientWidth, height: Math.max(120, container.clientHeight) }))
     observer.observe(container)
     return () => {
+      const { x, y } = plot.scales
+      retainedRanges.current = x.min != null && x.max != null && y.min != null && y.max != null
+        ? { viewKey, properties, x: { min: x.min, max: x.max }, y: { min: y.min, max: y.max } } : null
       observer.disconnect()
       plot.over.removeEventListener('wheel', wheel)
       plot.over.removeEventListener('mousedown', beginArea, true)
@@ -221,14 +229,18 @@ export function usePlotChart({ curve, measured, heldVisible, fittedLine, propert
       plotRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recreated only when the series layout changes
-  }, [signature, properties])
+  }, [signature, properties, viewKey])
 
   useEffect(() => {
     const plot = plotRef.current
-    if (!series || !plot) return
-    plot.setData(series.data, false)
-    // setData with scale reset disabled invalidates paths but does not repaint.
-    plot.redraw(false)
+    if (!series || !plot || plot.data === series.data) return
+    const { min, max } = plot.scales.y
+    plot.batch(() => {
+      plot.setData(series.data, false)
+      // Recompute visible sample indices for changed x grids, preserving the viewport.
+      plot.redraw()
+      if (min != null && max != null) plot.setScale('y', { min, max })
+    })
   }, [series])
 
   useEffect(() => { plotRef.current?.redraw() }, [area])
@@ -249,7 +261,7 @@ export function usePlotChart({ curve, measured, heldVisible, fittedLine, propert
     color: properties?.colors[i % properties.colors.length] ?? (
       curve && i < curve.series.length
         ? SIMULATED_COLORS[i % SIMULATED_COLORS.length]
-        : label === 'Lorentzian+Step fit' ? '#9854b3' : label === 'held'
+        : label === 'Lorentzian+Step fit' ? '#9854b3' : label.startsWith('held: ')
           ? HELD_COLOR
           : MEASURED_COLOR),
   }))

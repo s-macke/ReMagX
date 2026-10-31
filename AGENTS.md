@@ -472,23 +472,27 @@ Three independent reviews compared current UI, interactions and calculation flow
 with active original 2.6 sources, honoring accepted exclusions. These are concrete
 follow-ups, not completed fixes or reopened numerical acceptance umbrellas.
 
-- [ ] **R1 — Refresh plot indices when the x grid changes.** The current
+- [x] **R1 — Refresh plot indices when the x grid changes.** The current
   `setData(data, false)` / `redraw(false)` sequence retains cached visible indices.
   An isolated Chromium/uPlot probe reproduced 20→200 points retaining indices
   3…16 instead of 39…160 at x=0.2…0.8. Correct grid updates while retaining x/y
-  ranges; verify increasing/decreasing sample counts against a fresh plot.
+  ranges. Completed: 20→200→30 point plots match freshly constructed canvases
+  at retained x/y ranges; existing slider repaint/export checks also pass.
 - [ ] **R2 — Bind save completion to the written project/session.** Async save
   currently marks the current project saved, even if edits or a project switch
   occurred while writing. Capture the written snapshot and handle/session;
   preserve newer unsaved edits and prevent stale completion changing a new project.
   Verify delayed writes, edits, New/Open and Save As with controlled completion.
-- [ ] **R3 — Preserve all held series and current zoom.** Hold captures only the
+- [x] **R3 — Preserve all held series and current zoom.** Hold captures only the
   first simulated series, whereas the original copies active graph slots with
   their legends. Hold/Clear also rebuild the chart without retaining current
   manual zoom (source-traced). Preserve plotted companion/measurement series in
   Hold and exports, and retain x/y ranges. Verify paired beams and zoom through
   Hold/edit/Clear. Review original clearing of active slots separately before
-  changing that additional behavior.
+  changing that additional behavior. Completed: held snapshots retain all plotted
+  simulation/measurement/line-fit series and labels, and paired-beam clipboard
+  checks preserve both old beams through edits. Hold/Clear retain manual x/y zoom.
+  Current active curves remain visible, preserving the established web workflow.
 - [ ] **R4 — Align boundary-cell availability across tables.** Main compound and
   element tables allow ambient roughness edits where the original displays `--`.
   The secondary element editor also permits outer-medium thickness edits blocked
