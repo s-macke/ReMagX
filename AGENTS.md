@@ -525,6 +525,12 @@ follow-ups, not completed fixes or reopened numerical acceptance umbrellas.
   values and successful editing after Stop, plus worker recovery. All 562 app tests,
   lint/build and diff checks pass. No numerical or original-source changes.
 
+- [x] **R8 — Remove extra compound material column (D-60).** Chemical formula
+  remains editable in Material Settings; stored material values are unchanged.
+  The Chromium check now asserts all eight default compound headers against the
+  original and verifies material edits, Cancel and Undo through the dialog. Both
+  Material Settings browser checks, 562 app tests, lint/build and diff checks pass.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the

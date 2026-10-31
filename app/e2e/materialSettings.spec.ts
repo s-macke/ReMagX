@@ -2,6 +2,7 @@ import { test, expect } from './fixtures'
 
 test('Materials preserves read-only fields, discards Cancel/Escape and applies edits and fit flags as one undo step', async ({ page }) => {
   await page.goto('/')
+  await expect(page.getByRole('region', { name: 'Layer stack', exact: true }).getByRole('columnheader')).toHaveText(['layers', 'thickness / Å', 'db', 'δ', 'β', 'σ', 'δm', 'βm'])
   const cell = page.getByRole('textbox', { name: 'thickness of layer 1', exact: true })
   const open = async () => {
     await cell.click({ button: 'right' })
@@ -35,7 +36,7 @@ test('Materials preserves read-only fields, discards Cancel/Escape and applies e
   await dialog.getByRole('checkbox', { name: 'Fit Phi', exact: true }).check()
   await dialog.getByRole('button', { name: 'OK', exact: true }).click()
   await expect(dialog).toHaveCount(0)
-  await expect(page.getByRole('textbox', { name: 'material of layer 1', exact: true })).toHaveValue('CoO')
+  await expect(page.getByRole('textbox', { name: 'material of layer 1', exact: true })).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: 'density of layer 1', exact: true })).toHaveCount(0)
   await expect(cell).toHaveValue('10')
   await page.getByRole('tab', { name: 'Fit', exact: true }).click()
@@ -43,6 +44,7 @@ test('Materials preserves read-only fields, discards Cancel/Escape and applies e
   await page.getByRole('textbox', { name: 'optical table of layer 1', exact: true }).focus()
   await page.keyboard.press('Shift+F10')
   await page.getByRole('menuitem', { name: 'Properties', exact: true }).click()
+  await expect(dialog.getByRole('textbox', { name: 'Chemical Formula', exact: true })).toHaveValue('CoO')
   await expect(dialog.getByRole('spinbutton', { name: 'Density', exact: true })).toHaveValue('6.5')
   await expect(dialog.getByRole('spinbutton', { name: 'Gamma', exact: true })).toHaveValue('37')
   await expect(dialog.getByRole('checkbox', { name: 'Fit Phi', exact: true })).toBeChecked()
@@ -50,7 +52,9 @@ test('Materials preserves read-only fields, discards Cancel/Escape and applies e
   await expect(dialog).toHaveCount(0)
   await page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Parameters (0)', exact: true })).toBeVisible()
-  await expect(page.getByRole('textbox', { name: 'material of layer 1', exact: true })).not.toHaveValue('CoO')
+  await open()
+  await expect(dialog.getByRole('textbox', { name: 'Chemical Formula', exact: true })).not.toHaveValue('CoO')
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Undo (Ctrl+Z)', exact: true })).toBeDisabled()
 })
 
@@ -67,5 +71,7 @@ test('undo while a material draft is open discards the stale dialog even without
   await page.keyboard.press('Control+z')
   await expect(dialog).toHaveCount(0)
   await expect(cell).toHaveValue('10')
-  await expect(page.getByRole('textbox', { name: 'material of layer 1', exact: true })).not.toHaveValue('stale draft')
+  await cell.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Properties', exact: true }).click()
+  await expect(dialog.getByRole('textbox', { name: 'Chemical Formula', exact: true })).not.toHaveValue('stale draft')
 })

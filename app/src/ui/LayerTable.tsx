@@ -68,9 +68,6 @@ function CompoundLayerTable({ onProperties }: { onProperties: (index: number) =>
             <th scope="col" title="Optical-constant table (legacy .db file)">
               db
             </th>
-            <th scope="col" title="Chemical formula or material name">
-              material
-            </th>
             {opticalColumns.map((c) => (
               <th scope="col" key={c.field} title={c.title}>
                 {c.header}
@@ -126,14 +123,6 @@ function CompoundLayerTable({ onProperties }: { onProperties: (index: number) =>
                     aria-label={`optical table of layer ${label(index)}`}
                     value={layer.opticalTable}
                     onChange={(event) => dispatch({ type: 'updateLayer', index, patch: { opticalTable: event.target.value }, coalesce: `table:${index}` })}
-                  />
-                </td>
-                <td>
-                  <input
-                    className="text-cell"
-                    aria-label={`material of layer ${label(index)}`}
-                    value={layer.material}
-                    onChange={(event) => dispatch({ type: 'updateLayer', index, patch: { material: event.target.value }, coalesce: `material:${index}` })}
                   />
                 </td>
                 {opticalColumns.map((c) => (
