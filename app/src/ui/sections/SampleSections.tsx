@@ -101,7 +101,9 @@ export function SegmentationSection({ service = computeService() }: { service?: 
   const unsupportedMode = project.sample.mode === 'element' && !service.supportsElementLayerConversion
   return (
     <>
-      {!active && <Note>Used when the roughness approximation is set to layer segmentation (Preferences).</Note>}
+      {project.sample.mode === 'element'
+        ? <Note>Element sampling always uses minimal layer thickness and error allowed (tolerance), regardless of the roughness approximation. The other segmentation settings apply to compound mode.</Note>
+        : !active && <Note>Used when the roughness approximation is set to layer segmentation (Preferences).</Note>}
       <CheckboxField label="Illustrate Segmentation" checked={illustrateSegmentation} onChange={value => dispatch({ type: 'setIllustrateSegmentation', value })} />
       <button type="button" disabled={unsupportedMode || fitStatus.running || fitStatus.evaluating || databaseUpdate.busy} onClick={() => setConversionOpen(true)}>To layer list</button>
       {unsupportedMode && <Note>The current compute engine supports conversion only in compound mode.</Note>}

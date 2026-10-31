@@ -157,6 +157,15 @@ function invalidateFit(state: AppState, message: string): AppState {
       message: active ? message : state.fitStatus.message } }
 }
 
+// A mode switch changes which independent stack the shared table selection addresses.
+function normalizeModeSelection(before: AppState, next: AppState): AppState {
+  if (before.project.sample.mode === next.project.sample.mode) return next
+  const sample = next.project.sample
+  const selectedElement = Math.max(0, Math.min(next.selectedElement, sample.elementProfiles.length - 1))
+  const rows = sample.mode === 'element' ? sample.elementProfiles[selectedElement]?.slabs.length ?? 0 : sample.layers.length
+  return { ...next, selectedElement, selectedLayer: Math.max(0, Math.min(next.selectedLayer, rows - 1)) }
+}
+
 export function reducer(state: AppState, action: Action): AppState {
   if (action.type === 'fitEvent') return action.epoch === state.fitEpoch ? reducer(state, action.event) : state
   if (action.type === 'undo' || action.type === 'redo') {
@@ -170,10 +179,10 @@ export function reducer(state: AppState, action: Action): AppState {
         ? { past: rest, future: [...future, state.project], lastKey: null, lastAt: 0 }
         : { past: [...past, state.project], future: rest, lastKey: null, lastAt: 0 }
     const next = { ...state, project, history, notice: null, calculationPaused: false, valueSlider: null }
-    return invalidateFit(next, 'Fit cancelled by undo/redo.')
+    return invalidateFit(normalizeModeSelection(state, next), 'Fit cancelled by undo/redo.')
   }
 
-  let next = transition(state, action)
+  let next = normalizeModeSelection(state, transition(state, action))
   if (action.type === 'loadProject') return { ...invalidateFit(next, 'Fit cancelled because a project was loaded.'), history: emptyHistory(), calculationPaused: false, valueSlider: null }
   if (next.opticalTables !== state.opticalTables) next = invalidateFit(next, 'Fit cancelled because the material library changed.')
   if (next.project === state.project) return next

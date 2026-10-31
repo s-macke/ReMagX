@@ -531,6 +531,14 @@ follow-ups, not completed fixes or reopened numerical acceptance umbrellas.
   original and verifies material edits, Cancel and Undo through the dialog. Both
   Material Settings browser checks, 562 app tests, lint/build and diff checks pass.
 
+- [x] **R9 — Normalize selection across sample modes and clarify sampling help.**
+  Mode changes, including Undo/Redo, clamp the selected row to the active stack
+  while preserving both stored representations. Empty element stacks are handled.
+  Element help identifies minimum thickness/tolerance as always active for sampling.
+  Three reducer cases and both Chromium switch directions verify selection,
+  immediate Add Layer, stored-stack preservation and mode-specific help. All 565
+  app tests, lint/build and diff checks pass; numerical paths are unchanged.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the
