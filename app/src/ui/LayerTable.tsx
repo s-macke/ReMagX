@@ -78,10 +78,10 @@ function CompoundLayerTable({ onProperties }: { onProperties: (index: number) =>
             ))}
             {showMagnetization && (
               <>
-                <th scope="col" title="Magnetization direction: polar angle γ in degrees">
+                <th scope="col" title="Magnetization direction: azimuth γ in degrees">
                   mag γ
                 </th>
-                <th scope="col" title="Magnetization direction: azimuth φ in degrees">
+                <th scope="col" title="Magnetization direction: polar angle φ in degrees">
                   mag φ
                 </th>
               </>
@@ -138,7 +138,9 @@ function CompoundLayerTable({ onProperties }: { onProperties: (index: number) =>
                 </td>
                 {opticalColumns.map((c) => (
                   <td key={c.field}>
-                    <FittableNumberCell extraActions={<LayerSpectrumActions index={index} onProperties={onProperties} />} sliderTarget={{ kind: 'layer', field: c.field, index }} fitTarget={{ target: c.field, index, elementIndex: null }} label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
+                    {c.field === 'roughness' && isAmbient(project, index) ? <span className="layer-table__none">--</span> : (
+                      <FittableNumberCell extraActions={<LayerSpectrumActions index={index} onProperties={onProperties} />} sliderTarget={{ kind: 'layer', field: c.field, index }} fitTarget={{ target: c.field, index, elementIndex: null }} label={`${c.header} of layer ${label(index)}`} value={layer[c.field]} min={c.min} onCommit={(value) => update(index, { [c.field]: value })} />
+                    )}
                   </td>
                 ))}
                 {showMagnetization && (
@@ -248,7 +250,9 @@ function ElementLayerTable() {
                   <FittableNumberCell extraActions={databaseAction} sliderTarget={{ kind: 'slab', field: 'density', index, element: current }} fitTarget={{ target: 'elementDensity', index, elementIndex: current }} label={`density of slab ${index}`} value={slab.density} min={0} onCommit={(density) => update((p) => updateSlab(p, current, index, { density }))} />
                 </td>
                 <td>
-                  <FittableNumberCell extraActions={databaseAction} sliderTarget={{ kind: 'slab', field: 'roughness', index, element: current }} fitTarget={{ target: 'elementRoughness', index, elementIndex: current }} label={`roughness of slab ${index}`} value={slab.roughness} min={0} onCommit={(roughness) => update((p) => updateSlab(p, current, index, { roughness }))} />
+                  {index === element.slabs.length - 1 ? <span className="layer-table__none">--</span> : (
+                    <FittableNumberCell extraActions={databaseAction} sliderTarget={{ kind: 'slab', field: 'roughness', index, element: current }} fitTarget={{ target: 'elementRoughness', index, elementIndex: current }} label={`roughness of slab ${index}`} value={slab.roughness} min={0} onCommit={(roughness) => update((p) => updateSlab(p, current, index, { roughness }))} />
+                  )}
                 </td>
               </tr>
             )

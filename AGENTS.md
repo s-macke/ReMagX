@@ -495,22 +495,30 @@ follow-ups, not completed fixes or reopened numerical acceptance umbrellas.
   simulation/measurement/line-fit series and labels, and paired-beam clipboard
   checks preserve both old beams through edits. Hold/Clear retain manual x/y zoom.
   Current active curves remain visible, preserving the established web workflow.
-- [ ] **R4 — Align boundary-cell availability across tables.** Main compound and
+- [x] **R4 — Align boundary-cell availability across tables.** Main compound and
   element tables allow ambient roughness edits where the original displays `--`.
   The secondary element editor also permits outer-medium thickness edits blocked
   by the main table. Apply consistent unavailable-cell rules without rewriting
-  stored/imported values. This does not authorize changing legacy fit semantics.
-- [ ] **R5 — Correct angle descriptions and stale capability notes.** The table
+  stored/imported values. Completed: unavailable cells display `--` in both
+  editors, with compound/element browser export checks proving imported values
+  remain unchanged. Existing fit metadata and legacy fit semantics are untouched.
+- [x] **R5 — Correct angle descriptions and stale capability notes.** The table
   reverses gamma/phi descriptions: gamma is azimuth, phi polar. Correct text only,
   not stored values or tensor equations. Remove stale notes claiming automatic
-  optical refresh and production element lookup remain unimplemented.
+  optical refresh and production element lookup remain unimplemented. Completed:
+  tooltips corrected and stale notes removed; nine boundary/Material Settings/slider
+  Chromium checks, 557 app tests, lint/build and inventory pass.
 - [ ] **R6 — Trace element optical-spectrum row mapping.** Original
   `Unit1.cpp:912–923` derives the density row from the stored compound count;
   `realSpectrum.ts` uses the selected logical slab. With different stack lengths
   these differ. This is an unresolved source discrepancy, not an established web
   bug. Use a synthetic distinguishable-density case, check existing approvals,
   and seek D-29 approval if a correction remains undecided. Do not copy an invalid
-  original index merely to match it.
+  original index merely to match it. Synthetic trace complete: for five element
+  slabs and selected index 2, original mapping is `2 + compoundCount - 5`.
+  Compound counts 3/5/7 select indices 0/2/4; counts 2/8 access outside the logical
+  slab array. Web consistently selects index 2. Explicit D-29 choice is pending;
+  no product mapping has changed.
 
 ### Updating this list
 

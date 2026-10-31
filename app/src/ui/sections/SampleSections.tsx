@@ -198,7 +198,6 @@ export function OpticalConstantsSection() {
           </ul>
         )}
       </Group>
-      <Note>Table previews and manual database updates are available. Automatic optical-constant refresh during scans remains engine work.</Note>
     </>
   )
 }
@@ -254,19 +253,22 @@ export function ElementModeSection() {
             <tr key={s}>
               <th scope="row">{s}</th>
               <td>
-                <NumberCell label={`slab ${s} thickness`} value={slab.thickness} min={0} onCommit={(v) => edit((p) => void (p.sample.elementProfiles[current].slabs[s].thickness = v))} />
+                {s === 0 || s === element.slabs.length - 1 ? <span className="layer-table__none">--</span> : (
+                  <NumberCell label={`slab ${s} thickness`} value={slab.thickness} min={0} onCommit={(v) => edit((p) => void (p.sample.elementProfiles[current].slabs[s].thickness = v))} />
+                )}
               </td>
               <td>
                 <NumberCell label={`slab ${s} density`} value={slab.density} min={0} onCommit={(v) => edit((p) => void (p.sample.elementProfiles[current].slabs[s].density = v))} />
               </td>
               <td>
-                <NumberCell label={`slab ${s} roughness`} value={slab.roughness} min={0} onCommit={(v) => edit((p) => void (p.sample.elementProfiles[current].slabs[s].roughness = v))} />
+                {s === element.slabs.length - 1 ? <span className="layer-table__none">--</span> : (
+                  <NumberCell label={`slab ${s} roughness`} value={slab.roughness} min={0} onCommit={(v) => edit((p) => void (p.sample.elementProfiles[current].slabs[s].roughness = v))} />
+                )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      <Note>Element calculations require the production profile lookup, which is not configured yet.</Note>
     </>
   )
 }
