@@ -664,7 +664,7 @@
     {
       "name": "layer-table-interactions",
       "status": "ported",
-      "reason": "Layer/slab editing, Fit, value slider, spectra, material settings and database actions are implemented. D-53 excludes the obsolete coupl. column; Lua layer coupling remains supported. Original 2.6 has no file key for the column, so no inferred import warning.",
+      "reason": "Layer/slab editing, Fit, value slider, spectra, material settings and database actions are implemented. D-53 excludes the obsolete coupl. column; Lua layer coupling remains supported. D-58 keeps compound density in Material Settings and element density in the slab table. Original 2.6 has no file key for the column, so no inferred import warning.",
       "references": [
         "app/src/ui/LayerTable.tsx",
         "app/src/ui/ScriptWindow.tsx",

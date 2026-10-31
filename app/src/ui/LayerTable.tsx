@@ -71,9 +71,6 @@ function CompoundLayerTable({ onProperties }: { onProperties: (index: number) =>
             <th scope="col" title="Chemical formula or material name">
               material
             </th>
-            <th scope="col" title="Mass density in g/cm³">
-              density
-            </th>
             {opticalColumns.map((c) => (
               <th scope="col" key={c.field} title={c.title}>
                 {c.header}
@@ -138,9 +135,6 @@ function CompoundLayerTable({ onProperties }: { onProperties: (index: number) =>
                     value={layer.material}
                     onChange={(event) => dispatch({ type: 'updateLayer', index, patch: { material: event.target.value }, coalesce: `material:${index}` })}
                   />
-                </td>
-                <td>
-                  <NumberCell sliderTarget={{ kind: 'layer', field: 'density', index }} label={`density of layer ${label(index)}`} value={layer.density} min={0} onCommit={(density) => update(index, { density })} />
                 </td>
                 {opticalColumns.map((c) => (
                   <td key={c.field}>

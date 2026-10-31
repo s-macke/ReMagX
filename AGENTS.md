@@ -460,6 +460,12 @@ coverage, failures and unavailable references. A missing reference is not a pass
   lint/build, inventory and nine targeted slider/zoom/line-fit Chromium checks pass.
   Physics and A1–A5 acceptance are unchanged.
 
+- [x] **Compound density placement (D-58, 2026-10-31).** Removed the extra
+  compound-table density column. Mass density remains editable in Material Settings;
+  element slab density remains in the table. Stored values and physics are unchanged.
+  All 557 app tests, lint/build, inventory and seven Material Settings/slider Chromium
+  checks pass, including density persistence and the graph repaint regression.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the
