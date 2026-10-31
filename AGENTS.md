@@ -453,6 +453,13 @@ coverage, failures and unavailable references. A missing reference is not a pass
   actions. All 557 app tests, lint/build, inventory and both Summary Chromium
   checks pass, including exports and Stop/reopen recovery. A1–A5 remain open.
 
+- [x] **Live plot repaint fix (2026-10-31).** Slider-driven calculation updates
+  now explicitly repaint after `setData(..., false)` while retaining axis ranges.
+  The regression reproduces an unchanged canvas before the fix and verifies a
+  changed thickness curve plus retained x/y ranges afterward. All 557 app tests,
+  lint/build, inventory and nine targeted slider/zoom/line-fit Chromium checks pass.
+  Physics and A1–A5 acceptance are unchanged.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the

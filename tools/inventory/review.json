@@ -681,6 +681,7 @@
       "references": [
         "app/src/model/valueSlider.ts",
         "app/src/ui/ValueSlider.tsx",
+        "app/src/ui/usePlotChart.ts",
         "app/src/state/appState.ts",
         "app/e2e/valueSlider.spec.ts"
       ],

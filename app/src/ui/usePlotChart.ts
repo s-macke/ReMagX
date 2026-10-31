@@ -224,7 +224,11 @@ export function usePlotChart({ curve, measured, heldVisible, fittedLine, propert
   }, [signature, properties])
 
   useEffect(() => {
-    if (series) plotRef.current?.setData(series.data, false)
+    const plot = plotRef.current
+    if (!series || !plot) return
+    plot.setData(series.data, false)
+    // setData with scale reset disabled invalidates paths but does not repaint.
+    plot.redraw(false)
   }, [series])
 
   useEffect(() => { plotRef.current?.redraw() }, [area])
