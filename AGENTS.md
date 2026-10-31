@@ -539,6 +539,13 @@ follow-ups, not completed fixes or reopened numerical acceptance umbrellas.
   immediate Add Layer, stored-stack preservation and mode-specific help. All 565
   app tests, lint/build and diff checks pass; numerical paths are unchanged.
 
+- [ ] **R10 — Prevent late autosave recovery overwriting current work.**
+  A delayed startup IndexedDB response overwrites a newer committed edit (Chromium
+  reproduced: 123 replaced by saved 41). Guard recovery against edits and new file
+  sessions; ensure recovery completion also enables autosaving the current project
+  when restoration is skipped or no record exists. Verify delayed edits/Open/New
+  and subsequent reload. See the [five-workflow review](docs/analysis/workflow-review-2026-10-31.md).
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the
