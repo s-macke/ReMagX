@@ -76,7 +76,10 @@ const COALESCE_MS = 1000
 
 export type FitEvent = Extract<Action, { type: 'setFitStatus' | 'updateProject' | 'setCalculationPaused' | 'appendDebug' }>
 
+export type RecoverySource = Pick<AppState, 'project' | 'fileSession' | 'fileName' | 'savedProject' | 'history'>
+
 export type Action =
+  | { type: 'restoreAutosave'; source: RecoverySource; project: Project; fileName: string }
   | { type: 'applyScriptExecution'; source: Project; tables: OpticalTable[]; epoch: number; result: ScriptExecutionResult }
   | { type: 'applyElementConversion'; source: Project; epoch: number; result: ElementConversion }
   | { type: 'applyLayerConversion'; source: Project; epoch: number; tables: OpticalTable[]; layers: Layer[] }
@@ -167,6 +170,14 @@ function normalizeModeSelection(before: AppState, next: AppState): AppState {
 }
 
 export function reducer(state: AppState, action: Action): AppState {
+  if (action.type === 'restoreAutosave') {
+    const source = action.source
+    // Validate at application time, including edits later undone and explicit file actions.
+    if (state.project !== source.project || state.fileSession !== source.fileSession ||
+        state.fileName !== source.fileName || state.savedProject !== source.savedProject || state.history !== source.history) return state
+    return reducer(state, { type: 'loadProject', project: action.project, fileName: action.fileName,
+      unsaved: true, notice: 'Restored the last session.' })
+  }
   if (action.type === 'fitEvent') return action.epoch === state.fitEpoch ? reducer(state, action.event) : state
   if (action.type === 'undo' || action.type === 'redo') {
     const { past, future } = state.history
@@ -200,7 +211,7 @@ export function reducer(state: AppState, action: Action): AppState {
   return { ...next, notice: null, calculationPaused: false, history: { past, future: [], lastKey: key, lastAt: now } }
 }
 
-function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | { type: 'redo' }>): AppState {
+function transition(state: AppState, action: Exclude<Action, { type: 'undo' } | { type: 'redo' } | { type: 'restoreAutosave' }>): AppState {
   switch (action.type) {
     case 'applyScriptExecution':
       if (action.source !== state.project || action.epoch !== state.fitEpoch || action.tables !== state.opticalTables) {

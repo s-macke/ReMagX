@@ -73,3 +73,19 @@ not removal of these columns. No new numerical defect is claimed for this layout
   existing separate audits and A5 obligations; they were not newly reviewed end to
   end here. A1–A5 remain open. No whole-application parity claim follows from this
   five-workflow review.
+
+## R10 resolution — 2026-10-31
+
+User authorized the fix after review. `restoreAutosave` now validates the initial
+project, file session, filename, saved-project identity and history in the reducer
+before applying recovery. This preserves newer edits and file actions, including
+an edit followed by Undo. `usePersistence` uses reactive completion state so the
+current project is autosaved even when recovery is rejected or no record exists.
+
+Four committed Chromium regressions in `autosaveRecovery.spec.ts` delay the actual
+IndexedDB success notification and verify edits/Open/New/empty storage, persistence
+of the chosen current project, and successful restoration on the next reload.
+All four and seven existing persistence tests pass (11 total). The reducer test
+also covers undo and save identity. All 566 app tests pass (seven optional skips),
+lint/build and diff checks pass. No numerical or original-source changes; broader
+acceptance remains open. The findings above retain the pre-fix review evidence.

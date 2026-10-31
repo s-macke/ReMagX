@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { loadAutosave, saveAutosave } from './autosave'
 import { useAppState, useDispatch } from './context'
 
@@ -6,25 +6,27 @@ const AUTOSAVE_DELAY_MS = 1000
 
 // Restores the autosaved project on start and autosaves every change after a short pause.
 export function usePersistence(): void {
-  const { project, fileName, savedProject } = useAppState()
+  const state = useAppState()
+  const { project, fileName, savedProject } = state
+  const [source] = useState(() => ({ project, fileName, savedProject, fileSession: state.fileSession, history: state.history }))
   const dispatch = useDispatch()
-  const restored = useRef(false)
+  const [restored, setRestored] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void loadAutosave().then((saved) => {
-      restored.current = true
-      if (cancelled || !saved) return
-      dispatch({ type: 'loadProject', project: saved.project, fileName: saved.fileName, unsaved: true, notice: 'Restored the last session.' })
+      if (cancelled) return
+      if (saved) dispatch({ type: 'restoreAutosave', source, project: saved.project, fileName: saved.fileName })
+      setRestored(true)
     })
     return () => {
       cancelled = true
     }
-  }, [dispatch])
+  }, [dispatch, source])
 
   useEffect(() => {
-    if (!restored.current) return
+    if (!restored) return
     const timer = setTimeout(() => void saveAutosave(project, fileName), AUTOSAVE_DELAY_MS)
     return () => clearTimeout(timer)
-  }, [project, fileName, savedProject])
+  }, [project, fileName, savedProject, restored])
 }
