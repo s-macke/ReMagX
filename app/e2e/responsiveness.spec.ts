@@ -36,7 +36,7 @@ function projectFile() {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window, 'showOpenFilePicker', { value: undefined })
-    localStorage.setItem('remagx.expandedSections', JSON.stringify({ 'fit-start-stop': true }))
+    localStorage.setItem('remagx.expandedSections', JSON.stringify({ 'fit-start-stop': true, 'fit-parameters': true }))
     window.workerBlocked = false
     window.terminations = 0
     window.results = 0
@@ -120,10 +120,27 @@ for (const kind of ['fit', 'reflectivity', 'chi2']) {
     await page.evaluate(kind => { window.blockedKind = kind }, kind)
     await page.getByRole('button', { name: kind === 'fit' ? 'Start' : kind === 'chi2' ? 'χ²' : 'Reflectivity', exact: true }).click()
     await page.waitForFunction(() => window.workerBlocked)
+    if (kind === 'fit') {
+      for (const label of ['lower bound', 'upper bound']) {
+        for (const input of await page.getByRole('textbox', { name: label, exact: true }).all()) await expect(input).toBeDisabled()
+      }
+    }
     const elapsed = await timedClick(page, page.locator('.mode-panel__stop'), '.mode-panel__stop:disabled')
     expect(elapsed).toBeLessThan(1000)
     expect(await page.evaluate(() => window.terminations)).toBe(1)
     await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeEnabled()
+    if (kind === 'fit') {
+      const lower = page.getByRole('textbox', { name: 'lower bound', exact: true })
+      const upper = page.getByRole('textbox', { name: 'upper bound', exact: true })
+      await expect(lower).toHaveCount(3)
+      await expect(upper).toHaveCount(3)
+      for (const input of [...await lower.all(), ...await upper.all()]) await expect(input).toBeEnabled()
+      await expect(lower.first()).toHaveValue('30')
+      await expect(upper.first()).toHaveValue('70')
+      await upper.first().fill('60')
+      await upper.first().press('Enter')
+      await expect(upper.first()).toHaveValue('60')
+    }
     if (kind !== 'reflectivity') await expect(page.locator('#section-fit-start-stop')).toContainText('Stopped')
     const results = await page.evaluate(() => { window.blockedKind = undefined; return window.results })
     await page.getByRole('button', { name: 'Reflectivity', exact: true }).click()

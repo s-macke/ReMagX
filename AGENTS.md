@@ -518,6 +518,13 @@ follow-ups, not completed fixes or reopened numerical acceptance umbrellas.
   unchanged production build and broader test evidence are reused. A2 still covers
   broader numerical acceptance.
 
+- [x] **R7 — Lock bound editors while fitting (2026-10-31).** User approved
+  disabling lower/upper bound inputs during a running fit. The worker continues
+  using its original snapshot; editors unlock when running status clears. A focused
+  Chromium check verifies all bound inputs disabled during a blocked fit, preserved
+  values and successful editing after Stop, plus worker recovery. All 562 app tests,
+  lint/build and diff checks pass. No numerical or original-source changes.
+
 ### Updating this list
 
 Tick the concrete item in the commit that completes it and append evidence to the

@@ -9,11 +9,12 @@ interface NumberCellProps {
   label: string
   sliderTarget?: ValueCell
   min?: number
+  disabled?: boolean
 }
 
 // Editable number: commits on Enter or blur, Escape restores the stored value, invalid input is
 // marked and not committed.
-export function NumberCell({ value, onCommit, label, min, sliderTarget }: NumberCellProps) {
+export function NumberCell({ value, onCommit, label, min, sliderTarget, disabled = false }: NumberCellProps) {
   const dispatch = useDispatch()
   const sliderKey = sliderTarget ? valueCellKey(sliderTarget) : null
   useEffect(() => () => { if (sliderKey) dispatch({ type: 'clearValueCell', key: sliderKey }) }, [sliderKey, dispatch])
@@ -23,7 +24,7 @@ export function NumberCell({ value, onCommit, label, min, sliderTarget }: Number
   const invalid = draft !== null && (parsed === null || (min !== undefined && parsed < min))
 
   const commit = () => {
-    if (draft !== null && !invalid && parsed !== null && parsed !== value) onCommit(parsed)
+    if (!disabled && draft !== null && !invalid && parsed !== null && parsed !== value) onCommit(parsed)
     setDraft(null)
   }
 
@@ -33,6 +34,7 @@ export function NumberCell({ value, onCommit, label, min, sliderTarget }: Number
       aria-label={label}
       aria-invalid={invalid}
       inputMode="decimal"
+      disabled={disabled}
       value={draft ?? formatNumber(value)}
       onFocus={(event) => { event.currentTarget.select(); select() }}
       onClick={select}

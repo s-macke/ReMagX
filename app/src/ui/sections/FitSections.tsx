@@ -190,7 +190,7 @@ function AddFitParameter() {
 }
 
 export function FitParametersSection() {
-  const { project } = useAppState()
+  const { project, fitStatus } = useAppState()
   const dispatch = useDispatch()
   const edit = useEditProject()
   const parameters = project.fit.parameters
@@ -221,10 +221,10 @@ export function FitParametersSection() {
                     <NumberCell label="start value" value={parameter.value} onCommit={(v) => edit((p) => void (p.fit.parameters[i].value = v))} />
                   </td>
                   <td>
-                    <NumberCell label="lower bound" value={parameter.lowerBound} onCommit={(v) => edit((p) => void (p.fit.parameters[i].lowerBound = v))} />
+                    <NumberCell label="lower bound" disabled={fitStatus.running} value={parameter.lowerBound} onCommit={(v) => edit((p) => void (p.fit.parameters[i].lowerBound = v))} />
                   </td>
                   <td>
-                    <NumberCell label="upper bound" value={parameter.upperBound} onCommit={(v) => edit((p) => void (p.fit.parameters[i].upperBound = v))} />
+                    <NumberCell label="upper bound" disabled={fitStatus.running} value={parameter.upperBound} onCommit={(v) => edit((p) => void (p.fit.parameters[i].upperBound = v))} />
                   </td>
                   <td>
                     <button type="button" className="icon-button" aria-label={`remove ${fitParameterName(project, parameter)}`} onClick={() => edit((p) => void p.fit.parameters.splice(i, 1))}>
