@@ -275,3 +275,5 @@ D-55/D-56 (2026-10-27): Lorentzian+Step fitting uses one consistent best evaluat
 D-57 (2026-10-27): exclude all eight reviewed hidden controls H1–H8 and the two associated event assignments. This includes the additional E/2E harmonic-contamination setting, hard-coded GIF experiment and experimental fringe-spacing estimate, as well as the inactive/unbound test and Fit/tensor controls. The supported segmentation/profile, energy/resolution, export, per-layer/profile fitting and tensor workflows remain included. See docs/analysis/hidden-controls-audit-2026-10-25.md for the exact item mapping.
 
 D-58 (2026-10-31): compound-mode mass density is edited in Material Settings (g/cm³), without an additional main-table density column. Element-mode slab density remains a table column (mol/cm³). Stored density values and calculation behavior are unchanged.
+
+D-59 (2026-10-31): element optical spectra use the selected logical element slab for density contributions, regardless of the stored compound-layer count. This approved original-indexing correction retains current web behavior and avoids selecting a different slab or reading outside the logical array.

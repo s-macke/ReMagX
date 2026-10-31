@@ -54,3 +54,24 @@ it('rejects unsupported scripts, missing selections/tables and nonfinite results
   expect(() => realScatteringFactors(project, { elementIndex: 0, tables: [] }, lookup, construct)).toThrow('Select')
   expect(() => realLayerSpectrum(project, query, () => ({ values: new Float64Array([Infinity, 2]), cursor: 0 }))).toThrow('Invalid optical constants')
 })
+
+it.each([2, 3, 5, 7, 8])('uses the selected element slab independently of %i stored compound rows (D-59)', compoundCount => {
+  const project = createDefaultProject()
+  project.sample.mode = 'element'
+  project.sample.layers = Array.from({ length: compoundCount }, () => createLayer())
+  project.sample.elementProfiles = [{ element: 'Co', f1: 3, f2: 0.5, f1Mag: 0, f2Mag: 0,
+    slabs: [1, 2, 4, 8, 16].map(density => ({ density, thickness: 10, roughness: 0 })) }]
+  const before = structuredClone(project)
+  const tables = [table('Co', 'ff', [1000, 1100])]
+  const lookup: RealTableLookup = () => ({ values: new Float64Array([3, 0.5]), cursor: 0 })
+  for (const [selectedSlab, selectedDensity] of [[1, 2], [2, 4], [3, 8]]) {
+    const spectrum = realLayerSpectrum(project, { layerIndex: selectedSlab, elementIndex: 0, magnetic: false, tables }, lookup, construct)
+    for (const [index, energy] of spectrum.energy.entries()) {
+      const expectedDelta = 3 * selectedDensity / energy / energy * .0004151761541 * 1e6
+      const expectedBeta = 0.5 * selectedDensity / energy / energy * .0004151761541 * 1e6
+      expect(Math.abs(spectrum.first[index] - expectedDelta)).toBeLessThanOrEqual(1e-15 + 1e-10 * Math.abs(expectedDelta))
+      expect(Math.abs(spectrum.second[index] - expectedBeta)).toBeLessThanOrEqual(1e-15 + 1e-10 * Math.abs(expectedBeta))
+    }
+  }
+  expect(project).toEqual(before)
+})

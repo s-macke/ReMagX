@@ -44,6 +44,8 @@ export function realLayerSpectrum(project: Project, query: LayerSpectrumQuery, l
   if (query.magnetic) throw new Error('Element magnetic spectra are not available.')
   const element = project.sample.elementProfiles[query.elementIndex ?? 0]
   if (!element) throw new Error('Select an element to show its optical spectrum.')
+  // D-59: layerIndex is the selected logical element slab here, independent of
+  // stored compound row count (the original spectrum handler mixed these counts).
   for (const row of project.sample.elementProfiles) {
     const slab = row.slabs[query.layerIndex]
     if (!slab || !Number.isFinite(slab.density)) throw new Error(`${row.element} needs a finite density at slab ${query.layerIndex}.`)

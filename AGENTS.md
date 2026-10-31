@@ -508,17 +508,15 @@ follow-ups, not completed fixes or reopened numerical acceptance umbrellas.
   optical refresh and production element lookup remain unimplemented. Completed:
   tooltips corrected and stale notes removed; nine boundary/Material Settings/slider
   Chromium checks, 557 app tests, lint/build and inventory pass.
-- [ ] **R6 — Trace element optical-spectrum row mapping.** Original
-  `Unit1.cpp:912–923` derives the density row from the stored compound count;
-  `realSpectrum.ts` uses the selected logical slab. With different stack lengths
-  these differ. This is an unresolved source discrepancy, not an established web
-  bug. Use a synthetic distinguishable-density case, check existing approvals,
-  and seek D-29 approval if a correction remains undecided. Do not copy an invalid
-  original index merely to match it. Synthetic trace complete: for five element
-  slabs and selected index 2, original mapping is `2 + compoundCount - 5`.
-  Compound counts 3/5/7 select indices 0/2/4; counts 2/8 access outside the logical
-  slab array. Web consistently selects index 2. Explicit D-29 choice is pending;
-  no product mapping has changed.
+- [x] **R6 — Selected slab supplies element optical-spectrum density (D-59).**
+  User explicitly approved retaining the selected logical slab, independently of
+  stored compound-layer count. The original `Unit1.cpp:912–923` mixes these counts
+  and can select the wrong density or an invalid index. Existing web behavior is
+  retained and documented. Nine focused spectrum tests pass, including five
+  compound counts (2/3/5/7/8), three selected slabs with distinguishable densities,
+  two energies and unchanged source projects at D-23 tolerances. Lint passes;
+  unchanged production build and broader test evidence are reused. A2 still covers
+  broader numerical acceptance.
 
 ### Updating this list
 
